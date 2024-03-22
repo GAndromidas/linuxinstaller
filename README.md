@@ -23,7 +23,7 @@ This Bash script automates the setup and configuration of an Arch Linux system, 
 
    chmod +x install.sh
 
-   sudo ./install.sh
+   ./install.sh
 
 ## Disclaimer
 - Use this script at your own risk. 
