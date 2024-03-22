@@ -62,7 +62,6 @@
     mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
 
 # Change Bash Shell to ZSH Shell
-    sh -c "echo $(which zsh) >> /etc/shells"  # Add ZSH to list of valid shells
     echo "$password" | sudo chsh -s "$(which zsh)"  # Change root shell to ZSH non-interactively using provided password
     echo "$password" | chsh -s "$(which zsh)" # Change shell to ZSH non-interactively using provided password
     echo -e "\033[1;34m"
