@@ -13,7 +13,7 @@ This Bash script automates the setup and configuration of an Arch Linux system, 
 ## Usage
 1. Clone this repository:
 
-   git clone https://github.com/karlfloyd/archinstaller.git
+   git clone https://github.com/gandromidas/archinstaller.git
 
 2. Navigate to the cloned directory:
 
