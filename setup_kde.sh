@@ -15,7 +15,7 @@ echo -e "\033[1;34m"
 echo -e "CONFIGURING FIREWALL FOR KDE...\n"
 echo -e "\033[0m"
 
-# Allow specific services for KDE
+# Allow KDE Connect ports
 sudo ufw allow 1714:1764/tcp
 sudo ufw allow 1714:1764/udp
 
