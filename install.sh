@@ -167,22 +167,48 @@ EOF
     echo -e "ESSENTIAL PROGRAMS INSTALLED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
+# Configure firewall
+    echo -e "\033[1;34m"
+    echo -e "CONFIGURING FIREWALL...\n"
+    echo -e "\033[0m"
+    sudo systemctl enable --now ufw
+
+# Default policies
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+
+# Allow SSH
+    sudo ufw allow ssh
+
+# Enable logging
+    sudo ufw logging on
+
+# Enable rate limiting to prevent DoS attacks
+    sudo ufw limit ssh/tcp
+
+# Enable UFW
+    sudo ufw --force enable
+
+    echo -e "\033[1;34m"
+    echo -e "FIREWALL CONFIGURED SUCCESSFULLY.\n"
+    echo -e "\033[0m"
+
 # Check if GNOME desktop session is running
-if pgrep -x "gnome-session" >/dev/null; then
+    if pgrep -x "gnome-session" >/dev/null; then
     echo "GNOME detected."
     chmod +x setup_gnome.sh
     ./setup_gnome.sh
 fi
 
 # Check if KDE is installed
-if pacman -Qs plasma-desktop &> /dev/null; then
+    if pacman -Qs plasma-desktop &> /dev/null; then
     echo "KDE detected."
     chmod +x setup_kde.sh
     ./setup_kde.sh
 fi
 
 # If neither GNOME nor KDE is detected
-echo "Neither GNOME nor KDE detected."
+    echo "Neither GNOME nor KDE detected."
 
 # Enable services
     echo -e "\033[1;34m"
