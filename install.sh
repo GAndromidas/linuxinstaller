@@ -68,6 +68,28 @@
     echo -e "ZSH CONFIGURED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
+# Install Fail2Ban
+    sudo pacman -S --needed --noconfirm fail2ban
+
+# Start and enable Fail2Ban service
+    sudo systemctl enable --now fail2ban
+
+# Edit jail.local
+    sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
+    [sshd]
+    enabled = true
+    port = ssh
+    filter = sshd
+    logpath = %(sshd_log)s
+    backend = %(sshd_backend)s
+    maxretry = 3
+    bantime = 300
+    ignoreip = 127.0.0.1
+EOF
+
+# Restart Fail2Ban
+    sudo systemctl restart fail2ban
+
 # Run system setup script
     echo -e "\033[1;34m"
     echo -e "RUNNING SYSTEM SETUP SCRIPT...\n"
@@ -147,82 +169,88 @@
 
 # Check if GNOME is installed
 if pacman -Qs gnome &> /dev/null; then
-    # GNOME is installed
+
+# GNOME is installed
     echo "GNOME is installed"
-    # Install GNOME-specific programs
+# Install GNOME-specific programs
     sudo pacman -S --needed --noconfirm gnome-tweaks gufw transmission-gtk
     sudo pacman -Rcs --needed --noconfirm epiphany gnome-contacts gnome-music gnome-tour snapshot totem
     sudo flatpak install -y flathub com.mattjakeman.ExtensionManager net.davidotek.pupgui2
+    
 
-    # Configure firewall for GNOME
+# Configure firewall for GNOME
     echo -e "\033[1;34m"
     echo -e "CONFIGURING FIREWALL FOR GNOME...\n"
     echo -e "\033[0m"
     sudo systemctl enable --now ufw
 
-    # Resetting firewall rules
+# Resetting firewall rules
     sudo ufw reset --force
 
-    # Default policies
+# Default policies
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
 
-    # Allow SSH
+# Allow SSH
     sudo ufw allow ssh
 
-    # Enable logging
+# Enable logging
     sudo ufw logging on
 
-    # Enable rate limiting to prevent DoS attacks
+# Enable rate limiting to prevent DoS attacks
     sudo ufw limit ssh/tcp
 
-    # Enable UFW
+# Enable UFW
     sudo ufw --force enable
 
     echo -e "\033[1;34m"
     echo -e "FIREWALL CONFIGURED SUCCESSFULLY FOR GNOME.\n"
     echo -e "\033[0m"
 
+# Gnome Layout Shift+Alt Fix
+    gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['<Shift>Alt_L']"
+    gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "['<Alt>Shift_L']"
+
 else
-    # GNOME is not installed
+# GNOME is not installed
     echo "GNOME is not installed"
 fi
 
 # Check if KDE is installed
 if pacman -Qs plasma &> /dev/null; then
-    # KDE is installed
+# KDE is installed
     echo "KDE is installed"
-    # Install KDE-specific programs
+# Install KDE-specific programs
     sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent
     sudo flatpak install -y flathub net.davidotek.pupgui2
 
-    # Configure firewall for KDE
+# Configure firewall for KDE
     echo -e "\033[1;34m"
     echo -e "CONFIGURING FIREWALL FOR KDE...\n"
     echo -e "\033[0m"
     sudo systemctl enable --now ufw
 
-    # Resetting firewall rules
+# Resetting firewall rules
     sudo ufw reset --force
 
-    # Default policies
+# Default policies
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
 
-    # Allow SSH
+# Allow SSH
     sudo ufw allow ssh
 
-    # Allow specific services for KDE
+# Allow specific services for KDE
     sudo ufw allow 1714:1764/tcp
     sudo ufw allow 1714:1764/udp
 
-    # Enable logging
+# Enable logging
     sudo ufw logging on
 
-    # Enable rate limiting to prevent DoS attacks
+# Enable rate limiting to prevent DoS attacks
     sudo ufw limit ssh/tcp
 
-    # Enable UFW
+# Enable UFW
     sudo ufw --force enable
 
     echo -e "\033[1;34m"
@@ -230,7 +258,7 @@ if pacman -Qs plasma &> /dev/null; then
     echo -e "\033[0m"
 
 else
-    # KDE is not installed
+# KDE is not installed
     echo "KDE is not installed"
 fi
 
