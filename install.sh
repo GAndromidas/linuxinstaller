@@ -167,20 +167,22 @@ EOF
     echo -e "ESSENTIAL PROGRAMS INSTALLED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
-# Check if GNOME is installed
 if pacman -Qs gnome &> /dev/null; then
     echo "GNOME detected."
     chmod +x setup_gnome.sh
     ./setup_gnome.sh
     exit 0
+else
+    echo "GNOME not detected."
 fi
 
-# Check if KDE is installed
 if pacman -Qs plasma &> /dev/null; then
     echo "KDE detected."
     chmod +x setup_kde.sh
     ./setup_kde.sh
     exit 0
+else
+    echo "KDE not detected."
 fi
 
 # If neither GNOME nor KDE is detected
