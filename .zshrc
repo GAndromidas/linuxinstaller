@@ -117,7 +117,7 @@ alias lt='eza -aT --color=always --group-directories-first --icons'
 alias l.="eza -a | egrep '^\.'"
 
 #Clean System
-alias clean='sudo pacman -Sc && yay -Sc && sudo pacman -Rns $(pacman -Qtdq)'
+alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo pacman -Rns $(pacman -Qtdq)'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 
 #Check Microcode
