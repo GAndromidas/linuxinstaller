@@ -170,6 +170,7 @@ EOF
 # Check if GNOME is installed
 if pacman -Qs gnome &> /dev/null; then
     echo "GNOME detected."
+    chmod +x setup_gnome.sh
     ./setup_gnome.sh
     exit 0
 fi
@@ -177,6 +178,7 @@ fi
 # Check if KDE is installed
 if pacman -Qs plasma &> /dev/null; then
     echo "KDE detected."
+    chmod +x setup_kde.sh
     ./setup_kde.sh
     exit 0
 fi
