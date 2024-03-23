@@ -7,6 +7,7 @@ This Bash script automates the setup and configuration of an Arch Linux system, 
 - **Automated Configuration**: The script automates various configuration tasks including setting up pacman, installing Oh-My-ZSH with plugins, configuring locales and timezone, and more.
 - **Package Management**: Installs essential packages, AUR packages, and Flatpak apps to set up a complete working environment.
 - **Firewall Configuration**: Configures the firewall using UFW to enhance system security.
+- **Detects GNOME or KDE desktop environments**: Installs desktop-specific programs.
 - **Service Management**: Enables essential services like Bluetooth, SSH, etc., for a smooth user experience.
 - **Cleanup**: Removes installation files and directories to keep the system clean post-installation.
 
