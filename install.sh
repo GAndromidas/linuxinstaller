@@ -172,6 +172,7 @@ if pacman -Qs gnome &> /dev/null; then
 
 # GNOME is installed
     echo "GNOME is installed"
+
 # Install GNOME-specific programs
     sudo pacman -S --needed --noconfirm gnome-tweaks gufw transmission-gtk
     sudo pacman -Rcs --needed --noconfirm epiphany gnome-contacts gnome-music gnome-tour snapshot totem
@@ -217,9 +218,10 @@ else
 fi
 
 # Check if KDE is installed
-if pacman -Qs plasma &> /dev/null; then
+elif pacman -Qs plasma &> /dev/null; then
 # KDE is installed
     echo "KDE is installed"
+
 # Install KDE-specific programs
     sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent
     sudo flatpak install -y flathub net.davidotek.pupgui2
