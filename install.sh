@@ -172,7 +172,6 @@ if pgrep -x "gnome-session" >/dev/null; then
     echo "GNOME detected."
     chmod +x setup_gnome.sh
     ./setup_gnome.sh
-    exit 0
 fi
 
 # Check if KDE is installed
@@ -180,7 +179,6 @@ if pacman -Qs plasma-desktop &> /dev/null; then
     echo "KDE detected."
     chmod +x setup_kde.sh
     ./setup_kde.sh
-    exit 0
 fi
 
 # If neither GNOME nor KDE is detected
