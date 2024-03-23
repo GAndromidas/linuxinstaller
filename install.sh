@@ -140,36 +140,99 @@
 # Arch Linux programs
     sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-liberation ufw unrar
 # Essential programs
-    sudo pacman -S --needed --noconfirm discord filezilla firefox gimp kdenlive libreoffice-fresh lutris obs-studio openrgb qbittorrent smplayer steam telegram-desktop vlc wine
-# KDE programs
-    sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle 
+    sudo pacman -S --needed --noconfirm discord filezilla firefox gimp kdenlive libreoffice-fresh lutris obs-studio openrgb smplayer steam telegram-desktop vlc wine
     echo -e "\033[1;34m"
     echo -e "ESSENTIAL PROGRAMS INSTALLED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
-# Install Flatpak Apps
-    echo -e "\033[1;34m"
-    echo -e "INSTALLING FLATPAK APPS...\n"
-    echo -e "\033[0m"
-    sudo flatpak install -y flathub net.davidotek.pupgui2
-    echo -e "\033[1;34m"
-    echo -e "FLATPAK APPS INSTALLED SUCCESSFULLY.\n"
-    echo -e "\033[0m"
+# Check if GNOME is installed
+if pacman -Qs gnome &> /dev/null; then
+    # GNOME is installed
+    echo "GNOME is installed"
+    # Install GNOME-specific programs
+    sudo pacman -S --needed --noconfirm gnome-tweaks gufw transmission-gtk
+    sudo pacman -Rcs --needed --noconfirm epiphany gnome-contacts gnome-music gnome-tour snapshot totem
+    sudo flatpak install -y flathub com.mattjakeman.ExtensionManager net.davidotek.pupgui2
 
-# Configure firewall
+    # Configure firewall for GNOME
     echo -e "\033[1;34m"
-    echo -e "CONFIGURING FIREWALL...\n"
+    echo -e "CONFIGURING FIREWALL FOR GNOME...\n"
     echo -e "\033[0m"
     sudo systemctl enable --now ufw
+
+    # Resetting firewall rules
+    sudo ufw reset --force
+
+    # Default policies
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
-    sudo ufw allow 22/tcp
+
+    # Allow SSH
+    sudo ufw allow ssh
+
+    # Enable logging
+    sudo ufw logging on
+
+    # Enable rate limiting to prevent DoS attacks
+    sudo ufw limit ssh/tcp
+
+    # Enable UFW
+    sudo ufw --force enable
+
+    echo -e "\033[1;34m"
+    echo -e "FIREWALL CONFIGURED SUCCESSFULLY FOR GNOME.\n"
+    echo -e "\033[0m"
+
+else
+    # GNOME is not installed
+    echo "GNOME is not installed"
+fi
+
+# Check if KDE is installed
+if pacman -Qs plasma &> /dev/null; then
+    # KDE is installed
+    echo "KDE is installed"
+    # Install KDE-specific programs
+    sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent
+    sudo flatpak install -y flathub net.davidotek.pupgui2
+
+    # Configure firewall for KDE
+    echo -e "\033[1;34m"
+    echo -e "CONFIGURING FIREWALL FOR KDE...\n"
+    echo -e "\033[0m"
+    sudo systemctl enable --now ufw
+
+    # Resetting firewall rules
+    sudo ufw reset --force
+
+    # Default policies
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+
+    # Allow SSH
+    sudo ufw allow ssh
+
+    # Allow specific services for KDE
     sudo ufw allow 1714:1764/tcp
     sudo ufw allow 1714:1764/udp
+
+    # Enable logging
+    sudo ufw logging on
+
+    # Enable rate limiting to prevent DoS attacks
+    sudo ufw limit ssh/tcp
+
+    # Enable UFW
     sudo ufw --force enable
+
     echo -e "\033[1;34m"
-    echo -e "FIREWALL CONFIGURED SUCCESSFULLY.\n"
+    echo -e "FIREWALL CONFIGURED SUCCESSFULLY FOR KDE.\n"
     echo -e "\033[0m"
+
+else
+    # KDE is not installed
+    echo "KDE is not installed"
+fi
 
 # Enable services
     echo -e "\033[1;34m"
