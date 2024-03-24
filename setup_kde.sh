@@ -4,7 +4,7 @@
   echo -e "\033[1;34m"
   echo -e "INSTALLING KDE-SPECIFIC PROGRAMS...\n"
   echo -e "\033[0m"
-  sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent
+  sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent vlc
   sudo pacman -Rcs --noconfirm htop
   sudo flatpak install -y flathub net.davidotek.pupgui2
   echo -e "\033[1;34m"
