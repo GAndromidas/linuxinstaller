@@ -16,12 +16,12 @@
   echo -e "\033[1;34m"
   echo -e "DOWNLOADING THEME AND INSTALLING...\n"
   echo -e "\033[0m"
-  wget https://github.com/lassekongo83/adw-gtk3/releases/download/v5.3/adw-gtk3v5.3.tar.xz -O /tmp/adw-gtk3.tar.xz
   mkdir -p $HOME/.themes
-  tar -xf /tmp/adw-gtk3v5.3.tar.xz -C /tmp/
-  mv /tmp/adw-gtk3/adw-gtk3-dark $HOME/.themes/
-  rm -rf /tmp/adw-gtk3
-  rm /tmp/adw-gtk3.tar.xz
+  wget https://github.com/lassekongo83/adw-gtk3/releases/download/v5.3/adw-gtk3v5.3.tar.xz -O $HOME/adw-gtk3.tar.xz
+  tar -xf $HOME/adw-gtk3.tar.xz -C $HOME/
+  mv $HOME/adw-gtk3/adw-gtk3-dark $HOME/.themes/
+  rm -rf $HOME/adw-gtk3
+  rm $HOME/adw-gtk3.tar.xz
 
   echo -e "\033[1;34m"
   echo -e "THEME INSTALLED SUCCESSFULLY.\n"
