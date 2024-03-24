@@ -12,6 +12,9 @@ echo -e "\033[1;34m"
 echo -e "GNOME-SPECIFIC PROGRAMS INSTALLED SUCCESSFULLY.\n"
 echo -e "\033[0m"
 
+# Gnome Enable Minimize, Maximize, Close
+gsettings set org.gnome.desktop.wm.preferences button-layout ":minimize,maximize,close"
+
 # Gnome Layout Shift+Alt Fix
 gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['<Shift>Alt_L']"
 gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "['<Alt>Shift_L']"
