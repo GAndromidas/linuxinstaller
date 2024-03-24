@@ -55,13 +55,9 @@
     echo -e "\033[0m"
     sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
     sleep 1  # Wait for 1 seconds
-
     git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-
     sleep 1  # Wait for 1 seconds
-
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
 # Move .zshrc
@@ -159,8 +155,8 @@ EOF
     echo -e "\033[1;34m"
     echo -e "INSTALLING ESSENTIAL PROGRAMS...\n"
     echo -e "\033[0m"
-# Arch Linux programs
     sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-liberation ufw unrar
+
 # Essential programs
     sudo pacman -S --needed --noconfirm discord filezilla firefox gimp kdenlive libreoffice-fresh lutris obs-studio openrgb smplayer steam telegram-desktop vlc wine
     echo -e "\033[1;34m"
