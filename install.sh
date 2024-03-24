@@ -145,6 +145,7 @@
     echo -e "\033[1;34m"
     echo -e "ENABLING SERVICES...\n"
     echo -e "\033[0m"
+    sudo systemctl enable --now fstrim.timer
     sudo systemctl enable --now bluetooth
     sudo systemctl enable --now sshd
     sudo systemctl enable --now fail2ban
