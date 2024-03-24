@@ -73,28 +73,6 @@
     echo -e "ZSH CONFIGURED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
-# Install Fail2Ban
-    sudo pacman -S --needed --noconfirm fail2ban
-
-# Start and enable Fail2Ban service
-    sudo systemctl enable --now fail2ban
-
-# Edit jail.local
-    sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
-    [sshd]
-    enabled = true
-    port = ssh
-    filter = sshd
-    logpath = %(sshd_log)s
-    backend = %(sshd_backend)s
-    maxretry = 3
-    bantime = 300
-    ignoreip = 127.0.0.1
-EOF
-
-# Restart Fail2Ban
-    sudo systemctl restart fail2ban
-
 # Run system setup script
     echo -e "\033[1;34m"
     echo -e "RUNNING SYSTEM SETUP SCRIPT...\n"
@@ -155,7 +133,7 @@ EOF
     echo -e "\033[1;34m"
     echo -e "INSTALLING ESSENTIAL PROGRAMS...\n"
     echo -e "\033[0m"
-    sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-liberation ufw unrar
+    sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fail2ban fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-liberation ufw unrar
 
 # Essential programs
     sudo pacman -S --needed --noconfirm discord filezilla firefox gimp kdenlive libreoffice-fresh lutris obs-studio openrgb smplayer steam telegram-desktop vlc wine
@@ -163,11 +141,25 @@ EOF
     echo -e "ESSENTIAL PROGRAMS INSTALLED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
+# Enable services
+    echo -e "\033[1;34m"
+    echo -e "ENABLING SERVICES...\n"
+    echo -e "\033[0m"
+    sudo systemctl enable --now bluetooth
+    sudo systemctl enable --now sshd
+    sudo systemctl enable --now fail2ban
+    sudo systemctl enable --now paccache.timer
+    sudo systemctl enable --now reflector.service reflector.timer
+    sudo systemctl enable --now teamviewerd.service
+    sudo systemctl enable --now ufw
+    echo -e "\033[1;34m"
+    echo -e "SERVICES ENABLED SUCCESSFULLY.\n"
+    echo -e "\033[0m"
+
 # Configure firewall
     echo -e "\033[1;34m"
     echo -e "CONFIGURING FIREWALL...\n"
     echo -e "\033[0m"
-    sudo systemctl enable --now ufw
 
 # Default policies
     sudo ufw default deny incoming
@@ -184,40 +176,41 @@ EOF
 
 # Enable UFW
     sudo ufw --force enable
-
     echo -e "\033[1;34m"
     echo -e "FIREWALL CONFIGURED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
-# Check if GNOME desktop session is running
-    if pgrep -x "gnome-session" >/dev/null; then
+# Edit jail.local
+sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+maxretry = 3
+bantime = 300
+ignoreip = 127.0.0.1
+EOF
+
+# Restart Fail2Ban
+    sudo systemctl restart fail2ban
+
+# Check if GNOME is installed
+    if pacman -Qs gnome-shell &> /dev/null; then
     echo "GNOME detected."
     chmod +x setup_gnome.sh
     ./setup_gnome.sh
-fi
 
 # Check if KDE is installed
-    if pacman -Qs plasma-desktop &> /dev/null; then
+    elif pacman -Qs plasma-desktop &> /dev/null; then
     echo "KDE detected."
     chmod +x setup_kde.sh
     ./setup_kde.sh
-fi
+    fi
 
 # If neither GNOME nor KDE is detected
     echo "Neither GNOME nor KDE detected."
-
-# Enable services
-    echo -e "\033[1;34m"
-    echo -e "ENABLING SERVICES...\n"
-    echo -e "\033[0m"
-    sudo systemctl enable --now bluetooth
-    sudo systemctl enable --now sshd
-    sudo systemctl enable --now paccache.timer
-    sudo systemctl enable --now reflector.service reflector.timer
-    sudo systemctl enable --now teamviewerd.service
-    echo -e "\033[1;34m"
-    echo -e "SERVICES ENABLED SUCCESSFULLY.\n"
-    echo -e "\033[0m"
 
 # Delete the archinstaller folder
     echo -e "\033[1;34m"
