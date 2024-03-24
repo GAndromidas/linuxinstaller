@@ -35,9 +35,19 @@
     echo -e "\033[1;34m"
     echo -e "UPDATING SYSTEM...\n"
     echo -e "\033[0m"
-    sudo pacman -Syu --noconfirm
+    sudo pacman -Syyu --noconfirm
+    sudo pacman -S --needed --noconfirm reflector rsync
     echo -e "\033[1;34m"
     echo -e "SYSTEM UPDATED SUCCESSFULLY.\n"
+    echo -e "\033[0m"
+
+# Update mirrorlist
+    echo -e "\033[1;34m"
+    echo -e "UPDATING MIRRORLIST...\n"
+    echo -e "\033[0m"
+    sudo reflector --verbose --country Greece --age 24 --latest 5 --protocol https,http --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+    echo -e "\033[1;34m"
+    echo -e "MIRRORLIST UPDATED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
 # Install Oh-My-ZSH and ZSH Plugins
@@ -141,18 +151,9 @@ EOF
     echo -e "\033[1;34m"
     echo -e "INSTALLING AUR PACKAGES...\n"
     echo -e "\033[0m"
-    yay -S --needed --noconfirm dropbox heroic-games-launcher-bin rate-mirrors spotify stremio teamviewer
+    yay -S --needed --noconfirm dropbox heroic-games-launcher-bin spotify stremio teamviewer
     echo -e "\033[1;34m"
     echo -e "AUR PACKAGES INSTALLED SUCCESSFULLY.\n"
-    echo -e "\033[0m"
-
-# Update mirrorlist with rate-mirrors
-    echo -e "\033[1;34m"
-    echo -e "UPDATING MIRRORLISTS...\n"
-    echo -e "\033[0m"
-    rate-mirrors arch | sudo tee /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-    echo -e "\033[1;34m"
-    echo -e "UPDATE COMPLETED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
 # Install programs
