@@ -53,12 +53,12 @@
     echo -e "\033[1;34m"
     echo -e "\nINSTALLING ZSH AND CHANGE BASH TO ZSH..."
     echo -e "\033[0m"
-    sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
+    sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-    #sleep 1  # Wait for 1 seconds
-    #git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-    #sleep 1  # Wait for 1 seconds
-    #git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+    sleep 1  # Wait for 1 seconds
+    git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+    sleep 1  # Wait for 1 seconds
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
 # Move .zshrc
     echo -e "\033[1;34m"
