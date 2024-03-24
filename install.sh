@@ -172,7 +172,7 @@
     sudo ufw logging on
 
 # Enable rate limiting to prevent DoS attacks
-    sudo ufw limit ssh/tcp
+    sudo ufw limit ssh
 
 # Enable UFW
     sudo ufw --force enable
@@ -208,9 +208,6 @@ EOF
     chmod +x setup_kde.sh
     ./setup_kde.sh
     fi
-
-# If neither GNOME nor KDE is detected
-    echo "Neither GNOME nor KDE detected."
 
 # Delete the archinstaller folder
     echo -e "\033[1;34m"
