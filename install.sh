@@ -29,7 +29,6 @@
     echo -e "\033[1;34m"
     echo -e "PACMAN CONFIGURATION UPDATED SUCCESSFULLY.\n"
     echo -e "\033[0m"
-    sudo pacman -Syyy
 
 # Update system
     echo -e "\033[1;34m"
