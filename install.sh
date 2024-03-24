@@ -213,6 +213,7 @@ fi
     sudo systemctl enable --now bluetooth
     sudo systemctl enable --now sshd
     sudo systemctl enable --now paccache.timer
+    sudo systemctl enable --now reflector.service reflector.timer
     sudo systemctl enable --now teamviewerd.service
     echo -e "\033[1;34m"
     echo -e "SERVICES ENABLED SUCCESSFULLY.\n"
