@@ -7,6 +7,7 @@ echo -e "\033[0m"
 sudo pacman -S --needed --noconfirm gnome-tweaks gufw transmission-gtk
 sudo pacman -Rcs --noconfirm epiphany gnome-contacts gnome-music gnome-tour htop snapshot totem
 sudo flatpak install -y flathub com.mattjakeman.ExtensionManager net.davidotek.pupgui2
+yay -S --needed --noconfirm ocs-url
 echo -e "\033[1;34m"
 echo -e "GNOME-SPECIFIC PROGRAMS INSTALLED SUCCESSFULLY.\n"
 echo -e "\033[0m"
