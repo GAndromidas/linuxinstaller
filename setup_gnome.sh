@@ -19,7 +19,7 @@
   mkdir -p $HOME/.themes
   wget https://github.com/lassekongo83/adw-gtk3/releases/download/v5.3/adw-gtk3v5.3.tar.xz -O $HOME/adw-gtk3.tar.xz
   tar -xf $HOME/adw-gtk3.tar.xz -C $HOME/
-  mv $HOME/adw-gtk3/adw-gtk3-dark $HOME/.themes/
+  mv $HOME/adw-gtk3-dark $HOME/.themes/
   rm -rf $HOME/adw-gtk3
   rm $HOME/adw-gtk3.tar.xz
 
