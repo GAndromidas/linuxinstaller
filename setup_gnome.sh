@@ -18,7 +18,7 @@
   echo -e "\033[0m"
   wget https://github.com/lassekongo83/adw-gtk3/releases/download/v5.3/adw-gtk3v5.3.tar.xz -O /tmp/adw-gtk3.tar.xz
   mkdir -p $HOME/.themes
-  tar -xf /tmp/adw-gtk3.tar.xz -C /tmp/
+  tar -xf /tmp/adw-gtk3v5.3.tar.xz -C /tmp/
   mv /tmp/adw-gtk3/adw-gtk3-dark $HOME/.themes/
   rm -rf /tmp/adw-gtk3
   rm /tmp/adw-gtk3.tar.xz
