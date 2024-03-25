@@ -133,7 +133,7 @@
     echo -e "\033[1;34m"
     echo -e "INSTALLING ESSENTIAL PROGRAMS...\n"
     echo -e "\033[0m"
-    sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fail2ban fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-liberation ufw unrar
+    sudo pacman -S --needed --noconfirm android-tools bleachbit btop cmatrix dosfstools eza fail2ban fastfetch flatpak fwupd gamemode hwinfo inxi lib32-gamemode lib32-vulkan-radeon net-tools noto-fonts noto-fonts-extra ntfs-3g openssh os-prober pacman-contrib samba sl speedtest-cli ttf-hack ttf-liberation ufw unrar
 
 # Essential programs
     sudo pacman -S --needed --noconfirm discord filezilla firefox gimp libreoffice-fresh lutris obs-studio smplayer steam telegram-desktop wine
