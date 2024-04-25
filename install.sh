@@ -141,6 +141,17 @@
     echo -e "ESSENTIAL PROGRAMS INSTALLED SUCCESSFULLY.\n"
     echo -e "\033[0m"
 
+# Install KDE-specific programs
+    echo -e "\033[1;34m"
+    echo -e "INSTALLING KDE-SPECIFIC PROGRAMS...\n"
+    echo -e "\033[0m"
+    sudo pacman -S --needed --noconfirm ark gwenview kdeconnect kwalletmanager kvantum okular packagekit-qt6 spectacle qbittorrent vlc
+    sudo pacman -Rcs --noconfirm htop
+    sudo flatpak install -y flathub net.davidotek.pupgui2
+    echo -e "\033[1;34m"
+    echo -e "KDE-SPECIFIC PROGRAMS INSTALLED SUCCESSFULLY.\n"
+    echo -e "\033[0m"
+
 # Enable services
     echo -e "\033[1;34m"
     echo -e "ENABLING SERVICES...\n"
@@ -175,6 +186,10 @@
 # Enable rate limiting to prevent DoS attacks
     sudo ufw limit ssh
 
+# Allow KDE Connect ports
+    sudo ufw allow 1714:1764/tcp
+    sudo ufw allow 1714:1764/udp
+
 # Enable UFW
     sudo ufw --force enable
     echo -e "\033[1;34m"
@@ -182,7 +197,7 @@
     echo -e "\033[0m"
 
 # Edit jail.local
-sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
+    sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
 [sshd]
 enabled = true
 port = ssh
@@ -196,19 +211,6 @@ EOF
 
 # Restart Fail2Ban
     sudo systemctl restart fail2ban
-
-# Check if GNOME is installed
-    if pacman -Qs gnome-shell &> /dev/null; then
-    echo "GNOME detected."
-    chmod +x setup_gnome.sh
-    ./setup_gnome.sh
-
-# Check if KDE is installed
-    elif pacman -Qs plasma-desktop &> /dev/null; then
-    echo "KDE detected."
-    chmod +x setup_kde.sh
-    ./setup_kde.sh
-    fi
 
 # Delete the archinstaller folder
     echo -e "\033[1;34m"
