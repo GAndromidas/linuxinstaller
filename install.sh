@@ -39,6 +39,8 @@ pacman_programs=(
 yay_programs=(
     dropbox
     heroic-games-launcher-bin
+    lact
+    pince-git
     spotify
     stremio
     teamviewer
@@ -54,6 +56,7 @@ essential_programs=(
     libreoffice-fresh
     lutris
     obs-studio
+    openrgb
     smplayer
     steam
     telegram-desktop
