@@ -264,6 +264,7 @@ sudo systemctl enable --now paccache.timer
 sudo systemctl enable --now reflector.service reflector.timer
 sudo systemctl enable --now teamviewerd.service
 sudo systemctl enable --now ufw
+sudo systemctl enable --now lactd
 echo -e "\033[1;34m"
 echo -e "SERVICES ENABLED SUCCESSFULLY.\n"
 echo -e "\033[0m"
