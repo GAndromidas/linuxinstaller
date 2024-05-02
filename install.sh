@@ -7,7 +7,6 @@ pacman_programs=(
     btop
     cmatrix
     dosfstools
-    eza
     fail2ban
     fastfetch
     flatpak
