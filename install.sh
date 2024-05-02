@@ -122,7 +122,7 @@ echo -e "\033[0m"
 echo -e "\033[1;34m"
 echo -e "UPDATING MIRRORLIST...\n"
 echo -e "\033[0m"
-sudo reflector --verbose --country Greece --latest 5 --protocol https,http --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
 echo -e "\033[1;34m"
 echo -e "MIRRORLIST UPDATED SUCCESSFULLY.\n"
 echo -e "\033[0m"
