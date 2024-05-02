@@ -118,29 +118,6 @@ echo -e "\033[1;34m"
 echo -e "SYSTEM UPDATED SUCCESSFULLY.\n"
 echo -e "\033[0m"
 
-# Define mirror options
-echo -e "\033[1;34m"
-echo -e "CONFIGURING REFLECTOR...\n"
-echo -e "\033[0m"
-mirror_protocol="https,http"
-mirror_country="Greece"
-mirror_latest="5"
-mirror_sort="rate"
-
-# Edit reflector.conf
-sudo sed -i '/^--protocol/s/=.*/='"$mirror_protocol"'/' /etc/xdg/reflector/reflector.conf
-sudo sed -i '/^--country/s/=.*/='"$mirror_country"'/' /etc/xdg/reflector/reflector.conf
-sudo sed -i '/^--latest/s/=.*/='"$mirror_latest"'/' /etc/xdg/reflector/reflector.conf
-sudo sed -i '/^--sort/s/=.*/='"$mirror_sort"'/' /etc/xdg/reflector/reflector.conf
-
-# Restart reflector service
-sudo systemctl restart reflector.service
-
-# Display success message
-echo -e "\033[1;34m"
-echo -e "REFLECTOR CONFIGURATION CHANGED UPDATED SUCCESSFULLY.\n"
-echo -e "\033[0m"
-
 # Update mirrorlist
 echo -e "\033[1;34m"
 echo -e "UPDATING MIRRORLIST...\n"
@@ -311,15 +288,6 @@ EOF
 
 # Restart Fail2Ban
 sudo systemctl restart fail2ban
-
-# Delete the archinstaller folder
-echo -e "\033[1;34m"
-echo -e "DELETING ARCHINSTALLER FOLDER...\n"
-echo -e "\033[0m"
-sudo rm -rf /home/"$USER"/archinstaller
-echo -e "\033[1;34m"
-echo -e "ARCHINSTALLER FOLDER DELETED SUCCESSFULLY.\n"
-echo -e "\033[0m"
 
 # Reboot system with a countdown and cancel option
 echo -e "\033[1;34m"
