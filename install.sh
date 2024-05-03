@@ -37,8 +37,6 @@ pacman_programs=(
 # Programs to install using yay
 yay_programs=(
     dropbox
-    heroic-games-launcher-bin
-    lact
     pince-git
     spotify
     stremio
