@@ -16,7 +16,10 @@ pacman_programs=(
     hwinfo
     inxi
     lib32-gamemode
+    lib32-mangohud
+    lib32-vkd3d
     lib32-vulkan-radeon
+    mangohud
     net-tools
     noto-fonts
     noto-fonts-extra
@@ -31,6 +34,7 @@ pacman_programs=(
     ttf-liberation
     ufw
     unrar
+    vkd3d
     # Add or remove programs as needed
 )
 
