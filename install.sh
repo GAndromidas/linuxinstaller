@@ -35,6 +35,7 @@ pacman_programs=(
     ufw
     unrar
     vkd3d
+    xwaylandvideobridge
     # Add or remove programs as needed
 )
 
