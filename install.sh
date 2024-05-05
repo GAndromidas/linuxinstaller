@@ -52,7 +52,7 @@ yay_programs=(
 # Essential programs to install using pacman
 essential_programs=(
     discord
-    fileZilla
+    filezilla
     firefox
     gimp
     kdenlive
