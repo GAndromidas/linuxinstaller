@@ -227,8 +227,8 @@ echo -e "INSTALLING KDE-SPECIFIC PROGRAMS...\n"
 echo -e "\033[0m"
 sudo pacman -S --needed --noconfirm "${kde_programs[@]}"
 sudo pacman -Rcs --noconfirm htop
-sudo flatpak update
 sudo flatpak install -y flathub net.davidotek.pupgui2
+sudo flatpak update
 echo -e "\033[1;34m"
 echo -e "KDE-SPECIFIC PROGRAMS INSTALLED SUCCESSFULLY.\n"
 echo -e "\033[0m"
