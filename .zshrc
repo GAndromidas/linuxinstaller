@@ -107,23 +107,23 @@ alias sync='sudo pacman -Syyy'
 alias update='sudo pacman -Syyu && yay -Syyu && sudo flatpak update'
 
 #Update Mirrorlist
-alias mirrors='sudo reflector --verbose --latest 5 --country Greece --age 24 --protocol https,http --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
+alias mirrors='sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
 
 #Alias's for multiple directory listing commands
-alias la='ls -Alh'                # show hidden files
-alias ls='ls -aFh --color=always' # add colors and file type extensions
-alias lx='ls -lXBh'               # sort by extension
-alias lk='ls -lSrh'               # sort by size
-alias lc='ls -lcrh'               # sort by change time
-alias lu='ls -lurh'               # sort by access time
-alias lr='ls -lRh'                # recursive ls
-alias lt='ls -ltrh'               # sort by date
-alias lm='ls -alh |more'          # pipe through 'more'
-alias lw='ls -xAh'                # wide listing format
-alias ll='ls -Fls'                # long listing format
-alias labc='ls -lap'              #alphabetical sort
-alias lf="ls -l | egrep -v '^d'"  # files only
-alias ldir="ls -l | egrep '^d'"   # directories only
+alias la='ls -Alh --color=always'  # show hidden files
+alias ls='ls -alFh --color=always' # add colors and file type extensions
+alias lx='ls -lXBh'                # sort by extension
+alias lk='ls -lSrh'                # sort by size
+alias lc='ls -lcrh'                # sort by change time
+alias lu='ls -lurh'                # sort by access time
+alias lr='ls -lRh'                 # recursive ls
+alias lt='ls -ltrh'                # sort by date
+alias lm='ls -alh |more'           # pipe through 'more'
+alias lw='ls -xAh'                 # wide listing format
+alias ll='ls -Fls'                 # long listing format
+alias labc='ls -lap'               #alphabetical sort
+alias lf="ls -l | egrep -v '^d'"   # files only
+alias ldir="ls -l | egrep '^d'"    # directories only
 
 #Clean System
 alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo pacman -Rns $(pacman -Qtdq)'
