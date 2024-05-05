@@ -62,7 +62,7 @@ essential_programs=(
     openrgb
     smplayer
     steam
-    telegram
+    telegram-desktop
     vlc
     wine
     qbittorrent
@@ -291,6 +291,15 @@ EOF
 
 # Restart Fail2Ban
 sudo systemctl restart fail2ban
+
+# Delete the archinstaller folder
+echo -e "\033[1;34m"
+echo -e "DELETING ARCHINSTALLER FOLDER...\n"
+echo -e "\033[0m"
+sudo rm -rf /home/"$USER"/archinstaller
+echo -e "\033[1;34m"
+echo -e "ARCHINSTALLER FOLDER DELETED SUCCESSFULLY.\n"
+echo -e "\033[0m"
 
 # Reboot system with a countdown and cancel option
 echo -e "\033[1;34m"
