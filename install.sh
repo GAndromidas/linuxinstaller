@@ -292,6 +292,17 @@ EOF
 # Restart Fail2Ban
 sudo systemctl restart fail2ban
 
+echo -e "\033[1;34m"
+echo -e "CLEARING UNUSED PACKAGES AND CACHE...\n"
+echo -e "\033[0m"
+sudo pacman -Rns $(pacman -Qdtq) --noconfirm
+sudo pacman -Sc --noconfirm
+yay -Sc --noconfirm
+rm -rf ~/.cache/* && sudo paccache -r
+echo -e "\033[1;34m"
+echo -e "UNUSED PACKAGES AND CACHE CLEARED SUCCESSFULLY.\n"
+echo -e "\033[0m"
+
 # Delete the archinstaller folder
 echo -e "\033[1;34m"
 echo -e "DELETING ARCHINSTALLER FOLDER...\n"
@@ -301,7 +312,6 @@ echo -e "\033[1;34m"
 echo -e "ARCHINSTALLER FOLDER DELETED SUCCESSFULLY.\n"
 echo -e "\033[0m"
 
-# Reboot system with a countdown and cancel option
 echo -e "\033[1;34m"
 echo -e "REBOOTING SYSTEM IN 10 SECONDS...\n"
 echo -e "PRESS ENTER TO REBOOT NOW, OR CTRL+C TO CANCEL.\n"
@@ -313,4 +323,5 @@ for ((i = 10; i > 0; i--)); do
 done
 
 echo -e "\n\nREBOOTING NOW..."
+read -p "Press Enter to reboot now, or Ctrl+C to cancel" input
 sudo reboot
