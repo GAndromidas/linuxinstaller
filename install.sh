@@ -52,17 +52,20 @@ yay_programs=(
 # Essential programs to install using pacman
 essential_programs=(
     discord
-    filezilla
+    fileZilla
     firefox
     gimp
+    kdenlive
     libreoffice-fresh
     lutris
     obs-studio
     openrgb
     smplayer
     steam
-    telegram-desktop
+    telegram
+    vlc
     wine
+    qbittorrent
     # Add or remove essential programs as needed
 )
 
@@ -76,8 +79,6 @@ kde_programs=(
     okular
     packagekit-qt6
     spectacle
-    qbittorrent
-    vlc
     # Add or remove KDE-specific programs as needed
 )
 
@@ -243,7 +244,6 @@ sudo systemctl enable --now paccache.timer
 sudo systemctl enable --now reflector.service reflector.timer
 sudo systemctl enable --now teamviewerd.service
 sudo systemctl enable --now ufw
-sudo systemctl enable --now lactd
 echo -e "\033[1;34m"
 echo -e "SERVICES ENABLED SUCCESSFULLY.\n"
 echo -e "\033[0m"
