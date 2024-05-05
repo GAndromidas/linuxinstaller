@@ -100,42 +100,6 @@ read -s -p "Enter your password: " password
 echo
 echo -e "\033[0m"
 
-# Function to make Systemd-Boot silent
-make_systemd_boot_silent() {
-    LOADER_DIR="/boot/loader"
-    ENTRIES_DIR="$LOADER_DIR/entries"
-    linux_entry=$(find "$ENTRIES_DIR" -type f -name '*_linux.conf' ! -name '*_linux-fallback.conf')
-    if [ -z "$linux_entry" ]; then
-        echo "Error: Linux entry not found."
-        exit 1
-    fi
-    sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
-    echo "Silent boot options added to Linux entry: $(basename "$linux_entry")."
-}
-
-# Function to change loader.conf
-change_loader_conf() {
-    LOADER_CONF="/boot/loader/loader.conf"
-    sudo sed -i 's/^timeout.*/timeout 5/' "$LOADER_CONF"
-    sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-}
-
-# Function to enable asterisks for password in sudoers
-enable_asterisks_sudo() {
-    if grep -q '^Defaults.*pwfeedback' /etc/sudoers; then
-        echo "Asterisks for password feedback is already enabled in sudoers."
-    else
-        echo "Enabling asterisks for password feedback in sudoers..."
-        echo 'Defaults        pwfeedback' | sudo tee -a /etc/sudoers > /dev/null
-        echo "Asterisks for password feedback enabled successfully."
-    fi
-}
-
-# Main script
-make_systemd_boot_silent
-change_loader_conf
-enable_asterisks_sudo
-
 # Configure pacman
 echo -e "\033[1;34m"
 echo -e "CONFIGURING PACMAN...\n"
@@ -264,6 +228,7 @@ echo -e "INSTALLING KDE-SPECIFIC PROGRAMS...\n"
 echo -e "\033[0m"
 sudo pacman -S --needed --noconfirm "${kde_programs[@]}"
 sudo pacman -Rcs --noconfirm htop
+sudo flatpak update
 sudo flatpak install -y flathub net.davidotek.pupgui2
 echo -e "\033[1;34m"
 echo -e "KDE-SPECIFIC PROGRAMS INSTALLED SUCCESSFULLY.\n"
@@ -329,6 +294,7 @@ EOF
 # Restart Fail2Ban
 sudo systemctl restart fail2ban
 
+# Clearr Unused Packages and Cache
 echo -e "\033[1;34m"
 echo -e "CLEARING UNUSED PACKAGES AND CACHE...\n"
 echo -e "\033[0m"
@@ -339,6 +305,42 @@ rm -rf ~/.cache/* && sudo paccache -r
 echo -e "\033[1;34m"
 echo -e "UNUSED PACKAGES AND CACHE CLEARED SUCCESSFULLY.\n"
 echo -e "\033[0m"
+
+# Function to make Systemd-Boot silent
+make_systemd_boot_silent() {
+    LOADER_DIR="/boot/loader"
+    ENTRIES_DIR="$LOADER_DIR/entries"
+    linux_entry=$(find "$ENTRIES_DIR" -type f -name '*_linux.conf' ! -name '*_linux-fallback.conf')
+    if [ -z "$linux_entry" ]; then
+        echo "Error: Linux entry not found."
+        exit 1
+    fi
+    sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
+    echo "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+}
+
+# Function to change loader.conf
+change_loader_conf() {
+    LOADER_CONF="/boot/loader/loader.conf"
+    sudo sed -i 's/^timeout.*/timeout 5/' "$LOADER_CONF"
+    sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
+}
+
+# Function to enable asterisks for password in sudoers
+enable_asterisks_sudo() {
+    if grep -q '^Defaults.*pwfeedback' /etc/sudoers; then
+        echo "Asterisks for password feedback is already enabled in sudoers."
+    else
+        echo "Enabling asterisks for password feedback in sudoers..."
+        echo 'Defaults        pwfeedback' | sudo tee -a /etc/sudoers > /dev/null
+        echo "Asterisks for password feedback enabled successfully."
+    fi
+}
+
+# Main script
+make_systemd_boot_silent
+change_loader_conf
+enable_asterisks_sudo
 
 # Delete the archinstaller folder
 echo -e "\033[1;34m"
