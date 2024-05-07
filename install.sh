@@ -63,6 +63,7 @@ essential_programs=(
     smplayer
     steam
     telegram-desktop
+    timeshift
     vlc
     wine
     qbittorrent
