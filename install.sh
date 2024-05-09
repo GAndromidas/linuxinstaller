@@ -80,14 +80,6 @@ kde_programs=(
     # Add or remove KDE-specific programs as needed
 )
 
-# Function to log messages
-log() {
-    echo -e "$(date '+%d-%m-%Y %H:%M:%S') - $1" | tee -a "$LOGFILE"
-}
-
-# Define log file
-LOGFILE="/var/log/archinstaller.log"
-
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     LOADER_DIR="/boot/loader"
@@ -97,14 +89,14 @@ make_systemd_boot_silent() {
     linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
     
     if [ -z "$linux_entry" ]; then
-        log "Error: Linux entry not found."
+       echo "Error: Linux entry not found."
         exit 1
     fi
     
     # Add silent boot options to the Linux entry
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
     
-    log "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    echo "Silent boot options added to Linux entry: $(basename "$linux_entry")."
 }
 
 # Function to change loader.conf
@@ -112,17 +104,17 @@ change_loader_conf() {
     LOADER_CONF="/boot/loader/loader.conf"
     sudo sed -i 's/^timeout.*/timeout 5/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    log "Loader configuration updated."
+    echo "Loader configuration updated."
 }
 
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
     if grep -q '^Defaults.*pwfeedback' /etc/sudoers; then
-        log "Asterisks for password feedback is already enabled in sudoers."
+        echo "Asterisks for password feedback is already enabled in sudoers."
     else
-        log "Enabling asterisks for password feedback in sudoers..."
+        echo "Enabling asterisks for password feedback in sudoers..."
         echo 'Defaults        pwfeedback' | sudo tee -a /etc/sudoers > /dev/null
-        log "Asterisks for password feedback enabled successfully."
+        echo "Asterisks for password feedback enabled successfully."
     fi
 }
 
@@ -132,91 +124,91 @@ change_loader_conf
 enable_asterisks_sudo
 
 # Configure pacman
-log "Configuring Pacman..."
+echo "Configuring Pacman..."
 sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
 sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
 sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
 sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
 sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-log "Pacman Configuration Updated Successfully."
+echo "Pacman Configuration Updated Successfully."
 
 # Update system
-log "Updating System..."
+echo "Updating System..."
 sudo pacman -Syyu --noconfirm
 sudo pacman -S --needed --noconfirm reflector rsync
-log "System Updated Successfully."
+echo "System Updated Successfully."
 
 # Update mirrorlist
-log "Updating Mirrorlist..."
+echo "Updating Mirrorlist..."
 sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-log "Mirrorlist Updated Successfully."
+echo "Mirrorlist Updated Successfully."
 
 # Install Oh-My-ZSH and ZSH Plugins
-log "Configuring ZSH..."
+echo "Configuring ZSH..."
 sudo pacman -S --needed --noconfirm zsh
 yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 sleep 1  # Wait for 1 second
 git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 sleep 1  # Wait for 1 second
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-log "ZSH Configured Successfully."
+echo "ZSH Configured Successfully."
 
 # Change Bash Shell to ZSH Shell
 sudo chsh -s "$(which zsh)"  # Change root shell to ZSH non-interactively using provided password
 chsh -s "$(which zsh)" # Change shell to ZSH non-interactively using provided password
-log "Shell changed to ZSH."
+echo "Shell changed to ZSH."
 
 # Move .zshrc
-log "Copying .zshrc to Home Folder..."
+echo "Copying .zshrc to Home Folder..."
 mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
-log ".zshrc Copied Successfully."
+echo ".zshrc Copied Successfully."
 
 # Configure locales
-log "Configuring Locales..."
+echo "Configuring Locales..."
 sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
 sudo locale-gen
-log "Locales Generated Successfully."
+echo "Locales Generated Successfully."
 
 # Set language locale and timezone
-log "Setting Language Locale and Timezone..."
+echo "Setting Language Locale and Timezone..."
 sudo localectl set-locale LANG="en_US.UTF-8"
 sudo localectl set-locale LC_NUMERIC="el_GR.UTF-8"
 sudo localectl set-locale LC_TIME="el_GR.UTF-8"
 sudo localectl set-locale LC_MONETARY="el_GR.UTF-8"
 sudo localectl set-locale LC_MEASUREMENT="el_GR.UTF-8"
 sudo timedatectl set-timezone "Europe/Athens"
-log "Language Locale and Timezone Changed Successfully."
+echo "Language Locale and Timezone Changed Successfully."
 
 # Install programs
-log "Installing Programs..."
+echo "Installing Programs..."
 sudo pacman -S --needed --noconfirm "${pacman_programs[@]}"
 sudo pacman -S --needed --noconfirm "${essential_programs[@]}"
-log "Programs Installed Successfully."
+echo "Programs Installed Successfully."
 
 # Install KDE-specific programs
-log "Installing KDE-Specific Programs..."
+echo "Installing KDE-Specific Programs..."
 sudo pacman -S --needed --noconfirm "${kde_programs[@]}"
 sudo pacman -Rcs --noconfirm htop
 sudo flatpak install -y flathub net.davidotek.pupgui2
 sudo flatpak upgrade
-log "KDE-Specific Programs Installed Successfully."
+echo "KDE-Specific Programs Installed Successfully."
 
 # Install Yay
-log "Installing YAY..."
+echo "Installing YAY..."
 git clone https://aur.archlinux.org/yay.git
 cd yay
 makepkg -si --needed --noconfirm
 cd ..
 rm -rf yay
-log "YAY Installed Successfully."
+echo "YAY Installed Successfully."
 
 # Install AUR packages
-log "Installing AUR Packages..."
+echo "Installing AUR Packages..."
 yay -S --needed --noconfirm "${yay_programs[@]}"
-log "AUR Packages Installed Successfully."
+echo "AUR Packages Installed Successfully."
 
 # Enable services
-log "Enabling Services..."
+echo "Enabling Services..."
 sudo systemctl enable --now fstrim.timer
 sudo systemctl enable --now bluetooth
 sudo systemctl enable --now sshd
@@ -225,10 +217,10 @@ sudo systemctl enable --now paccache.timer
 sudo systemctl enable --now reflector.service reflector.timer
 sudo systemctl enable --now teamviewerd.service
 sudo systemctl enable --now ufw
-log "Services Enabled Successfully."
+echo "Services Enabled Successfully."
 
 # Configure firewall
-log "Configuring Firewall..."
+echo "Configuring Firewall..."
 
 # Default policies
 sudo ufw default deny incoming
@@ -249,7 +241,7 @@ sudo ufw allow 1714:1764/udp
 
 # Enable UFW
 sudo ufw --force enable
-log "Firewall Configured Successfully."
+echo "Firewall Configured Successfully."
 
 # Edit jail.local
 sudo tee /etc/fail2ban/jail.local > /dev/null <<EOF
@@ -268,26 +260,26 @@ EOF
 sudo systemctl restart fail2ban
 
 # Clear Unused Packages and Cache
-log "Clearing Unused Packages and Cache..."
+echo "Clearing Unused Packages and Cache..."
 sudo pacman -Rns $(pacman -Qdtq) --noconfirm
 sudo pacman -Sc --noconfirm
 yay -Sc --noconfirm
 rm -rf ~/.cache/* && sudo paccache -r
-log "Unused Packages and Cache Cleared Successfully."
+echo "Unused Packages and Cache Cleared Successfully."
 
 # Delete the archinstaller folder
-log "Deleting Archinstaller Folder..."
+echo "Deleting Archinstaller Folder..."
 sudo rm -rf /home/"$USER"/archinstaller
-log "Archinstaller Folder Deleted Successfully."
+echo "Archinstaller Folder Deleted Successfully."
 
 # Reboot System
-log "Rebooting System..."
+echo "Rebooting System..."
 echo -e "Press 'y' to reboot now, or 'n' to cancel.\n"
 read -p "Do you want to reboot now? (y/n): " confirm_reboot
 
 if [[ "$confirm_reboot" == "y" ]]; then
-    log "Rebooting Now..."
+    echo "Rebooting Now..."
     sudo reboot
 else
-    log "Reboot canceled. You can reboot manually later by typing 'sudo reboot'."
+    echo "Reboot canceled. You can reboot manually later by typing 'sudo reboot'."
 fi
