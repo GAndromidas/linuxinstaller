@@ -46,6 +46,16 @@ load_program_lists() {
     kde_programs=($(cat "$home_directory/archinstaller/kde_programs.txt"))
 }
 
+# Function to update system
+update_system() {
+    log "Updating system..."
+    if ! sudo pacman -Syyu --noconfirm; then
+        log "Failed to update system. Exiting."
+        exit 1
+    fi
+    log "System updated successfully."
+}
+
 # Function to install packages using pacman
 install_pacman_packages() {
     log "Installing packages with Pacman..."
@@ -54,6 +64,16 @@ install_pacman_packages() {
         exit 1
     fi
     log "Packages installed successfully."
+}
+
+# Function to install Yay
+install_yay() {
+    log "Installing Yay..."
+    git clone https://aur.archlinux.org/yay.git
+    cd yay || { log "Failed to change directory to yay. Exiting."; exit 1; }
+    makepkg -si --needed --noconfirm || { log "Failed to install Yay. Exiting."; exit 1; }
+    cd .. && rm -rf yay || { log "Failed to clean up Yay files. Exiting."; exit 1; }
+    echo -e "Yay installed successfully."
 }
 
 # Function to install AUR packages using Yay
@@ -66,22 +86,13 @@ install_yay_packages() {
     log "AUR packages installed successfully."
 }
 
-# Function to update system
-update_system() {
-    log "Updating system..."
-    if ! sudo pacman -Syyu --noconfirm; then
-        log "Failed to update system. Exiting."
-        exit 1
-    fi
-    log "System updated successfully."
-}
-
 # Main execution flow
 main() {
     log "Starting script execution..."
     load_program_lists
     update_system
     install_pacman_packages
+    install_yay
     install_yay_packages
     log "Script execution completed successfully."
 }
