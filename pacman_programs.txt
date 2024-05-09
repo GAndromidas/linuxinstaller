@@ -23,8 +23,6 @@ ntfs-3g
 openssh
 os-prober
 pacman-contrib
-reflector
-rsync
 samba
 sl
 speedtest-cli
@@ -34,4 +32,5 @@ ufw
 unrar
 vkd3d
 vulkan-radeon
+wlroots
 xwaylandvideobridge
