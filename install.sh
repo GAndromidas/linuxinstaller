@@ -158,7 +158,7 @@ log "Shell changed to ZSH."
 
 # Move .zshrc
 log "Copying .zshrc to Home Folder..."
-mv ~/"$USER"/archinstaller/.zshrc /home/"$USER"/
+mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
 log ".zshrc Copied Successfully."
 
 # Configure locales
@@ -226,7 +226,7 @@ log "Unused Packages and Cache Cleared Successfully."
 
 # Delete the archinstaller folder
 log "Deleting Archinstaller Folder..."
-sudo rm -rf ~/"$USER"/archinstaller/
+sudo rm -rf /home/"$USER"/archinstaller/
 log "Archinstaller Folder Deleted Successfully."
 
 # Reboot System
