@@ -72,6 +72,7 @@ install_yay() {
     sudo git clone https://aur.archlinux.org/yay.git
     sudo chown -R $USER:$USER yay
     cd yay || { log "Failed to change directory to yay. Exiting."; exit 1; }
+    sudo sed -i 's/^PKGEXT=.pkg.tar.xz/PKGEXT=.pkg.tar/' PKGBUILD  # Configure makepkg to allow building as root
     makepkg --syncdeps --install --noconfirm || { log "Failed to install Yay. Exiting."; exit 1; }
     cd .. && sudo rm -rf yay || { log "Failed to clean up Yay files. Exiting."; exit 1; }
     echo -e "Yay installed successfully."
