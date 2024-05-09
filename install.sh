@@ -13,16 +13,15 @@ EOF
 echo -e "\033[0m"
 
 # Define log file
-LOGFILE="/var/log/arch_setup.log"
+LOGFILE="/var/log/archinstaller.log"
 
 # Function to log messages
 log() {
     echo "$(date '+%d-%m-%Y %H:%M:%S') - $1" | tee -a $LOGFILE
 }
 
-# Load program lists from external files
 load_program_lists() {
-    home_directory=$(eval echo ~$USER)  # Get home directory of the current user
+    home_directory="$HOME"
     pacman_programs=($(cat "$home_directory/archinstaller/pacman_programs.txt"))
     yay_programs=($(cat "$home_directory/archinstaller/yay_programs.txt"))
     essential_programs=($(cat "$home_directory/archinstaller/essential_programs.txt"))
