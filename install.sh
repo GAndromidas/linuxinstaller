@@ -93,13 +93,6 @@ echo '    ██║░░██║██║░░██║╚█████╔�
 echo '    ╚═╝░░╚═╝╚═╝░░╚═╝░╚════╝░╚═╝░░╚═╝╚═╝╚═╝░░╚══╝╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝╚══════╝╚══════╝╚══════╝╚═╝░░╚═╝'
 echo -e "\033[0m"
 
-# Prompt the user for their password
-echo -e "\033[1;34m"
-echo
-read -s -p "Enter your password: " password
-echo
-echo -e "\033[0m"
-
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     LOADER_DIR="/boot/loader"
@@ -186,17 +179,20 @@ git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.
 sleep 1  # Wait for 1 seconds
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
+# Change Bash Shell to ZSH Shell
+sudo chsh -s "$(which zsh)"  # Change root shell to ZSH non-interactively using provided password
+chsh -s "$(which zsh)" # Change shell to ZSH non-interactively using provided password
+echo -e "\033[1;34m"
+echo -e "ZSH Configured Successfully.\n"
+echo -e "\033[0m"
+
 # Move .zshrc
 echo -e "\033[1;34m"
 echo -e "\nCopying .zshrc to Home Folder..."
 echo -e "\033[0m"
 mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
-
-# Change Bash Shell to ZSH Shell
-echo "$password" | sudo chsh -s "$(which zsh)"  # Change root shell to ZSH non-interactively using provided password
-echo "$password" | chsh -s "$(which zsh)" # Change shell to ZSH non-interactively using provided password
 echo -e "\033[1;34m"
-echo -e "ZSH Configured Successfully.\n"
+echo -e ".zshrc Copied Successfully.\n"
 echo -e "\033[0m"
 
 # Configure locales
@@ -348,19 +344,17 @@ echo -e "\033[1;34m"
 echo -e "Archinstaller Folder Deleted Successfully.\n"
 echo -e "\033[0m"
 
+# Reboot System
 echo -e "\033[1;34m"
-echo -e "Rebooting System in 10 Seconds...\n"
-echo -e "Press Enter to Reboot Now, or CTRL+C to Cancel.\n"
+echo -e "Rebooting System...\n"
+echo -e "Press 'y' to reboot now, or 'n' to cancel.\n"
 echo -e "\033[0m"
 
-for ((i = 10; i > 0; i--)); do
-    echo -n "$i "
-    read -t 1 input  # Wait for 1 second for user input
-    if [[ -n "$input" ]]; then  # Check if input is not empty (Enter pressed)
-        echo -e "\nCountdown canceled."
-        exit 0  # Exit the script
-    fi
-done
+read -p "Do you want to reboot now? (y/n): " confirm_reboot
 
-echo -e "\n\nRebooting Now..."
-sudo reboot
+if [[ "$confirm_reboot" == "y" ]]; then
+    echo -e "\nRebooting Now..."
+    sudo reboot
+else
+    echo -e "\nReboot canceled. You can reboot manually later by typing 'sudo reboot'."
+fi
