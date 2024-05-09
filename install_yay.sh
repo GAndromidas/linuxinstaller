@@ -10,6 +10,14 @@ install_yay() {
     log "Yay installed successfully."
 }
 
+# Fuction to load files
+load_program_lists() {
+    if [ -n "$SUDO_USER" ]; then
+        home_directory="/home/$SUDO_USER"
+    else
+        home_directory="$HOME"
+    fi
+
 # Function to install AUR packages using Yay
 install_yay_packages() {
     log "Installing AUR packages with Yay..."
@@ -24,7 +32,8 @@ install_yay_packages() {
 # Main execution flow
 main() {
     install_yay
-    install_yay_packages
+    load_program_lists
+    yay_packages
 }
 
 main
