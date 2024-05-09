@@ -104,14 +104,21 @@ echo -e "\033[0m"
 make_systemd_boot_silent() {
     LOADER_DIR="/boot/loader"
     ENTRIES_DIR="$LOADER_DIR/entries"
-    linux_entry=$(find "$ENTRIES_DIR" -type f -name '*_linux.conf' ! -name '*_linux-fallback.conf')
+    
+    # Find the Linux or Linux-zen entry
+    linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
+    
     if [ -z "$linux_entry" ]; then
         echo "Error: Linux entry not found."
         exit 1
     fi
+    
+    # Add silent boot options to the Linux entry
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
+    
     echo "Silent boot options added to Linux entry: $(basename "$linux_entry")."
 }
+
 
 # Function to change loader.conf
 change_loader_conf() {
