@@ -19,7 +19,11 @@ log() {
 }
 
 load_program_lists() {
-    home_directory="$HOME"
+    if [ -n "$SUDO_USER" ]; then
+        home_directory="/home/$SUDO_USER"
+    else
+        home_directory="$HOME"
+    fi
     pacman_programs=($(cat "$home_directory/archinstaller/pacman_programs.txt"))
     yay_programs=($(cat "$home_directory/archinstaller/yay_programs.txt"))
     essential_programs=($(cat "$home_directory/archinstaller/essential_programs.txt"))
