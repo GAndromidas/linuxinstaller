@@ -2,15 +2,6 @@
 
 This script automates the installation and configuration process for Arch Linux, including the installation of essential packages, KDE-specific programs, AUR packages, system updates, firewall configuration, and more.
 
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-
 ## Introduction
 
 This script is designed to streamline the setup process for Arch Linux users. It installs a curated list of essential programs, KDE-specific software (if applicable), AUR packages, and performs system configurations for improved usability and security.
@@ -21,7 +12,6 @@ Before running the script, ensure you have:
 
 - **Arch Linux installed**: This script is specifically designed for Arch Linux.
 - **Internet connection**: The script downloads and installs packages from the internet.
-- **Root privileges**: Some commands require root privileges, so ensure you run the script with `sudo`.
 
 ## Installation
 
