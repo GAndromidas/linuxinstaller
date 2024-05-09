@@ -1,0 +1,16 @@
+discord
+filezilla
+firefox
+gimp
+kdenlive
+libreoffice-fresh
+lutris
+obs-studio
+openrgb
+smplayer
+steam
+telegram-desktop
+timeshift
+vlc
+wine
+qbittorrent
