@@ -41,7 +41,6 @@ load_program_lists() {
         home_directory="$HOME"
     fi
     pacman_programs=($(cat "$home_directory/archinstaller/pacman_programs.txt"))
-    yay_programs=($(cat "$home_directory/archinstaller/yay_programs.txt"))
     essential_programs=($(cat "$home_directory/archinstaller/essential_programs.txt"))
     kde_programs=($(cat "$home_directory/archinstaller/kde_programs.txt"))
 }
@@ -66,34 +65,12 @@ install_pacman_packages() {
     log "Packages installed successfully."
 }
 
-# Function to install Yay
-install_yay() {
-    log "Installing Yay..."
-    git clone https://aur.archlinux.org/yay.git
-    cd yay || { log "Failed to change directory to yay. Exiting."; exit 1; }
-    sudo -u "$SUDO_USER" makepkg -si --needed --noconfirm || { log "Failed to install Yay. Exiting."; exit 1; }
-    cd .. && rm -rf yay || { log "Failed to clean up Yay files. Exiting."; exit 1; }
-    log "Yay installed successfully."
-}
-
-# Function to install AUR packages using Yay
-install_yay_packages() {
-    log "Installing AUR packages with Yay..."
-    if ! yay -S --needed --noconfirm "${yay_programs[@]}"; then
-        log "Failed to install AUR packages with Yay. Exiting."
-        exit 1
-    fi
-    log "AUR packages installed successfully."
-}
-
 # Main execution flow
 main() {
     log "Starting script execution..."
     load_program_lists
     update_system
     install_pacman_packages
-    install_yay
-    install_yay_packages
     log "Script execution completed successfully."
 }
 
@@ -102,6 +79,20 @@ if [[ $EUID -ne 0 ]]; then
     log "This script must be run as root. Please use sudo."
     exit 1
 fi
+
+# Function to run the main installation script
+run_installation_script() {
+    log "Running installation script..."
+    sudo -u "$SUDO_USER" bash install_yay.sh
+}
+
+# Main execution flow
+main() {
+    log "Starting script execution..."
+    run_installation_script
+    # Other script functionalities here...
+    log "Script execution completed successfully."
+}
 
 main
 
