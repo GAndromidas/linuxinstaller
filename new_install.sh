@@ -2,7 +2,7 @@
 
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
-    echo "Making Systemd-Boot silent..."
+    printf "Making Systemd-Boot silent... "
     LOADER_DIR="/boot/loader"
     ENTRIES_DIR="$LOADER_DIR/entries"
     
@@ -10,147 +10,147 @@ make_systemd_boot_silent() {
     linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
     
     if [ -z "$linux_entry" ]; then
-        echo "Error: Linux entry not found."
+        printf "\nError: Linux entry not found.\n"
         exit 1
     fi
     
     # Add silent boot options to the Linux entry
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
     
-    echo "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    printf "Silent boot options added to Linux entry: %s.\n" "$(basename "$linux_entry")"
 }
 
 # Function to change loader.conf
 change_loader_conf() {
-    echo "Changing loader.conf..."
+    printf "Changing loader.conf... "
     LOADER_CONF="/boot/loader/loader.conf"
     sudo sed -i 's/^timeout.*/timeout 5/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    echo "Loader configuration updated."
+    printf "Loader configuration updated.\n"
 }
 
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
-    echo "Enabling asterisks for password in sudoers..."
+    printf "Enabling asterisks for password in sudoers... "
     if grep -q '^Defaults.*pwfeedback' /etc/sudoers; then
-        echo "Asterisks for password feedback is already enabled in sudoers."
+        printf "Asterisks for password feedback is already enabled in sudoers.\n"
     else
         echo 'Defaults        pwfeedback' | sudo tee -a /etc/sudoers > /dev/null
-        echo "Asterisks for password feedback enabled successfully."
+        printf "Asterisks for password feedback enabled successfully.\n"
     fi
 }
 
 # Function to configure Pacman
 configure_pacman() {
-    echo "Configuring Pacman..."
+    printf "Configuring Pacman... "
     sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
     sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
     sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
     sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
     sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-    echo "Pacman configuration updated successfully."
+    printf "Pacman configuration updated successfully.\n"
 }
 
 # Function to update the system
 update_system() {
-    echo "Updating System..."
+    printf "Updating System... "
     sudo pacman -Syyu --noconfirm
     sudo pacman -S --needed --noconfirm reflector rsync
-    echo "System updated successfully."
+    printf "System updated successfully.\n"
 }
 
 # Function to update mirrorlist
 update_mirrorlist() {
-    echo "Updating Mirrorlist..."
+    printf "Updating Mirrorlist... "
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-    echo "Mirrorlist updated successfully."
+    printf "Mirrorlist updated successfully.\n"
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
-    echo "Configuring ZSH..."
+    printf "Configuring ZSH... "
     sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     sleep 1
     git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
     sleep 1
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-    echo "ZSH configured successfully."
+    printf "ZSH configured successfully.\n"
 }
 
 # Function to change shell to ZSH
 change_shell_to_zsh() {
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
-    echo "Shell changed to ZSH."
+    printf "Shell changed to ZSH.\n"
 }
 
 # Function to move .zshrc
 move_zshrc() {
-    echo "Copying .zshrc to Home Folder..."
+    printf "Copying .zshrc to Home Folder... "
     mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
-    echo ".zshrc copied successfully."
+    printf ".zshrc copied successfully.\n"
 }
 
 # Function to configure locales
 configure_locales() {
-    echo "Configuring Locales..."
+    printf "Configuring Locales... "
     sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
     sudo locale-gen
-    echo "Locales generated successfully."
+    printf "Locales generated successfully.\n"
 }
 
 # Function to set language locale and timezone
 set_language_locale_timezone() {
-    echo "Setting Language Locale and Timezone..."
+    printf "Setting Language Locale and Timezone... "
     sudo localectl set-locale LANG="en_US.UTF-8"
     sudo localectl set-locale LC_NUMERIC="el_GR.UTF-8"
     sudo localectl set-locale LC_TIME="el_GR.UTF-8"
     sudo localectl set-locale LC_MONETARY="el_GR.UTF-8"
     sudo localectl set-locale LC_MEASUREMENT="el_GR.UTF-8"
     sudo timedatectl set-timezone "Europe/Athens"
-    echo "Language locale and timezone changed successfully."
+    printf "Language locale and timezone changed successfully.\n"
 }
 
 # Function to install programs
 install_programs() {
-    echo "Installing Programs..."
+    printf "Installing Programs... "
     sudo pacman -S --needed --noconfirm "${pacman_programs[@]}"
     sudo pacman -S --needed --noconfirm "${essential_programs[@]}"
-    echo "Programs installed successfully."
+    printf "Programs installed successfully.\n"
 }
 
 # Function to install KDE-specific programs
 install_kde_programs() {
-    echo "Installing KDE-Specific Programs..."
+    printf "Installing KDE-Specific Programs... "
     sudo pacman -S --needed --noconfirm "${kde_programs[@]}"
     sudo pacman -Rcs --noconfirm htop
     sudo flatpak install -y flathub net.davidotek.pupgui2
     sudo flatpak upgrade
-    echo "KDE-Specific programs installed successfully."
+    printf "KDE-Specific programs installed successfully.\n"
 }
 
 # Function to install YAY
 install_yay() {
-    echo "Installing YAY..."
+    printf "Installing YAY... "
     git clone https://aur.archlinux.org/yay.git
     cd yay || exit
     makepkg -si --needed --noconfirm
     cd ..
     rm -rf yay
-    echo "YAY installed successfully."
+    printf "YAY installed successfully.\n"
 }
 
 # Function to install AUR packages
 install_aur_packages() {
-    echo "Installing AUR Packages..."
+    printf "Installing AUR Packages... "
     yay -S --needed --noconfirm "${yay_programs[@]}"
-    echo "AUR Packages installed successfully."
+    printf "AUR Packages installed successfully.\n"
 }
 
 # Function to enable services
 enable_services() {
-    echo "Enabling Services..."
+    printf "Enabling Services... "
     sudo systemctl enable --now fstrim.timer
     sudo systemctl enable --now bluetooth
     sudo systemctl enable --now sshd
@@ -159,12 +159,12 @@ enable_services() {
     sudo systemctl enable --now reflector.service reflector.timer
     sudo systemctl enable --now teamviewerd.service
     sudo systemctl enable --now ufw
-    echo "Services enabled successfully."
+    printf "Services enabled successfully.\n"
 }
 
 # Function to configure firewall
 configure_firewall() {
-    echo "Configuring Firewall..."
+    printf "Configuring Firewall... "
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
     sudo ufw allow ssh
@@ -173,37 +173,37 @@ configure_firewall() {
     sudo ufw allow 1714:1764/tcp
     sudo ufw allow 1714:1764/udp
     sudo ufw --force enable
-    echo "Firewall configured successfully."
+    printf "Firewall configured successfully.\n"
 }
 
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
-    echo "Clearing Unused Packages and Cache..."
+    printf "Clearing Unused Packages and Cache... "
     sudo pacman -Rns $(pacman -Qdtq) --noconfirm
     sudo pacman -Sc --noconfirm
     yay -Sc --noconfirm
     rm -rf ~/.cache/* && sudo paccache -r
-    echo "Unused packages and cache cleared successfully."
+    printf "Unused packages and cache cleared successfully.\n"
 }
 
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
-    echo "Deleting Archinstaller Folder..."
+    printf "Deleting Archinstaller Folder... "
     sudo rm -rf /home/"$USER"/archinstaller
-    echo "Archinstaller folder deleted successfully."
+    printf "Archinstaller folder deleted successfully.\n"
 }
 
 # Function to reboot system
 reboot_system() {
-    echo "Rebooting System..."
-    echo -e "Press 'y' to reboot now, or 'n' to cancel.\n"
+    printf "Rebooting System... "
+    printf "Press 'y' to reboot now, or 'n' to cancel.\n"
     read -p "Do you want to reboot now? (y/n): " confirm_reboot
 
     if [[ "$confirm_reboot" == "y" ]]; then
-        echo "Rebooting now..."
+        printf "Rebooting now... "
         sudo reboot
     else
-        echo "Reboot canceled. You can reboot manually later by typing 'sudo reboot'."
+        printf "Reboot canceled. You can reboot manually later by typing 'sudo reboot'.\n"
     fi
 }
 
