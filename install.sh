@@ -38,15 +38,6 @@ pacman_programs=(
     # Add or remove programs as needed
 )
 
-# Programs to install using yay
-yay_programs=(
-    dropbox
-    spotify
-    stremio
-    teamviewer
-    # Add or remove AUR programs as needed
-)
-
 # Essential programs to install using pacman
 essential_programs=(
     discord
@@ -78,6 +69,15 @@ kde_programs=(
     packagekit-qt6
     spectacle
     # Add or remove KDE-specific programs as needed
+)
+
+# Programs to install using yay
+yay_programs=(
+    dropbox
+    spotify
+    stremio
+    teamviewer
+    # Add or remove AUR programs as needed
 )
 
 # Function to make Systemd-Boot silent
