@@ -22,10 +22,10 @@ log() {
 
 # Load program lists from external files
 load_program_lists() {
-    pacman_programs=($(cat ~/"$USER"/archinstaller/pacman_programs.txt))
-    yay_programs=($(cat ~/"$USER"/archinstaller/yay_programs.txt))
-    essential_programs=($(cat ~/"$USER"/archinstaller/essential_programs.txt))
-    kde_programs=($(cat ~/"$USER"/archinstaller/kde_programs.txt))
+    pacman_programs=($(cat ~/archinstaller/pacman_programs.txt))
+    yay_programs=($(cat ~/archinstaller/yay_programs.txt))
+    essential_programs=($(cat ~/archinstaller/essential_programs.txt))
+    kde_programs=($(cat ~/archinstaller/kde_programs.txt))
 }
 
 # Function to install packages using pacman
