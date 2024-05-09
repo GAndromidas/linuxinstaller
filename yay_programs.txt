@@ -1,4 +1,0 @@
-dropbox
-spotify
-stremio
-teamviewer
