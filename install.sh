@@ -22,10 +22,10 @@ log() {
 
 # Load program lists from external files
 load_program_lists() {
-    pacman_programs=($(cat ~/archinstaller/pacman_programs.txt))
-    yay_programs=($(cat ~/archinstaller/yay_programs.txt))
-    essential_programs=($(cat ~/archinstaller/essential_programs.txt))
-    kde_programs=($(cat ~/archinstaller/kde_programs.txt))
+    pacman_programs=($(cat ~/"$USER"/archinstaller/pacman_programs.txt))
+    yay_programs=($(cat ~/"$USER"/archinstaller/yay_programs.txt))
+    essential_programs=($(cat ~/"$USER"/archinstaller/essential_programs.txt))
+    kde_programs=($(cat ~/"$USER"/archinstaller/kde_programs.txt))
 }
 
 # Function to install packages using pacman
@@ -152,7 +152,7 @@ log "Shell changed to ZSH."
 
 # Move .zshrc
 log "Copying .zshrc to Home Folder..."
-mv ~/archinstaller/.zshrc /home/"$USER"/
+mv ~/"$USER"/archinstaller/.zshrc /home/"$USER"/
 log ".zshrc Copied Successfully."
 
 # Configure locales
@@ -220,7 +220,7 @@ log "Unused Packages and Cache Cleared Successfully."
 
 # Delete the archinstaller folder
 log "Deleting Archinstaller Folder..."
-sudo rm -rf ~/archinstaller/
+sudo rm -rf ~/"$USER"/archinstaller/
 log "Archinstaller Folder Deleted Successfully."
 
 # Reboot System
