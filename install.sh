@@ -69,13 +69,11 @@ install_pacman_packages() {
 # Function to install Yay
 install_yay() {
     log "Installing Yay..."
-    sudo git clone https://aur.archlinux.org/yay.git
-    sudo chown -R $USER:$USER yay
+    git clone https://aur.archlinux.org/yay.git
     cd yay || { log "Failed to change directory to yay. Exiting."; exit 1; }
-    sudo sed -i 's/^PKGEXT=.pkg.tar.xz/PKGEXT=.pkg.tar/' PKGBUILD  # Configure makepkg to allow building as root
-    makepkg --syncdeps --install --noconfirm || { log "Failed to install Yay. Exiting."; exit 1; }
-    cd .. && sudo rm -rf yay || { log "Failed to clean up Yay files. Exiting."; exit 1; }
-    echo -e "Yay installed successfully."
+    sudo -u "$SUDO_USER" makepkg -si --needed --noconfirm || { log "Failed to install Yay. Exiting."; exit 1; }
+    cd .. && rm -rf yay || { log "Failed to clean up Yay files. Exiting."; exit 1; }
+    log "Yay installed successfully."
 }
 
 # Function to install AUR packages using Yay
