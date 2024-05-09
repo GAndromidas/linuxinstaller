@@ -1,37 +1,33 @@
-# Arch Linux System Setup Script
+# Arch Linux Installation and Configuration
 
-This script automates the setup process for an Arch Linux system, configuring various settings, installing essential programs, and enabling services. It's designed to streamline the setup process and ensure consistency across installations.
+This script automates the installation and configuration process for Arch Linux, including the installation of essential packages, KDE-specific programs, AUR packages, system updates, firewall configuration, and more.
 
-## Features
+## Table of Contents
 
-- Display ASCII Art to add visual appeal.
-- Prompt user for password to perform administrative tasks.
-- Configure Pacman for optimized package management.
-- Update system and mirrorlist for latest packages and faster downloads.
-- Install Oh-My-ZSH and ZSH Plugins for enhanced shell experience.
-- Set language locale and timezone for system.
-- Install Yay for managing AUR packages.
-- Install essential programs and KDE-specific programs.
-- Enable necessary services such as firewall, SSH, and fail2ban.
-- Configure firewall settings to enhance security.
-- Restart Fail2Ban service with customized settings.
-- Clean up and delete setup files after completion.
-- Reboot system with countdown and cancel option.
+- [Introduction](#introduction)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Usage
+## Introduction
 
-1. Clone the repository `git clone https://github.com/gandromidas/archinstaller`.
-2. Make the script executable: `chmod +x install.sh`.
-3. Run the script with `./install.sh`.
-4. Follow the prompts and enter the necessary information when prompted.
-5. Sit back and relax while the script handles the setup process.
+This script is designed to streamline the setup process for Arch Linux users. It installs a curated list of essential programs, KDE-specific software (if applicable), AUR packages, and performs system configurations for improved usability and security.
 
-## Note
+## Prerequisites
 
-- Ensure you have an active internet connection before running the script.
-- Review the script content before executing to ensure compatibility and security.
-- Some configurations may require manual intervention or customization based on specific requirements.
+Before running the script, ensure you have:
 
-## License
+- **Arch Linux installed**: This script is specifically designed for Arch Linux.
+- **Internet connection**: The script downloads and installs packages from the internet.
+- **Root privileges**: Some commands require root privileges, so ensure you run the script with `sudo`.
 
-This project is licensed under the [MIT License](LICENSE).
+## Installation
+
+To use this script:
+
+1. Download the repository: git clone https://github.com/gandromidas/archinstaller
+2. Go to the directory: cd archinstaller/
+3. Make the script executable by running: chmod +x install.sh
+4. Run the script: ./install.sh
