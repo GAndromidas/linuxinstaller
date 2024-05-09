@@ -17,16 +17,13 @@ lib32-vkd3d
 lib32-vulkan-radeon
 mangohud
 net-tools
-noto-fonts
 noto-fonts-extra
 ntfs-3g
-openssh
 os-prober
 pacman-contrib
 samba
 sl
 speedtest-cli
-ttf-hack
 ttf-liberation
 ufw
 unrar
