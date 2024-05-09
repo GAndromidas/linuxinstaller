@@ -1,8 +1,0 @@
-ark
-gwenview
-kdeconnect
-kwalletmanager
-kvantum
-okular
-packagekit-qt6
-spectacle
