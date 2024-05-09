@@ -29,6 +29,7 @@ log "Pacman Configuration Updated Successfully."
 
 # Update mirrorlist
 log "Updating Mirrorlist..."
+sudo pacman -S --needed --noconfirm reflector rsync
 sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
 log "Mirrorlist Updated Successfully."
 
