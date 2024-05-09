@@ -18,6 +18,21 @@ log() {
     echo "$(date '+%d-%m-%Y %H:%M:%S') - $1" | tee -a $LOGFILE
 }
 
+# Configure pacman
+log "Configuring Pacman..."
+sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
+sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
+sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
+sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
+log "Pacman Configuration Updated Successfully."
+
+# Update mirrorlist
+log "Updating Mirrorlist..."
+sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+log "Mirrorlist Updated Successfully."
+
+# Fuction to load files
 load_program_lists() {
     if [ -n "$SUDO_USER" ]; then
         home_directory="/home/$SUDO_USER"
@@ -122,20 +137,6 @@ change_loader_conf
 enable_asterisks_sudo
 
 main
-
-# Configure pacman
-log "Configuring Pacman..."
-sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
-sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
-sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-log "Pacman Configuration Updated Successfully."
-
-# Update mirrorlist
-log "Updating Mirrorlist..."
-sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-log "Mirrorlist Updated Successfully."
 
 # Install Oh-My-ZSH and ZSH Plugins
 log "Configuring ZSH..."
