@@ -102,14 +102,14 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-#Update System
+# Update System
 alias sync='sudo pacman -Syyy'
 alias update='sudo pacman -Syyu && yay -Syyu && sudo flatpak update'
 
-#Update Mirrorlist
+# Update Mirrorlist
 alias mirrors='sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
 
-#Alias's for multiple directory listing commands
+# Alias's for multiple directory listing commands
 alias la='ls -Alh --color=always'  # show hidden files
 alias ls='ls -alFh --color=always' # add colors and file type extensions
 alias lx='ls -lXBh'                # sort by extension
@@ -125,24 +125,24 @@ alias labc='ls -lap'               # alphabetical sort
 alias lf="ls -l | egrep -v '^d'"   # files only
 alias ldir="ls -l | egrep '^d'"    # directories only
 
-#Clean System
+# Clean System
 alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo pacman -Rns $(pacman -Qtdq)'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 
-#Check Microcode
+# Check Microcode
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
 
-#Boot into Windows for Systemd-Boot
+# Boot into Windows for Systemd-Boot
 alias windows='sudo systemctl reboot --boot-loader-entry=auto-windows'
 
-#Restart and Shutdown
+# Restart and Shutdown
 alias sr='sudo reboot'
 alias ss='sudo poweroff'
 
-#Journal Errors
+# Journal Errors
 alias jctl='journalctl -p 3 -xb'
 
-#Various Aliases
+# Various Aliases
 alias df='df -h'
 alias free="free -mt"
 alias hw='hwinfo --short'
