@@ -80,6 +80,7 @@ install_zsh() {
 
 # Function to change shell to ZSH
 change_shell_to_zsh() {
+    printf "Changing Shell to ZSH... "
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
     printf "Shell changed to ZSH.\n"
@@ -234,6 +235,7 @@ pacman_programs=(
     ntfs-3g
     os-prober
     pacman-contrib
+    powerline-fonts
     samba
     sl
     speedtest-cli
@@ -253,7 +255,6 @@ essential_programs=(
     filezilla
     firefox
     gimp
-    kdenlive
     libreoffice-fresh
     lutris
     obs-studio
@@ -261,7 +262,6 @@ essential_programs=(
     smplayer
     steam
     telegram-desktop
-    timeshift
     vlc
     wine
     qbittorrent
