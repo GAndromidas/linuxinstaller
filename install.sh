@@ -245,6 +245,7 @@ pacman_programs=(
     vkd3d
     vulkan-radeon
     wlroots
+    xdg-desktop-portal-gtk
     xwaylandvideobridge
     # Add or remove programs as needed
 )
