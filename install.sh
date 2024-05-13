@@ -239,6 +239,7 @@ pacman_programs=(
     samba
     sl
     speedtest-cli
+    ttf-hack-nerd
     ttf-liberation
     ufw
     unrar
@@ -263,6 +264,7 @@ essential_programs=(
     smplayer
     steam
     telegram-desktop
+    timeshift
     vlc
     wine
     qbittorrent
