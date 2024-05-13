@@ -163,6 +163,17 @@ enable_services() {
     printf "Services enabled successfully.\n"
 }
 
+# Function to create fastfetch config
+create_fastfetch_config() {
+    printf "Creating fastfetch config... "
+    fastfetch --gen-config
+    printf "fastfetch config created successfully.\n"
+    
+    printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
+    cp /home/"$USER"/archinstaller/config.jsonc /home/"$USER"/.config/fastfetch/config.jsonc
+    printf "fastfetch config copied successfully.\n"
+}
+
 # Function to configure firewall
 configure_firewall() {
     printf "Configuring Firewall... "
@@ -309,6 +320,7 @@ install_kde_programs
 install_yay
 install_aur_packages
 enable_services
+create_fastfetch_config
 configure_firewall
 clear_unused_packages_cache
 delete_archinstaller_folder
