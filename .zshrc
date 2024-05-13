@@ -148,4 +148,4 @@ alias free="free -mt"
 alias hw='hwinfo --short'
 alias unlock="sudo rm /var/lib/pacman/db.lck"
 
-fastfetch --cpu-temp --gpu-temp
+fastfetch
