@@ -72,19 +72,19 @@ configure_pacman() {
     printf "Pacman configuration updated successfully.\n"
 }
 
+# Function to update mirrorlist
+update_mirrorlist() {
+    printf "Updating Mirrorlist... "
+    sudo pacman -S --needed --noconfirm reflector rsync
+    sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+    printf "Mirrorlist updated successfully.\n"
+}
+
 # Function to update the system
 update_system() {
     printf "Updating System... "
     sudo pacman -Syyu --noconfirm
-    sudo pacman -S --needed --noconfirm reflector rsync
     printf "System updated successfully.\n"
-}
-
-# Function to update mirrorlist
-update_mirrorlist() {
-    printf "Updating Mirrorlist... "
-    sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-    printf "Mirrorlist updated successfully.\n"
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
@@ -332,8 +332,8 @@ make_systemd_boot_silent
 change_loader_conf
 enable_asterisks_sudo
 configure_pacman
-update_system
 update_mirrorlist
+update_system
 install_zsh
 change_shell_to_zsh
 move_zshrc
