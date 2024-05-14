@@ -152,14 +152,15 @@ install_aur_packages() {
 # Function to enable services
 enable_services() {
     printf "Enabling Services... "
-    sudo systemctl enable --now fstrim.timer
-    sudo systemctl enable --now bluetooth
-    sudo systemctl enable --now sshd
-    sudo systemctl enable --now fail2ban
-    sudo systemctl enable --now paccache.timer
-    sudo systemctl enable --now reflector.service reflector.timer
-    sudo systemctl enable --now teamviewerd.service
-    sudo systemctl enable --now ufw
+    sudo systemctl enable --now fstrim.timer # For SSD Trim
+    sudo systemctl enable --now bluetooth # For Bluetooth
+    sudo systemctl enable --now sshd # For SSH
+    sudo systemctl enable --now fail2ban # For Fail2ban
+    sudo systemctl enable --now paccache.timer # For Paccache
+    sudo systemctl enable --now reflector.service reflector.timer # For Reflector
+    sudo systemctl enable --now teamviewerd.service # For Teamviewer
+    sudo systemctl enable --now ufw # For UFW Firewall
+    sudo systemctl enable --now cronie # For Timeshift
     printf "Services enabled successfully.\n"
 }
 
