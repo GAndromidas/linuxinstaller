@@ -21,46 +21,23 @@ install_kernel_headers() {
     printf "Kernel headers installed successfully.\n"
 }
 
-# Function to interactively select programs to install
-select_programs_to_install() {
-    local selected_programs=()
-    local program_options=("${!1}")
-
-    printf "Select programs to install (use space to select/deselect):\n"
-
-    # Iterate over program options
-    for program in "${program_options[@]}"; do
-        # Prompt user to select/deselect each program
-        read -p "Install $program? (Y/n): " choice
-        case "$choice" in
-            y|Y|"") # "Y" or Enter key pressed
-                selected_programs+=("$program") ;;
-            *) # Any other key pressed
-                continue ;;
-        esac
-    done
-
-    # Return the selected programs
-    printf "%s\n" "${selected_programs[@]}"
-}
-
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     printf "Making Systemd-Boot silent... "
     LOADER_DIR="/boot/loader"
     ENTRIES_DIR="$LOADER_DIR/entries"
-
+    
     # Find the Linux or Linux-zen entry
     linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
-
+    
     if [ -z "$linux_entry" ]; then
         printf "\nError: Linux entry not found.\n"
         exit 1
     fi
-
+    
     # Add silent boot options to the Linux entry
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
-
+    
     printf "Silent boot options added to Linux entry: %s.\n" "$(basename "$linux_entry")"
 }
 
@@ -157,22 +134,55 @@ set_language_locale_timezone() {
     printf "Language locale and timezone changed successfully.\n"
 }
 
-# Function to install programs
-install_programs() {
-    local programs_to_install=("$@")
-    printf "Installing Programs... "
-    sudo pacman -S --needed --noconfirm "${programs_to_install[@]}"
+# Function to install programs interactively
+install_programs_interactively() {
+    local program_list=("$@")
+    local selected_programs=()
+    
+    # Create an array of program names with asterisks for selection
+    local dialog_list=()
+    for program in "${program_list[@]}"; do
+        dialog_list+=("$program" "" off)
+    done
+    
+    # Use dialog to create an interactive menu
+    local result
+    result=$(dialog --clear --separate-output --checklist "Select programs to install:" 20 50 10 "${dialog_list[@]}" 2>&1 >/dev/tty)
+    
+    # Process the result to extract selected program names
+    IFS=$'\n' read -r -a selected_programs <<< "$result"
+    
+    # Install selected programs
+    printf "Installing selected programs...\n"
+    sudo pacman -S --needed --noconfirm "${selected_programs[@]}"
     printf "Programs installed successfully.\n"
 }
 
-# Function to install KDE-specific programs
-install_kde_programs() {
-    printf "Installing KDE-Specific Programs... "
-    sudo pacman -S --needed --noconfirm "${kde_programs[@]}"
+# Function to install KDE-specific programs interactively
+install_kde_programs_interactively() {
+    local program_list=("$@")
+    local selected_programs=()
+    
+    # Create an array of program names with asterisks for selection
+    local dialog_list=()
+    for program in "${program_list[@]}"; do
+        dialog_list+=("$program" "" off)
+    done
+    
+    # Use dialog to create an interactive menu
+    local result
+    result=$(dialog --clear --separate-output --checklist "Select KDE-specific programs to install:" 20 50 10 "${dialog_list[@]}" 2>&1 >/dev/tty)
+    
+    # Process the result to extract selected program names
+    IFS=$'\n' read -r -a selected_programs <<< "$result"
+    
+    # Install selected programs
+    printf "Installing selected KDE-specific programs...\n"
+    sudo pacman -S --needed --noconfirm "${selected_programs[@]}"
     sudo pacman -Rcs --noconfirm htop
     sudo flatpak install -y flathub net.davidotek.pupgui2
     sudo flatpak upgrade
-    printf "KDE-Specific programs installed successfully.\n"
+    printf "KDE-specific programs installed successfully.\n"
 }
 
 # Function to install YAY
@@ -186,12 +196,28 @@ install_yay() {
     printf "YAY installed successfully.\n"
 }
 
-# Function to install AUR packages
-install_aur_packages() {
-    local aur_packages_to_install=("$@")
-    printf "Installing AUR Packages... "
-    yay -S --needed --noconfirm "${aur_packages_to_install[@]}"
-    printf "AUR Packages installed successfully.\n"
+# Function to install AUR packages interactively
+install_aur_packages_interactively() {
+    local program_list=("$@")
+    local selected_programs=()
+    
+    # Create an array of program names with asterisks for selection
+    local dialog_list=()
+    for program in "${program_list[@]}"; do
+        dialog_list+=("$program" "" off)
+    done
+    
+    # Use dialog to create an interactive menu
+    local result
+    result=$(dialog --clear --separate-output --checklist "Select AUR packages to install:" 20 50 10 "${dialog_list[@]}" 2>&1 >/dev/tty)
+    
+    # Process the result to extract selected program names
+    IFS=$'\n' read -r -a selected_programs <<< "$result"
+    
+    # Install selected programs
+    printf "Installing selected AUR packages...\n"
+    yay -S --needed --noconfirm "${selected_programs[@]}"
+    printf "AUR packages installed successfully.\n"
 }
 
 # Function to enable services
@@ -214,7 +240,7 @@ create_fastfetch_config() {
     printf "Creating fastfetch config... "
     fastfetch --gen-config
     printf "fastfetch config created successfully.\n"
-
+    
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
     cp /home/"$USER"/archinstaller/config.jsonc /home/"$USER"/.config/fastfetch/config.jsonc
     printf "fastfetch config copied successfully.\n"
@@ -364,16 +390,18 @@ move_zshrc
 configure_locales
 set_language_locale_timezone
 
-# Select programs to install
-selected_pacman_programs=$(select_programs_to_install pacman_programs[@])
-selected_essential_programs=$(select_programs_to_install essential_programs[@])
-selected_kde_programs=$(select_programs_to_install kde_programs[@])
-selected_yay_programs=$(select_programs_to_install yay_programs[@])
+# Install programs interactively
+install_programs_interactively "${pacman_programs[@]}"
 
-install_programs "${selected_pacman_programs[@]}"
-install_kde_programs "${selected_kde_programs[@]}"
+# Install KDE-specific programs interactively
+install_kde_programs_interactively "${kde_programs[@]}"
+
+# Install YAY
 install_yay
-install_aur_packages "${selected_yay_programs[@]}"
+
+# Install AUR packages interactively
+install_aur_packages_interactively "${yay_programs[@]}"
+
 enable_services
 create_fastfetch_config
 configure_firewall
