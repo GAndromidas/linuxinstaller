@@ -1,5 +1,26 @@
 #!/bin/bash
 
+# Function to identify the installed Linux kernel type
+identify_kernel_type() {
+    printf "Identifying installed Linux kernel type... "
+
+    # Check if linux-zen kernel is installed
+    if pacman -Q linux-zen &>/dev/null; then
+        printf "Linux-Zen kernel found.\n"
+        kernel_headers="linux-zen-headers"
+    else
+        printf "Standard Linux kernel found.\n"
+        kernel_headers="linux-headers"
+    fi
+}
+
+# Function to install kernel headers
+install_kernel_headers() {
+    printf "Installing kernel headers... "
+    sudo pacman -S --needed --noconfirm "$kernel_headers"
+    printf "Kernel headers installed successfully.\n"
+}
+
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     printf "Making Systemd-Boot silent... "
@@ -305,6 +326,8 @@ yay_programs=(
 )
 
 # Run functions
+identify_kernel_type
+install_kernel_headers
 make_systemd_boot_silent
 change_loader_conf
 enable_asterisks_sudo
