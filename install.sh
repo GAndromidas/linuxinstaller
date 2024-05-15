@@ -223,7 +223,7 @@ clear_unused_packages_cache() {
 # Function to remove Linux kernel fallback image
 remove_kernel_fallback_image() {
     printf "Removing Linux kernel fallback image... "
-    sudo rm /boot/*fallback*
+    sudo rm /boot/loader/entries/*fallback*
     printf "Linux kernel fallback image removed successfully.\n"
 }
 
