@@ -220,6 +220,13 @@ clear_unused_packages_cache() {
     printf "Unused packages and cache cleared successfully.\n"
 }
 
+# Function to remove Linux kernel fallback image
+remove_kernel_fallback_image() {
+    printf "Removing Linux kernel fallback image... "
+    sudo rm /boot/*fallback*
+    printf "Linux kernel fallback image removed successfully.\n"
+}
+
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
     printf "Deleting Archinstaller Folder... "
@@ -347,5 +354,6 @@ enable_services
 create_fastfetch_config
 configure_firewall
 clear_unused_packages_cache
+remove_kernel_fallback_image
 delete_archinstaller_folder
 reboot_system
