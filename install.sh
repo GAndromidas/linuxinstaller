@@ -1,24 +1,14 @@
 #!/bin/bash
 
-# Function to identify the installed Linux kernel type
-identify_kernel_type() {
-    printf "Identifying installed Linux kernel type... "
-
-    # Check if linux-zen kernel is installed
-    if pacman -Q linux-zen &>/dev/null; then
-        printf "Linux-Zen kernel found.\n"
-        kernel_headers="linux-zen-headers"
-    else
-        printf "Standard Linux kernel found.\n"
-        kernel_headers="linux-headers"
-    fi
-}
-
-# Function to install kernel headers
-install_kernel_headers() {
-    printf "Installing kernel headers... "
-    sudo pacman -S --needed --noconfirm "$kernel_headers"
-    printf "Kernel headers installed successfully.\n"
+# Function to configure Pacman
+configure_pacman() {
+    printf "Configuring Pacman... "
+    sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
+    sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+    sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
+    sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
+    sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
+    printf "Pacman configuration updated successfully.\n"
 }
 
 # Function to make Systemd-Boot silent
@@ -61,15 +51,25 @@ enable_asterisks_sudo() {
     fi
 }
 
-# Function to configure Pacman
-configure_pacman() {
-    printf "Configuring Pacman... "
-    sudo sed -i '/^#Color/s/^#//' /etc/pacman.conf
-    sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-    sudo sed -i '/^#VerbosePkgLists/s/^#//' /etc/pacman.conf
-    sudo sed -i 's/^#ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-    sudo sed -i 's/^ParallelDownloads = 5/ParallelDownloads = 10/' /etc/pacman.conf
-    printf "Pacman configuration updated successfully.\n"
+# Function to identify the installed Linux kernel type
+identify_kernel_type() {
+    printf "Identifying installed Linux kernel type... "
+
+    # Check if linux-zen kernel is installed
+    if pacman -Q linux-zen &>/dev/null; then
+        printf "Linux-Zen kernel found.\n"
+        kernel_headers="linux-zen-headers"
+    else
+        printf "Standard Linux kernel found.\n"
+        kernel_headers="linux-headers"
+    fi
+}
+
+# Function to install kernel headers
+install_kernel_headers() {
+    printf "Installing kernel headers... "
+    sudo pacman -S --needed --noconfirm "$kernel_headers"
+    printf "Kernel headers installed successfully.\n"
 }
 
 # Function to update mirrorlist
@@ -333,12 +333,12 @@ yay_programs=(
 )
 
 # Run functions
-identify_kernel_type
-install_kernel_headers
+configure_pacman
 make_systemd_boot_silent
 change_loader_conf
 enable_asterisks_sudo
-configure_pacman
+identify_kernel_type
+install_kernel_headers
 update_mirrorlist
 update_system
 install_zsh
