@@ -16,7 +16,7 @@
             "format": "\u001b[90m┌──────────────────────Hardware──────────────────────┐"
         },
         {
-            "type": "host",
+            "type": "board",
             "key": " PC",
             "keyColor": "green"
         },
