@@ -23,7 +23,7 @@
         {
             "type": "command",
             "key": " 󱋩",
-            "shell": "/bin/zsh"
+            "shell": "/bin/bash"
         },
         {
             "type": "os",
@@ -48,7 +48,7 @@
             "type": "command",
             "key": " 󰾰",
             "text": "cat /sys/devices/virtual/dmi/id/product_name",
-            "shell": "/bin/zsh"
+            "shell": "/bin/bash"
         },
         {
             "type": "cpu",
