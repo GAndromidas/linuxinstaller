@@ -110,7 +110,7 @@ change_shell_to_zsh() {
 # Function to move .zshrc
 move_zshrc() {
     printf "Copying .zshrc to Home Folder... "
-    mv /home/"$USER"/archinstaller/.zshrc /home/"$USER"/
+    mv "$HOME"/archinstaller/.zshrc "$HOME"/
     printf ".zshrc copied successfully.\n"
 }
 
@@ -192,7 +192,7 @@ create_fastfetch_config() {
     printf "fastfetch config created successfully.\n"
     
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
-    cp /home/"$USER"/archinstaller/config.jsonc /home/"$USER"/.config/fastfetch/config.jsonc
+    cp "$HOME"/archinstaller/config.jsonc "$HOME"/.config/fastfetch/config.jsonc
     printf "fastfetch config copied successfully.\n"
 }
 
@@ -230,7 +230,7 @@ remove_kernel_fallback_image() {
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
     printf "Deleting Archinstaller Folder... "
-    sudo rm -rf /home/"$USER"/archinstaller
+    sudo rm -rf "$HOME"/archinstaller
     printf "Archinstaller folder deleted successfully.\n"
 }
 
@@ -325,6 +325,7 @@ kde_programs=(
 
 # Programs to install using yay
 yay_programs=(
+    brave-bin
     dropbox
     spotify
     stremio
