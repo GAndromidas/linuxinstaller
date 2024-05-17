@@ -308,7 +308,6 @@ essential_programs=(
     libreoffice-fresh
     lutris
     obs-studio
-    openrgb
     smplayer
     steam
     telegram-desktop
