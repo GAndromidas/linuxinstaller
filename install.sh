@@ -269,6 +269,7 @@ pacman_programs=(
     fastfetch
     flatpak
     fwupd
+    fzf
     gamemode
     gamescope
     hwinfo
@@ -296,6 +297,7 @@ pacman_programs=(
     wlroots
     xdg-desktop-portal-gtk
     xwaylandvideobridge
+    zoxide
     # Add or remove programs as needed
 )
 
