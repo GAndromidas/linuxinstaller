@@ -150,4 +150,6 @@ alias unlock="sudo rm /var/lib/pacman/db.lck"
 
 fastfetch --cpu-temp
 
+# Set up fzf key bindings and fuzzy completion
+source <(fzf --zsh)
 eval "$(zoxide init zsh)"
