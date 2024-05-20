@@ -21,5 +21,4 @@ To use this script:
 
 1. Download the repository: git clone https://github.com/gandromidas/archinstaller
 2. Go to the directory: cd archinstaller/
-3. Make the script executable by running: chmod +x install.sh
-4. Run the script: ./install.sh
+3. Run the script: ./install.sh
