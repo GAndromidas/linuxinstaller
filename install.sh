@@ -122,6 +122,7 @@ update_mirrorlist() {
     printf "Updating Mirrorlist... "
     sudo pacman -S --needed --noconfirm reflector rsync
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+    echo
     printf "\033[0;32m "Mirrorlist updated successfully.\033[0m"\n"
 }
 
