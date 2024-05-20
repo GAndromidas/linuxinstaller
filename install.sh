@@ -186,50 +186,25 @@ remove_htop() {
     printf "htop package removed successfully.\n"
 }
 
-# Function to ask for user input to install or skip a program
-ask_install_scripts() {
-    read -p "Do you want to install $1? (y/n): " confirm_install
-    while [[ ! "$confirm_install" =~ ^[yn]$ ]]; do
-        read -p "Invalid input. Please enter 'y' to install or 'n' to skip: " confirm_install
-    done
-    if [[ "$confirm_install" == "y" ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Function to install programs
 install_programs() {
     printf "Installing Programs... "
-    if ask_install_scripts "additional programs"; then
-        sh archinstaller/scripts/install_programs.sh
+            ./archinstaller/scripts/install_programs.sh
         printf "Programs installed successfully.\n"
-    else
-        printf "Skipping installation of additional programs.\n"
-    fi
 }
 
 # Function to install flatpak programs
 install_flatpak_programs() {
     printf "Installing Flatpak Programs... "
-    if ask_install_scripts "Flatpak programs"; then
-        sh archinstaller/scripts/install_flatpak_programs.sh
+            ./archinstaller/scripts/install_flatpak_programs.sh
         printf "Flatpak programs installed successfully.\n"
-    else
-        printf "Skipping installation of Flatpak programs.\n"
-    fi
 }
 
 # Function to install AUR programs
 install_aur_programs() {
     printf "Installing AUR Programs... "
-    if ask_install_scripts "AUR programs"; then
-        sh archinstaller/scripts/install_aur_programs.sh
+            ./archinstaller/scripts/install_aur_programs.sh
         printf "AUR programs installed successfully.\n"
-    else
-        printf "Skipping installation of AUR programs.\n"
-    fi
 }
 
 # Function to enable services
@@ -335,7 +310,6 @@ move_zshrc
 configure_locales
 set_language_locale_timezone
 remove_htop
-ask_install_scripts
 install_programs
 install_flatpak_programs
 install_aur_programs
