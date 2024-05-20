@@ -12,7 +12,7 @@ identify_kernel_type() {
     # Purpose: Identifies the installed Linux kernel type and sets the appropriate kernel headers.
     # Dependencies: pacman
     # Output: Sets the variable kernel_headers based on the detected kernel type.
-    echo "Identifying installed Linux kernel type... "
+    printf "Identifying installed Linux kernel type... "
     echo
     if pacman -Q linux-zen &>/dev/null; then
         printf "Linux-Zen kernel found.\n"
@@ -41,7 +41,7 @@ install_kernel_headers() {
     # Output: Installs the necessary kernel headers.
     identify_kernel_type  # Ensure kernel type is identified before installation
     echo
-    echo "Installing kernel headers... "
+    printf "Installing kernel headers... "
     echo
     sudo pacman -S --needed --noconfirm "$kernel_headers"
     if [ $? -ne 0 ]; then
@@ -55,7 +55,7 @@ install_kernel_headers() {
 # Function to remove Linux kernel fallback image
 remove_kernel_fallback_image() {
     echo
-    echo "Removing Linux kernel fallback image... "
+    printf "Removing Linux kernel fallback image... "
     echo
     sudo rm /boot/loader/entries/*fallback*
     echo
@@ -68,7 +68,7 @@ configure_pacman() {
     # Dependencies: sudo, sed
     # Output: Updates Pacman configuration settings.
     echo
-    echo "Configuring Pacman... "
+    printf "Configuring Pacman... "
     echo
     sudo sed -i '
         /^#Color/s/^#//
@@ -90,7 +90,7 @@ make_systemd_boot_silent() {
     # Dependencies: find, sed
     # Output: Adds silent boot options to the Linux or Linux-Zen entry.
     echo
-    echo "Making Systemd-Boot silent... "
+    printf "Making Systemd-Boot silent... "
     echo
     LOADER_DIR="/boot/loader"
     ENTRIES_DIR="$LOADER_DIR/entries"
@@ -115,7 +115,7 @@ change_loader_conf() {
     # Purpose: Changes loader.conf settings for boot configuration.
     # Output: Updates loader.conf settings.
     echo
-    echo "Changing loader.conf... "
+    printf "Changing loader.conf... "
     echo
     LOADER_CONF="/boot/loader/loader.conf"
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
@@ -128,7 +128,7 @@ change_loader_conf() {
 enable_asterisks_sudo() {
     # Enables password feedback with asterisks in sudoers file.
     echo
-    echo "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
+    printf "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
     echo
     printf "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
 }
@@ -136,7 +136,7 @@ enable_asterisks_sudo() {
 # Function to update mirrorlist
 update_mirrorlist() {
     echo
-    echo "Updating Mirrorlist... "
+    printf "Updating Mirrorlist... "
     echo
     sudo pacman -S --needed --noconfirm reflector rsync
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
@@ -147,7 +147,7 @@ update_mirrorlist() {
 # Function to update the system
 update_system() {
     echo
-    echo "Updating System... "
+    printf "Updating System... "
     echo
     sudo pacman -Syyu --noconfirm
     echo
@@ -157,7 +157,7 @@ update_system() {
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
     echo
-    echo "Configuring ZSH... "
+    printf "Configuring ZSH... "
     echo
     sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -172,7 +172,7 @@ install_zsh() {
 # Function to change shell to ZSH
 change_shell_to_zsh() {
     echo
-    echo "Changing Shell to ZSH... "
+    printf "Changing Shell to ZSH... "
     echo
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
@@ -183,7 +183,7 @@ change_shell_to_zsh() {
 # Function to move .zshrc
 move_zshrc() {
     echo
-    echo "Copying .zshrc to Home Folder... "
+    printf "Copying .zshrc to Home Folder... "
     echo
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
     echo
