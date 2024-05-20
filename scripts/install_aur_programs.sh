@@ -18,11 +18,13 @@ install_aur_packages() {
 
 # Programs to install using yay
 yay_programs=(
-    brave-bin
     dropbox
+    github-desktop-bin
     spotify
     stremio
     teamviewer
+    ventoy-bin
+    via-bin
     # Add or remove AUR programs as needed
 )
 
