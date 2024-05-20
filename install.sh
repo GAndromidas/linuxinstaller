@@ -248,6 +248,9 @@ install_programs() {
     printf "Installing Programs... "
     (cd "$HOME/archinstaller/scripts" && ./install_programs.sh)
     printf "Programs installed successfully.\n"
+    
+    # Call the next function here
+    install_flatpak_programs
 }
 
 # Function to install flatpak programs
@@ -255,6 +258,9 @@ install_flatpak_programs() {
     printf "Installing Flatpak Programs... "
     (cd "$HOME/archinstaller/scripts" && ./install_flatpak_programs.sh)
     printf "Flatpak programs installed successfully.\n"
+    
+    # Call the next function here
+    install_aur_programs
 }
 
 # Function to install AUR programs
@@ -369,8 +375,6 @@ set_language_locale_timezone
 remove_htop
 choose_yay_or_paru
 install_programs
-install_flatpak_programs
-install_aur_programs
 enable_services
 create_fastfetch_config
 configure_firewall
