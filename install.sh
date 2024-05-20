@@ -48,7 +48,7 @@ install_kernel_headers() {
         printf "Error: Failed to install kernel headers.\n"
         exit 1
     else
-        printf "\033[0;32m "Kernel headers installed successfully.\033[0m"\n"
+        echo "\033[0;32m "Kernel headers installed successfully.\033[0m"\n"
     fi
 }
 
@@ -59,7 +59,7 @@ remove_kernel_fallback_image() {
     echo
     sudo rm /boot/loader/entries/*fallback*
     echo
-    printf "\033[0;32m "Linux kernel fallback image removed successfully.\033[0m"\n"
+    echo "\033[0;32m "Linux kernel fallback image removed successfully.\033[0m"\n"
 }
 
 # Function to configure Pacman
@@ -80,7 +80,7 @@ configure_pacman() {
         printf "Error: Failed to configure Pacman.\n"
         exit 1
     else
-        printf "\033[0;32m "Pacman configuration updated successfully.\033[0m"\n"
+        echo "\033[0;32m "Pacman configuration updated successfully.\033[0m"\n"
     fi
 }
 
@@ -107,7 +107,7 @@ make_systemd_boot_silent() {
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
     
     echo
-    printf "Silent boot options added to Linux entry: %s.\n" "$(basename "$linux_entry")"
+    echo "Silent boot options added to Linux entry: %s.\n" "$(basename "$linux_entry")"
 }
 
 # Function to change loader.conf
@@ -121,7 +121,7 @@ change_loader_conf() {
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
     echo
-    printf "\033[0;32m "Loader configuration updated.\033[0m"\n"
+    echo "\033[0;32m "Loader configuration updated.\033[0m"\n"
 }
 
 # Function to enable asterisks for password in sudoers
@@ -130,7 +130,7 @@ enable_asterisks_sudo() {
     echo
     echo "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
     echo
-    printf "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
+    echo "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
 }
 
 # Function to update mirrorlist
@@ -141,7 +141,7 @@ update_mirrorlist() {
     sudo pacman -S --needed --noconfirm reflector rsync
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
     echo
-    printf "\033[0;32m "Mirrorlist updated successfully.\033[0m"\n"
+    echo "\033[0;32m "Mirrorlist updated successfully.\033[0m"\n"
 }
 
 # Function to update the system
@@ -151,7 +151,7 @@ update_system() {
     echo
     sudo pacman -Syyu --noconfirm
     echo
-    printf "\033[0;32m "System updated successfully.\033[0m"\n"
+    echo "\033[0;32m "System updated successfully.\033[0m"\n"
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
@@ -166,7 +166,7 @@ install_zsh() {
     sleep 1
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     echo
-    printf "\033[0;32m "ZSH configured successfully.\033[0m"\n"
+    echo "\033[0;32m "ZSH configured successfully.\033[0m"\n"
 }
 
 # Function to change shell to ZSH
@@ -177,7 +177,7 @@ change_shell_to_zsh() {
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
     echo
-    printf "\033[0;32m "Shell changed to ZSH.\033[0m"\n"
+    echo "\033[0;32m "Shell changed to ZSH.\033[0m"\n"
 }
 
 # Function to move .zshrc
@@ -187,7 +187,7 @@ move_zshrc() {
     echo
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
     echo
-    printf "\033[0;32m ".zshrc copied successfully.\033[0m"\n"
+    echo "\033[0;32m ".zshrc copied successfully.\033[0m"\n"
 }
 
 # Function to configure locales
