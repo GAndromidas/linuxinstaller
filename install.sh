@@ -107,7 +107,7 @@ change_loader_conf() {
     LOADER_CONF="/boot/loader/loader.conf"
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    printf "\033[0;32mp "Loader configuration updated.\033[0m"\n"
+    printf "\033[0;32m "Loader configuration updated.\033[0m"\n"
 }
 
 # Function to enable asterisks for password in sudoers
