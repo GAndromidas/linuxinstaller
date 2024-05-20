@@ -336,6 +336,9 @@ configure_locales
 set_language_locale_timezone
 remove_htop
 ask_install_scripts
+install_programs
+install_flatpak_programs
+install_aur_programs
 enable_services
 create_fastfetch_config
 configure_firewall
