@@ -45,7 +45,7 @@ install_kernel_headers() {
         printf "Error: Failed to install kernel headers.\n"
         exit 1
     else
-        printf "\033[0;32mprintf "Kernel headers installed successfully.\033[0m"\n"
+        printf "\033[0;32m "Kernel headers installed successfully.\033[0m"\n"
     fi
 }
 
@@ -53,7 +53,7 @@ install_kernel_headers() {
 remove_kernel_fallback_image() {
     printf "Removing Linux kernel fallback image... "
     sudo rm /boot/loader/entries/*fallback*
-    printf "\033[0;32mprintf "Linux kernel fallback image removed successfully.\033[0m"\n"
+    printf "\033[0;32m "Linux kernel fallback image removed successfully.\033[0m"\n"
 }
 
 # Function to configure Pacman
@@ -72,7 +72,7 @@ configure_pacman() {
         printf "Error: Failed to configure Pacman.\n"
         exit 1
     else
-        printf "\033[0;32mprintf "Pacman configuration updated successfully.\033[0m"\n"
+        printf "\033[0;32m "Pacman configuration updated successfully.\033[0m"\n"
     fi
 }
 
@@ -107,14 +107,14 @@ change_loader_conf() {
     LOADER_CONF="/boot/loader/loader.conf"
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    printf "\033[0;32mprintf "Loader configuration updated.\033[0m"\n"
+    printf "\033[0;32mp "Loader configuration updated.\033[0m"\n"
 }
 
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
     # Enables password feedback with asterisks in sudoers file.
     echo "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
-    printf "Password feedback enabled in sudoers.\n"
+    printf "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
 }
 
 # Function to update mirrorlist
@@ -122,14 +122,14 @@ update_mirrorlist() {
     printf "Updating Mirrorlist... "
     sudo pacman -S --needed --noconfirm reflector rsync
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
-    printf "\033[0;32mprintf "Mirrorlist updated successfully.\033[0m"\n"
+    printf "\033[0;32m "Mirrorlist updated successfully.\033[0m"\n"
 }
 
 # Function to update the system
 update_system() {
     printf "Updating System... "
     sudo pacman -Syyu --noconfirm
-    printf "\033[0;32mprintf "System updated successfully.\033[0m"\n"
+    printf "\033[0;32m "System updated successfully.\033[0m"\n"
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
@@ -141,7 +141,7 @@ install_zsh() {
     git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
     sleep 1
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-    printf "\033[0;32mprintf "ZSH configured successfully.\033[0m"\n"
+    printf "\033[0;32m "ZSH configured successfully.\033[0m"\n"
 }
 
 # Function to change shell to ZSH
@@ -149,14 +149,14 @@ change_shell_to_zsh() {
     printf "Changing Shell to ZSH... "
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
-    printf "\033[0;32mprintf "Shell changed to ZSH.\033[0m"\n"
+    printf "\033[0;32m "Shell changed to ZSH.\033[0m"\n"
 }
 
 # Function to move .zshrc
 move_zshrc() {
     printf "Copying .zshrc to Home Folder... "
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
-    printf "\033[0;32mprintf ".zshrc copied successfully.\033[0m"\n"
+    printf "\033[0;32m ".zshrc copied successfully.\033[0m"\n"
 }
 
 # Function to configure locales
@@ -164,7 +164,7 @@ configure_locales() {
     printf "Configuring Locales... "
     sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
     sudo locale-gen
-    printf "\033[0;32mprintf "Locales generated successfully.\033[0m"\n"
+    printf "\033[0;32m "Locales generated successfully.\033[0m"\n"
 }
 
 # Function to set language locale and timezone
@@ -176,14 +176,14 @@ set_language_locale_timezone() {
     sudo localectl set-locale LC_MONETARY="el_GR.UTF-8"
     sudo localectl set-locale LC_MEASUREMENT="el_GR.UTF-8"
     sudo timedatectl set-timezone "Europe/Athens"
-    printf "\033[0;32mprintf "Language locale and timezone changed successfully.\033[0m"\n"
+    printf "\033[0;32m "Language locale and timezone changed successfully.\033[0m"\n"
 }
 
 # Function to remove htop package
 remove_htop() {
     printf "Removing htop package... "
     sudo pacman -Rcs --noconfirm htop
-    printf "\033[0;32mprintf "htop package removed successfully.\033[0m"\n"
+    printf "\033[0;32m "htop package removed successfully.\033[0m"\n"
 }
 
 # Function to choose between YAY and Paru for installation
@@ -220,7 +220,7 @@ install_yay() {
 
     cd ..
     rm -rf yay
-    printf "\033[0;32mprintf "YAY installed successfully.\033[0m"\n"
+    printf "\033[0;32m "YAY installed successfully.\033[0m"\n"
 }
 
 # Function to install Paru
@@ -240,14 +240,14 @@ install_paru() {
 
     cd ..
     rm -rf paru
-    printf "\033[0;32mprintf "Paru installed successfully.\033[0m"\n"
+    printf "\033[0;32m "Paru installed successfully.\033[0m"\n"
 }
 
 # Function to install programs
 install_programs() {
     printf "Installing Programs... "
     (cd "$HOME/archinstaller/scripts" && ./install_programs.sh)
-    printf "\033[0;32mprintf "Programs installed successfully.\033[0m"\n"
+    printf "\033[0;32m "Programs installed successfully.\033[0m"\n"
     
     # Call the next function here
     install_flatpak_programs
@@ -257,7 +257,7 @@ install_programs() {
 install_flatpak_programs() {
     printf "Installing Flatpak Programs... "
     (cd "$HOME/archinstaller/scripts" && ./install_flatpak_programs.sh)
-    printf "\033[0;32mprintf "Flatpak programs installed successfully.\033[0m"\n"
+    printf "\033[0;32m "Flatpak programs installed successfully.\033[0m"\n"
     
     # Call the next function here
     install_aur_programs
@@ -267,7 +267,7 @@ install_flatpak_programs() {
 install_aur_programs() {
     printf "Installing AUR Programs... "
     (cd "$HOME/archinstaller/scripts" && ./install_aur_programs.sh)
-    printf "\033[0;32mprintf "AUR programs installed successfully.\033[0m"\n"
+    printf "\033[0;32m "AUR programs installed successfully.\033[0m"\n"
 }
 
 # Function to enable services
@@ -290,18 +290,18 @@ enable_services() {
         sudo systemctl enable --now "$service"
     done
 
-    printf "\033[0;32mprintf "Services enabled successfully.\033[0m"\n"
+    printf "\033[0;32m "Services enabled successfully.\033[0m"\n"
 }
 
 # Function to create fastfetch config
 create_fastfetch_config() {
     printf "Creating fastfetch config... "
     fastfetch --gen-config
-    printf "\033[0;32mprintf "fastfetch config created successfully.\033[0m"\n"
+    printf "\033[0;32m "fastfetch config created successfully.\033[0m"\n"
     
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
     cp "$HOME"/archinstaller/configs/config.jsonc "$HOME"/.config/fastfetch/config.jsonc
-    printf "\033[0;32mprintf "fastfetch config copied successfully.\033[0m"\n"
+    printf "\033[0;32m "fastfetch config copied successfully.\033[0m"\n"
 }
 
 # Function to configure firewall
@@ -315,7 +315,7 @@ configure_firewall() {
     sudo ufw allow 1714:1764/tcp
     sudo ufw allow 1714:1764/udp
     sudo ufw --force enable
-    printf "\033[0;32mprintf "Firewall configured successfully.\033[0m"\n"
+    printf "\033[0;32m "Firewall configured successfully.\033[0m"\n"
 }
 
 # Function to clear unused packages and cache
@@ -325,14 +325,14 @@ clear_unused_packages_cache() {
     sudo pacman -Sc --noconfirm
     yay -Sc --noconfirm
     rm -rf ~/.cache/* && sudo paccache -r
-    printf "\033[0;32mprintf "Unused packages and cache cleared successfully.\033[0m"\n"
+    printf "\033[0;32m "Unused packages and cache cleared successfully.\033[0m"\n"
 }
 
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
     printf "Deleting Archinstaller Folder... "
     sudo rm -rf "$HOME"/archinstaller
-    printf "\033[0;32mprintf "Archinstaller folder deleted successfully.\033[0m"\n"
+    printf "\033[0;32m "Archinstaller folder deleted successfully.\033[0m"\n"
 }
 
 # Function to reboot system
