@@ -186,6 +186,63 @@ remove_htop() {
     printf "htop package removed successfully.\n"
 }
 
+# Function to choose between YAY and Paru for installation
+choose_yay_or_paru() {
+    printf "Choose AUR Helper: YAY or Paru\n"
+    read -p "Enter 'y' for YAY or 'p' for Paru: " aur_helper
+
+    # Validate user input for AUR helper selection
+    while [[ ! "$aur_helper" =~ ^[yp]$ ]]; do
+        read -p "Invalid input. Please enter 'y' for YAY or 'p' for Paru: " aur_helper
+    done
+
+    if [[ "$aur_helper" == "y" ]]; then
+        install_yay
+    elif [[ "$aur_helper" == "p" ]]; then
+        install_paru
+    fi
+}
+
+# Function to install YAY
+install_yay() {
+    printf "Installing YAY... "
+    if [ -d "yay" ]; then
+        rm -rf yay
+    fi
+
+    git clone https://aur.archlinux.org/yay.git
+    cd yay || { echo "Error: Unable to change directory to yay. Exiting."; exit 1; }
+
+    if ! makepkg -si --needed --noconfirm; then
+        echo "Error: Failed to install YAY. Exiting."
+        exit 1
+    fi
+
+    cd ..
+    rm -rf yay
+    printf "YAY installed successfully.\n"
+}
+
+# Function to install Paru
+install_paru() {
+    printf "Installing Paru... "
+    if [ -d "paru" ]; then
+        rm -rf paru
+    fi
+
+    git clone https://aur.archlinux.org/paru.git
+    cd paru || { echo "Error: Unable to change directory to paru. Exiting."; exit 1; }
+
+    if ! makepkg -si --needed --noconfirm; then
+        echo "Error: Failed to install Paru. Exiting."
+        exit 1
+    fi
+
+    cd ..
+    rm -rf paru
+    printf "Paru installed successfully.\n"
+}
+
 # Function to install programs
 install_programs() {
     printf "Installing Programs... "
@@ -310,6 +367,7 @@ move_zshrc
 configure_locales
 set_language_locale_timezone
 remove_htop
+choose_yay_or_paru
 install_programs
 install_flatpak_programs
 install_aur_programs
