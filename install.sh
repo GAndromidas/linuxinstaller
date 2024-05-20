@@ -203,7 +203,7 @@ ask_install_scripts() {
 install_programs() {
     printf "Installing Programs... "
     if ask_install_scripts "additional programs"; then
-        bash archinstaller/scripts/install_programs.sh
+        sh archinstaller/scripts/install_programs.sh
         printf "Programs installed successfully.\n"
     else
         printf "Skipping installation of additional programs.\n"
@@ -214,7 +214,7 @@ install_programs() {
 install_flatpak_programs() {
     printf "Installing Flatpak Programs... "
     if ask_install_scripts "Flatpak programs"; then
-        bash archinstaller/scripts/install_flatpak_programs.sh
+        sh archinstaller/scripts/install_flatpak_programs.sh
         printf "Flatpak programs installed successfully.\n"
     else
         printf "Skipping installation of Flatpak programs.\n"
@@ -225,7 +225,7 @@ install_flatpak_programs() {
 install_aur_programs() {
     printf "Installing AUR Programs... "
     if ask_install_scripts "AUR programs"; then
-        bash archinstaller/scripts/install_aur_programs.sh
+        sh archinstaller/scripts/install_aur_programs.sh
         printf "AUR programs installed successfully.\n"
     else
         printf "Skipping installation of AUR programs.\n"
