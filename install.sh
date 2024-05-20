@@ -187,7 +187,7 @@ remove_htop() {
 }
 
 # Function to ask for user input to install or skip a program
-ask_install_skip() {
+ask_install_scripts() {
     read -p "Do you want to install $1? (y/n): " confirm_install
     while [[ ! "$confirm_install" =~ ^[yn]$ ]]; do
         read -p "Invalid input. Please enter 'y' to install or 'n' to skip: " confirm_install
