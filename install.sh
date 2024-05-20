@@ -189,22 +189,22 @@ remove_htop() {
 # Function to install programs
 install_programs() {
     printf "Installing Programs... "
-            ./archinstaller/scripts/install_programs.sh
-        printf "Programs installed successfully.\n"
+    (cd "$HOME/archinstaller/scripts" && ./install_programs.sh)
+    printf "Programs installed successfully.\n"
 }
 
 # Function to install flatpak programs
 install_flatpak_programs() {
     printf "Installing Flatpak Programs... "
-            ./archinstaller/scripts/install_flatpak_programs.sh
-        printf "Flatpak programs installed successfully.\n"
+    (cd "$HOME/archinstaller/scripts" && ./install_flatpak_programs.sh)
+    printf "Flatpak programs installed successfully.\n"
 }
 
 # Function to install AUR programs
 install_aur_programs() {
     printf "Installing AUR Programs... "
-            ./archinstaller/scripts/install_aur_programs.sh
-        printf "AUR programs installed successfully.\n"
+    (cd "$HOME/archinstaller/scripts" && ./install_aur_programs.sh)
+    printf "AUR programs installed successfully.\n"
 }
 
 # Function to enable services
