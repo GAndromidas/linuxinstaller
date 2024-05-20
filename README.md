@@ -1,17 +1,19 @@
-# Arch Linux Installation and Configuration
+# Arch Linux Installation Script
 
-This script automates the installation and configuration process for Arch Linux, including the installation of essential packages, KDE-specific programs, AUR packages, system updates, firewall configuration, and more.
+This script automates the setup of an Arch Linux system with various configurations and installations.
 
-## Introduction
-
-This script is designed to streamline the setup process for Arch Linux users. It installs a curated list of essential programs, KDE-specific software (if applicable), AUR packages, and performs system configurations for improved usability and security.
-
-## Prerequisites
-
-Before running the script, ensure you have:
-
-- **Arch Linux installed**: This script is specifically designed for Arch Linux.
-- **Internet connection**: The script downloads and installs packages from the internet.
+## Purpose
+The script performs the following tasks:
+- Identifies and installs kernel headers based on the detected kernel type.
+- Configures Pacman settings for package management.
+- Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
+- Changes the default shell to ZSH.
+- Sets language locale and timezone settings.
+- Installs essential programs, KDE-specific programs, AUR packages, and YAY.
+- Enables necessary services for system functionality.
+- Configures UFW firewall settings.
+- Removes unused packages and clears cache.
+- Deletes the archinstaller folder after setup completion.
 
 ## Installation
 
