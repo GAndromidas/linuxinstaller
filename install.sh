@@ -40,6 +40,7 @@ install_kernel_headers() {
     # Dependencies: sudo, pacman
     # Output: Installs the necessary kernel headers.
     identify_kernel_type  # Ensure kernel type is identified before installation
+    echo
     printf "Installing kernel headers... "
     echo
     sudo pacman -S --needed --noconfirm "$kernel_headers"
@@ -53,6 +54,7 @@ install_kernel_headers() {
 
 # Function to remove Linux kernel fallback image
 remove_kernel_fallback_image() {
+    echo
     printf "Removing Linux kernel fallback image... "
     echo
     sudo rm /boot/loader/entries/*fallback*
@@ -65,6 +67,7 @@ configure_pacman() {
     # Purpose: Configures Pacman settings for package management.
     # Dependencies: sudo, sed
     # Output: Updates Pacman configuration settings.
+    echo
     printf "Configuring Pacman... "
     echo
     sudo sed -i '
@@ -86,6 +89,7 @@ make_systemd_boot_silent() {
     # Purpose: Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
     # Dependencies: find, sed
     # Output: Adds silent boot options to the Linux or Linux-Zen entry.
+    echo
     printf "Making Systemd-Boot silent... "
     echo
     LOADER_DIR="/boot/loader"
@@ -110,6 +114,7 @@ make_systemd_boot_silent() {
 change_loader_conf() {
     # Purpose: Changes loader.conf settings for boot configuration.
     # Output: Updates loader.conf settings.
+    echo
     printf "Changing loader.conf... "
     echo
     LOADER_CONF="/boot/loader/loader.conf"
@@ -122,6 +127,7 @@ change_loader_conf() {
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
     # Enables password feedback with asterisks in sudoers file.
+    echo
     echo "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
     echo
     printf "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
@@ -129,6 +135,7 @@ enable_asterisks_sudo() {
 
 # Function to update mirrorlist
 update_mirrorlist() {
+    echo
     printf "Updating Mirrorlist... "
     echo
     sudo pacman -S --needed --noconfirm reflector rsync
@@ -139,6 +146,7 @@ update_mirrorlist() {
 
 # Function to update the system
 update_system() {
+    echo
     printf "Updating System... "
     echo
     sudo pacman -Syyu --noconfirm
@@ -148,6 +156,7 @@ update_system() {
 
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
+    echo
     printf "Configuring ZSH... "
     echo
     sudo pacman -S --needed --noconfirm zsh
@@ -162,6 +171,7 @@ install_zsh() {
 
 # Function to change shell to ZSH
 change_shell_to_zsh() {
+    echo
     printf "Changing Shell to ZSH... "
     echo
     sudo chsh -s "$(which zsh)"
@@ -172,6 +182,7 @@ change_shell_to_zsh() {
 
 # Function to move .zshrc
 move_zshrc() {
+    echo
     printf "Copying .zshrc to Home Folder... "
     echo
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
@@ -181,6 +192,7 @@ move_zshrc() {
 
 # Function to configure locales
 configure_locales() {
+    echo
     printf "Configuring Locales... "
     echo
     sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
@@ -191,6 +203,7 @@ configure_locales() {
 
 # Function to set language locale and timezone
 set_language_locale_timezone() {
+    echo
     printf "Setting Language Locale and Timezone... "
     echo
     sudo localectl set-locale LANG="en_US.UTF-8"
@@ -205,6 +218,7 @@ set_language_locale_timezone() {
 
 # Function to remove htop package
 remove_htop() {
+    echo
     printf "Removing htop package... "
     echo
     sudo pacman -Rcs --noconfirm htop
@@ -214,6 +228,7 @@ remove_htop() {
 
 # Function to choose between YAY and Paru for installation
 choose_yay_or_paru() {
+    echo
     printf "Choose AUR Helper: YAY or Paru\n"
     echo
     read -p "Enter 'y' for YAY or 'p' for Paru: " aur_helper
@@ -232,6 +247,7 @@ choose_yay_or_paru() {
 
 # Function to install YAY
 install_yay() {
+    echo
     printf "Installing YAY... "
     echo
     if [ -d "yay" ]; then
@@ -254,6 +270,7 @@ install_yay() {
 
 # Function to install Paru
 install_paru() {
+    echo
     printf "Installing Paru... "
     echo
     if [ -d "paru" ]; then
@@ -276,6 +293,7 @@ install_paru() {
 
 # Function to install programs
 install_programs() {
+    echo
     printf "Installing Programs... "
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_programs.sh)
@@ -288,6 +306,7 @@ install_programs() {
 
 # Function to install flatpak programs
 install_flatpak_programs() {
+    echo
     printf "Installing Flatpak Programs... "
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_flatpak_programs.sh)
@@ -300,6 +319,7 @@ install_flatpak_programs() {
 
 # Function to install AUR programs
 install_aur_programs() {
+    echo
     printf "Installing AUR Programs... "
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_aur_programs.sh)
@@ -309,6 +329,7 @@ install_aur_programs() {
 
 # Function to enable services
 enable_services() {
+    echo
     printf "Enabling Services... "
     echo
     local services=(
@@ -334,12 +355,14 @@ enable_services() {
 
 # Function to create fastfetch config
 create_fastfetch_config() {
+    echo
     printf "Creating fastfetch config... "
     echo
     fastfetch --gen-config
     echo
     printf "\033[0;32m "fastfetch config created successfully.\033[0m"\n"
     
+    echo
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
     echo
     cp "$HOME"/archinstaller/configs/config.jsonc "$HOME"/.config/fastfetch/config.jsonc
@@ -349,6 +372,7 @@ create_fastfetch_config() {
 
 # Function to configure firewall
 configure_firewall() {
+    echo
     printf "Configuring Firewall... "
     echo
     sudo ufw default deny incoming
@@ -365,6 +389,7 @@ configure_firewall() {
 
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
+    echo
     printf "Clearing Unused Packages and Cache... "
     echo
     sudo pacman -Rns $(pacman -Qdtq) --noconfirm
@@ -377,6 +402,7 @@ clear_unused_packages_cache() {
 
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
+    echo
     printf "Deleting Archinstaller Folder... "
     echo
     sudo rm -rf "$HOME"/archinstaller
@@ -386,6 +412,7 @@ delete_archinstaller_folder() {
 
 # Function to reboot system
 reboot_system() {
+    echo
     printf "Rebooting System... "
     echo
     printf "Press 'y' to reboot now, or 'n' to cancel.\n"

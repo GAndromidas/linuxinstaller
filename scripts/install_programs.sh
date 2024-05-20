@@ -2,9 +2,12 @@
 
 # Function to install programs
 install_programs() {
+    echo
     printf "Installing Programs... "
+    echo
     sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${kde_programs[@]}"
-    printf "Programs installed successfully.\n"
+    echo
+    printf "\033[0;32m "Programs installed successfully.\033[0m"\n"
 }
 
 # Main script
