@@ -5,13 +5,9 @@ install_aur_packages() {
     echo
     printf "Installing AUR Packages... "
     echo
-    if [[ "$aur_helper" == "p" ]]; then
-        paru -S --needed --noconfirm "${yay_programs[@]}"
-    else
-        yay -S --needed --noconfirm "${yay_programs[@]}"
-    fi
+    yay -S --needed --noconfirm "${yay_programs[@]}"
     echo
-    printf "\033[0;32m "AUR Packages installed successfully.\033[0m"\n"
+    printf "\033[0;32m AUR Packages installed successfully.\033[0m\n"
 }
 
 # Main script

@@ -48,7 +48,7 @@ install_kernel_headers() {
         printf "Error: Failed to install kernel headers.\n"
         exit 1
     else
-        echo "\033[0;32m "Kernel headers installed successfully.\033[0m"\n"
+        echo "Kernel headers installed successfully.\n"
     fi
 }
 
@@ -59,7 +59,7 @@ remove_kernel_fallback_image() {
     echo
     sudo rm /boot/loader/entries/*fallback*
     echo
-    printf "\033[0;32m "Linux kernel fallback image removed successfully.\033[0m"\n"
+    printf "Linux kernel fallback image removed successfully.\n"
 }
 
 # Function to configure Pacman
@@ -80,7 +80,7 @@ configure_pacman() {
         printf "Error: Failed to configure Pacman.\n"
         exit 1
     else
-        printf "\033[0;32m "Pacman configuration updated successfully.\033[0m"\n"
+        printf "Pacman configuration updated successfully.\n"
     fi
 }
 
@@ -94,18 +94,18 @@ make_systemd_boot_silent() {
     echo
     LOADER_DIR="/boot/loader"
     ENTRIES_DIR="$LOADER_DIR/entries"
-    
+
     # Find the Linux or Linux-zen entry
     linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
-    
+
     if [ -z "$linux_entry" ]; then
         printf "\nError: Linux entry not found.\n"
         exit 1
     fi
-    
+
     # Add silent boot options to the Linux entry
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"
-    
+
     echo
     printf "Silent boot options added to Linux entry: %s.\n" "$(basename "$linux_entry")"
 }
@@ -121,7 +121,7 @@ change_loader_conf() {
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
     echo
-    printf "\033[0;32m "Loader configuration updated.\033[0m"\n"
+    printf "Loader configuration updated.\n"
 }
 
 # Function to enable asterisks for password in sudoers
@@ -130,7 +130,7 @@ enable_asterisks_sudo() {
     echo
     printf "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
     echo
-    printf "\033[0;32m  "Password feedback enabled in sudoers.\033[0m"\n"
+    printf "Password feedback enabled in sudoers.\n"
 }
 
 # Function to update mirrorlist
@@ -141,7 +141,7 @@ update_mirrorlist() {
     sudo pacman -S --needed --noconfirm reflector rsync
     sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
     echo
-    printf "\033[0;32m "Mirrorlist updated successfully.\033[0m"\n"
+    printf "Mirrorlist updated successfully.\n"
 }
 
 # Function to update the system
@@ -151,7 +151,7 @@ update_system() {
     echo
     sudo pacman -Syyu --noconfirm
     echo
-    printf "\033[0;32m "System updated successfully.\033[0m"\n"
+    printf "System updated successfully.\n"
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
@@ -166,7 +166,7 @@ install_zsh() {
     sleep 1
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     echo
-    printf "\033[0;32m "ZSH configured successfully.\033[0m"\n"
+    printf "ZSH configured successfully.\n"
 }
 
 # Function to change shell to ZSH
@@ -177,7 +177,7 @@ change_shell_to_zsh() {
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
     echo
-    printf "\033[0;32m "Shell changed to ZSH.\033[0m"\n"
+    printf "Shell changed to ZSH.\n"
 }
 
 # Function to move .zshrc
@@ -187,7 +187,7 @@ move_zshrc() {
     echo
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
     echo
-    printf "\033[0;32m ".zshrc copied successfully.\033[0m"\n"
+    printf ".zshrc copied successfully.\n"
 }
 
 # Function to configure locales
@@ -198,7 +198,7 @@ configure_locales() {
     sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
     sudo locale-gen
     echo
-    printf "\033[0;32m "Locales generated successfully.\033[0m"\n"
+    printf "Locales generated successfully.\n"
 }
 
 # Function to set language locale and timezone
@@ -213,7 +213,7 @@ set_language_locale_timezone() {
     sudo localectl set-locale LC_MEASUREMENT="el_GR.UTF-8"
     sudo timedatectl set-timezone "Europe/Athens"
     echo
-    printf "\033[0;32m "Language locale and timezone changed successfully.\033[0m"\n"
+    printf "Language locale and timezone changed successfully.\n"
 }
 
 # Function to remove htop package
@@ -223,26 +223,7 @@ remove_htop() {
     echo
     sudo pacman -Rcs --noconfirm htop
     echo
-    printf "\033[0;32m "htop package removed successfully.\033[0m"\n"
-}
-
-# Function to choose between YAY and Paru for installation
-choose_yay_or_paru() {
-    echo
-    printf "Choose AUR Helper: YAY or Paru\n"
-    echo
-    read -p "Enter 'y' for YAY or 'p' for Paru: " aur_helper
-
-    # Validate user input for AUR helper selection
-    while [[ ! "$aur_helper" =~ ^[yp]$ ]]; do
-        read -p "Invalid input. Please enter 'y' for YAY or 'p' for Paru: " aur_helper
-    done
-
-    if [[ "$aur_helper" == "y" ]]; then
-        install_yay
-    elif [[ "$aur_helper" == "p" ]]; then
-        install_paru
-    fi
+    printf "htop package removed successfully.\n"
 }
 
 # Function to install YAY
@@ -250,45 +231,14 @@ install_yay() {
     echo
     printf "Installing YAY... "
     echo
-    if [ -d "yay" ]; then
-        rm -rf yay
-    fi
-
+    cd /tmp
     git clone https://aur.archlinux.org/yay.git
-    cd yay || { echo "Error: Unable to change directory to yay. Exiting."; exit 1; }
-
-    if ! makepkg -si --needed --noconfirm; then
-        echo "Error: Failed to install YAY. Exiting."
-        exit 1
-    fi
-
+    cd yay
+    makepkg -si --noconfirm
     cd ..
     rm -rf yay
     echo
-    printf "\033[0;32m "YAY installed successfully.\033[0m"\n"
-}
-
-# Function to install Paru
-install_paru() {
-    echo
-    printf "Installing Paru... "
-    echo
-    if [ -d "paru" ]; then
-        rm -rf paru
-    fi
-
-    git clone https://aur.archlinux.org/paru.git
-    cd paru || { echo "Error: Unable to change directory to paru. Exiting."; exit 1; }
-
-    if ! makepkg -si --needed --noconfirm; then
-        echo "Error: Failed to install Paru. Exiting."
-        exit 1
-    fi
-
-    cd ..
-    rm -rf paru
-    echo
-    printf "\033[0;32m "Paru installed successfully.\033[0m"\n"
+    printf "YAY installed successfully.\n"
 }
 
 # Function to install programs
@@ -298,8 +248,8 @@ install_programs() {
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_programs.sh)
     echo
-    printf "\033[0;32m "Programs installed successfully.\033[0m"\n"
-    
+    printf "Programs installed successfully.\n"
+
     # Call the next function here
     install_flatpak_programs
 }
@@ -311,8 +261,8 @@ install_flatpak_programs() {
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_flatpak_programs.sh)
     echo
-    printf "\033[0;32m "Flatpak programs installed successfully.\033[0m"\n"
-    
+    printf "Flatpak programs installed successfully.\n"
+
     # Call the next function here
     install_aur_programs
 }
@@ -324,7 +274,7 @@ install_aur_programs() {
     echo
     (cd "$HOME/archinstaller/scripts" && ./install_aur_programs.sh)
     echo
-    printf "\033[0;32m "AUR programs installed successfully.\033[0m"\n"
+    printf "AUR programs installed successfully.\n"
 }
 
 # Function to enable services
@@ -348,9 +298,9 @@ enable_services() {
     for service in "${services[@]}"; do
         sudo systemctl enable --now "$service"
     done
-    
+
     echo
-    printf "\033[0;32m "Services enabled successfully.\033[0m"\n"
+    printf "Services enabled successfully.\n"
 }
 
 # Function to create fastfetch config
@@ -361,13 +311,13 @@ create_fastfetch_config() {
     fastfetch --gen-config
     echo
     printf "\033[0;32m "fastfetch config created successfully.\033[0m"\n"
-    
+
     echo
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
     echo
     cp "$HOME"/archinstaller/configs/config.jsonc "$HOME"/.config/fastfetch/config.jsonc
     echo
-    printf "\033[0;32m "fastfetch config copied successfully.\033[0m"\n"
+    printf "fastfetch config copied successfully.\n"
 }
 
 # Function to configure firewall
@@ -384,7 +334,7 @@ configure_firewall() {
     sudo ufw allow 1714:1764/udp
     sudo ufw --force enable
     echo
-    printf "\033[0;32m "Firewall configured successfully.\033[0m"\n"
+    printf "Firewall configured successfully.\n"
 }
 
 # Function to clear unused packages and cache
@@ -397,7 +347,7 @@ clear_unused_packages_cache() {
     yay -Sc --noconfirm
     rm -rf ~/.cache/* && sudo paccache -r
     echo
-    printf "\033[0;32m "Unused packages and cache cleared successfully.\033[0m"\n"
+    printf "Unused packages and cache cleared successfully.\n"
 }
 
 # Function to delete the archinstaller folder
@@ -407,7 +357,7 @@ delete_archinstaller_folder() {
     echo
     sudo rm -rf "$HOME"/archinstaller
     echo
-    printf "\033[0;32m "Archinstaller folder deleted successfully.\033[0m"\n"
+    printf "Archinstaller folder deleted successfully.\n"
 }
 
 # Function to reboot system
@@ -417,7 +367,7 @@ reboot_system() {
     echo
     printf "Press 'y' to reboot now, or 'n' to cancel.\n"
     echo
-    
+
     read -p "Do you want to reboot now? (y/n): " confirm_reboot
 
     # Validate user input for reboot confirmation
@@ -428,7 +378,7 @@ reboot_system() {
     if [[ "$confirm_reboot" == "y" ]]; then
     echo
         printf "Rebooting now... "
-    echo    
+    echo
         sudo reboot
     else
     echo
@@ -455,7 +405,7 @@ move_zshrc
 configure_locales
 set_language_locale_timezone
 remove_htop
-choose_yay_or_paru
+install_yay
 install_programs
 enable_services
 create_fastfetch_config
