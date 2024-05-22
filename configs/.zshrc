@@ -62,7 +62,7 @@ DEFAULT_USER=$USER
 # "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
 # or set a custom format using the strftime function format specifications,
 # see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
+# HIST_STAMPS="dd/mm/yyyy"
 
 # Would you like to use another custom folder than $ZSH/custom?
 # ZSH_CUSTOM=/path/to/new-custom-folder
@@ -121,7 +121,7 @@ alias lt='ls -ltrh'                # sort by date
 alias lm='ls -alh |more'           # pipe through 'more'
 alias lw='ls -xAh'                 # wide listing format
 alias ll='ls -Fls'                 # long listing format
-alias labc='ls -lap'               # alphabetical sort
+alias labc='ls -lap'               #alphabetical sort
 alias lf="ls -l | egrep -v '^d'"   # files only
 alias ldir="ls -l | egrep '^d'"    # directories only
 
@@ -153,3 +153,4 @@ fastfetch --cpu-temp
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
 eval "$(zoxide init zsh)"
+eval "$(starship init zsh)"
