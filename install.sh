@@ -162,8 +162,10 @@ install_zsh() {
     sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     sleep 1
+
     git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
     sleep 1
+
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     echo
     printf "ZSH configured successfully.\n"
@@ -188,6 +190,30 @@ move_zshrc() {
     mv "$HOME"/archinstaller/configs/.zshrc "$HOME"/
     echo
     printf ".zshrc copied successfully.\n"
+}
+
+# Function to install starship and move starship.toml
+install_starship() {
+    # Install Starship prompt automatically accepting with 'yes'
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
+
+    # Check if the installation was successful
+    if [ $? -eq 0 ]; then
+    echo "Starship prompt installed successfully."
+
+    # Create the .config directory if it doesn't exist
+    mkdir -p "$HOME/.config"
+
+    # Move the starship.toml file to the .config directory
+    if [ -f "$HOME/archinstaller/configs/starship.toml" ]; then
+    mv "$HOME/archinstaller/configs/starship.toml" "$HOME/.config/starship.toml"
+    echo "starship.toml moved to $HOME/.config/"
+    else
+    echo "starship.toml not found in $HOME/archinstaller/configs/"
+    fi
+    else
+    echo "Starship prompt installation failed."
+    fi
 }
 
 # Function to configure locales
@@ -402,6 +428,7 @@ update_system
 install_zsh
 change_shell_to_zsh
 move_zshrc
+install_starship
 configure_locales
 set_language_locale_timezone
 remove_htop
