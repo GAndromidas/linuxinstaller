@@ -121,7 +121,7 @@ alias lt='ls -ltrh'                # sort by date
 alias lm='ls -alh |more'           # pipe through 'more'
 alias lw='ls -xAh'                 # wide listing format
 alias ll='ls -Fls'                 # long listing format
-alias labc='ls -lap'               #alphabetical sort
+alias labc='ls -lap'               # alphabetical sort
 alias lf="ls -l | egrep -v '^d'"   # files only
 alias ldir="ls -l | egrep '^d'"    # directories only
 
@@ -150,7 +150,7 @@ alias unlock="sudo rm /var/lib/pacman/db.lck"
 
 fastfetch --cpu-temp
 
-# Set up fzf key bindings and fuzzy completion
+# Set up fzf, zoxide and starship
 source <(fzf --zsh)
 eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
