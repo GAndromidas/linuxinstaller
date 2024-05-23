@@ -39,7 +39,6 @@ pacman_programs=(
     ntfs-3g
     os-prober
     pacman-contrib
-    powerline-fonts
     samba
     sl
     speedtest-cli
