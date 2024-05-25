@@ -7,7 +7,7 @@ install_aur_packages_minimal() {
     echo
     yay -S --needed --noconfirm "${yay_programs[@]}"
     echo
-    printf AUR Packages installed successfully.\n"
+    printf "AUR Packages installed successfully.\n"
 }
 
 # Main script
