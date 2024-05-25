@@ -312,7 +312,6 @@ enable_services() {
         "fstrim.timer"
         "bluetooth"
         "sshd"
-        "fail2ban"
         "paccache.timer"
         "reflector.service"
         "reflector.timer"
@@ -336,7 +335,7 @@ create_fastfetch_config() {
     echo
     fastfetch --gen-config
     echo
-    printf "\033[0;32m "fastfetch config created successfully.\033[0m"\n"
+    printf "fastfetch config created successfully.\n"
 
     echo
     printf "Copying fastfetch config from repository to ~/.config/fastfetch/... "
