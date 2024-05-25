@@ -23,6 +23,7 @@ pacman_programs=(
     flatpak
     fwupd
     fzf
+    gnome-disk-utility
     hwinfo
     inxi
     net-tools
