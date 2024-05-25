@@ -6,6 +6,20 @@
 
 # Default value for kernel headers
 kernel_headers="linux-headers"  # Default to standard Linux headers
+use_systemdboot=false  # Default to false
+
+# Function to check if systemd-boot or GRUB is in use
+check_bootloader() {
+    if [ -d /boot/loader ]; then
+        printf "Systemd-boot is in use.\n"
+        use_systemdboot=true
+    elif [ -f /boot/grub/grub.cfg ]; then
+        printf "GRUB is in use.\n"
+    else
+        printf "No recognized bootloader found.\n"
+        exit 1
+    fi
+}
 
 # Function to identify the installed Linux kernel type
 identify_kernel_type() {
@@ -199,20 +213,20 @@ install_starship() {
 
     # Check if the installation was successful
     if [ $? -eq 0 ]; then
-    echo "Starship prompt installed successfully."
+        echo "Starship prompt installed successfully."
 
-    # Create the .config directory if it doesn't exist
-    mkdir -p "$HOME/.config"
+        # Create the .config directory if it doesn't exist
+        mkdir -p "$HOME/.config"
 
-    # Move the starship.toml file to the .config directory
-    if [ -f "$HOME/archinstaller/configs/starship.toml" ]; then
-    mv "$HOME/archinstaller/configs/starship.toml" "$HOME/.config/starship.toml"
-    echo "starship.toml moved to $HOME/.config/"
+        # Move the starship.toml file to the .config directory
+        if [ -f "$HOME/archinstaller/configs/starship.toml" ]; then
+            mv "$HOME/archinstaller/configs/starship.toml" "$HOME/.config/starship.toml"
+            echo "starship.toml moved to $HOME/.config/"
+        else
+            echo "starship.toml not found in $HOME/archinstaller/configs/"
+        fi
     else
-    echo "starship.toml not found in $HOME/archinstaller/configs/"
-    fi
-    else
-    echo "Starship prompt installation failed."
+        echo "Starship prompt installation failed."
     fi
 }
 
@@ -262,7 +276,7 @@ install_programs_minimal() {
     printf "Programs installed successfully.\n"
 
     # Call the next function here
-   install_aur_programs_minimal
+    install_aur_programs_minimal
 }
 
 # Function to install AUR programs
@@ -371,26 +385,33 @@ reboot_system() {
     done
 
     if [[ "$confirm_reboot" == "y" ]]; then
-    echo
+        echo
         printf "Rebooting now... "
-    echo
+        echo
         sudo reboot
     else
-    echo
+        echo
         printf "Reboot canceled. You can reboot manually later by typing 'sudo reboot'.\n"
-    echo
+        echo
     fi
 }
 
 # Main script
 
 # Run functions
+check_bootloader
+
 identify_kernel_type
 install_kernel_headers
-remove_kernel_fallback_image
+
+# Conditionally run systemd-boot related functions
+if [ "$use_systemdboot" = true ]; then
+    remove_kernel_fallback_image
+    make_systemd_boot_silent
+    change_loader_conf
+fi
+
 configure_pacman
-make_systemd_boot_silent
-change_loader_conf
 enable_asterisks_sudo
 update_mirrorlist
 update_system
