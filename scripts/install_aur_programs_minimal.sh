@@ -15,7 +15,6 @@ install_aur_packages_minimal() {
 # Programs to install using yay
 yay_programs=(
     stremio
-    teamviewer
     # Add or remove AUR programs as needed
 )
 
