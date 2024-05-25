@@ -7,7 +7,7 @@ install_flatpak_programs() {
     echo
     sudo flatpak install -y flathub net.davidotek.pupgui2 it.mijorus.gearlever
     echo
-    printf "\033[0;32m "Flatpak Programs installed successfully.\033[0m"\n"
+    printf "Flatpak Programs installed successfully.\n"
 }
 
 # Main script

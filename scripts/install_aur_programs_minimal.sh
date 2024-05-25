@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Function to install AUR packages
-install_aur_packages() {
+install_aur_packages_minimal() {
     echo
     printf "Installing AUR Packages... "
     echo
@@ -14,13 +14,11 @@ install_aur_packages() {
 
 # Programs to install using yay
 yay_programs=(
-    dropbox
-    spotify
     stremio
     teamviewer
-    via-bin
     # Add or remove AUR programs as needed
 )
 
 # Run function
-install_aur_packages
+install_aur_packages_minimal
+

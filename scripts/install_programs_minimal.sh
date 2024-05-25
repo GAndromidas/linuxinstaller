@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Function to install programs
-install_programs() {
+install_programs_minimal() {
     echo
     printf "Installing Programs... "
     echo
-    sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${kde_programs[@]}"
+    sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}"
     echo
     printf "Programs installed successfully.\n"
 }
@@ -23,20 +23,11 @@ pacman_programs=(
     flatpak
     fwupd
     fzf
-    gamemode
-    gamescope
-    gnome-disk-utility
     hwinfo
     inxi
-    lib32-gamemode
-    lib32-mangohud
-    lib32-vkd3d
-    lib32-vulkan-radeon
-    mangohud
     net-tools
     noto-fonts-extra
     ntfs-3g
-    os-prober
     pacman-contrib
     samba
     sl
@@ -45,8 +36,6 @@ pacman_programs=(
     ttf-liberation
     ufw
     unrar
-    vkd3d
-    vulkan-radeon
     wlroots
     xdg-desktop-portal-gtk
     xwaylandvideobridge
@@ -56,34 +45,12 @@ pacman_programs=(
 
 # Essential programs to install using pacman
 essential_programs=(
-    discord
-    filezilla
     firefox
-    gimp
-    libreoffice-fresh
-    lutris
-    obs-studio
-    smplayer
-    steam
-    telegram-desktop
     timeshift
     vlc
-    wine
     qbittorrent
     # Add or remove essential programs as needed
 )
 
-# KDE-specific programs to install using pacman
-kde_programs=(
-    gwenview
-    kdeconnect
-    kwalletmanager
-    kvantum
-    okular
-    packagekit-qt6
-    spectacle
-    # Add or remove KDE-specific programs as needed
-)
-
 # Run function
-install_programs
+install_programs_minimal
