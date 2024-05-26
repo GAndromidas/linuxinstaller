@@ -121,6 +121,7 @@ kde_remove_programs=(
 gnome_install_programs=(
     celluloid
     dconf-editor
+    gnome-keyring
     gnome-tweaks
     gufw
     seahorse
