@@ -9,7 +9,7 @@ The script performs the following tasks:
 - Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
 - Changes the default shell to ZSH.
 - Sets language locale and timezone settings.
-- Installs essential programs, KDE-specific programs, AUR packages, and YAY.
+- Installs essential programs, KDE-specific programs or Gnome-specific programs, AUR packages, and YAY.
 - Enables necessary services for system functionality.
 - Configures UFW firewall settings.
 - Removes unused packages and clears cache.
