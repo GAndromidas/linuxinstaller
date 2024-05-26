@@ -242,16 +242,6 @@ set_language_locale_timezone() {
     printf "Language locale and timezone changed successfully.\n"
 }
 
-# Function to remove htop package
-remove_htop() {
-    echo
-    printf "Removing htop package... "
-    echo
-    sudo pacman -Rcs --noconfirm htop
-    echo
-    printf "htop package removed successfully.\n"
-}
-
 # Function to install YAY
 install_yay() {
     echo
@@ -355,8 +345,6 @@ configure_firewall() {
     sudo ufw allow ssh
     sudo ufw logging on
     sudo ufw limit ssh
-    sudo ufw allow 1714:1764/tcp
-    sudo ufw allow 1714:1764/udp
     sudo ufw --force enable
     echo
     printf "Firewall configured successfully.\n"
@@ -430,7 +418,6 @@ move_zshrc
 install_starship
 configure_locales
 set_language_locale_timezone
-remove_htop
 install_yay
 install_programs
 enable_services

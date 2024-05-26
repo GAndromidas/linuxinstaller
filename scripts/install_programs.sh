@@ -100,7 +100,6 @@ essential_programs=(
 # KDE-specific programs to install using pacman
 kde_install_programs=(
     gwenview
-    kdeconnect
     kwalletmanager
     kvantum
     okular
