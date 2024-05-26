@@ -6,7 +6,7 @@ This script automates the setup of an Arch Linux system with various configurati
 The script performs the following tasks:
 - Identifies and installs kernel headers based on the detected kernel type.
 - Configures Pacman settings for package management.
-- Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
+- Adds silent boot options to Systemd-Boot.
 - Changes the default shell to ZSH.
 - Sets language locale and timezone settings.
 - Installs essential programs, KDE-specific programs or Gnome-specific programs, AUR packages, and YAY.
