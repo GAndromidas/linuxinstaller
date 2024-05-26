@@ -227,21 +227,6 @@ configure_locales() {
     printf "Locales generated successfully.\n"
 }
 
-# Function to set language locale and timezone
-set_language_locale_timezone() {
-    echo
-    printf "Setting Language Locale and Timezone... "
-    echo
-    sudo localectl set-locale LANG="en_US.UTF-8"
-    sudo localectl set-locale LC_NUMERIC="el_GR.UTF-8"
-    sudo localectl set-locale LC_TIME="el_GR.UTF-8"
-    sudo localectl set-locale LC_MONETARY="el_GR.UTF-8"
-    sudo localectl set-locale LC_MEASUREMENT="el_GR.UTF-8"
-    sudo timedatectl set-timezone "Europe/Athens"
-    echo
-    printf "Language locale and timezone changed successfully.\n"
-}
-
 # Function to install YAY
 install_yay() {
     echo
@@ -417,7 +402,6 @@ change_shell_to_zsh
 move_zshrc
 install_starship
 configure_locales
-set_language_locale_timezone
 install_yay
 install_programs
 enable_services
