@@ -1,11 +1,25 @@
 #!/bin/bash
 
+# Function to detect desktop environment
+detect_desktop_environment() {
+    if [ "$XDG_CURRENT_DESKTOP" == "KDE" ]; then
+        echo "KDE detected."
+        specific_programs=("${kde_programs[@]}")
+    elif [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]; then
+        echo "GNOME detected."
+        specific_programs=("${gnome_programs[@]}")
+    else
+        echo "Unsupported desktop environment detected."
+        specific_programs=()
+    fi
+}
+
 # Function to install programs
 install_programs() {
     echo
     printf "Installing Programs... "
     echo
-    sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${kde_programs[@]}"
+    sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_programs[@]}"
     echo
     printf "Programs installed successfully.\n"
 }
@@ -49,7 +63,6 @@ pacman_programs=(
     vulkan-radeon
     wlroots
     xdg-desktop-portal-gtk
-    xwaylandvideobridge
     zoxide
     # Add or remove programs as needed
 )
@@ -69,7 +82,6 @@ essential_programs=(
     timeshift
     vlc
     wine
-    qbittorrent
     # Add or remove essential programs as needed
 )
 
@@ -82,8 +94,23 @@ kde_programs=(
     okular
     packagekit-qt6
     spectacle
+    qbittorrent
+    xwaylandvideobridge
     # Add or remove KDE-specific programs as needed
 )
+
+# GNOME-specific programs to install using pacman
+gnome_programs=(
+    dconf-editor
+    gnome-tweaks
+    gnome-shell-extensions
+    seahorse
+    transmission-gtk
+    # Add or remove GNOME-specific programs as needed
+)
+
+# Detect desktop environment
+detect_desktop_environment
 
 # Run function
 install_programs
