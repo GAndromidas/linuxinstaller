@@ -107,7 +107,7 @@ alias sync='sudo pacman -Syyy'
 alias update='sudo pacman -Syyu && yay -Syyu && sudo flatpak update'
 
 # Update Mirrorlist
-alias mirror='sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
+alias mirror='sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
 
 # Alias's for multiple directory listing commands
 alias la='ls -Alh --color=always'  # show hidden files

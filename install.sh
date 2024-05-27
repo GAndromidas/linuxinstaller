@@ -133,13 +133,22 @@ enable_asterisks_sudo() {
     printf "Password feedback enabled in sudoers.\n"
 }
 
-# Function to update mirrorlist
+# Function to update mirrorlist and modify reflector.conf
 update_mirrorlist() {
     echo
     printf "Updating Mirrorlist... "
     echo
+    # Install necessary packages
     sudo pacman -S --needed --noconfirm reflector rsync
-    sudo reflector --verbose --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
+
+    # Update reflector.conf
+    sudo sed -i 's/^--latest .*/--latest 10/' /etc/xdg/reflector/reflector.conf
+    sudo sed -i 's/^--sort .*/--sort rate/' /etc/xdg/reflector/reflector.conf
+    echo
+    printf "reflector.conf updated successfully.\n"
+
+    # Run reflector to update mirrorlist
+    sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy
     echo
     printf "Mirrorlist updated successfully.\n"
 }
