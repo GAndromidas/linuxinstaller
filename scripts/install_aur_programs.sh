@@ -15,6 +15,7 @@ install_aur_packages() {
 # Programs to install using yay
 yay_programs=(
     dropbox
+    github-desktop-bin
     spotify
     stremio
     teamviewer
