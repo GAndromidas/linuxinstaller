@@ -69,6 +69,7 @@ pacman_programs=(
     samba
     sl
     speedtest-cli
+    ttf-hack-nerd
     ttf-liberation
     ufw
     unrar
