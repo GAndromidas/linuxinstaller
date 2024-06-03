@@ -9,6 +9,9 @@ kernel_headers="linux-headers"  # Default to standard Linux headers
 
 # Function to identify the installed Linux kernel type
 identify_kernel_type() {
+    # Purpose: Identifies the installed Linux kernel type and sets the appropriate kernel headers.
+    # Dependencies: pacman
+    # Output: Sets the variable kernel_headers based on the detected kernel type.
     printf "Identifying installed Linux kernel type... "
     echo
     if pacman -Q linux-zen &>/dev/null; then
@@ -33,6 +36,9 @@ identify_kernel_type() {
 
 # Function to install kernel headers
 install_kernel_headers() {
+    # Purpose: Installs the kernel headers based on the identified kernel type.
+    # Dependencies: sudo, pacman
+    # Output: Installs the necessary kernel headers.
     identify_kernel_type  # Ensure kernel type is identified before installation
     echo
     printf "Installing kernel headers... "
@@ -56,27 +62,11 @@ remove_kernel_fallback_image() {
     printf "Linux kernel fallback image removed successfully.\n"
 }
 
-# Function to configure Pacman
-configure_pacman() {
-    echo
-    printf "Configuring Pacman... "
-    echo
-    sudo sed -i '
-        /^#Color/s/^#//
-        /^Color/a ILoveCandy
-        /^#VerbosePkgLists/s/^#//
-        s/^#ParallelDownloads = 5/ParallelDownloads = 10/
-    ' /etc/pacman.conf
-    if [ $? -ne 0 ]; then
-        printf "Error: Failed to configure Pacman.\n"
-        exit 1
-    else
-        printf "Pacman configuration updated successfully.\n"
-    fi
-}
-
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
+    # Purpose: Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
+    # Dependencies: find, sed
+    # Output: Adds silent boot options to the Linux or Linux-Zen entry.
     echo
     printf "Making Systemd-Boot silent... "
     echo
@@ -100,6 +90,8 @@ make_systemd_boot_silent() {
 
 # Function to change loader.conf
 change_loader_conf() {
+    # Purpose: Changes loader.conf settings for boot configuration.
+    # Output: Updates loader.conf settings.
     echo
     printf "Changing loader.conf... "
     echo
@@ -117,6 +109,28 @@ enable_asterisks_sudo() {
     printf "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo
     echo
     printf "Password feedback enabled in sudoers.\n"
+}
+
+# Function to configure Pacman
+configure_pacman() {
+    # Purpose: Configures Pacman settings for package management.
+    # Dependencies: sudo, sed
+    # Output: Updates Pacman configuration settings.
+    echo
+    printf "Configuring Pacman... "
+    echo
+    sudo sed -i '
+        /^#Color/s/^#//
+        /^Color/a ILoveCandy
+        /^#VerbosePkgLists/s/^#//
+        s/^#ParallelDownloads = 5/ParallelDownloads = 10/
+    ' /etc/pacman.conf
+    if [ $? -ne 0 ]; then
+        printf "Error: Failed to configure Pacman.\n"
+        exit 1
+    else
+        printf "Pacman configuration updated successfully.\n"
+    fi
 }
 
 # Function to update mirrorlist and modify reflector.conf
@@ -391,6 +405,21 @@ detect_bootloader() {
     fi
 }
 
+# Function to install GRUB theme
+install_grub_theme() {
+    echo
+    printf "Installing GRUB theme... "
+    echo
+    cd /tmp
+    git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes
+    cd Top-5-Bootloader-Themes
+    sudo ./install.sh
+    cd ..
+    rm -rf Top-5-Bootloader-Themes
+    echo
+    printf "GRUB theme installed successfully.\n"
+}
+
 # Main script
 
 # Run functions
@@ -401,10 +430,12 @@ if detect_bootloader; then
     remove_kernel_fallback_image
     make_systemd_boot_silent
     change_loader_conf
+else
+    install_grub_theme
 fi
 
-configure_pacman
 enable_asterisks_sudo
+configure_pacman
 update_mirrorlist
 update_system
 install_zsh
