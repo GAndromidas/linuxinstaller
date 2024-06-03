@@ -9,9 +9,6 @@ kernel_headers="linux-headers"  # Default to standard Linux headers
 
 # Function to identify the installed Linux kernel type
 identify_kernel_type() {
-    # Purpose: Identifies the installed Linux kernel type and sets the appropriate kernel headers.
-    # Dependencies: pacman
-    # Output: Sets the variable kernel_headers based on the detected kernel type.
     printf "Identifying installed Linux kernel type... "
     echo
     if pacman -Q linux-zen &>/dev/null; then
@@ -36,9 +33,6 @@ identify_kernel_type() {
 
 # Function to install kernel headers
 install_kernel_headers() {
-    # Purpose: Installs the kernel headers based on the identified kernel type.
-    # Dependencies: sudo, pacman
-    # Output: Installs the necessary kernel headers.
     identify_kernel_type  # Ensure kernel type is identified before installation
     echo
     printf "Installing kernel headers... "
@@ -64,9 +58,6 @@ remove_kernel_fallback_image() {
 
 # Function to configure Pacman
 configure_pacman() {
-    # Purpose: Configures Pacman settings for package management.
-    # Dependencies: sudo, sed
-    # Output: Updates Pacman configuration settings.
     echo
     printf "Configuring Pacman... "
     echo
@@ -86,9 +77,6 @@ configure_pacman() {
 
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
-    # Purpose: Adds silent boot options to the Linux or Linux-Zen entry in Systemd-Boot.
-    # Dependencies: find, sed
-    # Output: Adds silent boot options to the Linux or Linux-Zen entry.
     echo
     printf "Making Systemd-Boot silent... "
     echo
@@ -112,8 +100,6 @@ make_systemd_boot_silent() {
 
 # Function to change loader.conf
 change_loader_conf() {
-    # Purpose: Changes loader.conf settings for boot configuration.
-    # Output: Updates loader.conf settings.
     echo
     printf "Changing loader.conf... "
     echo
@@ -394,15 +380,30 @@ reboot_system() {
     fi
 }
 
+# Function to detect bootloader
+detect_bootloader() {
+    if [ -d "/sys/firmware/efi" ] && [ -d "/boot/loader" ]; then
+        echo "systemd-boot detected."
+        return 0
+    else
+        echo "GRUB detected or no bootloader detected."
+        return 1
+    fi
+}
+
 # Main script
 
 # Run functions
 identify_kernel_type
 install_kernel_headers
-remove_kernel_fallback_image
+
+if detect_bootloader; then
+    remove_kernel_fallback_image
+    make_systemd_boot_silent
+    change_loader_conf
+fi
+
 configure_pacman
-make_systemd_boot_silent
-change_loader_conf
 enable_asterisks_sudo
 update_mirrorlist
 update_system
