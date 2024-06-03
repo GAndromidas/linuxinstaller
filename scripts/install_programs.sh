@@ -73,7 +73,6 @@ pacman_programs=(
     gamemode
     gamescope
     gnome-disk-utility
-    gnome-keyring
     hwinfo
     inxi
     lib32-gamemode
