@@ -132,9 +132,6 @@ alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 # Check Microcode
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
 
-# Boot into Windows for Systemd-Boot
-alias windows='sudo systemctl reboot --boot-loader-entry=auto-windows'
-
 # Restart and Shutdown
 alias sr='sudo reboot'
 alias ss='sudo poweroff'
@@ -147,6 +144,7 @@ alias df='df -h'
 alias free="free -mt"
 alias hw='hwinfo --short'
 alias unlock="sudo rm /var/lib/pacman/db.lck"
+alias update-grub='sudo grub-mkconfig -o /boot/grub/grub.cfg'
 
 fastfetch --cpu-temp
 
