@@ -85,6 +85,7 @@ pacman_programs=(
     ntfs-3g
     os-prober
     pacman-contrib
+    python-pipx
     samba
     sl
     speedtest-cli
