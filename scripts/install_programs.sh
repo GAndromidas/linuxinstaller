@@ -65,6 +65,7 @@ pacman_programs=(
     bleachbit
     btop
     cmatrix
+    curl
     dosfstools
     fastfetch
     flatpak
@@ -87,11 +88,13 @@ pacman_programs=(
     samba
     sl
     speedtest-cli
+    sshfs
     ttf-hack-nerd
     ttf-liberation
     ufw
     unrar
     vulkan-radeon
+    wget
     wlroots
     xdg-desktop-portal-gtk
     zoxide
