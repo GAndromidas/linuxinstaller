@@ -70,7 +70,6 @@ pacman_programs=(
     fastfetch
     flatpak
     fwupd
-    fzf
     gamemode
     gamescope
     gnome-disk-utility

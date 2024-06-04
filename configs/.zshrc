@@ -148,7 +148,6 @@ alias update-grub='sudo grub-mkconfig -o /boot/grub/grub.cfg'
 
 fastfetch --cpu-temp
 
-# Set up fzf, zoxide and starship
-source <(fzf --zsh)
+# Set up zoxide and starship
 eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
