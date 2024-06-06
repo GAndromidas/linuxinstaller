@@ -4,11 +4,13 @@
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
+# Path to your pipx.
+export PATH="$PATH:$HOME/.local/bin"
+
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-# ZSH_THEME="robbyrussell"
 ZSH_THEME="agnoster"
 DEFAULT_USER=$USER
 
@@ -85,9 +87,9 @@ source $ZSH/oh-my-zsh.sh
 
 # Preferred editor for local and remote sessions
 # if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
+#   export EDITOR='nano'
 # else
-#   export EDITOR='mvim'
+#   export EDITOR='nano'
 # fi
 
 # Compilation flags
@@ -132,6 +134,9 @@ alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 # Check Microcode
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
 
+# Boot into Windows for Systemd-Boot
+alias windows='sudo systemctl reboot --boot-loader-entry=auto-windows'
+
 # Restart and Shutdown
 alias sr='sudo reboot'
 alias ss='sudo poweroff'
@@ -144,7 +149,6 @@ alias df='df -h'
 alias free="free -mt"
 alias hw='hwinfo --short'
 alias unlock="sudo rm /var/lib/pacman/db.lck"
-alias update-grub='sudo grub-mkconfig -o /boot/grub/grub.cfg'
 
 fastfetch --cpu-temp
 
