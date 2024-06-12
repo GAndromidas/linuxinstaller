@@ -129,7 +129,6 @@ kde_install_programs=(
     qbittorrent
     spectacle
     vlc
-    xwaylandvideobridge
     # Add or remove KDE-specific programs as needed
 )
 
