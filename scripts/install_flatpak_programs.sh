@@ -7,8 +7,10 @@ install_flatpak_programs_kde() {
     echo
     # List of Flatpak packages to install for KDE
     flatpak_packages=(
-        net.davidotek.pupgui2
-        it.mijorus.gearlever
+        net.davidotek.pupgui2 # ProtonUp-Qt
+        it.mijorus.gearlever # Gear Lever
+        io.github.shiftey.Desktop # GitHub Desktop
+        com.github.tchx84.Flatseal # Flatseal
         # Add or remove packages as needed
     )
     for package in "${flatpak_packages[@]}"; do
@@ -25,9 +27,11 @@ install_flatpak_programs_gnome() {
     echo
     # List of Flatpak packages to install for GNOME
     flatpak_packages=(
-        net.davidotek.pupgui2
-        it.mijorus.gearlever
-        com.mattjakeman.ExtensionManager
+        net.davidotek.pupgui2 # ProtonUp-Qt
+        it.mijorus.gearlever # Gear Lever
+        io.github.shiftey.Desktop # GitHub Desktop
+        com.github.tchx84.Flatseal # Flatseal
+        com.mattjakeman.ExtensionManager # Extensions Manager
         # Add or remove packages as needed
     )
     for package in "${flatpak_packages[@]}"; do
