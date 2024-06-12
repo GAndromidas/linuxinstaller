@@ -60,7 +60,11 @@
         },
         {
             "type": "memory",
-            "key": " "
+            "key": " "
+        },
+        {
+            "type": "swap",
+            "key": " "
         },
         {
             "type": "disk",
