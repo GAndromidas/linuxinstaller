@@ -101,7 +101,6 @@ pacman_programs=(
 
 # Essential programs to install using pacman
 essential_programs=(
-    chromium
     discord
     filezilla
     firefox
