@@ -72,7 +72,6 @@ pacman_programs=(
     fwupd
     gamemode
     gamescope
-    gnome-keyring
     hwinfo
     inxi
     lib32-gamemode
