@@ -102,8 +102,8 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 # Update System
-alias sync='sudo pacman -Syyy'
-alias update='sudo pacman -Syyu && yay -Syyu && sudo flatpak update'
+alias sync='sudo pacman -Syy'
+alias update='yay -Syyu && sudo flatpak update'
 
 # Update Mirrorlist
 alias mirror='sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
@@ -130,9 +130,6 @@ alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 
 # Check Microcode
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
-
-# Boot into Windows for Systemd-Boot
-alias windows='sudo systemctl reboot --boot-loader-entry=auto-windows'
 
 # Restart and Shutdown
 alias sr='sudo reboot'
