@@ -26,8 +26,14 @@ remove_programs() {
     printf "Removing Programs... \n"
     echo
     sudo pacman -Rns --noconfirm "${specific_remove_programs[@]}"
-    echo
-    printf "Programs removed successfully.\n"
+    if [ $? -eq 0 ]; then
+        echo
+        printf "Programs removed successfully.\n"
+    else
+        echo
+        printf "Failed to remove programs. Exiting...\n"
+        exit 1
+    fi
 }
 
 # Function to install programs
@@ -36,27 +42,15 @@ install_programs() {
     printf "Installing Programs... \n"
     echo
     sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"
-    echo
-    printf "Programs installed successfully.\n"
-
-    # If KDE environment and KDE Connect is installed, configure KDE Connect firewall rules
-    if $kde_environment && [[ " ${specific_install_programs[@]} " =~ " kdeconnect " ]]; then
-        enable_kde_connect_firewall
+    if [ $? -eq 0 ]; then
+        echo
+        printf "Programs installed successfully.\n"
+    else
+        echo
+        printf "Failed to install programs. Exiting...\n"
+        exit 1
     fi
 }
-
-# Function to enable KDE Connect firewall rules
-enable_kde_connect_firewall() {
-    echo
-    printf "Configuring KDE Connect Firewall Rules... \n"
-    echo
-    sudo firewall-cmd --permanent --add-port=1714-1764/udp
-    sudo firewall-cmd --permanent --add-port=1714-1764/tcp
-    sudo firewall-cmd --reload
-    echo
-    printf "KDE Connect Firewall Rules configured successfully.\n"
-}
-
 
 # Main script
 
