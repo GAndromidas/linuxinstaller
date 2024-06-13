@@ -351,8 +351,23 @@ configure_firewall() {
         sudo ufw --force enable
     elif command -v firewall-cmd > /dev/null 2>&1; then
         echo "Using firewalld for firewall configuration."
-        sudo firewall-cmd --permanent --set-default-zone=block
-        sudo firewall-cmd --permanent --add-service=ssh
+        # Check if ssh service is already enabled
+        if ! sudo firewall-cmd --permanent --list-services | grep -q "\<ssh\>"; then
+            sudo firewall-cmd --permanent --add-service=ssh
+            echo "SSH service added to firewalld."
+        else
+            echo "SSH service is already enabled in firewalld."
+        fi
+
+        # Add KDE Connect service if not already enabled
+        if ! sudo firewall-cmd --permanent --list-services | grep -q "\<kdeconnect\>"; then
+            sudo firewall-cmd --permanent --add-service=kdeconnect
+            echo "KDE Connect service added to firewalld."
+        else
+            echo "KDE Connect service is already enabled in firewalld."
+        fi
+
+        # Reload firewall configuration
         sudo firewall-cmd --reload
     else
         echo "No compatible firewall found. Please install ufw or firewalld."
