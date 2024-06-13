@@ -13,7 +13,7 @@ install_flatpak_programs_kde() {
     io.github.shiftey.Desktop # GitHub Desktop
     it.mijorus.gearlever # Gear Lever
     net.davidotek.pupgui2 # ProtonUp-Qt
-        # Add or remove packages as needed
+    # Add or remove packages as needed
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -36,7 +36,7 @@ install_flatpak_programs_gnome() {
     com.vysp3r.ProtonPlus # ProtonPlus
     io.github.shiftey.Desktop # GitHub Desktop
     it.mijorus.gearlever # Gear Lever
-        # Add or remove packages as needed
+    # Add or remove packages as needed
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
