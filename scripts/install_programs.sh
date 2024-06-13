@@ -50,12 +50,13 @@ enable_kde_connect_firewall() {
     echo
     printf "Configuring KDE Connect Firewall Rules... \n"
     echo
-    sudo ufw allow 1714:1764/udp
-    sudo ufw allow 1714:1764/tcp
-    sudo ufw reload
+    sudo firewall-cmd --permanent --add-port=1714-1764/udp
+    sudo firewall-cmd --permanent --add-port=1714-1764/tcp
+    sudo firewall-cmd --reload
     echo
     printf "KDE Connect Firewall Rules configured successfully.\n"
 }
+
 
 # Main script
 
@@ -81,7 +82,6 @@ pacman_programs=(
     net-tools
     noto-fonts-extra
     ntfs-3g
-    os-prober
     pacman-contrib
     samba
     sl
@@ -89,7 +89,6 @@ pacman_programs=(
     sshfs
     ttf-hack-nerd
     ttf-liberation
-    ufw
     unrar
     vulkan-radeon
     wget
@@ -117,6 +116,7 @@ essential_programs=(
 
 # KDE-specific programs to install using pacman
 kde_install_programs=(
+    firewalld
     gwenview
     kdeconnect
     kwalletmanager

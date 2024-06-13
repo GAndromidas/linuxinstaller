@@ -290,22 +290,28 @@ install_aur_programs() {
 # Function to enable services
 enable_services() {
     echo
-    printf "Enabling Services... "
+    printf "Enabling Services... \n"
     echo
     local services=(
-        "fstrim.timer"
         "bluetooth"
-        "sshd"
+        "cronie"
+        "firewalld"
+        "fstrim.timer"
         "paccache.timer"
         "reflector.service"
         "reflector.timer"
+        "sshd"
         "teamviewerd.service"
         "ufw"
-        "cronie"
     )
 
     for service in "${services[@]}"; do
-        sudo systemctl enable --now "$service"
+        if systemctl list-unit-files | grep -q "^$service"; then
+            sudo systemctl enable --now "$service"
+            echo "$service enabled."
+        else
+            echo "$service is not installed."
+        fi
     done
 
     echo
@@ -332,14 +338,27 @@ create_fastfetch_config() {
 # Function to configure firewall
 configure_firewall() {
     echo
-    printf "Configuring Firewall... "
+    printf "Configuring Firewall... \n"
     echo
-    sudo ufw default deny incoming
-    sudo ufw default allow outgoing
-    sudo ufw allow ssh
-    sudo ufw logging on
-    sudo ufw limit ssh
-    sudo ufw --force enable
+
+    if command -v ufw > /dev/null 2>&1; then
+        echo "Using UFW for firewall configuration."
+        sudo ufw default deny incoming
+        sudo ufw default allow outgoing
+        sudo ufw allow ssh
+        sudo ufw logging on
+        sudo ufw limit ssh
+        sudo ufw --force enable
+    elif command -v firewall-cmd > /dev/null 2>&1; then
+        echo "Using firewalld for firewall configuration."
+        sudo firewall-cmd --permanent --set-default-zone=block
+        sudo firewall-cmd --permanent --add-service=ssh
+        sudo firewall-cmd --reload
+    else
+        echo "No compatible firewall found. Please install ufw or firewalld."
+        return 1
+    fi
+
     echo
     printf "Firewall configured successfully.\n"
 }
