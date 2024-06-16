@@ -14,6 +14,7 @@ install_aur_packages() {
 
 # Programs to install using yay
 yay_programs=(
+    brave-bin
     dropbox
     teamviewer
     via-bin
