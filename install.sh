@@ -351,6 +351,7 @@ configure_firewall() {
         sudo ufw --force enable
     elif command -v firewall-cmd > /dev/null 2>&1; then
         echo "Using firewalld for firewall configuration."
+
         # Check if ssh service is already enabled
         if ! sudo firewall-cmd --permanent --list-services | grep -q "\<ssh\>"; then
             sudo firewall-cmd --permanent --add-service=ssh
@@ -365,6 +366,14 @@ configure_firewall() {
             echo "KDE Connect service added to firewalld."
         else
             echo "KDE Connect service is already enabled in firewalld."
+        fi
+
+        # Add mDNS service for Chromecast if not already enabled
+        if ! sudo firewall-cmd --permanent --list-services | grep -q "\<mdns\>"; then
+            sudo firewall-cmd --permanent --add-service=mdns
+            echo "mDNS (Chromecast) service added to firewalld."
+        else
+            echo "mDNS (Chromecast) service is already enabled in firewalld."
         fi
 
         # Reload firewall configuration
