@@ -278,7 +278,6 @@ configure_firewall() {
     elif command -v firewall-cmd > /dev/null 2>&1; then
         print_info "Using firewalld for firewall configuration."
         commands=(
-            "sudo firewall-cmd --permanent --add-service=ssh"
             "sudo firewall-cmd --permanent --add-service=kdeconnect"
             "sudo firewall-cmd --permanent --add-service=mdns"
             "sudo firewall-cmd --reload"
