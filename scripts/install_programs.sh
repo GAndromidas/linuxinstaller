@@ -62,6 +62,7 @@ pacman_programs=(
     cmatrix
     curl
     dosfstools
+    easyeffects
     fastfetch
     flatpak
     fwupd
