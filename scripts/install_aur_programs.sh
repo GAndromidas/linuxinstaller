@@ -14,9 +14,9 @@ install_aur_packages() {
 
 # Programs to install using yay
 yay_programs=(
-    brave-bin
     dropbox
     teamviewer
+    thorium-browser-bin
     via-bin
     # Add or remove AUR programs as needed
 )
