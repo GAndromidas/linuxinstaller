@@ -67,7 +67,6 @@ pacman_programs=(
     flatpak
     fwupd
     gamemode
-    gamescope
     hwinfo
     inxi
     lib32-gamemode
