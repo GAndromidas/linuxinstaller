@@ -87,6 +87,7 @@ pacman_programs=(
     ttf-liberation
     unrar
     vulkan-radeon
+    wget
     xdg-desktop-portal-gtk
     zoxide
     # Add or remove programs as needed
