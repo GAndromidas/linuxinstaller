@@ -59,11 +59,13 @@ pacman_programs=(
     android-tools
     bleachbit
     btop
+    chromium
     cmatrix
     curl
     dosfstools
     easyeffects
     fastfetch
+    firefox
     flatpak
     fwupd
     gamemode

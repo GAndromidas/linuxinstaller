@@ -16,7 +16,6 @@ install_aur_packages() {
 yay_programs=(
     dropbox
     teamviewer
-    thorium-browser-bin
     via-bin
     # Add or remove AUR programs as needed
 )
