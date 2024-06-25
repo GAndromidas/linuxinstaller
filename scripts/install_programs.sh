@@ -69,6 +69,7 @@ pacman_programs=(
     flatpak
     fwupd
     gamemode
+    gnome-disk-utility
     hwinfo
     inxi
     lib32-gamemode
@@ -119,7 +120,6 @@ kde_install_programs=(
     kvantum
     okular
     packagekit-qt6
-    partitionmanager
     qbittorrent
     spectacle
     vlc
@@ -136,7 +136,6 @@ kde_remove_programs=(
 gnome_install_programs=(
     celluloid
     dconf-editor
-    gnome-disk-utility
     gnome-tweaks
     gufw
     seahorse
