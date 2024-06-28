@@ -7,7 +7,6 @@ install_flatpak_programs_kde() {
     echo
     # List of Flatpak packages to install for KDE
     flatpak_packages=(
-    com.github.tchx84.Flatseal # Flatseal
     com.spotify.Client # Spotify
     com.stremio.Stremio # Stremio
     io.github.shiftey.Desktop # GitHub Desktop
@@ -29,7 +28,6 @@ install_flatpak_programs_gnome() {
     echo
     # List of Flatpak packages to install for GNOME
     flatpak_packages=(
-    com.github.tchx84.Flatseal # Flatseal
     com.mattjakeman.ExtensionManager # Extensions Manager
     com.spotify.Client # Spotify
     com.stremio.Stremio # Stremio
