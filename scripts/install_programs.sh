@@ -59,6 +59,7 @@ pacman_programs=(
     android-tools
     bleachbit
     btop
+    bluez-utils
     chromium
     cmatrix
     curl
