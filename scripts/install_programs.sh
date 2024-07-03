@@ -62,6 +62,7 @@ pacman_programs=(
     bluez-utils
     cmatrix
     curl
+    dmidecode
     dosfstools
     easyeffects
     fastfetch
