@@ -60,7 +60,6 @@ pacman_programs=(
     bleachbit
     btop
     bluez-utils
-    chromium
     cmatrix
     curl
     dosfstools
