@@ -235,7 +235,6 @@ enable_services() {
         "reflector.timer"
         "sshd"
         "teamviewerd.service"
-        "ufw"
     )
 
     for service in "${services[@]}"; do
@@ -265,33 +264,46 @@ create_fastfetch_config() {
 configure_firewall() {
     print_info "Configuring Firewall..."
 
-    if command -v ufw > /dev/null 2>&1; then
-        print_info "Using UFW for firewall configuration."
-        commands=(
-            "sudo ufw default deny incoming"
-            "sudo ufw default allow outgoing"
-            "sudo ufw allow ssh"
-            "sudo ufw logging on"
-            "sudo ufw limit ssh"
-            "sudo ufw --force enable"
-        )
-    elif command -v firewall-cmd > /dev/null 2>&1; then
+    if command -v firewall-cmd > /dev/null 2>&1; then
         print_info "Using firewalld for firewall configuration."
-        commands=(
-            "sudo firewall-cmd --permanent --add-service=kdeconnect"
-            "sudo firewall-cmd --permanent --add-service=mdns"
-            "sudo firewall-cmd --reload"
-        )
+
+        commands=()
+
+        # Check if SSH is already allowed
+        if ! sudo firewall-cmd --permanent --list-services | grep -q "\bssh\b"; then
+            commands+=("sudo firewall-cmd --permanent --add-service=ssh")
+        else
+            print_warning "SSH is already allowed. Skipping SSH service configuration."
+        fi
+
+        # Check if KDE Connect is installed
+        if pacman -Q kdeconnect &>/dev/null; then
+            commands+=("sudo firewall-cmd --permanent --add-service=kdeconnect")
+        else
+            print_warning "KDE Connect is not installed. Skipping kdeconnect service configuration."
+        fi
+
+        # Check for Chromium browser
+        if pacman -Q chromium &>/dev/null; then
+            commands+=("sudo firewall-cmd --permanent --add-service=mdns")
+        else
+            print_warning "Chromium browser is not installed. Skipping mdns service configuration."
+        fi
+
+        # Reload firewall configuration
+        commands+=("sudo firewall-cmd --reload")
+
+        # Execute commands
+        for cmd in "${commands[@]}"; do
+            eval "$cmd"
+        done
+
+        print_success "Firewall configured successfully."
+
     else
-        print_error "No compatible firewall found. Please install ufw or firewalld."
+        print_error "Firewalld not found. Please install firewalld."
         return 1
     fi
-
-    for cmd in "${commands[@]}"; do
-        eval "$cmd"
-    done
-
-    print_success "Firewall configured successfully."
 }
 
 # Function to clear unused packages and cache
@@ -314,12 +326,22 @@ delete_archinstaller_folder() {
 # Function to reboot system
 reboot_system() {
     print_info "Rebooting System..."
-    printf "${YELLOW}Press 'y' to reboot now, or 'n' to cancel.\n${RESET}"
+    printf "${YELLOW}Do you want to reboot now? (Y/n)${RESET} "
 
-    read -p "Do you want to reboot now? (y/n): " confirm_reboot
+    read -rp "" confirm_reboot
 
-    while [[ ! "$confirm_reboot" =~ ^[yn]$ ]]; do
-        read -p "Invalid input. Please enter 'y' to reboot now or 'n' to cancel: " confirm_reboot
+    # Convert input to lowercase for case-insensitive comparison
+    confirm_reboot="${confirm_reboot,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm_reboot" ]]; then
+        confirm_reboot="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm_reboot" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to reboot now or 'n' to cancel: " confirm_reboot
+        confirm_reboot="${confirm_reboot,,}"
     done
 
     if [[ "$confirm_reboot" == "y" ]]; then

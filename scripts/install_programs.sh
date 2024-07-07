@@ -60,6 +60,7 @@ pacman_programs=(
     bleachbit
     btop
     bluez-utils
+    chromium
     cmatrix
     curl
     dmidecode
@@ -67,6 +68,7 @@ pacman_programs=(
     easyeffects
     fastfetch
     firefox
+    firewalld
     flatpak
     fwupd
     gamemode
@@ -99,7 +101,6 @@ pacman_programs=(
 essential_programs=(
     discord
     filezilla
-    firefox
     gimp
     libreoffice-fresh
     lutris
@@ -108,22 +109,23 @@ essential_programs=(
     steam
     telegram-desktop
     timeshift
+    vlc
     wine
     # Add or remove essential programs as needed
 )
 
 # KDE-specific programs to install using pacman
 kde_install_programs=(
-    firewalld
     gwenview
     kdeconnect
     kwalletmanager
     kvantum
     okular
     packagekit-qt6
+    python-pyqt5
+    python-pyqt6
     qbittorrent
     spectacle
-    vlc
     # Add or remove KDE-specific programs as needed
 )
 
@@ -138,7 +140,6 @@ gnome_install_programs=(
     celluloid
     dconf-editor
     gnome-tweaks
-    gufw
     seahorse
     transmission-gtk
     # Add or remove GNOME-specific programs as needed
