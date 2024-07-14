@@ -158,6 +158,57 @@ gnome_remove_programs=(
     # Add other GNOME-specific programs to remove if needed
 )
 
+# Prompt the user for selection
+echo "Select an option:"
+echo "1) Default"
+echo "2) Desktop"
+read -p "Enter your choice [1-2, default is 1]: " choice
+
+# Modify the lists based on the user's choice
+if [[ -z "$choice" || "$choice" -eq 1 ]]; then
+    # Default option: Remove specific programs
+    pacman_programs=(
+        android-tools
+        bleachbit
+        btop
+        bluez-utils
+        chromium
+        cmatrix
+        curl
+        dmidecode
+        dosfstools
+        easyeffects
+        fastfetch
+        firefox
+        firewalld
+        flatpak
+        fwupd
+        net-tools
+        noto-fonts-extra
+        ntfs-3g
+        pacman-contrib
+        samba
+        sl
+        speedtest-cli
+        sshfs
+        ttf-hack-nerd
+        ttf-liberation
+        unrar
+        wget
+        xdg-desktop-portal-gtk
+        zoxide
+        # Removed programs: gamemode, lib32-gamemode, lib32-mangohud, lib32-vulkan-radeon, mangohud, vulkan-radeon
+    )
+
+    essential_programs=(
+        libreoffice-fresh
+        timeshift
+        vlc
+        wine
+        # Removed programs: discord, filezilla, gimp, lutris, obs-studio, smplayer, steam, telegram-desktop
+    )
+fi
+
 # Detect desktop environment
 detect_desktop_environment
 
