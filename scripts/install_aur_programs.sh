@@ -39,31 +39,28 @@ install_aur_packages() {
 
 # User selection
 echo "Select an option:"
-echo "1) Default"
-echo "2) Desktop"
+echo "1) Default"  # Switched to be the first and default option
+echo "2) Minimal"  # Switched to be the second option
 read -p "Enter your choice [1-2, default is 1]: " choice
 
 # Programs to install using yay
 if [[ -z "$choice" || "$choice" -eq 1 ]]; then
     yay_programs=(
+        dropbox
+        teamviewer
+        via-bin
+    )
+elif [[ "$choice" -eq 2 ]]; then
+    yay_programs=(
         teamviewer
     )
 else
-    case $choice in
-        2)
-            yay_programs=(
-                dropbox
-                teamviewer
-                via-bin
-            )
-            ;;
-        *)
-            print_warning "Invalid choice. Installing Default option."
-            yay_programs=(
-                teamviewer
-            )
-            ;;
-    esac
+    print_warning "Invalid choice. Installing Default option."
+    yay_programs=(
+        dropbox
+        teamviewer
+        via-bin
+    )
 fi
 
 # Run function

@@ -74,8 +74,8 @@ install_programs() {
 
 # Main script
 
-# Programs to install using pacman
-pacman_programs=(
+# Programs to install using pacman (Default option)
+pacman_programs_default=(
     android-tools
     bleachbit
     btop
@@ -117,8 +117,7 @@ pacman_programs=(
     # Add or remove programs as needed
 )
 
-# Essential programs to install using pacman
-essential_programs=(
+essential_programs_default=(
     discord
     filezilla
     gimp
@@ -132,6 +131,48 @@ essential_programs=(
     vlc
     wine
     # Add or remove essential programs as needed
+)
+
+# Programs to install using pacman (Minimal option)
+pacman_programs_minimal=(
+    android-tools
+    bleachbit
+    btop
+    bluez-utils
+    chromium
+    cmatrix
+    curl
+    dmidecode
+    dosfstools
+    easyeffects
+    fastfetch
+    firefox
+    firewalld
+    flatpak
+    fwupd
+    net-tools
+    noto-fonts-extra
+    ntfs-3g
+    pacman-contrib
+    samba
+    sl
+    speedtest-cli
+    sshfs
+    ttf-hack-nerd
+    ttf-liberation
+    unrar
+    wget
+    xdg-desktop-portal-gtk
+    zoxide
+    # Add or remove minimal programs as needed
+)
+
+essential_programs_minimal=(
+    libreoffice-fresh
+    timeshift
+    vlc
+    wine
+    # Add or remove minimal essential programs as needed
 )
 
 # KDE-specific programs to install using pacman
@@ -181,52 +222,18 @@ gnome_remove_programs=(
 # Prompt the user for selection
 echo "Select an option:"
 echo "1) Default"
-echo "2) Desktop"
+echo "2) Minimal"
 read -p "Enter your choice [1-2, default is 1]: " choice
 
 # Modify the lists based on the user's choice
 if [[ -z "$choice" || "$choice" -eq 1 ]]; then
-    # Default option: Remove specific programs
-    pacman_programs=(
-        android-tools
-        bleachbit
-        btop
-        bluez-utils
-        chromium
-        cmatrix
-        curl
-        dmidecode
-        dosfstools
-        easyeffects
-        fastfetch
-        firefox
-        firewalld
-        flatpak
-        fwupd
-        net-tools
-        noto-fonts-extra
-        ntfs-3g
-        pacman-contrib
-        samba
-        sl
-        speedtest-cli
-        sshfs
-        ttf-hack-nerd
-        ttf-liberation
-        unrar
-        wget
-        xdg-desktop-portal-gtk
-        zoxide
-        # Removed programs: gamemode, lib32-gamemode, lib32-mangohud, lib32-vulkan-radeon, mangohud, vulkan-radeon
-    )
-
-    essential_programs=(
-        libreoffice-fresh
-        timeshift
-        vlc
-        wine
-        # Removed programs: discord, filezilla, gimp, lutris, obs-studio, smplayer, steam, telegram-desktop
-    )
+    # Default option: Install specific programs
+    pacman_programs=("${pacman_programs_default[@]}")
+    essential_programs=("${essential_programs_default[@]}")
+else
+    # Minimal option: Install minimal programs
+    pacman_programs=("${pacman_programs_minimal[@]}")
+    essential_programs=("${essential_programs_minimal[@]}")
 fi
 
 # Detect desktop environment

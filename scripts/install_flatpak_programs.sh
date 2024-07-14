@@ -28,7 +28,7 @@ install_flatpak_programs_kde() {
     flatpak_packages=(
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
-        io.github.shiftey.Desktop # GitHub Desktop
+        io.github.shiftey.Default # GitHub Default
         it.mijorus.gearlever # Gear Lever
         net.davidotek.pupgui2 # ProtonUp-Qt
         # Add or remove packages as needed
@@ -50,8 +50,7 @@ install_flatpak_programs_gnome() {
         com.mattjakeman.ExtensionManager # Extensions Manager
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
-        com.vysp3r.ProtonPlus # ProtonPlus
-        io.github.shiftey.Desktop # GitHub Desktop
+        io.github.shiftey.Default # GitHub Default
         it.mijorus.gearlever # Gear Lever
         # Add or remove packages as needed
     )
@@ -63,11 +62,11 @@ install_flatpak_programs_gnome() {
     print_success "Flatpak Programs for GNOME installed successfully."
 }
 
-# Function to install Default Flatpak programs for KDE
-install_flatpak_default_kde() {
-    print_info "Installing Default Flatpak Programs for KDE..."
+# Function to install Minimal Flatpak programs for KDE
+install_flatpak_minimal_kde() {
+    print_info "Installing Minimal Flatpak Programs for KDE..."
 
-    # List of Default Flatpak packages to install for KDE
+    # List of Minimal Flatpak packages to install for KDE
     flatpak_packages=(
         it.mijorus.gearlever # Gear Lever
     )
@@ -76,14 +75,14 @@ install_flatpak_default_kde() {
         sudo flatpak install -y flathub "$package"
     done
 
-    print_success "Default Flatpak Programs for KDE installed successfully."
+    print_success "Minimal Flatpak Programs for KDE installed successfully."
 }
 
-# Function to install Default Flatpak programs for GNOME
-install_flatpak_default_gnome() {
-    print_info "Installing Default Flatpak Programs for GNOME..."
+# Function to install Minimal Flatpak programs for GNOME
+install_flatpak_minimal_gnome() {
+    print_info "Installing Minimal Flatpak Programs for GNOME..."
 
-    # List of Default Flatpak packages to install for GNOME
+    # List of Minimal Flatpak packages to install for GNOME
     flatpak_packages=(
         com.mattjakeman.ExtensionManager # Extensions Manager
         it.mijorus.gearlever # Gear Lever
@@ -93,7 +92,7 @@ install_flatpak_default_gnome() {
         sudo flatpak install -y flathub "$package"
     done
 
-    print_success "Default Flatpak Programs for GNOME installed successfully."
+    print_success "Minimal Flatpak Programs for GNOME installed successfully."
 }
 
 # Main function
@@ -104,17 +103,17 @@ install_flatpak_programs() {
     # Prompt the user for selection
     echo "Select an option:"
     echo "1) Default"
-    echo "2) Desktop"
+    echo "2) Minimal"
     read -p "Enter your choice [1-2, default is 1]: " choice
 
     # Install appropriate Flatpak packages based on the desktop environment and user selection
     if [[ -z "$choice" || "$choice" -eq 1 ]]; then
         case "$desktop_env" in
             kde)
-                install_flatpak_default_kde
+                install_flatpak_programs_kde
                 ;;
             gnome)
-                install_flatpak_default_gnome
+                install_flatpak_programs_gnome
                 ;;
             *)
                 print_error "Unsupported desktop environment: $desktop_env. Exiting."
@@ -126,10 +125,10 @@ install_flatpak_programs() {
             2)
                 case "$desktop_env" in
                     kde)
-                        install_flatpak_programs_kde
+                        install_flatpak_minimal_kde
                         ;;
                     gnome)
-                        install_flatpak_programs_gnome
+                        install_flatpak_minimal_gnome
                         ;;
                     *)
                         print_error "Unsupported desktop environment: $desktop_env. Exiting."
@@ -141,10 +140,10 @@ install_flatpak_programs() {
                 print_error "Invalid choice. Installing Default option."
                 case "$desktop_env" in
                     kde)
-                        install_flatpak_default_kde
+                        install_flatpak_programs_kde
                         ;;
                     gnome)
-                        install_flatpak_default_gnome
+                        install_flatpak_programs_gnome
                         ;;
                     *)
                         print_error "Unsupported desktop environment: $desktop_env. Exiting."
