@@ -28,7 +28,7 @@ install_flatpak_programs_kde() {
     flatpak_packages=(
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
-        io.github.shiftey.Default # GitHub Default
+        io.github.shiftey.Desktop # GitHub Desktop
         it.mijorus.gearlever # Gear Lever
         net.davidotek.pupgui2 # ProtonUp-Qt
         # Add or remove packages as needed
@@ -50,7 +50,7 @@ install_flatpak_programs_gnome() {
         com.mattjakeman.ExtensionManager # Extensions Manager
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
-        io.github.shiftey.Default # GitHub Default
+        io.github.shiftey.Desktop # GitHub Desktop
         it.mijorus.gearlever # Gear Lever
         # Add or remove packages as needed
     )
