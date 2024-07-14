@@ -1,19 +1,39 @@
 #!/bin/bash
 
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Function to print messages with colors
+print_info() {
+    echo -e "${CYAN}$1${RESET}"
+}
+
+print_success() {
+    echo -e "${GREEN}$1${RESET}"
+}
+
+print_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
 # Function to detect desktop environment and set specific programs to install or remove
 detect_desktop_environment() {
     if [ "$XDG_CURRENT_DESKTOP" == "KDE" ]; then
-        echo "KDE detected."
+        print_info "KDE detected."
         specific_install_programs=("${kde_install_programs[@]}")
         specific_remove_programs=("${kde_remove_programs[@]}")
         kde_environment=true
     elif [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]; then
-        echo "GNOME detected."
+        print_info "GNOME detected."
         specific_install_programs=("${gnome_install_programs[@]}")
         specific_remove_programs=("${gnome_remove_programs[@]}")
         kde_environment=false
     else
-        echo "Unsupported desktop environment detected."
+        print_error "Unsupported desktop environment detected."
         specific_install_programs=()
         specific_remove_programs=()
         kde_environment=false
@@ -28,10 +48,10 @@ remove_programs() {
     sudo pacman -Rns --noconfirm "${specific_remove_programs[@]}"
     if [ $? -eq 0 ]; then
         echo
-        printf "Programs removed successfully.\n"
+        print_success "Programs removed successfully."
     else
         echo
-        printf "Failed to remove programs. Exiting...\n"
+        print_error "Failed to remove programs. Exiting..."
         exit 1
     fi
 }
@@ -44,10 +64,10 @@ install_programs() {
     sudo pacman -S --needed --noconfirm "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"
     if [ $? -eq 0 ]; then
         echo
-        printf "Programs installed successfully.\n"
+        print_success "Programs installed successfully."
     else
         echo
-        printf "Failed to install programs. Exiting...\n"
+        print_error "Failed to install programs. Exiting..."
         exit 1
     fi
 }

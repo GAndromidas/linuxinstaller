@@ -1,79 +1,99 @@
 #!/bin/bash
 
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Function to print messages with colors
+print_info() {
+    echo -e "${CYAN}$1${RESET}"
+}
+
+print_success() {
+    echo -e "${GREEN}$1${RESET}"
+}
+
+print_error() {
+    echo -e "${RED}$1${RESET}"
+}
+
 # Function to install Flatpak programs for KDE
 install_flatpak_programs_kde() {
-    echo
-    printf "Installing Flatpak Programs for KDE... "
-    echo
+    print_info "Installing Flatpak Programs for KDE..."
+
     # List of Flatpak packages to install for KDE
     flatpak_packages=(
-    com.spotify.Client # Spotify
-    com.stremio.Stremio # Stremio
-    io.github.shiftey.Desktop # GitHub Desktop
-    it.mijorus.gearlever # Gear Lever
-    net.davidotek.pupgui2 # ProtonUp-Qt
-    # Add or remove packages as needed
+        com.spotify.Client # Spotify
+        com.stremio.Stremio # Stremio
+        io.github.shiftey.Desktop # GitHub Desktop
+        it.mijorus.gearlever # Gear Lever
+        net.davidotek.pupgui2 # ProtonUp-Qt
+        # Add or remove packages as needed
     )
+
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
     done
-    echo
-    printf "Flatpak Programs for KDE installed successfully.\n"
+
+    print_success "Flatpak Programs for KDE installed successfully."
 }
 
 # Function to install Flatpak programs for GNOME
 install_flatpak_programs_gnome() {
-    echo
-    printf "Installing Flatpak Programs for GNOME... "
-    echo
+    print_info "Installing Flatpak Programs for GNOME..."
+
     # List of Flatpak packages to install for GNOME
     flatpak_packages=(
-    com.mattjakeman.ExtensionManager # Extensions Manager
-    com.spotify.Client # Spotify
-    com.stremio.Stremio # Stremio
-    com.vysp3r.ProtonPlus # ProtonPlus
-    io.github.shiftey.Desktop # GitHub Desktop
-    it.mijorus.gearlever # Gear Lever
-    # Add or remove packages as needed
+        com.mattjakeman.ExtensionManager # Extensions Manager
+        com.spotify.Client # Spotify
+        com.stremio.Stremio # Stremio
+        com.vysp3r.ProtonPlus # ProtonPlus
+        io.github.shiftey.Desktop # GitHub Desktop
+        it.mijorus.gearlever # Gear Lever
+        # Add or remove packages as needed
     )
+
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
     done
-    echo
-    printf "Flatpak Programs for GNOME installed successfully.\n"
+
+    print_success "Flatpak Programs for GNOME installed successfully."
 }
 
 # Function to install Default Flatpak programs for KDE
 install_flatpak_default_kde() {
-    echo
-    printf "Installing Default Flatpak Programs for KDE... "
-    echo
+    print_info "Installing Default Flatpak Programs for KDE..."
+
     # List of Default Flatpak packages to install for KDE
     flatpak_packages=(
-    it.mijorus.gearlever # Gear Lever
+        it.mijorus.gearlever # Gear Lever
     )
+
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
     done
-    echo
-    printf "Default Flatpak Programs for KDE installed successfully.\n"
+
+    print_success "Default Flatpak Programs for KDE installed successfully."
 }
 
 # Function to install Default Flatpak programs for GNOME
 install_flatpak_default_gnome() {
-    echo
-    printf "Installing Default Flatpak Programs for GNOME... "
-    echo
+    print_info "Installing Default Flatpak Programs for GNOME..."
+
     # List of Default Flatpak packages to install for GNOME
     flatpak_packages=(
-    com.mattjakeman.ExtensionManager # Extensions Manager
-    it.mijorus.gearlever # Gear Lever
+        com.mattjakeman.ExtensionManager # Extensions Manager
+        it.mijorus.gearlever # Gear Lever
     )
+
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
     done
-    echo
-    printf "Default Flatpak Programs for GNOME installed successfully.\n"
+
+    print_success "Default Flatpak Programs for GNOME installed successfully."
 }
 
 # Main function
@@ -97,7 +117,7 @@ install_flatpak_programs() {
                 install_flatpak_default_gnome
                 ;;
             *)
-                echo "Unsupported desktop environment: $desktop_env. Exiting."
+                print_error "Unsupported desktop environment: $desktop_env. Exiting."
                 exit 1
                 ;;
         esac
@@ -112,13 +132,13 @@ install_flatpak_programs() {
                         install_flatpak_programs_gnome
                         ;;
                     *)
-                        echo "Unsupported desktop environment: $desktop_env. Exiting."
+                        print_error "Unsupported desktop environment: $desktop_env. Exiting."
                         exit 1
                         ;;
                 esac
                 ;;
             *)
-                echo "Invalid choice. Installing Default option."
+                print_error "Invalid choice. Installing Default option."
                 case "$desktop_env" in
                     kde)
                         install_flatpak_default_kde
@@ -127,7 +147,7 @@ install_flatpak_programs() {
                         install_flatpak_default_gnome
                         ;;
                     *)
-                        echo "Unsupported desktop environment: $desktop_env. Exiting."
+                        print_error "Unsupported desktop environment: $desktop_env. Exiting."
                         exit 1
                         ;;
                 esac
