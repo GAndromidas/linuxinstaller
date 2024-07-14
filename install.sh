@@ -38,9 +38,10 @@ print_error() {
     echo -e "${RED}$1${RESET}"
 }
 
-# Function to identify the installed Linux kernel type
-identify_kernel_type() {
+# Function to identify the installed Linux kernel type and install kernel headers
+install_kernel_headers() {
     print_info "Identifying installed Linux kernel type..."
+
     if pacman -Q linux-zen &>/dev/null; then
         KERNEL_HEADERS="linux-zen-headers"
     elif pacman -Q linux-hardened &>/dev/null; then
@@ -48,25 +49,14 @@ identify_kernel_type() {
     elif pacman -Q linux-lts &>/dev/null; then
         KERNEL_HEADERS="linux-lts-headers"
     fi
-    print_info "$KERNEL_HEADERS kernel headers will be installed."
-}
 
-# Function to install kernel headers
-install_kernel_headers() {
-    identify_kernel_type
-    print_info "Installing kernel headers..."
+    print_info "Installing $KERNEL_HEADERS..."
     if sudo pacman -S --needed --noconfirm "$KERNEL_HEADERS"; then
-        print_success "Kernel headers installed successfully."
+        print_success "Kernel headers ($KERNEL_HEADERS) installed successfully."
     else
-        print_error "Error: Failed to install kernel headers."
+        print_error "Error: Failed to install kernel headers ($KERNEL_HEADERS)."
         exit 1
     fi
-}
-
-# Function to remove Linux kernel fallback image
-remove_kernel_fallback_image() {
-    print_info "Removing Linux kernel fallback image..."
-    sudo rm /boot/loader/entries/*fallback* && print_success "Linux kernel fallback image removed successfully."
 }
 
 # Function to make Systemd-Boot silent
@@ -378,11 +368,9 @@ install_grub_theme() {
 # Main script
 
 # Run functions
-identify_kernel_type
 install_kernel_headers
 
 if detect_bootloader; then
-    remove_kernel_fallback_image
     make_systemd_boot_silent
     change_loader_conf
 else
