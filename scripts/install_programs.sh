@@ -187,6 +187,7 @@ kde_install_programs=(
     python-pyqt6
     qbittorrent
     spectacle
+    xwaylandvideobridge
     # Add or remove KDE-specific programs as needed
 )
 
