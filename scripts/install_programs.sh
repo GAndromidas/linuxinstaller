@@ -112,6 +112,7 @@ pacman_programs_default=(
     sshfs
     ttf-hack-nerd
     ttf-liberation
+    ttf-meslo-nerd
     unrar
     vulkan-icd-loader
     vulkan-radeon
@@ -166,6 +167,7 @@ pacman_programs_minimal=(
     sshfs
     ttf-hack-nerd
     ttf-liberation
+    ttf-meslo-nerd
     unrar
     wget
     xdg-desktop-portal-gtk
