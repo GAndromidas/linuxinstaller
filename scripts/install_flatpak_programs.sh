@@ -29,7 +29,6 @@ install_flatpak_programs_kde() {
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
         io.github.shiftey.Desktop # GitHub Desktop
-        it.mijorus.gearlever # Gear Lever
         net.davidotek.pupgui2 # ProtonUp-Qt
         # Add or remove packages as needed
     )
@@ -51,7 +50,7 @@ install_flatpak_programs_gnome() {
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
         io.github.shiftey.Desktop # GitHub Desktop
-        it.mijorus.gearlever # Gear Lever
+        com.vysp3r.ProtonPlus # ProtonPlus
         # Add or remove packages as needed
     )
 
@@ -68,7 +67,7 @@ install_flatpak_minimal_kde() {
 
     # List of Minimal Flatpak packages to install for KDE
     flatpak_packages=(
-        it.mijorus.gearlever # Gear Lever
+        com.stremio.Stremio # Stremio
     )
 
     for package in "${flatpak_packages[@]}"; do
@@ -85,7 +84,7 @@ install_flatpak_minimal_gnome() {
     # List of Minimal Flatpak packages to install for GNOME
     flatpak_packages=(
         com.mattjakeman.ExtensionManager # Extensions Manager
-        it.mijorus.gearlever # Gear Lever
+        com.stremio.Stremio # Stremio
     )
 
     for package in "${flatpak_packages[@]}"; do
