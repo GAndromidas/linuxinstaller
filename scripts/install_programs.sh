@@ -99,6 +99,7 @@ pacman_programs_default=(
     inxi
     lib32-gamemode
     lib32-mangohud
+    lib32-vulkan-icd-loader
     lib32-vulkan-radeon
     mangohud
     net-tools
@@ -112,6 +113,7 @@ pacman_programs_default=(
     ttf-hack-nerd
     ttf-liberation
     unrar
+    vulkan-icd-loader
     vulkan-radeon
     wget
     xdg-desktop-portal-gtk
