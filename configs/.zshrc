@@ -29,40 +29,18 @@ alias sr='sudo reboot'
 alias ss='sudo poweroff'
 alias jctl='journalctl -p 3 -xb'
 
-# Directory listing aliases
-alias la='ls -Alh'                # show hidden files
-alias ls='ls -aFh --color=always' # add colors and file type extensions
-alias lx='ls -lXBh'               # sort by extension
-alias lk='ls -lSrh'               # sort by size
-alias lc='ls -ltcrh'              # sort by change time
-alias lu='ls -lturh'              # sort by access time
-alias lr='ls -lRh'                # recursive ls
-alias lt='ls -ltrh'               # sort by date
-alias lm='ls -alh | more'         # pipe through 'more'
-alias lw='ls -XAhl'               # wide listing format
-alias ll='ls -Fls'                # long listing format
-alias labc='ls -lap'              # alphabetical sort
-alias lf="ls -l | egrep -v '^d'"  # files only
-alias ldir="ls -l | egrep '^d'"   # directories only
-alias lla='ls -Al'                # List and Hidden Files
-alias las='ls -A'                 # Hidden Files
-alias lls='ls -l'                 # List
+# Replace ls with eza
+alias ls='eza -al --color=always --group-directories-first --icons' # preferred listing
+alias la='eza -a --color=always --group-directories-first --icons'  # all files and dirs
+alias ll='eza -l --color=always --group-directories-first --icons'  # long format
+alias lt='eza -aT --color=always --group-directories-first --icons' # tree listing
+alias l.="eza -a | grep -e '^\.'"                                   # show only dotfiles
 
 # Navigation
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 alias -- -='cd -'
-
-# File Operations
-alias cpv='rsync -ah --info=progress2'
-alias mv='mv -i'
-alias cp='cp -i'
-alias rm='rm -i'
-
-# Search
-alias f='find . -name'
-alias grep='grep --color=auto'
 
 # Networking
 alias ip='ip addr'
@@ -75,6 +53,7 @@ alias hw='hwinfo --short'
 alias cpu='lscpu'
 alias mem="free -mt"
 alias psf='ps auxf'
+alias big="expac -H M '%m\t%n' | sort -h | nl"              # Sort installed packages according to size in MB
 
 # Disk Usage
 alias df='df -h'
@@ -82,16 +61,17 @@ alias du='du -h'
 alias duh='du -h --max-depth=1'
 
 # Tar and Zip Operations
-alias tarxz='tar -cJf'
-alias tarcz='tar -czf'
-alias tarxzv='tar -xJf'
-alias tarczv='tar -xzf'
+alias tar='tar -acf '
+alias untar='tar -zxvf '
 alias zip='zip -r'
 alias unzip='unzip'
 
 # Miscellaneous aliases
 alias zshconfig="nano ~/.zshrc"
 alias unlock="sudo rm /var/lib/pacman/db.lck"
+
+# Recent installed packages
+alias rip="expac --timefmt='%d-%m-%Y %T' '%l\t%n %v' | sort | tail -200 | nl"
 
 # Load additional tools
 fastfetch --cpu-temp --gpu-temp

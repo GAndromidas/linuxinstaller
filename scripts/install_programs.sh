@@ -86,6 +86,8 @@ pacman_programs_default=(
     dmidecode
     dosfstools
     easyeffects
+    expac
+    eza
     fastfetch
     firefox
     firewalld
@@ -145,6 +147,8 @@ pacman_programs_minimal=(
     dmidecode
     dosfstools
     easyeffects
+    expac
+    eza
     fastfetch
     firefox
     firewalld
