@@ -85,7 +85,6 @@ pacman_programs_default=(
     curl
     dmidecode
     dosfstools
-    easyeffects
     expac
     eza
     fastfetch
@@ -149,7 +148,6 @@ pacman_programs_minimal=(
     curl
     dmidecode
     dosfstools
-    easyeffects
     expac
     eza
     fastfetch
