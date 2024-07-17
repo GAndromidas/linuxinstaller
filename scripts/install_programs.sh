@@ -26,33 +26,34 @@ detect_desktop_environment() {
         print_info "KDE detected."
         specific_install_programs=("${kde_install_programs[@]}")
         specific_remove_programs=("${kde_remove_programs[@]}")
-        kde_environment=true
     elif [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]; then
         print_info "GNOME detected."
         specific_install_programs=("${gnome_install_programs[@]}")
         specific_remove_programs=("${gnome_remove_programs[@]}")
-        kde_environment=false
     else
-        print_error "Unsupported desktop environment detected."
+        print_error "No KDE or GNOME detected. Skipping DE-specific programs."
         specific_install_programs=()
         specific_remove_programs=()
-        kde_environment=false
     fi
 }
 
 # Function to remove programs
 remove_programs() {
-    echo
-    printf "Removing Programs... \n"
-    echo
-    sudo pacman -Rns --noconfirm "${specific_remove_programs[@]}"
-    if [ $? -eq 0 ]; then
-        echo
-        print_success "Programs removed successfully."
+    if [ ${#specific_remove_programs[@]} -eq 0 ]; then
+        print_info "No specific programs to remove."
     else
         echo
-        print_error "Failed to remove programs. Exiting..."
-        exit 1
+        printf "Removing Programs... \n"
+        echo
+        sudo pacman -Rns --noconfirm "${specific_remove_programs[@]}"
+        if [ $? -eq 0 ]; then
+            echo
+            print_success "Programs removed successfully."
+        else
+            echo
+            print_error "Failed to remove programs. Exiting..."
+            exit 1
+        fi
     fi
 }
 
