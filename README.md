@@ -1,24 +1,37 @@
 # Arch Linux Installation Script
 
-This script automates the setup of an Arch Linux system with various configurations and installations.
+## Description
+This script automates the setup and configuration of an Arch Linux system. It performs a variety of installations and system tweaks to streamline the setup process for new installations or after system updates.
 
-## Purpose
-The script performs the following tasks:
-- Identifies and installs kernel headers based on the detected kernel type.
-- Configures Pacman settings for package management.
-- Adds silent boot options to Systemd-Boot.
+## Author
+- **George Andromidas**
+
+## Features
+- Detects and installs appropriate Linux kernel headers.
+- Configures systemd-boot for a silent boot.
+- Updates `loader.conf` for faster boot times.
+- Enables password feedback in `sudo`.
+- Configures Pacman for improved performance and features.
+- Updates mirrorlist and reflector configurations.
+- Performs a full system update.
+- Installs and configures ZSH with Oh-My-ZSH and plugins.
 - Changes the default shell to ZSH.
-- Sets language locale and timezone settings.
-- Installs essential programs, KDE-specific programs or Gnome-specific programs, AUR packages, and YAY.
-- Enables necessary services for system functionality.
-- Configures UFW firewall settings.
-- Removes unused packages and clears cache.
-- Deletes the archinstaller folder after setup completion.
+- Installs and configures the Starship prompt.
+- Configures system locales.
+- Installs YAY AUR helper.
+- Installs additional programs and dependencies.
+- Enables and starts necessary system services.
+- Creates a fastfetch configuration.
+- Configures the firewall using `firewalld`.
+- Clears unused packages and cache.
+- Deletes the installation folder upon completion.
+- Offers an option to reboot the system.
+
+## Prerequisites
+- Ensure you have an Arch Linux system with `git` and `curl` installed.
 
 ## Installation
-
-To use this script:
-
-1. Download the repository: git clone https://github.com/gandromidas/archinstaller
-2. Go to the directory: cd archinstaller/
-3. Run the script: ./install.sh
+1. Clone this repository to your local machine:
+   ```bash
+   git clone https://github.com/gandromidas/archinstaller
+   cd archinstaller
