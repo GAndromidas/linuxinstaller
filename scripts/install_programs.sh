@@ -73,6 +73,44 @@ install_programs() {
     fi
 }
 
+# Function to install DaVinci Resolve dependencies
+install_davinci_resolve() {
+    davinci_packages=(
+        cmake
+        comgr
+        cppdap
+        hip-runtime-amd
+        hsa-rocr
+        hsakmt-roct
+        jsoncpp
+        libuv
+        opencl-headers
+        rhash
+        rocm-cmake
+        rocm-core
+        rocm-device-libs
+        rocm-language-runtime
+        rocm-llvm
+        rocminfo
+        lib32-mesa-vdpau
+        rocm-hip-runtime
+        rocm-opencl-runtime
+    )
+
+    echo
+    printf "Installing DaVinci Resolve dependencies... \n"
+    echo
+    sudo pacman -S --needed --noconfirm "${davinci_packages[@]}"
+    if [ $? -eq 0 ]; then
+        echo
+        print_success "DaVinci Resolve dependencies installed successfully."
+    else
+        echo
+        print_error "Failed to install DaVinci Resolve dependencies. Exiting..."
+        exit 1
+    fi
+}
+
 # Main script
 
 # Programs to install using pacman (Default option)
@@ -246,6 +284,12 @@ fi
 
 # Detect desktop environment
 detect_desktop_environment
+
+# Prompt to install DaVinci Resolve
+read -p "Do you want to install DaVinci Resolve dependencies? [Y/n]: " install_davinci
+if [[ -z "$install_davinci" || "$install_davinci" == "y" || "$install_davinci" == "Y" ]]; then
+    install_davinci_resolve
+fi
 
 # Remove specified programs
 remove_programs
