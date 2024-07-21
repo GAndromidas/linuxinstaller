@@ -273,13 +273,6 @@ configure_firewall() {
             print_warning "KDE Connect is not installed. Skipping kdeconnect service configuration."
         fi
 
-        # Check for Chromium browser
-        if pacman -Q chromium &>/dev/null; then
-            commands+=("sudo firewall-cmd --permanent --add-service=mdns")
-        else
-            print_warning "Chromium browser is not installed. Skipping mdns service configuration."
-        fi
-
         # Reload firewall configuration
         commands+=("sudo firewall-cmd --reload")
 

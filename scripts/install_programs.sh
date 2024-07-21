@@ -119,7 +119,6 @@ pacman_programs_default=(
     bleachbit
     btop
     bluez-utils
-    chromium
     cmatrix
     curl
     dmidecode
@@ -182,7 +181,6 @@ pacman_programs_minimal=(
     bleachbit
     btop
     bluez-utils
-    chromium
     cmatrix
     curl
     dmidecode
