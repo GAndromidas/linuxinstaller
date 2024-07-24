@@ -182,6 +182,7 @@ install_flatpak_programs_kde() {
         com.spotify.Client
         com.stremio.Stremio
         io.github.shiftey.Desktop
+        it.mijorus.gearlever
         net.davidotek.pupgui2
     )
     for package in "${flatpak_packages[@]}"; do
@@ -198,6 +199,7 @@ install_flatpak_programs_gnome() {
         com.spotify.Client
         com.stremio.Stremio
         io.github.shiftey.Desktop
+        it.mijorus.gearlever
         com.vysp3r.ProtonPlus
     )
     for package in "${flatpak_packages[@]}"; do
@@ -211,6 +213,7 @@ install_flatpak_minimal_kde() {
     print_info "Installing Minimal Flatpak Programs for KDE..."
     flatpak_packages=(
         com.stremio.Stremio
+        it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -224,6 +227,7 @@ install_flatpak_minimal_gnome() {
     flatpak_packages=(
         com.mattjakeman.ExtensionManager
         com.stremio.Stremio
+        it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -234,6 +238,7 @@ install_flatpak_minimal_gnome() {
 # AUR Packages to install (Default option)
 yay_programs_default=(
     dropbox
+    heroic-games-launcher-bin
     teamviewer
     via-bin
 )
