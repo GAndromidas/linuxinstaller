@@ -42,12 +42,6 @@ For a minimal installation:
 
     ./install.sh -m
 
-Usage
-
--d, --default: Installs the default set of programs and configurations.
--m, --minimal: Installs a minimal set of programs and configurations.
--h, --help: Displays the help message.
-
 Notes
 
 Review the script for any modifications specific to your setup before running.
