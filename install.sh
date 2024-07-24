@@ -204,7 +204,7 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_programs.sh "$FLAG") && \
+    (cd "$SCRIPTS_DIR" && ./programs.sh "$FLAG") && \
     print_success "Programs installed successfully."
 }
 
@@ -280,6 +280,35 @@ configure_firewall() {
     else
         print_error "Firewalld not found. Please install firewalld."
         return 1
+    fi
+}
+
+# Function to prompt for DaVinci Resolve installation
+install_davinci_resolve() {
+    print_info "Do you want to install DaVinci Resolve? (Y/n)"
+
+    read -rp "" confirm_davinci
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm_davinci="${confirm_davinci,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm_davinci" ]]; then
+        confirm_davinci="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm_davinci" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to install DaVinci Resolve or 'n' to skip: " confirm_davinci
+        confirm_davinci="${confirm_davinci,,}"
+    done
+
+    if [[ "$confirm_davinci" == "y" ]]; then
+        print_info "Installing DaVinci Resolve..."
+        (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
+        print_success "DaVinci Resolve installed successfully."
+    else
+        print_warning "DaVinci Resolve installation skipped."
     fi
 }
 
@@ -495,6 +524,7 @@ install_programs
 enable_services
 create_fastfetch_config
 configure_firewall
+install_davinci_resolve
 install_and_configure_fail2ban
 install_and_configure_virt_manager
 enable_and_configure_wakeonlan
