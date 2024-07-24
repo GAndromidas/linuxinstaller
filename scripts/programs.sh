@@ -18,16 +18,6 @@ print_success() { echo -e "${GREEN}$1${RESET}"; }
 print_warning() { echo -e "${YELLOW}$1${RESET}"; }
 print_error() { echo -e "${RED}$1${RESET}"; }
 
-# Function to print usage information
-print_usage() {
-    echo -e "${CYAN}Usage:${RESET}"
-    echo -e "${CYAN}$0 [OPTIONS]${RESET}"
-    echo -e "Options:"
-    echo -e "  -d, --default    Install default programs for your system and desktop environment"
-    echo -e "  -m, --minimal    Install minimal programs for your system and desktop environment"
-    echo -e "  -h, --help       Show this help message and exit"
-}
-
 # Function to handle errors
 handle_error() {
     if [ $? -ne 0 ]; then
@@ -118,12 +108,22 @@ parse_args() {
                 installation_mode="minimal"
                 ;;
             -h|--help)
-                print_usage
+                echo -e "${CYAN}Usage:${RESET}"
+                echo -e "${CYAN}$0 [OPTIONS]${RESET}"
+                echo -e "Options:"
+                echo -e "  -d, --default    Install default programs for your system and desktop environment"
+                echo -e "  -m, --minimal    Install minimal programs for your system and desktop environment"
+                echo -e "  -h, --help       Show this help message and exit"
                 exit 0
                 ;;
             *)
                 print_error "Unknown option: $1"
-                print_usage
+                echo -e "${CYAN}Usage:${RESET}"
+                echo -e "${CYAN}$0 [OPTIONS]${RESET}"
+                echo -e "Options:"
+                echo -e "  -d, --default    Install default programs for your system and desktop environment"
+                echo -e "  -m, --minimal    Install minimal programs for your system and desktop environment"
+                echo -e "  -h, --help       Show this help message and exit"
                 exit 1
                 ;;
         esac
