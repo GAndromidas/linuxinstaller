@@ -340,7 +340,7 @@ install_and_configure_virt_manager() {
 
     if [[ "$confirm_virt_manager" == "y" ]]; then
         print_info "Installing Virt-Manager..."
-        (cd "$SCRIPTS_DIR" && ./virt-manager.sh) && \
+        (cd "$SCRIPTS_DIR" && ./virt_manager.sh) && \
         print_success "Virt-Manager configured successfully."
     else
         print_warning "Virt-Manager installation and configuration skipped."
