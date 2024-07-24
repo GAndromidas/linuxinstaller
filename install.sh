@@ -90,8 +90,16 @@ make_systemd_boot_silent() {
 # Function to change loader.conf
 change_loader_conf() {
     print_info "Changing loader.conf..."
+    
+    # Ensure default @saved is present
+    if ! grep -q "^default @saved" "$LOADER_CONF"; then
+        sudo sed -i '1i\default @saved' "$LOADER_CONF"
+    fi
+    
+    # Update timeout and console-mode
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
+    
     print_success "Loader configuration updated."
 }
 
