@@ -1,10 +1,9 @@
-Arch Linux Installation Script
+Arch Linux Post-Installation Script
+
 Description
 
 This script automates the setup and configuration of an Arch Linux system. It streamlines the installation process with various system tweaks and software installations.
-Author
 
-George Andromidas
 Features
 
     Kernel Headers: Detects and installs appropriate Linux kernel headers.
@@ -30,6 +29,7 @@ Features
 Installation
 
 Clone the Repository: 
+
     git clone https://github.com/gandromidas/archinstaller
 
 Run the Script:
@@ -44,11 +44,11 @@ For a minimal installation:
 
 Usage
 
-    -d, --default: Installs the default set of programs and configurations.
-    -m, --minimal: Installs a minimal set of programs and configurations.
-    -h, --help: Displays the help message.
+-d, --default: Installs the default set of programs and configurations.
+-m, --minimal: Installs a minimal set of programs and configurations.
+-h, --help: Displays the help message.
 
 Notes
 
-    Review the script for any modifications specific to your setup before running.
-    Ensure your system is fully updated before executing the script.
+Review the script for any modifications specific to your setup before running.
+Ensure your system is fully updated before executing the script.
