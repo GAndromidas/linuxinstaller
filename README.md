@@ -32,7 +32,6 @@ Installation
     Clone the Repository:
     
 git clone https://github.com/gandromidas/archinstaller
-cd archinstaller
 
 Run the Script:
 
