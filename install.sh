@@ -231,8 +231,6 @@ enable_services() {
             print_warning "$service is not installed."
         fi
     done
-
-    print_success "Services enabled successfully."
 }
 
 # Function to create fastfetch config
@@ -282,6 +280,99 @@ configure_firewall() {
     else
         print_error "Firewalld not found. Please install firewalld."
         return 1
+    fi
+}
+
+# Function to install and configure Fail2ban
+install_and_configure_fail2ban() {
+    print_info "Do you want to install and configure Fail2ban? (Y/n)"
+
+    read -rp "" confirm_fail2ban
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm_fail2ban="${confirm_fail2ban,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm_fail2ban" ]]; then
+        confirm_fail2ban="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm_fail2ban" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to install Fail2ban or 'n' to skip: " confirm_fail2ban
+        confirm_fail2ban="${confirm_fail2ban,,}"
+    done
+
+    if [[ "$confirm_fail2ban" == "y" ]]; then
+        print_info "Installing Fail2ban..."
+        if sudo pacman -S --needed --noconfirm fail2ban; then
+            print_success "Fail2ban installed successfully."
+            print_info "Configuring Fail2ban..."
+            (cd "$SCRIPTS_DIR" && ./fail2ban.sh) && \
+            print_success "Fail2ban configured successfully."
+        else
+            print_error "Failed to install Fail2ban."
+        fi
+    else
+        print_warning "Fail2ban installation and configuration skipped."
+    fi
+}
+
+# Function to install and configure Virt-Manager
+install_and_configure_virt_manager() {
+    print_info "Do you want to install and configure Virt-Manager? (Y/n)"
+
+    read -rp "" confirm_virt_manager
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm_virt_manager="${confirm_virt_manager,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm_virt_manager" ]]; then
+        confirm_virt_manager="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm_virt_manager" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to install Virt-Manager or 'n' to skip: " confirm_virt_manager
+        confirm_virt_manager="${confirm_virt_manager,,}"
+    done
+
+    if [[ "$confirm_virt_manager" == "y" ]]; then
+        print_info "Installing Virt-Manager..."
+        (cd "$SCRIPTS_DIR" && ./virt-manager.sh) && \
+        print_success "Virt-Manager configured successfully."
+    else
+        print_warning "Virt-Manager installation and configuration skipped."
+    fi
+}
+
+# Function to enable and configure Wake on LAN
+enable_and_configure_wakeonlan() {
+    print_info "Do you want to enable and configure Wake on LAN? (Y/n)"
+
+    read -rp "" confirm_wakeonlan
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm_wakeonlan="${confirm_wakeonlan,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm_wakeonlan" ]]; then
+        confirm_wakeonlan="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm_wakeonlan" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to enable and configure Wake on LAN or 'n' to skip: " confirm_wakeonlan
+        confirm_wakeonlan="${confirm_wakeonlan,,}"
+    done
+
+    if [[ "$confirm_wakeonlan" == "y" ]]; then
+        print_info "Enabling and configuring Wake on LAN..."
+        (cd "$SCRIPTS_DIR" && ./wakeonlan.sh) && \
+        print_success "Wake on LAN configured successfully."
+    else
+        print_warning "Wake on LAN configuration skipped."
     fi
 }
 
@@ -404,6 +495,9 @@ install_programs
 enable_services
 create_fastfetch_config
 configure_firewall
+install_and_configure_fail2ban
+install_and_configure_virt_manager
+enable_and_configure_wakeonlan
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system
