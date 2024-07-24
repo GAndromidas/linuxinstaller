@@ -27,14 +27,6 @@ print_usage() {
     echo -e "  -h, --help           Show this help message and exit"
 }
 
-# Function to check if the script is run as root
-check_root() {
-    if [ "$(id -u)" -ne 0 ]; then
-        print_error "This script must be run as root!"
-        exit 1
-    fi
-}
-
 # Function to handle errors
 handle_error() {
     if [ $? -ne 0 ]; then
@@ -131,7 +123,6 @@ parse_args() {
 }
 
 # Main script
-check_root
 
 # Programs to install using pacman (Default option)
 pacman_programs_default=(
