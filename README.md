@@ -29,9 +29,7 @@ Features
 
 Installation
 
-    Clone the Repository:
-    
-git clone https://github.com/gandromidas/archinstaller
+    Clone the Repository: git clone https://github.com/gandromidas/archinstaller
 
 Run the Script:
 
@@ -39,7 +37,7 @@ Run the Script:
 
 ./install.sh -d
 
-For a minimal installation:
+    For a minimal installation:
 
 ./install.sh -m
 
