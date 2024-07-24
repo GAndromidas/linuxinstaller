@@ -38,6 +38,20 @@ print_error() {
     echo -e "${RED}$1${RESET}"
 }
 
+# Function to display help information
+show_help() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -d, --default       Install default set of programs"
+    echo "  -m, --minimal       Install minimal set of programs"
+    echo "  -h, --help          Show this help message"
+    echo ""
+    echo "Description:"
+    echo "  This script sets up an Arch Linux system by installing various packages,"
+    echo "  configuring system settings, and installing necessary programs."
+}
+
 # Function to identify the installed Linux kernel type and install kernel headers
 install_kernel_headers() {
     print_info "Identifying installed Linux kernel type..."
@@ -190,7 +204,7 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_programs.sh) && \
+    (cd "$SCRIPTS_DIR" && ./install_programs.sh "$FLAG") && \
     print_success "Programs installed successfully."
 
     install_flatpak_programs
@@ -199,7 +213,7 @@ install_programs() {
 # Function to install flatpak programs
 install_flatpak_programs() {
     print_info "Installing Flatpak Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_flatpak_programs.sh) && \
+    (cd "$SCRIPTS_DIR" && ./install_flatpak_programs.sh "$FLAG") && \
     print_success "Flatpak programs installed successfully."
 
     install_aur_programs
@@ -208,7 +222,7 @@ install_flatpak_programs() {
 # Function to install AUR programs
 install_aur_programs() {
     print_info "Installing AUR Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_aur_programs.sh) && \
+    (cd "$SCRIPTS_DIR" && ./install_aur_programs.sh "$FLAG") && \
     print_success "AUR programs installed successfully."
 }
 
@@ -358,9 +372,33 @@ install_grub_theme() {
     print_success "GRUB theme installed successfully."
 }
 
-# Main script
+# Parse command-line arguments
+parse_args() {
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            -d|--default)
+                FLAG="-d"
+                ;;
+            -m|--minimal)
+                FLAG="-m"
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
 
-# Run functions
+# Main script
+parse_args "$@"
+
 install_kernel_headers
 
 if detect_bootloader; then

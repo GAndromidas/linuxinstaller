@@ -20,11 +20,21 @@ print_error() {
     echo -e "${RED}$1${RESET}"
 }
 
-# Function to install Flatpak programs for KDE
+# Function to print usage information
+print_usage() {
+    echo -e "${CYAN}Usage:${RESET}"
+    echo -e "${CYAN}$0 [OPTIONS]${RESET}"
+    echo -e "Options:"
+    echo -e "  -d, --default    Install default Flatpak programs for your desktop environment"
+    echo -e "  -m, --minimal    Install minimal Flatpak programs for your desktop environment"
+    echo -e "  -h, --help       Show this help message and exit"
+}
+
+# Function to install Flatpak programs for KDE (Default)
 install_flatpak_programs_kde() {
     print_info "Installing Flatpak Programs for KDE..."
 
-    # List of Flatpak packages to install for KDE
+    # List of Flatpak packages to install for KDE (Default)
     flatpak_packages=(
         com.spotify.Client # Spotify
         com.stremio.Stremio # Stremio
@@ -40,11 +50,11 @@ install_flatpak_programs_kde() {
     print_success "Flatpak Programs for KDE installed successfully."
 }
 
-# Function to install Flatpak programs for GNOME
+# Function to install Flatpak programs for GNOME (Default)
 install_flatpak_programs_gnome() {
     print_info "Installing Flatpak Programs for GNOME..."
 
-    # List of Flatpak packages to install for GNOME
+    # List of Flatpak packages to install for GNOME (Default)
     flatpak_packages=(
         com.mattjakeman.ExtensionManager # Extensions Manager
         com.spotify.Client # Spotify
@@ -94,6 +104,30 @@ install_flatpak_minimal_gnome() {
     print_success "Minimal Flatpak Programs for GNOME installed successfully."
 }
 
+# Function to parse command line arguments
+parse_args() {
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            -d|--default)
+                installation_mode="default"
+                ;;
+            -m|--minimal)
+                installation_mode="minimal"
+                ;;
+            -h|--help)
+                print_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                print_usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
 # Main function
 install_flatpak_programs() {
     # Detect the desktop environment
@@ -104,16 +138,9 @@ install_flatpak_programs() {
         exit 0
     fi
 
-    # Prompt the user for selection
-    echo "Select an option:"
-    echo "1) Default"
-    echo "2) Minimal"
-    echo "3) Skip"
-    read -p "Enter your choice [1-3, default is 1]: " choice
-
-    # Install appropriate Flatpak packages based on the desktop environment and user selection
-    case "$choice" in
-        1 | '')
+    # Install Flatpak programs based on the desktop environment and installation mode
+    case "$installation_mode" in
+        "default" | "")
             case "$desktop_env" in
                 kde)
                     install_flatpak_programs_kde
@@ -127,7 +154,7 @@ install_flatpak_programs() {
                     ;;
             esac
             ;;
-        2)
+        "minimal")
             case "$desktop_env" in
                 kde)
                     install_flatpak_minimal_kde
@@ -141,16 +168,15 @@ install_flatpak_programs() {
                     ;;
             esac
             ;;
-        3)
-            print_info "Skipping installation as per user choice."
-            exit 0
-            ;;
         *)
             print_error "Invalid choice. Skipping installation."
             exit 0
             ;;
     esac
 }
+
+# Parse command line arguments
+parse_args "$@"
 
 # Run the main function
 install_flatpak_programs
