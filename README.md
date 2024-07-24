@@ -27,16 +27,10 @@ Features
     Folder Cleanup: Deletes the installation folder upon completion.
     Reboot Option: Offers an option to reboot the system.
 
-Prerequisites
-
-    Arch Linux system with git and curl installed.
-
 Installation
 
     Clone the Repository:
-
-    bash
-
+    
 git clone https://github.com/gandromidas/archinstaller
 cd archinstaller
 
@@ -44,15 +38,11 @@ Run the Script:
 
     For a full default installation:
 
-    bash
-
 ./install.sh -d
 
 For a minimal installation:
 
-bash
-
-        ./install.sh -m
+./install.sh -m
 
 Usage
 
