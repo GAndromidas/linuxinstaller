@@ -275,11 +275,13 @@ case "$installation_mode" in
         pacman_programs=("${pacman_programs_default[@]}")
         essential_programs=("${essential_programs_default[@]}")
         yay_programs=("${yay_programs_default[@]}")
+        install_davinci_prompt="yes"
         ;;
     "minimal")
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         yay_programs=("${yay_programs_minimal[@]}")
+        install_davinci_prompt="no"
         ;;
     *)
         print_error "Invalid choice. Exiting."
@@ -290,11 +292,13 @@ esac
 # Detect desktop environment
 detect_desktop_environment
 
-# Prompt to install DaVinci Resolve
-read -p "Do you want to install DaVinci Resolve dependencies and DaVinci Resolve? [Y/n]: " install_davinci
-if [[ -z "$install_davinci" || "$install_davinci" == "y" || "$install_davinci" == "Y" ]]; then
-    install_davinci_resolve_dependencies
-    install_davinci_resolve
+# Prompt to install DaVinci Resolve only if not in minimal mode
+if [[ "$install_davinci_prompt" == "yes" ]]; then
+    read -p "Do you want to install DaVinci Resolve dependencies and DaVinci Resolve? [Y/n]: " install_davinci
+    if [[ -z "$install_davinci" || "$install_davinci" == "y" || "$install_davinci" == "Y" ]]; then
+        install_davinci_resolve_dependencies
+        install_davinci_resolve
+    fi
 fi
 
 # Remove specified programs
@@ -304,7 +308,15 @@ remove_programs
 install_pacman_programs
 
 # Install Flatpak programs
-install_flatpak_programs
+if [[ "$installation_mode" == "default" ]]; then
+    install_flatpak_programs
+else
+    if [[ "$XDG_CURRENT_DESKTOP" == "KDE" ]]; then
+        install_flatpak_minimal_kde
+    elif [[ "$XDG_CURRENT_DESKTOP" == "GNOME" ]]; then
+        install_flatpak_minimal_gnome
+    fi
+fi
 
 # Install AUR packages
 install_aur_packages
