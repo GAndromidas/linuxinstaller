@@ -1,48 +1,86 @@
-Arch Linux Post-Installation Script
+# Arch Linux Post-Installation Script
 
-Description
+## Description
 
 This script automates the setup and configuration of an Arch Linux system. It streamlines the installation process with various system tweaks and software installations.
 
-Features
+## Table of Contents
 
-1. Kernel Headers: Detects and installs appropriate Linux kernel headers.
-2. Systemd-Boot: Configures for a silent boot.
-3. Boot Configuration: Updates loader.conf for faster boot times.
-4. Password Feedback: Enables password feedback in sudo.
-5. Pacman Configuration: Improves performance and features.
-6. Mirrorlist Update: Refreshes mirrorlist and reflector settings.
-7. System Update: Performs a full system update.
-8. ZSH Setup: Installs and configures ZSH with Oh-My-ZSH and plugins.
-9. Default Shell: Changes the default shell to ZSH.
-10. Starship Prompt: Installs and configures the Starship prompt.
-11. Locales Configuration: Sets up system locales.
-12. YAY AUR Helper: Installs the YAY AUR helper.
-13. Additional Programs: Installs extra programs and dependencies.
-14. Services: Enables and starts necessary system services.
-15. Fastfetch Configuration: Creates a fastfetch configuration.
-16. Firewall Configuration: Sets up firewalld.
-17. Cache Cleanup: Clears unused packages and cache.
-18. Folder Cleanup: Deletes the installation folder upon completion.
-19. Reboot Option: Offers an option to reboot the system.
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Notes](#notes)
+- [Contribution](#contribution)
 
-Installation
+## Features
 
-Clone the Repository: 
+1. **Kernel Headers**: Detects and installs appropriate Linux kernel headers.
+2. **Systemd-Boot**: Configures for a silent boot.
+3. **Boot Configuration**: Updates loader.conf for faster boot times.
+4. **Password Feedback**: Enables password feedback in sudo.
+5. **Pacman Configuration**: Improves performance and features.
+6. **Mirrorlist Update**: Refreshes mirrorlist and reflector settings.
+7. **System Update**: Performs a full system update.
+8. **ZSH Setup**: Installs and configures ZSH with Oh-My-ZSH and plugins.
+9. **Default Shell**: Changes the default shell to ZSH.
+10. **Starship Prompt**: Installs and configures the Starship prompt.
+11. **Locales Configuration**: Sets up system locales.
+12. **YAY AUR Helper**: Installs the YAY AUR helper.
+13. **Additional Programs**: Installs extra programs and dependencies.
+14. **Services**: Enables and starts necessary system services.
+15. **Fastfetch Configuration**: Creates a fastfetch configuration.
+16. **Firewall Configuration**: Sets up firewalld.
+17. **Fail2ban**: Optionally installs and configures Fail2ban.
+18. **Virt-Manager**: Optionally installs and configures Virt-Manager.
+19. **DaVinci Resolve**: Optionally installs DaVinci Resolve.
+20. **Cache Cleanup**: Clears unused packages and cache.
+21. **Folder Cleanup**: Deletes the installation folder upon completion.
+22. **Reboot Option**: Offers an option to reboot the system.
 
-    git clone https://github.com/gandromidas/archinstaller
+## Installation
 
-Run the Script:
+### Prerequisites
+
+- Ensure your system is fully updated before executing the script.
+- Install `git` if it's not already installed.
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/gandromidas/archinstaller
+cd archinstaller
+```
+
+## Usage
+
+### Run the Script
 
 For a full default installation:
 
-    ./install.sh -d
+```bash
+./install.sh -d
+```
 
 For a minimal installation:
 
-    ./install.sh -m
+```bash
+./install.sh -m
+```
 
-Notes
+## Notes
 
 1. Review the script for any modifications specific to your setup before running.
 2. Ensure your system is fully updated before executing the script.
+
+## Contribution
+
+Contributions are welcome! Please fork the repository and submit a pull request with your changes. Make sure to follow the existing code style and include comments where necessary.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Inspired by various Arch Linux setup guides and scripts.
+- Special thanks to the Arch Linux community for their extensive documentation and support.
