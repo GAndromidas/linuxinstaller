@@ -6,25 +6,25 @@ This script automates the setup and configuration of an Arch Linux system. It st
 
 Features
 
-    Kernel Headers: Detects and installs appropriate Linux kernel headers.
-    Systemd-Boot: Configures for a silent boot.
-    Boot Configuration: Updates loader.conf for faster boot times.
-    Password Feedback: Enables password feedback in sudo.
-    Pacman Configuration: Improves performance and features.
-    Mirrorlist Update: Refreshes mirrorlist and reflector settings.
-    System Update: Performs a full system update.
-    ZSH Setup: Installs and configures ZSH with Oh-My-ZSH and plugins.
-    Default Shell: Changes the default shell to ZSH.
-    Starship Prompt: Installs and configures the Starship prompt.
-    Locales Configuration: Sets up system locales.
-    YAY AUR Helper: Installs the YAY AUR helper.
-    Additional Programs: Installs extra programs and dependencies.
-    Services: Enables and starts necessary system services.
-    Fastfetch Configuration: Creates a fastfetch configuration.
-    Firewall Configuration: Sets up firewalld.
-    Cache Cleanup: Clears unused packages and cache.
-    Folder Cleanup: Deletes the installation folder upon completion.
-    Reboot Option: Offers an option to reboot the system.
+Kernel Headers: Detects and installs appropriate Linux kernel headers.
+Systemd-Boot: Configures for a silent boot.
+Boot Configuration: Updates loader.conf for faster boot times.
+Password Feedback: Enables password feedback in sudo.
+Pacman Configuration: Improves performance and features.
+Mirrorlist Update: Refreshes mirrorlist and reflector settings.
+System Update: Performs a full system update.
+ZSH Setup: Installs and configures ZSH with Oh-My-ZSH and plugins.
+Default Shell: Changes the default shell to ZSH.
+Starship Prompt: Installs and configures the Starship prompt.
+Locales Configuration: Sets up system locales.
+YAY AUR Helper: Installs the YAY AUR helper.
+Additional Programs: Installs extra programs and dependencies.
+Services: Enables and starts necessary system services.
+Fastfetch Configuration: Creates a fastfetch configuration.
+Firewall Configuration: Sets up firewalld.
+Cache Cleanup: Clears unused packages and cache.
+Folder Cleanup: Deletes the installation folder upon completion.
+Reboot Option: Offers an option to reboot the system.
 
 Installation
 
