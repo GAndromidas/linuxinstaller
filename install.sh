@@ -206,24 +206,6 @@ install_programs() {
     print_info "Installing Programs..."
     (cd "$SCRIPTS_DIR" && ./install_programs.sh "$FLAG") && \
     print_success "Programs installed successfully."
-
-    install_flatpak_programs
-}
-
-# Function to install flatpak programs
-install_flatpak_programs() {
-    print_info "Installing Flatpak Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_flatpak_programs.sh "$FLAG") && \
-    print_success "Flatpak programs installed successfully."
-
-    install_aur_programs
-}
-
-# Function to install AUR programs
-install_aur_programs() {
-    print_info "Installing AUR Programs..."
-    (cd "$SCRIPTS_DIR" && ./install_aur_programs.sh "$FLAG") && \
-    print_success "AUR programs installed successfully."
 }
 
 # Function to enable services
