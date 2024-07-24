@@ -91,26 +91,6 @@ install_flatpak_programs() {
     fi
 }
 
-# Function to install DaVinci Resolve dependencies
-install_davinci_resolve_dependencies() {
-    davinci_packages=(
-        cmake comgr cppdap hip-runtime-amd hsa-rocr hsakmt-roct jsoncpp libuv opencl-headers rhash rocm-cmake
-        rocm-core rocm-device-libs rocm-language-runtime rocm-llvm rocminfo lib32-mesa-vdpau rocm-hip-runtime rocm-opencl-runtime
-    )
-    print_info "Installing DaVinci Resolve dependencies..."
-    $PACMAN_CMD "${davinci_packages[@]}"
-    handle_error "Failed to install DaVinci Resolve dependencies. Exiting..."
-    print_success "DaVinci Resolve dependencies installed successfully."
-}
-
-# Function to install DaVinci Resolve from AUR
-install_davinci_resolve() {
-    print_info "Installing DaVinci Resolve from AUR..."
-    $AUR_INSTALL_CMD davinci-resolve
-    handle_error "Failed to install DaVinci Resolve from AUR. Exiting..."
-    print_success "DaVinci Resolve installed successfully."
-}
-
 # Function to check if yay is installed
 check_yay() {
     if ! command -v yay &> /dev/null; then
@@ -275,13 +255,11 @@ case "$installation_mode" in
         pacman_programs=("${pacman_programs_default[@]}")
         essential_programs=("${essential_programs_default[@]}")
         yay_programs=("${yay_programs_default[@]}")
-        install_davinci_prompt="yes"
         ;;
     "minimal")
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         yay_programs=("${yay_programs_minimal[@]}")
-        install_davinci_prompt="no"
         ;;
     *)
         print_error "Invalid choice. Exiting."
@@ -291,15 +269,6 @@ esac
 
 # Detect desktop environment
 detect_desktop_environment
-
-# Prompt to install DaVinci Resolve only if not in minimal mode
-if [[ "$install_davinci_prompt" == "yes" ]]; then
-    read -p "Do you want to install DaVinci Resolve dependencies and DaVinci Resolve? [Y/n]: " install_davinci
-    if [[ -z "$install_davinci" || "$install_davinci" == "y" || "$install_davinci" == "Y" ]]; then
-        install_davinci_resolve_dependencies
-        install_davinci_resolve
-    fi
-fi
 
 # Remove specified programs
 remove_programs
