@@ -376,35 +376,6 @@ install_and_configure_virt_manager() {
     fi
 }
 
-# Function to enable and configure Wake on LAN
-enable_and_configure_wakeonlan() {
-    print_info "Do you want to enable and configure Wake on LAN? (Y/n)"
-
-    read -rp "" confirm_wakeonlan
-
-    # Convert input to lowercase for case-insensitive comparison
-    confirm_wakeonlan="${confirm_wakeonlan,,}"
-
-    # Handle empty input (Enter pressed)
-    if [[ -z "$confirm_wakeonlan" ]]; then
-        confirm_wakeonlan="y"  # Apply "yes" if Enter is pressed
-    fi
-
-    # Validate input
-    while [[ ! "$confirm_wakeonlan" =~ ^(y|n)$ ]]; do
-        read -rp "Invalid input. Please enter 'Y' to enable and configure Wake on LAN or 'n' to skip: " confirm_wakeonlan
-        confirm_wakeonlan="${confirm_wakeonlan,,}"
-    done
-
-    if [[ "$confirm_wakeonlan" == "y" ]]; then
-        print_info "Enabling and configuring Wake on LAN..."
-        (cd "$SCRIPTS_DIR" && ./wakeonlan.sh) && \
-        print_success "Wake on LAN configured successfully."
-    else
-        print_warning "Wake on LAN configuration skipped."
-    fi
-}
-
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
     print_info "Clearing Unused Packages and Cache..."
@@ -527,7 +498,6 @@ configure_firewall
 install_davinci_resolve
 install_and_configure_fail2ban
 install_and_configure_virt_manager
-enable_and_configure_wakeonlan
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system
