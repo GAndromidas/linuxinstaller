@@ -1,37 +1,66 @@
-# Arch Linux Installation Script
+Arch Linux Installation Script
+Description
 
-## Description
-This script automates the setup and configuration of an Arch Linux system. It performs a variety of installations and system tweaks to streamline the setup process for new installations or after system updates.
+This script automates the setup and configuration of an Arch Linux system. It streamlines the installation process with various system tweaks and software installations.
+Author
 
-## Author
-- **George Andromidas**
+George Andromidas
+Features
 
-## Features
-- Detects and installs appropriate Linux kernel headers.
-- Configures systemd-boot for a silent boot.
-- Updates `loader.conf` for faster boot times.
-- Enables password feedback in `sudo`.
-- Configures Pacman for improved performance and features.
-- Updates mirrorlist and reflector configurations.
-- Performs a full system update.
-- Installs and configures ZSH with Oh-My-ZSH and plugins.
-- Changes the default shell to ZSH.
-- Installs and configures the Starship prompt.
-- Configures system locales.
-- Installs YAY AUR helper.
-- Installs additional programs and dependencies.
-- Enables and starts necessary system services.
-- Creates a fastfetch configuration.
-- Configures the firewall using `firewalld`.
-- Clears unused packages and cache.
-- Deletes the installation folder upon completion.
-- Offers an option to reboot the system.
+    Kernel Headers: Detects and installs appropriate Linux kernel headers.
+    Systemd-Boot: Configures for a silent boot.
+    Boot Configuration: Updates loader.conf for faster boot times.
+    Password Feedback: Enables password feedback in sudo.
+    Pacman Configuration: Improves performance and features.
+    Mirrorlist Update: Refreshes mirrorlist and reflector settings.
+    System Update: Performs a full system update.
+    ZSH Setup: Installs and configures ZSH with Oh-My-ZSH and plugins.
+    Default Shell: Changes the default shell to ZSH.
+    Starship Prompt: Installs and configures the Starship prompt.
+    Locales Configuration: Sets up system locales.
+    YAY AUR Helper: Installs the YAY AUR helper.
+    Additional Programs: Installs extra programs and dependencies.
+    Services: Enables and starts necessary system services.
+    Fastfetch Configuration: Creates a fastfetch configuration.
+    Firewall Configuration: Sets up firewalld.
+    Cache Cleanup: Clears unused packages and cache.
+    Folder Cleanup: Deletes the installation folder upon completion.
+    Reboot Option: Offers an option to reboot the system.
 
-## Prerequisites
-- Ensure you have an Arch Linux system with `git` and `curl` installed.
+Prerequisites
 
-## Installation
-1. Clone this repository to your local machine:
-   ```bash
-   git clone https://github.com/gandromidas/archinstaller
-   cd archinstaller
+    Arch Linux system with git and curl installed.
+
+Installation
+
+    Clone the Repository:
+
+    bash
+
+git clone https://github.com/gandromidas/archinstaller
+cd archinstaller
+
+Run the Script:
+
+    For a full default installation:
+
+    bash
+
+./install.sh -d
+
+For a minimal installation:
+
+bash
+
+        ./install.sh -m
+
+Usage
+
+    -d, --default: Installs the default set of programs and configurations.
+    -m, --minimal: Installs a minimal set of programs and configurations.
+    -h, --help: Displays the help message.
+
+Notes
+
+    Review the script for any modifications specific to your setup before running.
+    Ensure your system is fully updated before executing the script.
