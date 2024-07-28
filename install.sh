@@ -76,10 +76,22 @@ install_kernel_headers() {
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     print_info "Making Systemd-Boot silent..."
-    linux_entry=$(find "$ENTRIES_DIR" -type f \( -name '*_linux.conf' -o -name '*_linux-zen.conf' \) ! -name '*_linux-fallback.conf' -print -quit)
+    
+    # Detect installed kernel
+    if pacman -Q linux-zen &>/dev/null; then
+        kernel_name="linux-zen"
+    elif pacman -Q linux-hardened &>/dev/null; then
+        kernel_name="linux-hardened"
+    elif pacman -Q linux-lts &>/dev/null; then
+        kernel_name="linux-lts"
+    else
+        kernel_name="linux"
+    fi
+    
+    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel_name}.conf" ! -name '*fallback.conf' -print -quit)
 
     if [ -z "$linux_entry" ]; then
-        print_error "Error: Linux entry not found."
+        print_error "Error: Linux entry not found for kernel: $kernel_name"
         exit 1
     fi
 
