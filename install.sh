@@ -268,12 +268,20 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    while IFS= read -r line; do
-        if [[ $line =~ ^[^#] ]]; then
-            eval "$line"
+    if [ ! -f "$SCRIPTS_DIR/programs.sh" ]; then
+        print_error "Error: programs.sh not found in $SCRIPTS_DIR"
+        return 1
+    fi
+    
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ $line =~ ^[^#] ]] && [[ -n "$line" ]]; then
+            print_info "Executing: $line"
+            if ! eval "$line"; then
+                print_error "Error executing: $line"
+            fi
         fi
     done < "$SCRIPTS_DIR/programs.sh"
-    print_success "Programs installed successfully."
+    print_success "Programs installation completed."
 }
 
 # Function to enable services
