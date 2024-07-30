@@ -40,7 +40,7 @@ detect_desktop_environment() {
             flatpak_install_function=""
             ;;
     esac
-}
+} # Ensure this closing brace is present
 
 # Function to remove programs
 remove_programs() {
@@ -51,14 +51,14 @@ remove_programs() {
         $REMOVE_CMD "${specific_remove_programs[@]}"
         print_success "Programs removed successfully."
     fi
-}
+} # Ensure this closing brace is present
 
 # Function to install programs via pacman
 install_pacman_programs() {
     print_info "Installing Pacman Programs..."
     $PACMAN_CMD "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"
     print_success "Programs installed successfully."
-}
+} # Ensure this closing brace is present
 
 # Function to install Flatpak programs
 install_flatpak_programs() {
@@ -76,7 +76,7 @@ check_yay() {
         print_error "Error: yay is not installed. Please install yay and try again."
         exit 1
     fi
-}
+} # Ensure this closing brace is present
 
 # Function to install AUR packages
 install_aur_packages() {
