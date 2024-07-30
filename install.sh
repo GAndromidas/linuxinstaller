@@ -380,11 +380,15 @@ install_and_configure_fail2ban() {
     done
 
     if [[ "$confirm_fail2ban" == "y" ]]; then
-        print_info "Installing and configuring Fail2ban..."
-        sudo pacman -S --needed --noconfirm fail2ban
-        (cd "$SCRIPTS_DIR" && ./fail2ban.sh)
-        sudo systemctl enable --now fail2ban
-        print_success "Fail2ban installed and configured successfully."
+        print_info "Installing Fail2ban..."
+        if sudo pacman -S --needed --noconfirm fail2ban; then
+            print_success "Fail2ban installed successfully."
+            print_info "Configuring Fail2ban..."
+            (cd "$SCRIPTS_DIR" && ./fail2ban.sh) && \
+            print_success "Fail2ban configured successfully."
+        else
+            print_error "Failed to install Fail2ban."
+        fi
     else
         print_warning "Fail2ban installation and configuration skipped."
     fi
@@ -411,13 +415,9 @@ install_and_configure_virt_manager() {
     done
 
     if [[ "$confirm_virt_manager" == "y" ]]; then
-        print_info "Installing and configuring Virt-Manager..."
-        while IFS= read -r line; do
-            if [[ $line =~ ^[^#] ]]; then
-                eval "$line"
-            fi
-        done < "$SCRIPTS_DIR/virt_manager.sh"
-        print_success "Virt-Manager installed and configured successfully."
+        print_info "Installing Virt-Manager..."
+        (cd "$SCRIPTS_DIR" && ./virt_manager.sh) && \
+        print_success "Virt-Manager configured successfully."
     else
         print_warning "Virt-Manager installation and configuration skipped."
     fi
@@ -445,11 +445,7 @@ install_davinci_resolve() {
 
     if [[ "$confirm_davinci" == "y" ]]; then
         print_info "Installing DaVinci Resolve..."
-        while IFS= read -r line; do
-            if [[ $line =~ ^[^#] ]]; then
-                eval "$line"
-            fi
-        done < "$SCRIPTS_DIR/davinci_resolve.sh"
+        (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
         print_success "DaVinci Resolve installed successfully."
     else
         print_warning "DaVinci Resolve installation skipped."
@@ -527,6 +523,7 @@ install_grub_theme() {
 
 # Main script
 show_menu
+parse_args "$@"
 
 install_kernel_headers
 
