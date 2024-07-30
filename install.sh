@@ -271,8 +271,8 @@ install_programs() {
     if [ ! -f "$SCRIPTS_DIR/programs.sh" ]; then
         print_error "Error: programs.sh not found in $SCRIPTS_DIR"
         return 1
-    fi
-    
+    }
+
     while IFS= read -r line || [[ -n "$line" ]]; do
         if [[ $line =~ ^[^#] ]] && [[ -n "$line" ]]; then
             print_info "Executing: $line"
