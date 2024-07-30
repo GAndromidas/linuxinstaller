@@ -288,7 +288,7 @@ install_programs() {
 display_progress() {
     local width=50
     local percentage=$1
-    local filled=$(printf "%.0f" $(echo "$percentage * $width / 100" | bc -l))
+    local filled=$((percentage * width / 100))
     local empty=$((width - filled))
     printf "\rProgress: [%s%s] %d%%" "$(printf '#%.0s' $(seq 1 $filled))" "$(printf ' %.0s' $(seq 1 $empty))" "$percentage"
 }
