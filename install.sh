@@ -4,18 +4,6 @@
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
 
-# ASCII art
-    clear
-    echo -e "${CYAN}"
-    cat << "EOF"
-    _             _     ___           _        _ _
-   / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
-  / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
- / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
-/_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
-
-EOF
-
 # Variables
 KERNEL_HEADERS="linux-headers"  # Default to standard Linux headers
 LOADER_DIR="/boot/loader"
@@ -50,18 +38,47 @@ print_error() {
     echo -e "${RED}$1${RESET}"
 }
 
-# Function to display help information
-show_help() {
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  -d, --default       Install default set of programs"
-    echo "  -m, --minimal       Install minimal set of programs"
-    echo "  -h, --help          Show this help message"
-    echo ""
-    echo "Description:"
-    echo "  This script sets up an Arch Linux system by installing various packages,"
-    echo "  configuring system settings, and installing necessary programs."
+# ASCII art
+clear
+echo -e "${CYAN}"
+cat << "EOF"
+    _             _     ___           _        _ _
+   / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
+  / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
+ / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
+/_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
+
+EOF
+
+# Function to display menu and get user selection
+show_menu() {
+    while true; do
+        echo -e "\n${CYAN}Please select an installation option:${RESET}"
+        echo "1. Default Installation"
+        echo "2. Minimal Installation"
+        echo "3. Exit"
+        read -p "Enter your choice (1-3): " choice
+
+        case $choice in
+            1)
+                echo "Default installation selected."
+                FLAG="-d"
+                return 0
+                ;;
+            2)
+                echo "Minimal installation selected."
+                FLAG="-m"
+                return 0
+                ;;
+            3)
+                echo "Exiting installation."
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Invalid option. Please try again.${RESET}"
+                ;;
+        esac
+    done
 }
 
 # Function to identify the installed Linux kernel type and install kernel headers
@@ -88,7 +105,7 @@ install_kernel_headers() {
 # Function to make Systemd-Boot silent
 make_systemd_boot_silent() {
     print_info "Making Systemd-Boot silent..."
-    
+
     # Detect installed kernel
     if pacman -Q linux-zen &>/dev/null; then
         kernel_name="linux-zen"
@@ -99,7 +116,7 @@ make_systemd_boot_silent() {
     else
         kernel_name="linux"
     fi
-    
+
     linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel_name}.conf" ! -name '*fallback.conf' -print -quit)
 
     if [ -z "$linux_entry" ]; then
@@ -114,16 +131,16 @@ make_systemd_boot_silent() {
 # Function to change loader.conf
 change_loader_conf() {
     print_info "Changing loader.conf..."
-    
+
     # Ensure default @saved is present
     if ! grep -q "^default @saved" "$LOADER_CONF"; then
         sudo sed -i '1i\default @saved' "$LOADER_CONF"
     fi
-    
+
     # Update timeout and console-mode
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    
+
     print_success "Loader configuration updated."
 }
 
@@ -477,33 +494,11 @@ install_grub_theme() {
     print_success "GRUB theme installed successfully."
 }
 
-# Parse command-line arguments
-parse_args() {
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            -d|--default)
-                FLAG="-d"
-                ;;
-            -m|--minimal)
-                FLAG="-m"
-                ;;
-            -h|--help)
-                show_help
-                exit 0
-                ;;
-            *)
-                print_error "Unknown option: $1"
-                show_help
-                exit 1
-                ;;
-        esac
-        shift
-    done
-}
-
 # Main script
-parse_args "$@"
+# Show menu and get user selection
+show_menu
 
+# Main script execution
 install_kernel_headers
 
 if detect_bootloader; then

@@ -97,41 +97,6 @@ install_aur_packages() {
     print_success "AUR Packages installed successfully."
 }
 
-# Function to parse command-line arguments
-parse_args() {
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            -d|--default)
-                installation_mode="default"
-                ;;
-            -m|--minimal)
-                installation_mode="minimal"
-                ;;
-            -h|--help)
-                echo -e "${CYAN}Usage:${RESET}"
-                echo -e "${CYAN}$0 [OPTIONS]${RESET}"
-                echo -e "Options:"
-                echo -e "  -d, --default    Install default programs for your system and desktop environment"
-                echo -e "  -m, --minimal    Install minimal programs for your system and desktop environment"
-                echo -e "  -h, --help       Show this help message and exit"
-                exit 0
-                ;;
-            *)
-                print_error "Unknown option: $1"
-                echo -e "${CYAN}Usage:${RESET}"
-                echo -e "${CYAN}$0 [OPTIONS]${RESET}"
-                echo -e "Options:"
-                echo -e "  -d, --default    Install default programs for your system and desktop environment"
-                echo -e "  -m, --minimal    Install minimal programs for your system and desktop environment"
-                echo -e "  -h, --help       Show this help message and exit"
-                exit 1
-                ;;
-        esac
-        shift
-    done
-}
-
-# Main script
 # Programs to install using pacman (Default option)
 pacman_programs_default=(
     android-tools bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
@@ -248,29 +213,32 @@ yay_programs_minimal=(
     teamviewer
 )
 
-# Parse command line arguments
-parse_args "$@"
-
-# Check for yay
-check_yay
+# Main script
+# Get the flag from command line argument
+FLAG="$1"
 
 # Set programs to install based on installation mode
-case "$installation_mode" in
-    "default")
+case "$FLAG" in
+    "-d")
+        installation_mode="default"
         pacman_programs=("${pacman_programs_default[@]}")
         essential_programs=("${essential_programs_default[@]}")
         yay_programs=("${yay_programs_default[@]}")
         ;;
-    "minimal")
+    "-m")
+        installation_mode="minimal"
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         yay_programs=("${yay_programs_minimal[@]}")
         ;;
     *)
-        print_error "Invalid choice. Exiting."
+        print_error "Invalid flag. Exiting."
         exit 1
         ;;
 esac
+
+# Check for yay
+check_yay
 
 # Detect desktop environment
 detect_desktop_environment
