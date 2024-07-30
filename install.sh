@@ -274,7 +274,7 @@ install_programs() {
     while IFS= read -r line; do
         if [[ $line =~ ^[^#] ]]; then
             ((current_program++))
-            percentage=$((current_program * 100 / total_programs))
+            local percentage=$((current_program * 100 / total_programs))
             display_progress $percentage
             eval "$line" >/dev/null 2>&1
         fi
@@ -288,7 +288,7 @@ install_programs() {
 display_progress() {
     local width=50
     local percentage=$1
-    local filled=$((percentage * width / 100))
+    local filled=$(( (percentage * width + 50) / 100 ))
     local empty=$((width - filled))
     printf "\rProgress: [%s%s] %d%%" "$(printf '#%.0s' $(seq 1 $filled))" "$(printf ' %.0s' $(seq 1 $empty))" "$percentage"
 }
@@ -443,7 +443,8 @@ install_and_configure_virt_manager() {
         while IFS= read -r line; do
             if [[ $line =~ ^[^#] ]]; then
                 ((current_step++))
-                display_progress $((current_step * 100 / total_steps))
+                local percentage=$((current_step * 100 / total_steps))
+                display_progress $percentage
                 eval "$line" >/dev/null 2>&1
             fi
         done < "$SCRIPTS_DIR/virt_manager.sh"
@@ -483,7 +484,8 @@ install_davinci_resolve() {
         while IFS= read -r line; do
             if [[ $line =~ ^[^#] ]]; then
                 ((current_step++))
-                display_progress $((current_step * 100 / total_steps))
+                local percentage=$((current_step * 100 / total_steps))
+                display_progress $percentage
                 eval "$line" >/dev/null 2>&1
             fi
         done < "$SCRIPTS_DIR/davinci_resolve.sh"
