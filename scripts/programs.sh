@@ -18,14 +18,6 @@ print_success() { echo -e "${GREEN}$1${RESET}"; }
 print_warning() { echo -e "${YELLOW}$1${RESET}"; }
 print_error() { echo -e "${RED}$1${RESET}"; }
 
-# Function to handle errors
-handle_error() {
-    if [ $? -ne 0 ]; then
-        print_error "$1"
-        exit 1
-    fi
-}
-
 # Function to detect desktop environment and set specific programs to install or remove
 detect_desktop_environment() {
     case "$XDG_CURRENT_DESKTOP" in
@@ -57,7 +49,6 @@ remove_programs() {
     else
         print_info "Removing Programs..."
         $REMOVE_CMD "${specific_remove_programs[@]}"
-        handle_error "Failed to remove programs. Exiting..."
         print_success "Programs removed successfully."
     fi
 }
@@ -66,7 +57,6 @@ remove_programs() {
 install_pacman_programs() {
     print_info "Installing Pacman Programs..."
     $PACMAN_CMD "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"
-    handle_error "Failed to install programs. Exiting..."
     print_success "Programs installed successfully."
 }
 
@@ -75,7 +65,6 @@ install_flatpak_programs() {
     if [ -n "$flatpak_install_function" ]; then
         print_info "Installing Flatpak Programs..."
         $flatpak_install_function
-        handle_error "Failed to install Flatpak programs. Exiting..."
     else
         print_info "No Flatpak installation function defined for the detected desktop environment."
     fi
@@ -93,7 +82,6 @@ check_yay() {
 install_aur_packages() {
     print_info "Installing AUR Packages..."
     $AUR_INSTALL_CMD "${yay_programs[@]}"
-    handle_error "Failed to install AUR packages. Exiting..."
     print_success "AUR Packages installed successfully."
 }
 
