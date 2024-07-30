@@ -4,6 +4,18 @@
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
 
+# ASCII art
+    clear
+    echo -e "${CYAN}"
+    cat << "EOF"
+    _             _     ___           _        _ _
+   / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
+  / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
+ / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
+/_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
+
+EOF
+
 # Variables
 KERNEL_HEADERS="linux-headers"  # Default to standard Linux headers
 LOADER_DIR="/boot/loader"
