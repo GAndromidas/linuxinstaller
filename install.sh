@@ -21,6 +21,50 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
+# New ASCII art and menu function
+show_menu() {
+    clear
+    echo -e "${CYAN}"
+    cat << "EOF"
+    _             _     ___           _        _ _
+   / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
+  / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
+ / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
+/_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
+
+EOF
+    echo -e "${RESET}"
+    echo "Welcome to ArchInstaller!"
+    echo "------------------------"
+    echo "1. Install default set of programs"
+    echo "2. Install minimal set of programs"
+    echo "3. Show help"
+    echo "4. Exit"
+    echo
+    read -p "Please enter your choice (1-4): " choice
+
+    case $choice in
+        1)
+            FLAG="-d"
+            ;;
+        2)
+            FLAG="-m"
+            ;;
+        3)
+            show_help
+            exit 0
+            ;;
+        4)
+            echo "Exiting ArchInstaller. Goodbye!"
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Please try again."
+            show_menu
+            ;;
+    esac
+}
+
 # Function to print messages with colors
 print_info() {
     echo -e "${CYAN}$1${RESET}"
@@ -224,8 +268,29 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    (cd "$SCRIPTS_DIR" && ./programs.sh "$FLAG") && \
+    local total_programs=$(grep -c '^[^#]' "$SCRIPTS_DIR/programs.sh")
+    local current_program=0
+
+    while IFS= read -r line; do
+        if [[ $line =~ ^[^#] ]]; then
+            ((current_program++))
+            percentage=$((current_program * 100 / total_programs))
+            display_progress $percentage
+            eval "$line" >/dev/null 2>&1
+        fi
+    done < "$SCRIPTS_DIR/programs.sh"
+
+    echo  # Move to the next line after the progress bar
     print_success "Programs installed successfully."
+}
+
+# Function to display a single progress bar
+display_progress() {
+    local width=50
+    local percentage=$1
+    local filled=$(printf "%.0f" $(echo "$percentage * $width / 100" | bc -l))
+    local empty=$((width - filled))
+    printf "\rProgress: [%s%s] %d%%" "$(printf '#%.0s' $(seq 1 $filled))" "$(printf ' %.0s' $(seq 1 $empty))" "$percentage"
 }
 
 # Function to enable services
@@ -324,15 +389,27 @@ install_and_configure_fail2ban() {
     done
 
     if [[ "$confirm_fail2ban" == "y" ]]; then
-        print_info "Installing Fail2ban..."
-        if sudo pacman -S --needed --noconfirm fail2ban; then
-            print_success "Fail2ban installed successfully."
-            print_info "Configuring Fail2ban..."
-            (cd "$SCRIPTS_DIR" && ./fail2ban.sh) && \
-            print_success "Fail2ban configured successfully."
-        else
-            print_error "Failed to install Fail2ban."
-        fi
+        print_info "Installing and configuring Fail2ban..."
+        local total_steps=3
+        local current_step=0
+
+        # Step 1: Install Fail2ban
+        ((current_step++))
+        display_progress $((current_step * 100 / total_steps))
+        sudo pacman -S --needed --noconfirm fail2ban >/dev/null 2>&1
+
+        # Step 2: Configure Fail2ban
+        ((current_step++))
+        display_progress $((current_step * 100 / total_steps))
+        (cd "$SCRIPTS_DIR" && ./fail2ban.sh) >/dev/null 2>&1
+
+        # Step 3: Final step (e.g., enabling service)
+        ((current_step++))
+        display_progress $((current_step * 100 / total_steps))
+        sudo systemctl enable --now fail2ban >/dev/null 2>&1
+
+        echo  # Move to the next line after the progress bar
+        print_success "Fail2ban installed and configured successfully."
     else
         print_warning "Fail2ban installation and configuration skipped."
     fi
@@ -359,9 +436,20 @@ install_and_configure_virt_manager() {
     done
 
     if [[ "$confirm_virt_manager" == "y" ]]; then
-        print_info "Installing Virt-Manager..."
-        (cd "$SCRIPTS_DIR" && ./virt_manager.sh) && \
-        print_success "Virt-Manager configured successfully."
+        print_info "Installing and configuring Virt-Manager..."
+        local total_steps=$(grep -c '^[^#]' "$SCRIPTS_DIR/virt_manager.sh")
+        local current_step=0
+
+        while IFS= read -r line; do
+            if [[ $line =~ ^[^#] ]]; then
+                ((current_step++))
+                display_progress $((current_step * 100 / total_steps))
+                eval "$line" >/dev/null 2>&1
+            fi
+        done < "$SCRIPTS_DIR/virt_manager.sh"
+
+        echo  # Move to the next line after the progress bar
+        print_success "Virt-Manager installed and configured successfully."
     else
         print_warning "Virt-Manager installation and configuration skipped."
     fi
@@ -389,7 +477,18 @@ install_davinci_resolve() {
 
     if [[ "$confirm_davinci" == "y" ]]; then
         print_info "Installing DaVinci Resolve..."
-        (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
+        local total_steps=$(grep -c '^[^#]' "$SCRIPTS_DIR/davinci_resolve.sh")
+        local current_step=0
+
+        while IFS= read -r line; do
+            if [[ $line =~ ^[^#] ]]; then
+                ((current_step++))
+                display_progress $((current_step * 100 / total_steps))
+                eval "$line" >/dev/null 2>&1
+            fi
+        done < "$SCRIPTS_DIR/davinci_resolve.sh"
+
+        echo  # Move to the next line after the progress bar
         print_success "DaVinci Resolve installed successfully."
     else
         print_warning "DaVinci Resolve installation skipped."
@@ -465,32 +564,8 @@ install_grub_theme() {
     print_success "GRUB theme installed successfully."
 }
 
-# Parse command-line arguments
-parse_args() {
-    while [[ "$#" -gt 0 ]]; do
-        case "$1" in
-            -d|--default)
-                FLAG="-d"
-                ;;
-            -m|--minimal)
-                FLAG="-m"
-                ;;
-            -h|--help)
-                show_help
-                exit 0
-                ;;
-            *)
-                print_error "Unknown option: $1"
-                show_help
-                exit 1
-                ;;
-        esac
-        shift
-    done
-}
-
 # Main script
-parse_args "$@"
+show_menu
 
 install_kernel_headers
 
