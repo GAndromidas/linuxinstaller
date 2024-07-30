@@ -268,29 +268,12 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    local total_programs=$(grep -c '^[^#]' "$SCRIPTS_DIR/programs.sh")
-    local current_program=0
-
     while IFS= read -r line; do
         if [[ $line =~ ^[^#] ]]; then
-            ((current_program++))
-            local percentage=$((current_program * 100 / total_programs))
-            display_progress $percentage
-            eval "$line" >/dev/null 2>&1
+            eval "$line"
         fi
     done < "$SCRIPTS_DIR/programs.sh"
-
-    echo  # Move to the next line after the progress bar
     print_success "Programs installed successfully."
-}
-
-# Function to display a single progress bar
-display_progress() {
-    local width=50
-    local percentage=$1
-    local filled=$(( (percentage * width + 50) / 100 ))
-    local empty=$((width - filled))
-    printf "\rProgress: [%s%s] %d%%" "$(printf '#%.0s' $(seq 1 $filled))" "$(printf ' %.0s' $(seq 1 $empty))" "$percentage"
 }
 
 # Function to enable services
@@ -390,25 +373,9 @@ install_and_configure_fail2ban() {
 
     if [[ "$confirm_fail2ban" == "y" ]]; then
         print_info "Installing and configuring Fail2ban..."
-        local total_steps=3
-        local current_step=0
-
-        # Step 1: Install Fail2ban
-        ((current_step++))
-        display_progress $((current_step * 100 / total_steps))
-        sudo pacman -S --needed --noconfirm fail2ban >/dev/null 2>&1
-
-        # Step 2: Configure Fail2ban
-        ((current_step++))
-        display_progress $((current_step * 100 / total_steps))
-        (cd "$SCRIPTS_DIR" && ./fail2ban.sh) >/dev/null 2>&1
-
-        # Step 3: Final step (e.g., enabling service)
-        ((current_step++))
-        display_progress $((current_step * 100 / total_steps))
-        sudo systemctl enable --now fail2ban >/dev/null 2>&1
-
-        echo  # Move to the next line after the progress bar
+        sudo pacman -S --needed --noconfirm fail2ban
+        (cd "$SCRIPTS_DIR" && ./fail2ban.sh)
+        sudo systemctl enable --now fail2ban
         print_success "Fail2ban installed and configured successfully."
     else
         print_warning "Fail2ban installation and configuration skipped."
@@ -437,19 +404,11 @@ install_and_configure_virt_manager() {
 
     if [[ "$confirm_virt_manager" == "y" ]]; then
         print_info "Installing and configuring Virt-Manager..."
-        local total_steps=$(grep -c '^[^#]' "$SCRIPTS_DIR/virt_manager.sh")
-        local current_step=0
-
         while IFS= read -r line; do
             if [[ $line =~ ^[^#] ]]; then
-                ((current_step++))
-                local percentage=$((current_step * 100 / total_steps))
-                display_progress $percentage
-                eval "$line" >/dev/null 2>&1
+                eval "$line"
             fi
         done < "$SCRIPTS_DIR/virt_manager.sh"
-
-        echo  # Move to the next line after the progress bar
         print_success "Virt-Manager installed and configured successfully."
     else
         print_warning "Virt-Manager installation and configuration skipped."
@@ -478,19 +437,11 @@ install_davinci_resolve() {
 
     if [[ "$confirm_davinci" == "y" ]]; then
         print_info "Installing DaVinci Resolve..."
-        local total_steps=$(grep -c '^[^#]' "$SCRIPTS_DIR/davinci_resolve.sh")
-        local current_step=0
-
         while IFS= read -r line; do
             if [[ $line =~ ^[^#] ]]; then
-                ((current_step++))
-                local percentage=$((current_step * 100 / total_steps))
-                display_progress $percentage
-                eval "$line" >/dev/null 2>&1
+                eval "$line"
             fi
         done < "$SCRIPTS_DIR/davinci_resolve.sh"
-
-        echo  # Move to the next line after the progress bar
         print_success "DaVinci Resolve installed successfully."
     else
         print_warning "DaVinci Resolve installation skipped."
