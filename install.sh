@@ -271,7 +271,7 @@ install_programs() {
     if [ ! -f "$SCRIPTS_DIR/programs.sh" ]; then
         print_error "Error: programs.sh not found in $SCRIPTS_DIR"
         return 1
-    }
+    fi
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         if [[ $line =~ ^[^#] ]] && [[ -n "$line" ]]; then
@@ -519,6 +519,18 @@ install_grub_theme() {
     cd ..
     rm -rf Top-5-Bootloader-Themes
     print_success "GRUB theme installed successfully."
+}
+
+# Function to parse command-line arguments
+parse_args() {
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            -d|--default) FLAG="-d"; shift ;;
+            -m|--minimal) FLAG="-m"; shift ;;
+            -h|--help) show_help; exit 0 ;;
+            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+        esac
+    done
 }
 
 # Main script
