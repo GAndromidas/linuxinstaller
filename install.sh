@@ -21,50 +21,6 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-# New ASCII art and menu function
-show_menu() {
-    clear
-    echo -e "${CYAN}"
-    cat << "EOF"
-    _             _     ___           _        _ _
-   / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
-  / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
- / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
-/_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
-
-EOF
-    echo -e "${RESET}"
-    echo "Welcome to ArchInstaller!"
-    echo "------------------------"
-    echo "1. Install default set of programs"
-    echo "2. Install minimal set of programs"
-    echo "3. Show help"
-    echo "4. Exit"
-    echo
-    read -p "Please enter your choice (1-4): " choice
-
-    case $choice in
-        1)
-            FLAG="-d"
-            ;;
-        2)
-            FLAG="-m"
-            ;;
-        3)
-            show_help
-            exit 0
-            ;;
-        4)
-            echo "Exiting ArchInstaller. Goodbye!"
-            exit 0
-            ;;
-        *)
-            echo "Invalid choice. Please try again."
-            show_menu
-            ;;
-    esac
-}
-
 # Function to print messages with colors
 print_info() {
     echo -e "${CYAN}$1${RESET}"
@@ -268,20 +224,8 @@ install_yay() {
 # Function to install programs
 install_programs() {
     print_info "Installing Programs..."
-    if [ ! -f "$SCRIPTS_DIR/programs.sh" ]; then
-        print_error "Error: programs.sh not found in $SCRIPTS_DIR"
-        return 1
-    fi
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ $line =~ ^[^#] ]] && [[ -n "$line" ]]; then
-            print_info "Executing: $line"
-            if ! eval "$line"; then
-                print_error "Error executing: $line"
-            fi
-        fi
-    done < "$SCRIPTS_DIR/programs.sh"
-    print_success "Programs installation completed."
+    (cd "$SCRIPTS_DIR" && ./programs.sh "$FLAG") && \
+    print_success "Programs installed successfully."
 }
 
 # Function to enable services
@@ -521,20 +465,31 @@ install_grub_theme() {
     print_success "GRUB theme installed successfully."
 }
 
-# Function to parse command-line arguments
+# Parse command-line arguments
 parse_args() {
     while [[ "$#" -gt 0 ]]; do
-        case $1 in
-            -d|--default) FLAG="-d"; shift ;;
-            -m|--minimal) FLAG="-m"; shift ;;
-            -h|--help) show_help; exit 0 ;;
-            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+        case "$1" in
+            -d|--default)
+                FLAG="-d"
+                ;;
+            -m|--minimal)
+                FLAG="-m"
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
         esac
+        shift
     done
 }
 
 # Main script
-show_menu
 parse_args "$@"
 
 install_kernel_headers
