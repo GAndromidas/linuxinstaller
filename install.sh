@@ -81,24 +81,46 @@ show_menu() {
     done
 }
 
-# Function to identify the installed Linux kernel type and install kernel headers
+# Function to identify all installed Linux kernel types and install their headers
 install_kernel_headers() {
-    print_info "Identifying installed Linux kernel type..."
+    print_info "Identifying installed Linux kernel types..."
 
-    if pacman -Q linux-zen &>/dev/null; then
-        KERNEL_HEADERS="linux-zen-headers"
-    elif pacman -Q linux-hardened &>/dev/null; then
-        KERNEL_HEADERS="linux-hardened-headers"
-    elif pacman -Q linux-lts &>/dev/null; then
-        KERNEL_HEADERS="linux-lts-headers"
+    # Array to store kernel types
+    kernel_types=()
+
+    # Check for standard kernel
+    if pacman -Q linux &>/dev/null; then
+        kernel_types+=("linux")
     fi
 
-    print_info "Installing $KERNEL_HEADERS..."
-    if sudo pacman -S --needed --noconfirm "$KERNEL_HEADERS"; then
-        print_success "Kernel headers ($KERNEL_HEADERS) installed successfully."
-    else
-        print_error "Error: Failed to install kernel headers ($KERNEL_HEADERS)."
-        exit 1
+    # Check for LTS kernel
+    if pacman -Q linux-lts &>/dev/null; then
+        kernel_types+=("linux-lts")
+    fi
+
+    # Check for Zen kernel
+    if pacman -Q linux-zen &>/dev/null; then
+        kernel_types+=("linux-zen")
+    fi
+
+    # Check for Hardened kernel
+    if pacman -Q linux-hardened &>/dev/null; then
+        kernel_types+=("linux-hardened")
+    fi
+
+    # Install headers for each detected kernel
+    for kernel in "${kernel_types[@]}"; do
+        headers_package="${kernel}-headers"
+        print_info "Installing $headers_package..."
+        if sudo pacman -S --needed --noconfirm "$headers_package"; then
+            print_success "$headers_package installed successfully."
+        else
+            print_error "Error: Failed to install $headers_package."
+        fi
+    done
+
+    if [ ${#kernel_types[@]} -eq 0 ]; then
+        print_warning "No supported kernel types detected. Please check your system configuration."
     fi
 }
 
