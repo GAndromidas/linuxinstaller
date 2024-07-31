@@ -334,7 +334,8 @@ configure_firewall() {
 
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
-    print_info "Do you want to install and configure Fail2ban? (Y/n)"
+    echo ""  # Add a newline for spacing
+    echo -e "${MAGENTA}Do you want to install and configure Fail2ban? (Y/n)${RESET}"
 
     read -rp "" confirm_fail2ban
 
@@ -369,7 +370,8 @@ install_and_configure_fail2ban() {
 
 # Function to install and configure Virt-Manager
 install_and_configure_virt_manager() {
-    print_info "Do you want to install and configure Virt-Manager? (Y/n)"
+    echo ""  # Add a newline for spacing
+    echo -e "${MAGENTA}Do you want to install and configure Virt-Manager? (Y/n)${RESET}"
 
     read -rp "" confirm_virt_manager
 
@@ -398,11 +400,12 @@ install_and_configure_virt_manager() {
 
 # Function to prompt for DaVinci Resolve installation
 install_davinci_resolve() {
-    print_info "Do you want to install DaVinci Resolve? (Y/n)"
+    echo ""  # Add a newline for spacing
+    echo -e "${MAGENTA}Do you want to install DaVinci Resolve? (Y/n)${RESET}"
 
     read -rp "" confirm_davinci
 
-    # Convert input to lowercase for case-insensitive comparison
+# Convert input to lowercase for case-insensitive comparison
     confirm_davinci="${confirm_davinci,,}"
 
     # Handle empty input (Enter pressed)
