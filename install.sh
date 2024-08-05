@@ -150,27 +150,39 @@ make_systemd_boot_silent() {
     print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
 }
 
-# Function to delete kernel fallback images
-delete_kernel_fallback_images() {
-    print_info "Deleting kernel fallback images..."
+# Function to delete kernel fallback images and entries
+delete_kernel_fallbacks() {
+    print_info "Deleting kernel fallback images and entries..."
 
-    # Find all fallback images in /boot
+    # Delete fallback images from /boot
     fallback_images=$(find /boot -name "*-fallback.img")
-
     if [ -z "$fallback_images" ]; then
-        print_warning "No fallback images found."
-        return
+        print_warning "No fallback images found in /boot."
+    else
+        for image in $fallback_images; do
+            if sudo rm -f "$image"; then
+                print_success "Deleted image: $image"
+            else
+                print_error "Failed to delete image: $image"
+            fi
+        done
     fi
 
-    for image in $fallback_images; do
-        if sudo rm -f "$image"; then
-            print_success "Deleted: $image"
-        else
-            print_error "Failed to delete: $image"
-        fi
-    done
+    # Delete fallback entries from /boot/loader/entries
+    fallback_entries=$(find /boot/loader/entries -name "*-fallback.conf")
+    if [ -z "$fallback_entries" ]; then
+        print_warning "No fallback entries found in /boot/loader/entries."
+    else
+        for entry in $fallback_entries; do
+            if sudo rm -f "$entry"; then
+                print_success "Deleted entry: $entry"
+            else
+                print_error "Failed to delete entry: $entry"
+            fi
+        done
+    fi
 
-    print_info "Kernel fallback image deletion complete."
+    print_info "Kernel fallback deletion complete."
 }
 
 # Function to change loader.conf
