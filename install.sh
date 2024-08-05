@@ -150,6 +150,29 @@ make_systemd_boot_silent() {
     print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
 }
 
+# Function to delete kernel fallback images
+delete_kernel_fallback_images() {
+    print_info "Deleting kernel fallback images..."
+
+    # Find all fallback images in /boot
+    fallback_images=$(find /boot -name "*-fallback.img")
+
+    if [ -z "$fallback_images" ]; then
+        print_warning "No fallback images found."
+        return
+    fi
+
+    for image in $fallback_images; do
+        if sudo rm -f "$image"; then
+            print_success "Deleted: $image"
+        else
+            print_error "Failed to delete: $image"
+        fi
+    done
+
+    print_info "Kernel fallback image deletion complete."
+}
+
 # Function to change loader.conf
 change_loader_conf() {
     print_info "Changing loader.conf..."
@@ -528,6 +551,7 @@ install_kernel_headers
 
 if detect_bootloader; then
     make_systemd_boot_silent
+    delete_kernel_fallback_images
     change_loader_conf
 else
     install_grub_theme
