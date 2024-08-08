@@ -31,14 +31,34 @@ detect_desktop_environment() {
     case "$XDG_CURRENT_DESKTOP" in
         KDE)
             print_info "KDE detected."
-            specific_install_programs=("${kde_install_programs[@]}")
-            specific_remove_programs=("${kde_remove_programs[@]}")
+            if [ -n "${kde_install_programs+x}" ]; then
+                specific_install_programs=("${kde_install_programs[@]}")
+            else
+                print_warning "KDE install programs not defined."
+                specific_install_programs=()
+            fi
+            if [ -n "${kde_remove_programs+x}" ]; then
+                specific_remove_programs=("${kde_remove_programs[@]}")
+            else
+                print_warning "KDE remove programs not defined."
+                specific_remove_programs=()
+            fi
             flatpak_install_function="install_flatpak_programs_kde"
             ;;
         GNOME)
             print_info "GNOME detected."
-            specific_install_programs=("${gnome_install_programs[@]}")
-            specific_remove_programs=("${gnome_remove_programs[@]}")
+            if [ -n "${gnome_install_programs+x}" ]; then
+                specific_install_programs=("${gnome_install_programs[@]}")
+            else
+                print_warning "GNOME install programs not defined."
+                specific_install_programs=()
+            fi
+            if [ -n "${gnome_remove_programs+x}" ]; then
+                specific_remove_programs=("${gnome_remove_programs[@]}")
+            else
+                print_warning "GNOME remove programs not defined."
+                specific_remove_programs=()
+            fi
             flatpak_install_function="install_flatpak_programs_gnome"
             ;;
         *)
