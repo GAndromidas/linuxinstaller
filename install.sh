@@ -166,6 +166,21 @@ change_loader_conf() {
     print_success "Loader configuration updated."
 }
 
+# Function to remove fallback entries from systemd-boot
+remove_fallback_entries() {
+    print_info "Removing fallback entries from systemd-boot..."
+
+    # Find and remove all fallback entries
+    for entry in "$ENTRIES_DIR"/*fallback.conf; do
+        if [ -f "$entry" ]; then
+            sudo rm "$entry" && \
+            print_success "Removed fallback entry: $(basename "$entry")."
+        fi
+    done
+
+    print_info "All fallback entries removed."
+}
+
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
     print_info "Enabling asterisks for password input in sudoers..."
@@ -529,6 +544,7 @@ install_kernel_headers
 if detect_bootloader; then
     make_systemd_boot_silent
     change_loader_conf
+    remove_fallback_entries
 else
     install_grub_theme
 fi
