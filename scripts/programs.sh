@@ -66,19 +66,6 @@ detect_desktop_environment() {
             specific_install_programs=()
             specific_remove_programs=()
             flatpak_install_function=""
-            # Install default programs for other DEs or WMs
-            print_info "Installing default Pacman programs..."
-            pacman_programs=("${pacman_programs_default[@]}")
-            essential_programs=("${essential_programs_default[@]}")
-            handle_error "Failed to install default programs. Exiting..."
-            print_success "Default programs installed successfully."
-
-            # Install minimal programs for other DEs or WMs
-            print_info "Installing minimal Pacman programs..."
-            pacman_programs=("${pacman_programs_minimal[@]}")
-            essential_programs=("${essential_programs_minimal[@]}")
-            handle_error "Failed to install minimal programs. Exiting..."
-            print_success "Minimal programs installed successfully."
             ;;
     esac
 }
