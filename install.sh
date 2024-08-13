@@ -372,6 +372,7 @@ configure_firewall() {
 }
 
 # ASCII art
+fail2ban_ascii_art() {
 clear
 echo -e "${CYAN}"
 cat << "EOF"
@@ -383,6 +384,7 @@ cat << "EOF"
  |_|  \__,_| |_|_|____|____/ \__,_|_| |_|
 
 EOF
+}
 
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
@@ -420,7 +422,8 @@ install_and_configure_fail2ban() {
     fi
 }
 
-# ASCII art
+# ASCII art 
+virt_manager_ascii_art() {
 clear
 echo -e "${CYAN}"
 cat << "EOF"
@@ -432,6 +435,7 @@ __     __ _         _     __  __
                                                        |___/
 
 EOF
+}
 
 # Function to install and configure Virt-Manager
 install_and_configure_virt_manager() {
@@ -464,6 +468,7 @@ install_and_configure_virt_manager() {
 }
 
 # ASCII art
+davinci_resolve_ascii_art() {
 clear
 echo -e "${CYAN}"
 cat << "EOF"
@@ -475,6 +480,7 @@ cat << "EOF"
 |_____/_/_/    \_\/   |_|_| |_|\___|_| |_|  \_\___||___/\___/|_| \_/ \___|
 
 EOF
+}
 
 # Function to prompt for DaVinci Resolve installation
 install_davinci_resolve() {
@@ -605,8 +611,11 @@ install_programs
 enable_services
 create_fastfetch_config
 configure_firewall
+fail2ban_ascii_art
 install_and_configure_fail2ban
+virt_manager_ascii_art
 install_and_configure_virt_manager
+davinci_resolve_ascii_art
 install_davinci_resolve
 clear_unused_packages_cache
 delete_archinstaller_folder
