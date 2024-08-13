@@ -369,6 +369,19 @@ configure_firewall() {
     fi
 }
 
+# ASCII art
+clear
+echo -e "${CYAN}"
+cat << "EOF"
+  ____        _ _ ___  ____              
+ |  __\      (_) |__ \|  _ \             
+ | |__ __ _   _| |  ) | |_) | __ _ _ __  
+ |  __/ _` | | | | / /|  _ < / _` | '_ \ 
+ | | | (_| | | | |/ /_| |_) | (_| | | | |
+ |_|  \__,_| |_|_|____|____/ \__,_|_| |_|
+
+EOF
+
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
     echo ""  # Add a newline for spacing
@@ -405,6 +418,19 @@ install_and_configure_fail2ban() {
     fi
 }
 
+# ASCII art
+clear
+echo -e "${CYAN}"
+cat << "EOF"
+__     __ _         _     __  __                                   
+\ \   / /(_) _ __  | |_  |  \/  |  __ _  _ __    __ _   __ _   ___ _ __ 
+ \ \ / / | || '__| | __| | |\/| | / _` || '_ \  / _` | / _` | / _ \ '__|
+  \ V /  | || |    | |_  | |  | || (_| || | | || (_| || (_| ||  __/ |   
+   \_/   |_||_|     \__| |_|  |_| \__,_||_| |_| \__,_| \__, | \___|_|   
+                                                       |___/
+
+EOF
+
 # Function to install and configure Virt-Manager
 install_and_configure_virt_manager() {
     echo ""  # Add a newline for spacing
@@ -434,6 +460,19 @@ install_and_configure_virt_manager() {
         print_warning "Virt-Manager installation and configuration skipped."
     fi
 }
+
+# ASCII art
+clear
+echo -e "${CYAN}"
+cat << "EOF"
+ _____       __      __             _   _____                 _           
+|  __ \     /\ \    / (_)          (_) |  __ \               | |          
+| |  | |   /  \ \  / / _ _ __   ___ _  | |__) |___  ___  ___ | |_   _____ 
+| |  | |  / /\ \ \/ / | | '_ \ / __| | |  _  // _ \/ __|/ _ \| \ \ / / _ \
+| |__| | / ____ \  /  | | | | | (__| | | | \ \  __/\__ \ (_) | |\ V /  __/
+|_____/_/_/    \_\/   |_|_| |_|\___|_| |_|  \_\___||___/\___/|_| \_/ \___|
+
+EOF
 
 # Function to prompt for DaVinci Resolve installation
 install_davinci_resolve() {
