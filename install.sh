@@ -5,6 +5,7 @@
 # Author: George Andromidas
 
 # ASCII art
+archinstaller_ascii_art() {
 clear
 echo -e "${CYAN}"
 cat << "EOF"
@@ -15,6 +16,7 @@ cat << "EOF"
 /_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
 
 EOF
+}
 
 # Variables
 KERNEL_HEADERS="linux-headers"  # Default to standard Linux headers
@@ -575,6 +577,7 @@ install_grub_theme() {
 
 # Main script
 # Show menu and get user selection
+archinstaller_ascii_art
 show_menu
 
 # Main script execution
