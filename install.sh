@@ -214,6 +214,16 @@ update_mirrorlist() {
     print_success "Mirrorlist updated successfully."
 }
 
+# Function to install figlet
+install_figlet() {
+    print_info "Installing Figlet..."
+    if sudo pacman -S --needed --noconfirm figlet; then
+        print_success "Figlet installed successfully."
+    else
+        print_error "Failed to install Figlet."
+    fi
+}
+
 # Function to update the system
 update_system() {
     print_info "Updating System..."
@@ -552,6 +562,7 @@ fi
 enable_asterisks_sudo
 configure_pacman
 update_mirrorlist
+install_figlet
 update_system
 install_zsh
 change_shell_to_zsh

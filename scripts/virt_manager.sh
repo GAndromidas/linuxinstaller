@@ -45,6 +45,8 @@ print_completion_message() {
 
 # Main script execution
 main() {
+    # Display "Virt Manager" using figlet
+    figlet "Virt Manager"
     install_packages
     configure_libvirt_group
     configure_libvirtd

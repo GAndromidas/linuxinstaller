@@ -43,6 +43,8 @@ EOF
 
 # Main script execution
 main() {
+    # Display "Fail2Ban" using figlet
+    figlet "Fail2Ban"
     install_fail2ban
     configure_fail2ban
 

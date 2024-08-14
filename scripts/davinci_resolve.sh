@@ -118,6 +118,8 @@ print_completion_message() {
 
 # Main script execution
 main() {
+    # Display "Davinci Resolve" using figlet
+    figlet "Davinci Resolve"
     install_packages
     install_davinci_resolve
     cleanup
