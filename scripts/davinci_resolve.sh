@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Display "Davinci Resolve" using figlet
+echo -e "${GREEN}"
+figlet "Davinci Resolve"
+echo -e "${NC}"
+
 # Color functions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -118,8 +123,6 @@ print_completion_message() {
 
 # Main script execution
 main() {
-    # Display "Davinci Resolve" using figlet
-    figlet "Davinci Resolve"
     install_packages
     install_davinci_resolve
     cleanup

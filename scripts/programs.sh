@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo -e "${GREEN}"
+figlet "Programs"
+echo -e "${NC}" 
+
 # Constants for commands
 PACMAN_CMD="sudo pacman -S --needed --noconfirm"
 REMOVE_CMD="sudo pacman -Rns --noconfirm"
@@ -250,8 +254,6 @@ yay_programs_minimal=(
 )
 
 # Main script
-# Display "Programs" using figlet
-figlet "Programs"
 # Get the flag from command line argument
 FLAG="$1"
 

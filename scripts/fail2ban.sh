@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo -e "${GREEN}"
+figlet "Fail2Ban"
+echo -e "${NC}"
+
 # Color functions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,8 +47,6 @@ EOF
 
 # Main script execution
 main() {
-    # Display "Fail2Ban" using figlet
-    figlet "Fail2Ban"
     install_fail2ban
     configure_fail2ban
 
