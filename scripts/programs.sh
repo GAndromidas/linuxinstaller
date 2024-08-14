@@ -117,6 +117,22 @@ install_aur_packages() {
     print_success "AUR Packages installed successfully."
 }
 
+# Function to check for GRUB and Btrfs, and install grub-btrfs if found
+check_grub_btrfs() {
+    if command -v grub-install &> /dev/null; then
+        if mount | grep -q 'btrfs'; then
+            print_info "Btrfs detected. Installing grub-btrfs..."
+            $PACMAN_CMD grub-btrfs
+            handle_error "Failed to install grub-btrfs. Exiting..."
+            print_success "grub-btrfs installed successfully."
+        else
+            print_warning "Btrfs not detected. Skipping grub-btrfs installation."
+        fi
+    else
+        print_error "GRUB not installed. Skipping grub-btrfs installation."
+    fi
+}
+
 # Programs to install using pacman (Default option)
 pacman_programs_default=(
     android-tools bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
@@ -262,6 +278,9 @@ check_yay
 
 # Detect desktop environment
 detect_desktop_environment
+
+# Check for GRUB and Btrfs, and install grub-btrfs if found
+check_grub_btrfs
 
 # Remove specified programs
 remove_programs
