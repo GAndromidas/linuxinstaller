@@ -381,6 +381,11 @@ configure_firewall() {
 
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
+    # Display "Davinci Resolve" using figlet
+    echo -e "${CYAN}"
+    figlet "Fail2Ban"
+    echo -e "${NC}"
+
     echo ""  # Add a newline for spacing
     echo -e "${MAGENTA}Do you want to install and configure Fail2ban? (Y/n)${RESET}"
 
@@ -417,6 +422,10 @@ install_and_configure_fail2ban() {
 
 # Function to install and configure Virt-Manager
 install_and_configure_virt_manager() {
+    echo -e "${CYAN}"
+    figlet "Virt Manager"
+    echo -e "${NC}"
+
     echo ""  # Add a newline for spacing
     echo -e "${MAGENTA}Do you want to install and configure Virt-Manager? (Y/n)${RESET}"
 
@@ -447,6 +456,10 @@ install_and_configure_virt_manager() {
 
 # Function to prompt for DaVinci Resolve installation
 install_davinci_resolve() {
+    echo -e "${CYAN}"
+    figlet "Davinci Resolve"
+    echo -e "${NC}"
+
     echo ""  # Add a newline for spacing
     echo -e "${MAGENTA}Do you want to install DaVinci Resolve? (Y/n)${RESET}"
 

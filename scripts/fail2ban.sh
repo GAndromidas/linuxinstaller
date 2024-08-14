@@ -1,9 +1,5 @@
 #!/bin/bash
 
-echo -e "${GREEN}"
-figlet "Fail2Ban"
-echo -e "${NC}"
-
 # Color functions
 RED='\033[0;31m'
 GREEN='\033[0;32m'

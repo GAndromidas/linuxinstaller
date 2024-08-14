@@ -1,9 +1,5 @@
 #!/bin/bash
 
-echo -e "${GREEN}"
-figlet "Virt Manager"
-echo -e "${NC}"
-
 # Color functions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -48,7 +44,7 @@ print_completion_message() {
 }
 
 # Main script execution
-main()
+main() {
     install_packages
     configure_libvirt_group
     configure_libvirtd
