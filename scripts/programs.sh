@@ -255,9 +255,9 @@ yay_programs_minimal=(
 
 # Function to display custom installation menu with default programs, Flatpaks, and AUR packages
 custom_installation() {
-    echo -e "${CYAN}Select programs to install (use arrow keys to navigate, space to select, and Enter to confirm):${RESET}"
+    echo -e "${CYAN}Select programs to install (use arrow keys to navigate, space to select/deselect, and Enter to confirm):${RESET}"
 
-    # Combine default programs into a single list
+    # Combine default programs into a single list and sort them
     local pacman_options=(
         "android-tools"
         "bleachbit"
@@ -281,6 +281,9 @@ custom_installation() {
         "vlc"
         "wine"
     )
+    # Sort the options alphabetically
+    IFS=$'\n' sorted_pacman_options=($(sort <<<"${pacman_options[*]}"))
+    unset IFS
 
     local flatpak_options=(
         "com.spotify.Client"
@@ -289,6 +292,9 @@ custom_installation() {
         "it.mijorus.gearlever"
         "net.davidotek.pupgui2"
     )
+    # Sort the options alphabetically
+    IFS=$'\n' sorted_flatpak_options=($(sort <<<"${flatpak_options[*]}"))
+    unset IFS
 
     local aur_options=(
         "dropbox"
@@ -296,12 +302,15 @@ custom_installation() {
         "teamviewer"
         "via-bin"
     )
+    # Sort the options alphabetically
+    IFS=$'\n' sorted_aur_options=($(sort <<<"${aur_options[*]}"))
+    unset IFS
 
     # Combine all options into one array
-    local all_options=("${pacman_options[@]}" "${flatpak_options[@]}" "${aur_options[@]}")
+    local all_options=("${sorted_pacman_options[@]}" "${sorted_flatpak_options[@]}" "${sorted_aur_options[@]}")
 
-    # Use fzf to select programs with height option
-    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --height 40% --preview 'echo {}' --header "Press SPACE to select, ENTER to confirm"))
+    # Use fzf to select programs with default selection
+    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --select-1 --height 40% --preview 'echo {}' --header "Press SPACE to select/deselect, ENTER to confirm"))
 
     # Separate selected programs into their respective arrays
     pacman_programs=()
@@ -309,20 +318,18 @@ custom_installation() {
     yay_programs=()
 
     for program in "${selected_programs[@]}"; do
-        if [[ " ${pacman_options[*]} " == *" $program "* ]]; then
+        if [[ " ${sorted_pacman_options[*]} " == *" $program "* ]]; then
             pacman_programs+=("$program")
-        elif [[ " ${flatpak_options[*]} " == *" $program "* ]]; then
+        elif [[ " ${sorted_flatpak_options[*]} " == *" $program "* ]]; then
             flatpak_programs+=("$program")
-        elif [[ " ${aur_options[*]} " == *" $program "* ]]; then
+        elif [[ " ${sorted_aur_options[*]} " == *" $program "* ]]; then
             yay_programs+=("$program")
         fi
     done
 
-    # Display selected programs
-    echo -e "${GREEN}You have selected the following programs for installation:${RESET}"
-    echo -e "${GREEN}Pacman programs: ${pacman_programs[*]}${RESET}"
-    echo -e "${GREEN}Flatpak programs: ${flatpak_programs[*]}${RESET}"
-    echo -e "${GREEN}AUR packages: ${yay_programs[*]}${RESET}"
+    echo -e "${GREEN}Selected Pacman programs for installation: ${pacman_programs[*]}${RESET}"
+    echo -e "${GREEN}Selected Flatpak programs for installation: ${flatpak_programs[*]}${RESET}"
+    echo -e "${GREEN}Selected AUR packages for installation: ${yay_programs[*]}${RESET}"
 }
 
 # Main script
