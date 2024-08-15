@@ -253,85 +253,6 @@ yay_programs_minimal=(
     teamviewer
 )
 
-# Function to display custom installation menu with default programs, Flatpaks, and AUR packages
-custom_installation() {
-    echo -e "${CYAN}Select programs to install (use arrow keys to navigate, space to select/deselect, and Enter to confirm):${RESET}"
-
-    # Combine default programs into a single list and sort them
-    local pacman_options=(
-        "android-tools"
-        "bleachbit"
-        "btop"
-        "bluez-utils"
-        "cmatrix"
-        "curl"
-        "dmidecode"
-        "dosfstools"
-        "expac"
-        "eza"
-        "fastfetch"
-        "firefox"
-        "firewalld"
-        "flatpak"
-        "fwupd"
-        "fzf"
-        "gamemode"
-        "gimp"
-        "libreoffice-fresh"
-        "vlc"
-        "wine"
-    )
-    # Sort the options alphabetically
-    IFS=$'\n' sorted_pacman_options=($(sort <<<"${pacman_options[*]}"))
-    unset IFS
-
-    local flatpak_options=(
-        "com.spotify.Client"
-        "com.stremio.Stremio"
-        "io.github.shiftey.Desktop"
-        "it.mijorus.gearlever"
-        "net.davidotek.pupgui2"
-    )
-    # Sort the options alphabetically
-    IFS=$'\n' sorted_flatpak_options=($(sort <<<"${flatpak_options[*]}"))
-    unset IFS
-
-    local aur_options=(
-        "dropbox"
-        "heroic-games-launcher-bin"
-        "teamviewer"
-        "via-bin"
-    )
-    # Sort the options alphabetically
-    IFS=$'\n' sorted_aur_options=($(sort <<<"${aur_options[*]}"))
-    unset IFS
-
-    # Combine all options into one array
-    local all_options=("${sorted_pacman_options[@]}" "${sorted_flatpak_options[@]}" "${sorted_aur_options[@]}")
-
-    # Use fzf to select programs with default selection
-    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --select-1 --height 40% --preview 'echo {}' --header "Press SPACE to select/deselect, ENTER to confirm"))
-
-    # Separate selected programs into their respective arrays
-    pacman_programs=()
-    flatpak_programs=()
-    yay_programs=()
-
-    for program in "${selected_programs[@]}"; do
-        if [[ " ${sorted_pacman_options[*]} " == *" $program "* ]]; then
-            pacman_programs+=("$program")
-        elif [[ " ${sorted_flatpak_options[*]} " == *" $program "* ]]; then
-            flatpak_programs+=("$program")
-        elif [[ " ${sorted_aur_options[*]} " == *" $program "* ]]; then
-            yay_programs+=("$program")
-        fi
-    done
-
-    echo -e "${GREEN}Selected Pacman programs for installation: ${pacman_programs[*]}${RESET}"
-    echo -e "${GREEN}Selected Flatpak programs for installation: ${flatpak_programs[*]}${RESET}"
-    echo -e "${GREEN}Selected AUR packages for installation: ${yay_programs[*]}${RESET}"
-}
-
 # Main script
 # Get the flag from command line argument
 FLAG="$1"
@@ -349,10 +270,6 @@ case "$FLAG" in
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         yay_programs=("${yay_programs_minimal[@]}")
-        ;;
-    "-c")
-        installation_mode="custom"  # Custom Installation option
-        custom_installation  # Call the custom installation function
         ;;
     *)
         print_error "Invalid flag. Exiting."
