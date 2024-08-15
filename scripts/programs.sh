@@ -253,6 +253,109 @@ yay_programs_minimal=(
     teamviewer
 )
 
+# Function to display custom installation menu with default programs, Flatpaks, and AUR packages
+custom_installation() {
+    echo -e "${CYAN}Select programs to install (mark with an asterisk):${RESET}"
+
+    # Combine default programs into a single list
+    local pacman_options=(
+        "android-tools"
+        "bleachbit"
+        "btop"
+        "bluez-utils"
+        "cmatrix"
+        "curl"
+        "dmidecode"
+        "dosfstools"
+        "expac"
+        "eza"
+        "fastfetch"
+        "firefox"
+        "firewalld"
+        "flatpak"
+        "fwupd"
+        "fzf"
+        "gamemode"
+        "gimp"
+        "libreoffice-fresh"
+        "vlc"
+        "wine"
+    )
+
+    local flatpak_options=(
+        "com.spotify.Client"
+        "com.stremio.Stremio"
+        "io.github.shiftey.Desktop"
+        "it.mijorus.gearlever"
+        "net.davidotek.pupgui2"
+    )
+
+    local aur_options=(
+        "dropbox"
+        "heroic-games-launcher-bin"
+        "teamviewer"
+        "via-bin"
+    )
+
+    local selected_programs=()
+
+    # Display Pacman options
+    echo -e "${CYAN}Pacman Programs:${RESET}"
+    for program in "${pacman_options[@]}"; do
+        echo "$program [*]"
+    done
+
+    # Display Flatpak options
+    echo -e "\n${CYAN}Flatpak Programs:${RESET}"
+    for program in "${flatpak_options[@]}"; do
+        echo "$program [*]"
+    done
+
+    # Display AUR options
+    echo -e "\n${CYAN}AUR Packages:${RESET}"
+    for program in "${aur_options[@]}"; do
+        echo "$program [*]"
+    done
+
+    echo -e "\nEnter the names of the programs you want to install (comma-separated, e.g., 'firefox,vlc') or '*' to select all:"
+    read -p "Selection: " input
+
+    if [[ "$input" == "*" ]]; then
+        selected_programs=("${pacman_options[@]}" "${flatpak_options[@]}" "${aur_options[@]}")
+    else
+        IFS=',' read -r -a selections <<< "$input"
+        for selection in "${selections[@]}"; do
+            selection=$(echo "$selection" | xargs)  # Trim whitespace
+            if [[ " ${pacman_options[*]} " == *" $selection "* ]] || \
+               [[ " ${flatpak_options[*]} " == *" $selection "* ]] || \
+               [[ " ${aur_options[*]} " == *" $selection "* ]]; then
+                selected_programs+=("$selection")
+            else
+                echo -e "${RED}Invalid selection: $selection${RESET}"
+            fi
+        done
+    fi
+
+    pacman_programs=()
+    flatpak_programs=()
+    yay_programs=()
+
+    # Separate selected programs into their respective arrays
+    for program in "${selected_programs[@]}"; do
+        if [[ " ${pacman_options[*]} " == *" $program "* ]]; then
+            pacman_programs+=("$program")
+        elif [[ " ${flatpak_options[*]} " == *" $program "* ]]; then
+            flatpak_programs+=("$program")
+        elif [[ " ${aur_options[*]} " == *" $program "* ]]; then
+            yay_programs+=("$program")
+        fi
+    done
+
+    echo -e "${GREEN}Selected Pacman programs for installation: ${pacman_programs[*]}${RESET}"
+    echo -e "${GREEN}Selected Flatpak programs for installation: ${flatpak_programs[*]}${RESET}"
+    echo -e "${GREEN}Selected AUR packages for installation: ${yay_programs[*]}${RESET}"
+}
+
 # Main script
 # Get the flag from command line argument
 FLAG="$1"
@@ -270,6 +373,10 @@ case "$FLAG" in
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         yay_programs=("${yay_programs_minimal[@]}")
+        ;;
+    "-c")
+        installation_mode="custom"  # Custom Installation option
+        custom_installation  # Call the custom installation function
         ;;
     *)
         print_error "Invalid flag. Exiting."

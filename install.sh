@@ -56,8 +56,9 @@ show_menu() {
         echo -e "\n${CYAN}Please select an installation option:${RESET}"
         echo "1. Default Installation"
         echo "2. Minimal Installation"
-        echo "3. Exit"
-        read -p "Enter your choice (1-3): " choice
+        echo "3. Custom Installation"  # Added Custom Installation option
+        echo "4. Exit"                # Changed Exit to be the 4th option
+        read -p "Enter your choice (1-4): " choice
 
         case $choice in
             1)
@@ -71,6 +72,11 @@ show_menu() {
                 return 0
                 ;;
             3)
+                echo "Custom installation selected."  # Handle Custom Installation
+                FLAG="-c"
+                return 0
+                ;;
+            4)
                 echo "Exiting installation."
                 exit 0
                 ;;
