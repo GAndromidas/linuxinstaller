@@ -124,35 +124,43 @@ install_kernel_headers() {
     fi
 }
 
-# Function to make Systemd-Boot silent
+# Function to make Systemd-Boot silent for all installed kernels
 make_systemd_boot_silent() {
-    print_info "Making Systemd-Boot silent..."
+    print_info "Making Systemd-Boot silent for all installed kernels..."
 
-    # Detect installed kernel
+    # Array to store kernel types
+    kernel_types=()
+
+    # Check for installed kernels
+    if pacman -Q linux &>/dev/null; then
+        kernel_types+=("linux")
+    fi
+    if pacman -Q linux-lts &>/dev/null; then
+        kernel_types+=("linux-lts")
+    fi
     if pacman -Q linux-zen &>/dev/null; then
-        kernel_name="linux-zen"
-    elif pacman -Q linux-hardened &>/dev/null; then
-        kernel_name="linux-hardened"
-    elif pacman -Q linux-lts &>/dev/null; then
-        kernel_name="linux-lts"
-    else
-        kernel_name="linux"
+        kernel_types+=("linux-zen")
+    fi
+    if pacman -Q linux-hardened &>/dev/null; then
+        kernel_types+=("linux-hardened")
     fi
 
-    # Find the Linux entry configuration
-    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel_name}.conf" ! -name '*fallback.conf' -print -quit)
+    # Loop through each kernel type and modify its entry
+    for kernel in "${kernel_types[@]}"; do
+        linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
 
-    if [ -z "$linux_entry" ]; then
-        print_error "Error: Linux entry not found for kernel: $kernel_name"
-        exit 1
-    fi
+        if [ -z "$linux_entry" ]; then
+            print_warning "Warning: Linux entry not found for kernel: $kernel"
+            continue
+        fi
 
-    # Add silent boot options
-    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
-        print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
-    else
-        print_error "Error: Failed to modify Linux entry: $(basename "$linux_entry")."
-    fi
+        # Add silent boot options
+        if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
+            print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+        else
+            print_error "Error: Failed to modify Linux entry: $(basename "$linux_entry")."
+        fi
+    done
 }
 
 # Function to change loader.conf
