@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 install_packages() {
     echo -e "${YELLOW}Resolving package conflicts and installing required packages...${NC}"
     sudo pacman -Rdd --noconfirm iptables
-    sudo pacman -S --noconfirm iptables-nft qemu-full virt-manager virt-viewer dnsmasq vde2 bridge-utils openbsd-netcat ebtables libguestfs
+    sudo pacman -S --noconfirm iptables-nft qemu-full virt-manager virt-viewer dnsmasq vde2 bridge-utils openbsd-netcat ebtables libguestfs spice-vdagent
 }
 
 # Function to create libvirt group if it doesn't exist and add the current user to the libvirt group
