@@ -139,6 +139,7 @@ make_systemd_boot_silent() {
         kernel_name="linux"
     fi
 
+    # Find the Linux entry configuration
     linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel_name}.conf" ! -name '*fallback.conf' -print -quit)
 
     if [ -z "$linux_entry" ]; then
@@ -146,8 +147,12 @@ make_systemd_boot_silent() {
         exit 1
     fi
 
-    sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry" && \
-    print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    # Add silent boot options
+    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
+        print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    else
+        print_error "Error: Failed to modify Linux entry: $(basename "$linux_entry")."
+    fi
 }
 
 # Function to change loader.conf
