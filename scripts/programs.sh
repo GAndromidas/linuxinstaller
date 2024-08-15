@@ -217,7 +217,6 @@ install_flatpak_programs_gnome() {
 install_flatpak_minimal_kde() {
     print_info "Installing Minimal Flatpak Programs for KDE..."
     flatpak_packages=(
-        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
@@ -231,7 +230,6 @@ install_flatpak_minimal_gnome() {
     print_info "Installing Minimal Flatpak Programs for GNOME..."
     flatpak_packages=(
         com.mattjakeman.ExtensionManager
-        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
