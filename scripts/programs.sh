@@ -255,7 +255,7 @@ yay_programs_minimal=(
 
 # Function to display custom installation menu with default programs, Flatpaks, and AUR packages
 custom_installation() {
-    echo -e "${CYAN}Select programs to install (mark with an asterisk):${RESET}"
+    echo -e "${CYAN}Select programs to install (use arrow keys to navigate, space to select, and Enter to confirm):${RESET}"
 
     # Combine default programs into a single list
     local pacman_options=(
@@ -297,50 +297,17 @@ custom_installation() {
         "via-bin"
     )
 
-    local selected_programs=()
+    # Combine all options into one array
+    local all_options=("${pacman_options[@]}" "${flatpak_options[@]}" "${aur_options[@]}")
 
-    # Display Pacman options
-    echo -e "${CYAN}Pacman Programs:${RESET}"
-    for program in "${pacman_options[@]}"; do
-        echo "$program [*]"
-    done
+    # Use fzf to select programs
+    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --preview 'echo {}' --header "Press SPACE to select, ENTER to confirm"))
 
-    # Display Flatpak options
-    echo -e "\n${CYAN}Flatpak Programs:${RESET}"
-    for program in "${flatpak_options[@]}"; do
-        echo "$program [*]"
-    done
-
-    # Display AUR options
-    echo -e "\n${CYAN}AUR Packages:${RESET}"
-    for program in "${aur_options[@]}"; do
-        echo "$program [*]"
-    done
-
-    echo -e "\nEnter the names of the programs you want to install (comma-separated, e.g., 'firefox,vlc') or '*' to select all:"
-    read -p "Selection: " input
-
-    if [[ "$input" == "*" ]]; then
-        selected_programs=("${pacman_options[@]}" "${flatpak_options[@]}" "${aur_options[@]}")
-    else
-        IFS=',' read -r -a selections <<< "$input"
-        for selection in "${selections[@]}"; do
-            selection=$(echo "$selection" | xargs)  # Trim whitespace
-            if [[ " ${pacman_options[*]} " == *" $selection "* ]] || \
-               [[ " ${flatpak_options[*]} " == *" $selection "* ]] || \
-               [[ " ${aur_options[*]} " == *" $selection "* ]]; then
-                selected_programs+=("$selection")
-            else
-                echo -e "${RED}Invalid selection: $selection${RESET}"
-            fi
-        done
-    fi
-
+    # Separate selected programs into their respective arrays
     pacman_programs=()
     flatpak_programs=()
     yay_programs=()
 
-    # Separate selected programs into their respective arrays
     for program in "${selected_programs[@]}"; do
         if [[ " ${pacman_options[*]} " == *" $program "* ]]; then
             pacman_programs+=("$program")

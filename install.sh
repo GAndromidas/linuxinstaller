@@ -220,10 +220,10 @@ update_mirrorlist() {
     print_success "Mirrorlist updated successfully."
 }
 
-# Function to install figlet
+# Function to install figlet and fzf
 install_figlet() {
     print_info "Installing Figlet..."
-    if sudo pacman -S --needed --noconfirm figlet; then
+    if sudo pacman -S --needed --noconfirm figlet fzf; then
         print_success "Figlet installed successfully."
     else
         print_error "Failed to install Figlet."
