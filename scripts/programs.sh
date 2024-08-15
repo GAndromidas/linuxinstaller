@@ -152,7 +152,7 @@ essential_programs_default=(
 # Programs to install using pacman (Minimal option)
 pacman_programs_minimal=(
     android-tools bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
-    firewalld flatpak fwupd fzf net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
+    firewalld flatpak fwupd fzf gnome-disk-utility net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
     ttf-liberation ttf-meslo-nerd unrar wget xdg-desktop-portal-gtk zoxide
 )
 
@@ -217,7 +217,6 @@ install_flatpak_programs_gnome() {
 install_flatpak_minimal_kde() {
     print_info "Installing Minimal Flatpak Programs for KDE..."
     flatpak_packages=(
-        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
@@ -231,7 +230,6 @@ install_flatpak_minimal_gnome() {
     print_info "Installing Minimal Flatpak Programs for GNOME..."
     flatpak_packages=(
         com.mattjakeman.ExtensionManager
-        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
@@ -246,11 +244,6 @@ yay_programs_default=(
     heroic-games-launcher-bin
     teamviewer
     via-bin
-)
-
-# AUR Packages to install (Minimal option)
-yay_programs_minimal=(
-    teamviewer
 )
 
 # Main script
@@ -269,7 +262,6 @@ case "$FLAG" in
         installation_mode="minimal"
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
-        yay_programs=("${yay_programs_minimal[@]}")
         ;;
     *)
         print_error "Invalid flag. Exiting."
