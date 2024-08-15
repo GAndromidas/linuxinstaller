@@ -246,11 +246,6 @@ yay_programs_default=(
     via-bin
 )
 
-# AUR Packages to install (Minimal option)
-yay_programs_minimal=(
-    teamviewer
-)
-
 # Main script
 # Get the flag from command line argument
 FLAG="$1"
@@ -267,7 +262,6 @@ case "$FLAG" in
         installation_mode="minimal"
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
-        yay_programs=("${yay_programs_minimal[@]}")
         ;;
     *)
         print_error "Invalid flag. Exiting."
