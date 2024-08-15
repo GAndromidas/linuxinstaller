@@ -139,10 +139,10 @@ check_grub_btrfs() {
 
 # Programs to install using pacman (Default option)
 pacman_programs_default=(
-    android-tools bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
-    firewalld flatpak fwupd fzf gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud lib32-vulkan-icd-loader
+    android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac firefox
+    firewalld fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud lib32-vulkan-icd-loader
     lib32-vulkan-radeon mangohud net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
-    ttf-liberation ttf-meslo-nerd unrar vulkan-icd-loader vulkan-radeon wget xdg-desktop-portal-gtk zoxide
+    ttf-liberation ttf-meslo-nerd vulkan-icd-loader vulkan-radeon xdg-desktop-portal-gtk
 )
 
 essential_programs_default=(
@@ -151,10 +151,9 @@ essential_programs_default=(
 
 # Programs to install using pacman (Minimal option)
 pacman_programs_minimal=(
-    android-tools bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
-    firewalld flatpak fwupd fzf gnome-disk-utility net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
-    ttf-liberation ttf-meslo-nerd unrar wget xdg-desktop-portal-gtk zoxide
-)
+    android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac firefox
+    firewalld fwupd net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
+    ttf-liberation ttf-meslo-nerd xdg-desktop-portal-gtk
 
 essential_programs_minimal=(
     libreoffice-fresh timeshift vlc wine
@@ -217,6 +216,7 @@ install_flatpak_programs_gnome() {
 install_flatpak_minimal_kde() {
     print_info "Installing Minimal Flatpak Programs for KDE..."
     flatpak_packages=(
+        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
@@ -230,6 +230,7 @@ install_flatpak_minimal_gnome() {
     print_info "Installing Minimal Flatpak Programs for GNOME..."
     flatpak_packages=(
         com.mattjakeman.ExtensionManager
+        com.stremio.Stremio
         it.mijorus.gearlever
     )
     for package in "${flatpak_packages[@]}"; do
@@ -244,6 +245,11 @@ yay_programs_default=(
     heroic-games-launcher-bin
     teamviewer
     via-bin
+)
+
+# AUR Packages to install (Minimal option)
+yay_programs_minimal=(
+    teamviewer
 )
 
 # Main script
@@ -262,6 +268,7 @@ case "$FLAG" in
         installation_mode="minimal"
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
+        yay_programs=("${yay_programs_minimal[@]}")
         ;;
     *)
         print_error "Invalid flag. Exiting."

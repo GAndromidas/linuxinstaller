@@ -81,6 +81,24 @@ show_menu() {
     done
 }
 
+# Function to install required dependencies
+install_dependencies() {
+    local dependencies=("base-devel" "curl" "eza" "figlet" "flatpak" "fastfetch" "fzf" "git" "openssh" "pacman" "pacman-contrib" "reflector" "rsync" "unrar" "unzip" "wget" "zoxide" "zsh")
+    for dep in "${dependencies[@]}"; do
+        if ! pacman -Q "$dep" &> /dev/null; then
+            print_info "Installing $dep..."
+            if sudo pacman -S --needed --noconfirm "$dep"; then
+                print_success "$dep installed successfully."
+            else
+                print_error "Failed to install $dep. Exiting."
+                exit 1
+            fi
+        else
+            print_info "$dep is already installed. Skipping installation."
+        fi
+    done
+}
+
 # Function to identify all installed Linux kernel types and install their headers
 install_kernel_headers() {
     print_info "Identifying installed Linux kernel types..."
@@ -203,25 +221,13 @@ configure_pacman() {
 # Function to update mirrorlist and modify reflector.conf
 update_mirrorlist() {
     print_info "Updating Mirrorlist..."
-    sudo pacman -S --needed --noconfirm reflector rsync
-
     sudo sed -i 's/^--latest .*/--latest 10/' /etc/xdg/reflector/reflector.conf
     sudo sed -i 's/^--sort .*/--sort rate/' /etc/xdg/reflector/reflector.conf
-    print_success "reflector.conf updated successfully."
+    print_success "Reflector updated successfully."
 
     sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && \
     sudo pacman -Syyy && \
     print_success "Mirrorlist updated successfully."
-}
-
-# Function to install figlet
-install_figlet() {
-    print_info "Installing Figlet..."
-    if sudo pacman -S --needed --noconfirm figlet; then
-        print_success "Figlet installed successfully."
-    else
-        print_error "Failed to install Figlet."
-    fi
 }
 
 # Function to update the system
@@ -234,7 +240,6 @@ update_system() {
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
     print_info "Configuring ZSH..."
-    sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     sleep 1
 
@@ -257,7 +262,7 @@ change_shell_to_zsh() {
 move_zshrc() {
     print_info "Copying .zshrc to Home Folder..."
     mv "$CONFIGS_DIR/.zshrc" "$HOME/" && \
-    print_success ".zshrc copied successfully."
+    print_success "Zsh config file copied successfully."
 }
 
 # Function to install starship and move starship.toml
@@ -561,6 +566,9 @@ install_grub_theme() {
 # Show menu and get user selection
 show_menu
 
+# Install dependencies
+install_dependencies
+
 # Main script execution
 install_kernel_headers
 
@@ -575,7 +583,6 @@ fi
 enable_asterisks_sudo
 configure_pacman
 update_mirrorlist
-install_figlet
 update_system
 install_zsh
 change_shell_to_zsh
