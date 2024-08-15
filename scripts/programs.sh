@@ -300,8 +300,8 @@ custom_installation() {
     # Combine all options into one array
     local all_options=("${pacman_options[@]}" "${flatpak_options[@]}" "${aur_options[@]}")
 
-    # Use fzf to select programs
-    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --preview 'echo {}' --header "Press SPACE to select, ENTER to confirm"))
+    # Use fzf to select programs with height option
+    selected_programs=($(printf '%s\n' "${all_options[@]}" | fzf --multi --height 40% --preview 'echo {}' --header "Press SPACE to select, ENTER to confirm"))
 
     # Separate selected programs into their respective arrays
     pacman_programs=()
@@ -318,9 +318,11 @@ custom_installation() {
         fi
     done
 
-    echo -e "${GREEN}Selected Pacman programs for installation: ${pacman_programs[*]}${RESET}"
-    echo -e "${GREEN}Selected Flatpak programs for installation: ${flatpak_programs[*]}${RESET}"
-    echo -e "${GREEN}Selected AUR packages for installation: ${yay_programs[*]}${RESET}"
+    # Display selected programs
+    echo -e "${GREEN}You have selected the following programs for installation:${RESET}"
+    echo -e "${GREEN}Pacman programs: ${pacman_programs[*]}${RESET}"
+    echo -e "${GREEN}Flatpak programs: ${flatpak_programs[*]}${RESET}"
+    echo -e "${GREEN}AUR packages: ${yay_programs[*]}${RESET}"
 }
 
 # Main script
