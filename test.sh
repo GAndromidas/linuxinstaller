@@ -4,6 +4,16 @@
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
 
+# Get the directory of the script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Set paths relative to the script's directory
+CONFIGS_DIR="$SCRIPT_DIR/configs"
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+LOADER_DIR="/boot/loader"
+ENTRIES_DIR="$LOADER_DIR/entries"
+LOADER_CONF="$LOADER_DIR/loader.conf"
+
 # ASCII art
 clear
 echo -e "${CYAN}"
@@ -52,11 +62,6 @@ get_installed_kernel_types() {
 
 # Variables
 KERNEL_HEADERS="linux-headers"  # Default to standard Linux headers
-LOADER_DIR="/boot/loader"
-ENTRIES_DIR="$LOADER_DIR/entries"
-LOADER_CONF="/boot/loader/loader.conf"
-CONFIGS_DIR="$HOME/archinstaller/configs"
-SCRIPTS_DIR="$HOME/archinstaller/scripts"
 
 # Color codes
 RED='\033[0;31m'
@@ -336,18 +341,7 @@ install_programs() {
     log_message "success" "Programs installed successfully."
 }
 
-# Function to enable a service if it exists
-enable_service() {
-    local service="$1"
-    if systemctl list-unit-files | grep -q "^$service"; then
-        sudo systemctl enable --now "$service"
-        log_message "success" "$service enabled."
-    else
-        log_message "warning" "$service is not installed."
-    fi
-}
-
-# Function to enable services
+# Function to enable multiple services
 enable_services() {
     log_message "info" "Enabling Services..."
     local services=(
@@ -363,7 +357,12 @@ enable_services() {
     )
 
     for service in "${services[@]}"; do
-        enable_service "$service"  # Call the helper function
+        if systemctl list-unit-files | grep -q "^$service"; then
+            sudo systemctl enable --now "$service"
+            log_message "success" "$service enabled."
+        else
+            log_message "warning" "$service is not installed."
+        fi
     done
 }
 
@@ -504,7 +503,7 @@ clear_unused_packages_cache() {
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
     log_message "info" "Deleting Archinstaller Folder..."
-    sudo rm -rf "$HOME/archinstaller" && \
+    sudo rm -rf "$SCRIPT_DIR" && \
     log_message "success" "Archinstaller folder deleted successfully."
 }
 
@@ -539,7 +538,7 @@ reboot_system() {
 
 # Function to detect bootloader
 detect_bootloader() {
-    if [ -d "/sys/firmware/efi" ] && [ -d "/boot/loader" ]; then
+    if [ -d "/sys/firmware/efi" ] && [ -d "$LOADER_DIR" ]; then
         log_message "info" "systemd-boot detected."
         return 0
     else
