@@ -16,6 +16,40 @@ cat << "EOF"
 
 EOF
 
+# Function to print installation information
+print_installation_info() {
+    local action="$1"
+    local package="$2"
+    echo -e "${CYAN}${action} ${package}...${RESET}"
+}
+
+# Function to identify installed kernel types
+get_installed_kernel_types() {
+    local kernel_types=()
+
+    # Check for standard kernel
+    if pacman -Q linux &>/dev/null; then
+        kernel_types+=("linux")
+    fi
+
+    # Check for LTS kernel
+    if pacman -Q linux-lts &>/dev/null; then
+        kernel_types+=("linux-lts")
+    fi
+
+    # Check for Zen kernel
+    if pacman -Q linux-zen &>/dev/null; then
+        kernel_types+=("linux-zen")
+    fi
+
+    # Check for Hardened kernel
+    if pacman -Q linux-hardened &>/dev/null; then
+        kernel_types+=("linux-hardened")
+    fi
+
+    echo "${kernel_types[@]}"
+}
+
 # Variables
 KERNEL_HEADERS="linux-headers"  # Default to standard Linux headers
 LOADER_DIR="/boot/loader"
@@ -33,21 +67,28 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-# Function to print messages with colors
-print_info() {
-    echo -e "${CYAN}$1${RESET}"
-}
+# Function to print messages with different levels
+log_message() {
+    local level="$1"
+    local message="$2"
 
-print_success() {
-    echo -e "${GREEN}$1${RESET}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}$1${RESET}"
-}
-
-print_error() {
-    echo -e "${RED}$1${RESET}"
+    case "$level" in
+        "info")
+            echo -e "${CYAN}$message${RESET}"
+            ;;
+        "success")
+            echo -e "${GREEN}$message${RESET}"
+            ;;
+        "warning")
+            echo -e "${YELLOW}$message${RESET}"
+            ;;
+        "error")
+            echo -e "${RED}$message${RESET}"
+            ;;
+        *)
+            echo "Invalid log level"
+            ;;
+    esac
 }
 
 # Function to display menu and get user selection
@@ -81,91 +122,57 @@ show_menu() {
     done
 }
 
-# Function to identify all installed Linux kernel types and install their headers
-install_kernel_headers() {
-    print_info "Identifying installed Linux kernel types..."
+# Function to install kernel headers for all detected kernel types
+install_kernel_headers_for_all() {
+    log_message "info" "Identifying installed Linux kernel types..."
 
-    # Array to store kernel types
-    kernel_types=()
-
-    # Check for standard kernel
-    if pacman -Q linux &>/dev/null; then
-        kernel_types+=("linux")
-    fi
-
-    # Check for LTS kernel
-    if pacman -Q linux-lts &>/dev/null; then
-        kernel_types+=("linux-lts")
-    fi
-
-    # Check for Zen kernel
-    if pacman -Q linux-zen &>/dev/null; then
-        kernel_types+=("linux-zen")
-    fi
-
-    # Check for Hardened kernel
-    if pacman -Q linux-hardened &>/dev/null; then
-        kernel_types+=("linux-hardened")
-    fi
+    # Get installed kernel types
+    kernel_types=($(get_installed_kernel_types))
 
     # Install headers for each detected kernel
     for kernel in "${kernel_types[@]}"; do
         headers_package="${kernel}-headers"
-        print_info "Installing $headers_package..."
+        print_installation_info "Installing" "$headers_package"  # Updated call
         if sudo pacman -S --needed --noconfirm "$headers_package"; then
-            print_success "$headers_package installed successfully."
+            log_message "success" "$headers_package installed successfully."
         else
-            print_error "Error: Failed to install $headers_package."
+            log_message "error" "Error: Failed to install $headers_package."
         fi
     done
 
     if [ ${#kernel_types[@]} -eq 0 ]; then
-        print_warning "No supported kernel types detected. Please check your system configuration."
+        log_message "warning" "No supported kernel types detected. Please check your system configuration."
     fi
 }
 
 # Function to make Systemd-Boot silent for all installed kernels
 make_systemd_boot_silent() {
-    print_info "Making Systemd-Boot silent for all installed kernels..."
+    log_message "info" "Making Systemd-Boot silent for all installed kernels..."
 
-    # Array to store kernel types
-    kernel_types=()
-
-    # Check for installed kernels
-    if pacman -Q linux &>/dev/null; then
-        kernel_types+=("linux")
-    fi
-    if pacman -Q linux-lts &>/dev/null; then
-        kernel_types+=("linux-lts")
-    fi
-    if pacman -Q linux-zen &>/dev/null; then
-        kernel_types+=("linux-zen")
-    fi
-    if pacman -Q linux-hardened &>/dev/null; then
-        kernel_types+=("linux-hardened")
-    fi
+    # Get installed kernel types
+    kernel_types=($(get_installed_kernel_types))
 
     # Loop through each kernel type and modify its entry
     for kernel in "${kernel_types[@]}"; do
         linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
 
         if [ -z "$linux_entry" ]; then
-            print_warning "Warning: Linux entry not found for kernel: $kernel"
+            log_message "warning" "Warning: Linux entry not found for kernel: $kernel"
             continue
         fi
 
         # Add silent boot options
         if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
-            print_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+            log_message "success" "Silent boot options added to Linux entry: $(basename "$linux_entry")."
         else
-            print_error "Error: Failed to modify Linux entry: $(basename "$linux_entry")."
+            log_message "error" "Error: Failed to modify Linux entry: $(basename "$linux_entry")."
         fi
     done
 }
 
 # Function to change loader.conf
 change_loader_conf() {
-    print_info "Changing loader.conf..."
+    log_message "info" "Changing loader.conf..."
 
     # Ensure default @saved is present
     if ! grep -q "^default @saved" "$LOADER_CONF"; then
@@ -176,77 +183,85 @@ change_loader_conf() {
     sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
     sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
 
-    print_success "Loader configuration updated."
+    log_message "success" "Loader configuration updated."
 }
 
 # Function to remove fallback entries from systemd-boot
 remove_fallback_entries() {
-    print_info "Removing fallback entries from systemd-boot..."
+    log_message "info" "Removing fallback entries from systemd-boot..."
 
     # Find and remove all fallback entries
     for entry in "$ENTRIES_DIR"/*fallback.conf; do
         if [ -f "$entry" ]; then
             sudo rm "$entry" && \
-            print_success "Removed fallback entry: $(basename "$entry")."
+            log_message "success" "Removed fallback entry: $(basename "$entry")."
         fi
     done
 
-    print_info "All fallback entries removed."
+    log_message "info" "All fallback entries removed."
 }
 
 # Function to enable asterisks for password in sudoers
 enable_asterisks_sudo() {
-    print_info "Enabling asterisks for password input in sudoers..."
+    log_message "info" "Enabling asterisks for password input in sudoers..."
     echo "Defaults env_reset,pwfeedback" | sudo EDITOR='tee -a' visudo && \
-    print_success "Password feedback enabled in sudoers."
+    log_message "success" "Password feedback enabled in sudoers."
 }
 
 # Function to configure Pacman
 configure_pacman() {
-    print_info "Configuring Pacman..."
+    log_message "info" "Configuring Pacman..."
     sudo sed -i '
         /^#Color/s/^#//
         /^Color/a ILoveCandy
         /^#VerbosePkgLists/s/^#//
         s/^#ParallelDownloads = 5/ParallelDownloads = 10/
     ' /etc/pacman.conf && \
-    print_success "Pacman configuration updated successfully."
+    log_message "success" "Pacman configuration updated successfully."
 }
 
 # Function to update mirrorlist and modify reflector.conf
 update_mirrorlist() {
-    print_info "Updating Mirrorlist..."
+    log_message "info" "Updating Mirrorlist..."
     sudo pacman -S --needed --noconfirm reflector rsync
 
     sudo sed -i 's/^--latest .*/--latest 10/' /etc/xdg/reflector/reflector.conf
     sudo sed -i 's/^--sort .*/--sort rate/' /etc/xdg/reflector/reflector.conf
-    print_success "reflector.conf updated successfully."
+    log_message "success" "reflector.conf updated successfully."
 
     sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && \
     sudo pacman -Syyy && \
-    print_success "Mirrorlist updated successfully."
+    log_message "success" "Mirrorlist updated successfully."
 }
 
-# Function to install figlet
-install_figlet() {
-    print_info "Installing Figlet..."
-    if sudo pacman -S --needed --noconfirm figlet; then
-        print_success "Figlet installed successfully."
-    else
-        print_error "Failed to install Figlet."
-    fi
+# Function to install dependencies
+install_dependencies() {
+    log_message "info" "Installing Dependencies..."
+    
+    # List of dependencies to install
+    dependencies=("figlet" "curl" "git" "fastfetch" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
+
+    # Install each dependency
+    for package in "${dependencies[@]}"; do
+        print_installation_info "Installing" "$package"  # Updated call
+        if sudo pacman -S --needed --noconfirm "$package"; then
+            log_message "success" "$package installed successfully."
+        else
+            log_message "error" "Failed to install $package."
+        fi
+    done
 }
 
 # Function to update the system
 update_system() {
-    print_info "Updating System..."
+    log_message "info" "Updating System..."
     sudo pacman -Syyu --noconfirm && \
-    print_success "System updated successfully."
+    log_message "success" "System updated successfully."
 }
 
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
-    print_info "Configuring ZSH..."
+    log_message "info" "Configuring ZSH..."
     sudo pacman -S --needed --noconfirm zsh
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     sleep 1
@@ -255,71 +270,86 @@ install_zsh() {
     sleep 1
 
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-    print_success "ZSH configured successfully."
+    log_message "success" "ZSH configured successfully."
 }
 
 # Function to change shell to ZSH
 change_shell_to_zsh() {
-    print_info "Changing Shell to ZSH..."
+    log_message "info" "Changing Shell to ZSH..."
     sudo chsh -s "$(which zsh)"
     chsh -s "$(which zsh)"
-    print_success "Shell changed to ZSH."
+    log_message "success" "Shell changed to ZSH."
 }
 
 # Function to move .zshrc
 move_zshrc() {
-    print_info "Copying .zshrc to Home Folder..."
+    log_message "info" "Copying .zshrc to Home Folder..."
     mv "$CONFIGS_DIR/.zshrc" "$HOME/" && \
-    print_success ".zshrc copied successfully."
+    log_message "success" ".zshrc copied successfully."
 }
 
-# Function to install starship and move starship.toml
+# Function to install Starship and move starship.toml
 install_starship() {
-    print_info "Installing Starship prompt..."
-    if curl -sS https://starship.rs/install.sh | sh -s -- -y; then
-        print_success "Starship prompt installed successfully."
+    log_message "info" "Installing Starship prompt..."
+    
+    # Install Starship via pacman
+    if sudo pacman -S --needed --noconfirm starship; then
+        log_message "success" "Starship prompt installed successfully."
         mkdir -p "$HOME/.config"
+        
+        # Move starship.toml to the appropriate location
         if [ -f "$CONFIGS_DIR/starship.toml" ]; then
             mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
-            print_success "starship.toml moved to $HOME/.config/"
+            log_message "success" "starship.toml moved to $HOME/.config/"
         else
-            print_warning "starship.toml not found in $CONFIGS_DIR/"
+            log_message "warning" "starship.toml not found in $CONFIGS_DIR/"
         fi
     else
-        print_error "Starship prompt installation failed."
+        log_message "error" "Starship prompt installation failed."
     fi
 }
 
 # Function to configure locales
 configure_locales() {
-    print_info "Configuring Locales..."
+    log_message "info" "Configuring Locales..."
     sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen
     sudo locale-gen && \
-    print_success "Locales generated successfully."
+    log_message "success" "Locales generated successfully."
 }
 
 # Function to install YAY
 install_yay() {
-    print_info "Installing YAY..."
+    log_message "info" "Installing YAY..."
     cd /tmp
     git clone https://aur.archlinux.org/yay.git
     cd yay
     makepkg -si --noconfirm
     cd ..
     rm -rf yay
-    print_success "YAY installed successfully."
+    log_message "success" "YAY installed successfully."
 }
 
 # Function to install programs
 install_programs() {
-    print_info "Installing Programs..."
+    log_message "info" "Installing Programs..."
     (cd "$SCRIPTS_DIR" && ./programs.sh "$FLAG") && \
-    print_success "Programs installed successfully."
+    log_message "success" "Programs installed successfully."
+}
+
+# Function to enable a service if it exists
+enable_service() {
+    local service="$1"
+    if systemctl list-unit-files | grep -q "^$service"; then
+        sudo systemctl enable --now "$service"
+        log_message "success" "$service enabled."
+    else
+        log_message "warning" "$service is not installed."
+    fi
 }
 
 # Function to enable services
 enable_services() {
-    print_info "Enabling Services..."
+    log_message "info" "Enabling Services..."
     local services=(
         "bluetooth"
         "cronie"
@@ -333,32 +363,27 @@ enable_services() {
     )
 
     for service in "${services[@]}"; do
-        if systemctl list-unit-files | grep -q "^$service"; then
-            sudo systemctl enable --now "$service"
-            print_success "$service enabled."
-        else
-            print_warning "$service is not installed."
-        fi
+        enable_service "$service"  # Call the helper function
     done
 }
 
 # Function to create fastfetch config
 create_fastfetch_config() {
-    print_info "Creating fastfetch config..."
+    log_message "info" "Creating fastfetch config..."
     fastfetch --gen-config && \
-    print_success "fastfetch config created successfully."
+    log_message "success" "fastfetch config created successfully."
 
-    print_info "Copying fastfetch config from repository to ~/.config/fastfetch/..."
+    log_message "info" "Copying fastfetch config from repository to ~/.config/fastfetch/..."
     cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc" && \
-    print_success "fastfetch config copied successfully."
+    log_message "success" "fastfetch config copied successfully."
 }
 
 # Function to configure firewall
 configure_firewall() {
-    print_info "Configuring Firewall..."
+    log_message "info" "Configuring Firewall..."
 
     if command -v firewall-cmd > /dev/null 2>&1; then
-        print_info "Using firewalld for firewall configuration."
+        log_message "info" "Using firewalld for firewall configuration."
 
         commands=()
 
@@ -366,14 +391,14 @@ configure_firewall() {
         if ! sudo firewall-cmd --permanent --list-services | grep -q "\bssh\b"; then
             commands+=("sudo firewall-cmd --permanent --add-service=ssh")
         else
-            print_warning "SSH is already allowed. Skipping SSH service configuration."
+            log_message "warning" "SSH is already allowed. Skipping SSH service configuration."
         fi
 
         # Check if KDE Connect is installed
         if pacman -Q kdeconnect &>/dev/null; then
             commands+=("sudo firewall-cmd --permanent --add-service=kdeconnect")
         else
-            print_warning "KDE Connect is not installed. Skipping kdeconnect service configuration."
+            log_message "warning" "KDE Connect is not installed. Skipping kdeconnect service configuration."
         fi
 
         # Reload firewall configuration
@@ -384,52 +409,55 @@ configure_firewall() {
             eval "$cmd"
         done
 
-        print_success "Firewall configured successfully."
+        log_message "success" "Firewall configured successfully."
 
     else
-        print_error "Firewalld not found. Please install firewalld."
+        log_message "error" "Firewalld not found. Please install firewalld."
         return 1
     fi
 }
 
+# Function to prompt for user confirmation
+confirm_action() {
+    local message="$1"
+    echo -e "${MAGENTA}${message} (Y/n)${RESET}"
+    read -rp "" confirm
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm="${confirm,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm" ]]; then
+        confirm="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to confirm or 'n' to cancel: " confirm
+        confirm="${confirm,,}"
+    done
+
+    [[ "$confirm" == "y" ]]
+}
+
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
-    # Display "Davinci Resolve" using figlet
     echo -e "${CYAN}"
     figlet "Fail2Ban"
     echo -e "${NC}"
 
-    echo ""  # Add a newline for spacing
-    echo -e "${MAGENTA}Do you want to install and configure Fail2ban? (Y/n)${RESET}"
-
-    read -rp "" confirm_fail2ban
-
-    # Convert input to lowercase for case-insensitive comparison
-    confirm_fail2ban="${confirm_fail2ban,,}"
-
-    # Handle empty input (Enter pressed)
-    if [[ -z "$confirm_fail2ban" ]]; then
-        confirm_fail2ban="y"  # Apply "yes" if Enter is pressed
-    fi
-
-    # Validate input
-    while [[ ! "$confirm_fail2ban" =~ ^(y|n)$ ]]; do
-        read -rp "Invalid input. Please enter 'Y' to install Fail2ban or 'n' to skip: " confirm_fail2ban
-        confirm_fail2ban="${confirm_fail2ban,,}"
-    done
-
-    if [[ "$confirm_fail2ban" == "y" ]]; then
-        print_info "Installing Fail2ban..."
+    if confirm_action "Do you want to install and configure Fail2ban?"; then
+        log_message "info" "Installing Fail2ban..."
         if sudo pacman -S --needed --noconfirm fail2ban; then
-            print_success "Fail2ban installed successfully."
-            print_info "Configuring Fail2ban..."
+            log_message "success" "Fail2ban installed successfully."
+            log_message "info" "Configuring Fail2ban..."
             (cd "$SCRIPTS_DIR" && ./fail2ban.sh) && \
-            print_success "Fail2ban configured successfully."
+            log_message "success" "Fail2ban configured successfully."
         else
-            print_error "Failed to install Fail2ban."
+            log_message "error" "Failed to install Fail2ban."
         fi
     else
-        print_warning "Fail2ban installation and configuration skipped."
+        log_message "warning" "Fail2ban installation and configuration skipped."
     fi
 }
 
@@ -439,31 +467,12 @@ install_and_configure_virt_manager() {
     figlet "Virt Manager"
     echo -e "${NC}"
 
-    echo ""  # Add a newline for spacing
-    echo -e "${MAGENTA}Do you want to install and configure Virt-Manager? (Y/n)${RESET}"
-
-    read -rp "" confirm_virt_manager
-
-    # Convert input to lowercase for case-insensitive comparison
-    confirm_virt_manager="${confirm_virt_manager,,}"
-
-    # Handle empty input (Enter pressed)
-    if [[ -z "$confirm_virt_manager" ]]; then
-        confirm_virt_manager="y"  # Apply "yes" if Enter is pressed
-    fi
-
-    # Validate input
-    while [[ ! "$confirm_virt_manager" =~ ^(y|n)$ ]]; do
-        read -rp "Invalid input. Please enter 'Y' to install Virt-Manager or 'n' to skip: " confirm_virt_manager
-        confirm_virt_manager="${confirm_virt_manager,,}"
-    done
-
-    if [[ "$confirm_virt_manager" == "y" ]]; then
-        print_info "Installing Virt-Manager..."
+    if confirm_action "Do you want to install and configure Virt-Manager?"; then
+        log_message "info" "Installing Virt-Manager..."
         (cd "$SCRIPTS_DIR" && ./virt_manager.sh) && \
-        print_success "Virt-Manager configured successfully."
+        log_message "success" "Virt-Manager configured successfully."
     else
-        print_warning "Virt-Manager installation and configuration skipped."
+        log_message "warning" "Virt-Manager installation and configuration skipped."
     fi
 }
 
@@ -473,54 +482,35 @@ install_davinci_resolve() {
     figlet "Davinci Resolve"
     echo -e "${NC}"
 
-    echo ""  # Add a newline for spacing
-    echo -e "${MAGENTA}Do you want to install DaVinci Resolve? (Y/n)${RESET}"
-
-    read -rp "" confirm_davinci
-
-# Convert input to lowercase for case-insensitive comparison
-    confirm_davinci="${confirm_davinci,,}"
-
-    # Handle empty input (Enter pressed)
-    if [[ -z "$confirm_davinci" ]]; then
-        confirm_davinci="y"  # Apply "yes" if Enter is pressed
-    fi
-
-    # Validate input
-    while [[ ! "$confirm_davinci" =~ ^(y|n)$ ]]; do
-        read -rp "Invalid input. Please enter 'Y' to install DaVinci Resolve or 'n' to skip: " confirm_davinci
-        confirm_davinci="${confirm_davinci,,}"
-    done
-
-    if [[ "$confirm_davinci" == "y" ]]; then
-        print_info "Installing DaVinci Resolve..."
+    if confirm_action "Do you want to install DaVinci Resolve?"; then
+        log_message "info" "Installing DaVinci Resolve..."
         (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
-        print_success "DaVinci Resolve installed successfully."
+        log_message "success" "DaVinci Resolve installed successfully."
     else
-        print_warning "DaVinci Resolve installation skipped."
+        log_message "warning" "DaVinci Resolve installation skipped."
     fi
 }
 
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
-    print_info "Clearing Unused Packages and Cache..."
+    log_message "info" "Clearing Unused Packages and Cache..."
     sudo pacman -Rns $(pacman -Qdtq) --noconfirm
     sudo pacman -Sc --noconfirm
     yay -Sc --noconfirm
     rm -rf ~/.cache/* && sudo paccache -r
-    print_success "Unused packages and cache cleared successfully."
+    log_message "success" "Unused packages and cache cleared successfully."
 }
 
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
-    print_info "Deleting Archinstaller Folder..."
+    log_message "info" "Deleting Archinstaller Folder..."
     sudo rm -rf "$HOME/archinstaller" && \
-    print_success "Archinstaller folder deleted successfully."
+    log_message "success" "Archinstaller folder deleted successfully."
 }
 
 # Function to reboot system
 reboot_system() {
-    print_info "Rebooting System..."
+    log_message "info" "Rebooting System..."
     printf "${YELLOW}Do you want to reboot now? (Y/n)${RESET} "
 
     read -rp "" confirm_reboot
@@ -540,34 +530,34 @@ reboot_system() {
     done
 
     if [[ "$confirm_reboot" == "y" ]]; then
-        print_info "Rebooting now..."
+        log_message "info" "Rebooting now..."
         sudo reboot
     else
-        print_warning "Reboot canceled. You can reboot manually later by typing 'sudo reboot'."
+        log_message "warning" "Reboot canceled. You can reboot manually later by typing 'sudo reboot'."
     fi
 }
 
 # Function to detect bootloader
 detect_bootloader() {
     if [ -d "/sys/firmware/efi" ] && [ -d "/boot/loader" ]; then
-        print_info "systemd-boot detected."
+        log_message "info" "systemd-boot detected."
         return 0
     else
-        print_info "GRUB detected or no bootloader detected."
+        log_message "info" "GRUB detected or no bootloader detected."
         return 1
     fi
 }
 
 # Function to install GRUB theme
 install_grub_theme() {
-    print_info "Installing GRUB theme..."
+    log_message "info" "Installing GRUB theme..."
     cd /tmp
     git clone https://github.com/ChrisTitusTech/Top-5-Bootloader-Themes
     cd Top-5-Bootloader-Themes
     sudo ./install.sh
     cd ..
     rm -rf Top-5-Bootloader-Themes
-    print_success "GRUB theme installed successfully."
+    log_message "success" "GRUB theme installed successfully."
 }
 
 # Main script
@@ -575,7 +565,7 @@ install_grub_theme() {
 show_menu
 
 # Main script execution
-install_kernel_headers
+install_kernel_headers_for_all
 
 if detect_bootloader; then
     make_systemd_boot_silent
@@ -588,7 +578,7 @@ fi
 enable_asterisks_sudo
 configure_pacman
 update_mirrorlist
-install_figlet
+install_dependencies
 update_system
 install_zsh
 change_shell_to_zsh
