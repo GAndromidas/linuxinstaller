@@ -244,11 +244,11 @@ install_dependencies() {
     log_message "info" "Installing Dependencies..."
     
     # List of dependencies to install
-    dependencies=("figlet" "curl" "git" "fastfetch" "flatpak" "reflector" "rsync" "openssh" "base-devel" "ufw" "pacman-contrib" "eza" "zoxide" "fzf" "zsh" "starship")
+    dependencies=(figlet curl git fastfetch reflector rsync openssh base-devel pacman-contrib eza zoxide fzf)
 
     # Install each dependency
     for package in "${dependencies[@]}"; do
-        print_installation_info "Installing" "$package"  # Updated call
+        print_installation_info "Installing" "$package"
         if sudo pacman -S --needed --noconfirm "$package"; then
             log_message "success" "$package installed successfully."
         else

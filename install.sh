@@ -244,11 +244,11 @@ install_dependencies() {
     log_message "info" "Installing Dependencies..."
     
     # List of dependencies to install
-    dependencies=("figlet" "curl" "git" "fastfetch" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
+    dependencies=(figlet curl git fastfetch reflector rsync openssh base-devel pacman-contrib eza zoxide fzf)
 
     # Install each dependency
     for package in "${dependencies[@]}"; do
-        print_installation_info "Installing" "$package"  # Updated call
+        print_installation_info "Installing" "$package"
         if sudo pacman -S --needed --noconfirm "$package"; then
             log_message "success" "$package installed successfully."
         else
@@ -380,13 +380,20 @@ create_fastfetch_config() {
 # Function to configure firewall
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
-
+    
     if command -v ufw > /dev/null 2>&1; then
         log_message "info" "Using UFW for firewall configuration."
 
         # Enable UFW
         sudo ufw enable
-
+        
+        # Set default policies
+        sudo ufw default deny incoming
+        log_message "info" "Default policy set to deny all incoming connections."
+        
+        sudo ufw default allow outgoing
+        log_message "info" "Default policy set to allow all outgoing connections."
+        
         # Allow SSH
         if ! sudo ufw status | grep -q "22/tcp"; then
             sudo ufw allow ssh
@@ -406,7 +413,6 @@ configure_firewall() {
         fi
 
         log_message "success" "Firewall configured successfully."
-
     else
         log_message "error" "UFW not found. Please install UFW."
         return 1
@@ -472,21 +478,6 @@ install_and_configure_virt_manager() {
     fi
 }
 
-# Function to prompt for DaVinci Resolve installation
-install_davinci_resolve() {
-    echo -e "${CYAN}"
-    figlet "Davinci Resolve"
-    echo -e "${NC}"
-
-    if confirm_action "Do you want to install DaVinci Resolve?"; then
-        log_message "info" "Installing DaVinci Resolve..."
-        (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
-        log_message "success" "DaVinci Resolve installed successfully."
-    else
-        log_message "warning" "DaVinci Resolve installation skipped."
-    fi
-}
-
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
     log_message "info" "Clearing Unused Packages and Cache..."
@@ -506,6 +497,10 @@ delete_archinstaller_folder() {
 
 # Function to reboot system
 reboot_system() {
+    echo -e "${CYAN}"
+    figlet "Reboot"
+    echo -e "${NC}"
+
     log_message "info" "Rebooting System..."
     printf "${YELLOW}Do you want to reboot now? (Y/n)${RESET} "
 
@@ -588,7 +583,6 @@ create_fastfetch_config
 configure_firewall
 install_and_configure_fail2ban
 install_and_configure_virt_manager
-install_davinci_resolve
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system
