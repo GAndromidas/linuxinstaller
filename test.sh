@@ -380,13 +380,20 @@ create_fastfetch_config() {
 # Function to configure firewall
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
-
+    
     if command -v ufw > /dev/null 2>&1; then
         log_message "info" "Using UFW for firewall configuration."
 
         # Enable UFW
         sudo ufw enable
-
+        
+        # Set default policies
+        sudo ufw default deny incoming
+        log_message "info" "Default policy set to deny all incoming connections."
+        
+        sudo ufw default allow outgoing
+        log_message "info" "Default policy set to allow all outgoing connections."
+        
         # Allow SSH
         if ! sudo ufw status | grep -q "22/tcp"; then
             sudo ufw allow ssh
@@ -406,7 +413,6 @@ configure_firewall() {
         fi
 
         log_message "success" "Firewall configured successfully."
-
     else
         log_message "error" "UFW not found. Please install UFW."
         return 1
