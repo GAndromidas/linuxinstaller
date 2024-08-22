@@ -498,7 +498,7 @@ delete_archinstaller_folder() {
 # Function to reboot system
 reboot_system() {
     echo -e "${CYAN}"
-    figlet "Reboot"
+    figlet "Reboot System"
     echo -e "${NC}"
 
     log_message "info" "Rebooting System..."
