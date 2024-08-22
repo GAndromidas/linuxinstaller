@@ -244,7 +244,7 @@ install_dependencies() {
     log_message "info" "Installing Dependencies..."
     
     # List of dependencies to install
-    dependencies=("figlet" "curl" "git" "fastfetch" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
+    dependencies=("figlet" "curl" "git" "fastfetch" "flatpak" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
 
     # Install each dependency
     for package in "${dependencies[@]}"; do

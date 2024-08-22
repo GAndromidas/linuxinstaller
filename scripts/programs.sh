@@ -146,7 +146,7 @@ pacman_programs_default=(
 )
 
 essential_programs_default=(
-    discord filezilla gimp libreoffice-fresh lutris obs-studio smplayer steam telegram-desktop timeshift vlc wine
+    discord filezilla gimp kdenlive libreoffice-fresh lutris obs-studio smplayer steam telegram-desktop timeshift vlc wine
 )
 
 # Programs to install using pacman (Minimal option)
