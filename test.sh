@@ -397,10 +397,12 @@ configure_firewall() {
 
         # Check if KDE Connect is installed
         if pacman -Q kdeconnect &>/dev/null; then
-            sudo ufw allow kdeconnect
-            log_message "success" "KDE Connect allowed through UFW."
+            # Allow specific ports for KDE Connect
+            sudo ufw allow 1714:1764/udp
+            sudo ufw allow 1714:1764/tcp
+            log_message "success" "KDE Connect ports allowed through UFW."
         else
-            log_message "warning" "KDE Connect is not installed. Skipping kdeconnect service configuration."
+            log_message "warning" "KDE Connect is not installed. Skipping KDE Connect service configuration."
         fi
 
         log_message "success" "Firewall configured successfully."
@@ -467,21 +469,6 @@ install_and_configure_virt_manager() {
         log_message "success" "Virt-Manager configured successfully."
     else
         log_message "warning" "Virt-Manager installation and configuration skipped."
-    fi
-}
-
-# Function to prompt for DaVinci Resolve installation
-install_davinci_resolve() {
-    echo -e "${CYAN}"
-    figlet "Davinci Resolve"
-    echo -e "${NC}"
-
-    if confirm_action "Do you want to install DaVinci Resolve?"; then
-        log_message "info" "Installing DaVinci Resolve..."
-        (cd "$SCRIPTS_DIR" && ./davinci_resolve.sh) && \
-        log_message "success" "DaVinci Resolve installed successfully."
-    else
-        log_message "warning" "DaVinci Resolve installation skipped."
     fi
 }
 
@@ -586,7 +573,6 @@ create_fastfetch_config
 configure_firewall
 install_and_configure_fail2ban
 install_and_configure_virt_manager
-install_davinci_resolve
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system
