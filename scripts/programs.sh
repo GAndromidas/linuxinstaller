@@ -157,7 +157,7 @@ pacman_programs_minimal=(
 )
 
 essential_programs_minimal=(
-    libreoffice-fresh timeshift vlc wine
+    libreoffice-fresh timeshift vlc
 )
 
 # KDE-specific programs to install using pacman
