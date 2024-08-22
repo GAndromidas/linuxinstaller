@@ -242,7 +242,7 @@ update_mirrorlist() {
 # Function to install dependencies
 install_dependencies() {
     log_message "info" "Installing Dependencies..."
-    
+
     # List of dependencies to install
     dependencies=("figlet" "curl" "git" "fastfetch" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
 
@@ -296,12 +296,12 @@ move_zshrc() {
 # Function to install Starship and move starship.toml
 install_starship() {
     log_message "info" "Installing Starship prompt..."
-    
+
     # Install Starship via pacman
     if sudo pacman -S --needed --noconfirm starship; then
         log_message "success" "Starship prompt installed successfully."
         mkdir -p "$HOME/.config"
-        
+
         # Move starship.toml to the appropriate location
         if [ -f "$CONFIGS_DIR/starship.toml" ]; then
             mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
