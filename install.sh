@@ -397,10 +397,12 @@ configure_firewall() {
 
         # Check if KDE Connect is installed
         if pacman -Q kdeconnect &>/dev/null; then
-            sudo ufw allow kdeconnect
-            log_message "success" "KDE Connect allowed through UFW."
+            # Allow specific ports for KDE Connect
+            sudo ufw allow 1714:1764/udp
+            sudo ufw allow 1714:1764/tcp
+            log_message "success" "KDE Connect ports allowed through UFW."
         else
-            log_message "warning" "KDE Connect is not installed. Skipping kdeconnect service configuration."
+            log_message "warning" "KDE Connect is not installed. Skipping KDE Connect service configuration."
         fi
 
         log_message "success" "Firewall configured successfully."
