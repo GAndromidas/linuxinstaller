@@ -242,7 +242,7 @@ update_mirrorlist() {
 # Function to install dependencies
 install_dependencies() {
     log_message "info" "Installing Dependencies..."
-
+    
     # List of dependencies to install
     dependencies=("figlet" "curl" "git" "fastfetch" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
 
@@ -296,12 +296,12 @@ move_zshrc() {
 # Function to install Starship and move starship.toml
 install_starship() {
     log_message "info" "Installing Starship prompt..."
-
+    
     # Install Starship via pacman
     if sudo pacman -S --needed --noconfirm starship; then
         log_message "success" "Starship prompt installed successfully."
         mkdir -p "$HOME/.config"
-
+        
         # Move starship.toml to the appropriate location
         if [ -f "$CONFIGS_DIR/starship.toml" ]; then
             mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
@@ -347,7 +347,7 @@ enable_services() {
     local services=(
         "bluetooth"
         "cronie"
-        "firewalld"
+        "ufw"
         "fstrim.timer"
         "paccache.timer"
         "reflector.service"
@@ -381,37 +381,32 @@ create_fastfetch_config() {
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
 
-    if command -v firewall-cmd > /dev/null 2>&1; then
-        log_message "info" "Using firewalld for firewall configuration."
+    if command -v ufw > /dev/null 2>&1; then
+        log_message "info" "Using UFW for firewall configuration."
 
-        commands=()
+        # Enable UFW
+        sudo ufw enable
 
-        # Check if SSH is already allowed
-        if ! sudo firewall-cmd --permanent --list-services | grep -q "\bssh\b"; then
-            commands+=("sudo firewall-cmd --permanent --add-service=ssh")
+        # Allow SSH
+        if ! sudo ufw status | grep -q "22/tcp"; then
+            sudo ufw allow ssh
+            log_message "success" "SSH allowed through UFW."
         else
             log_message "warning" "SSH is already allowed. Skipping SSH service configuration."
         fi
 
         # Check if KDE Connect is installed
         if pacman -Q kdeconnect &>/dev/null; then
-            commands+=("sudo firewall-cmd --permanent --add-service=kdeconnect")
+            sudo ufw allow kdeconnect
+            log_message "success" "KDE Connect allowed through UFW."
         else
             log_message "warning" "KDE Connect is not installed. Skipping kdeconnect service configuration."
         fi
 
-        # Reload firewall configuration
-        commands+=("sudo firewall-cmd --reload")
-
-        # Execute commands
-        for cmd in "${commands[@]}"; do
-            eval "$cmd"
-        done
-
         log_message "success" "Firewall configured successfully."
 
     else
-        log_message "error" "Firewalld not found. Please install firewalld."
+        log_message "error" "UFW not found. Please install UFW."
         return 1
     fi
 }
