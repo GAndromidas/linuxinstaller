@@ -244,7 +244,7 @@ install_dependencies() {
     log_message "info" "Installing Dependencies..."
     
     # List of dependencies to install
-    dependencies=("figlet" "curl" "git" "fastfetch" "flatpak" "reflector" "rsync" "openssh" "base-devel" "pacman-contrib" "eza" "zoxide" "fzf")  # Add more packages as needed
+    dependencies=("figlet" "curl" "git" "fastfetch" "flatpak" "reflector" "rsync" "openssh" "base-devel" "ufw" "pacman-contrib" "eza" "zoxide" "fzf" "zsh" "starship")
 
     # Install each dependency
     for package in "${dependencies[@]}"; do
@@ -497,6 +497,10 @@ delete_archinstaller_folder() {
 
 # Function to reboot system
 reboot_system() {
+    echo -e "${CYAN}"
+    figlet "Reboot"
+    echo -e "${NC}"
+
     log_message "info" "Rebooting System..."
     printf "${YELLOW}Do you want to reboot now? (Y/n)${RESET} "
 
