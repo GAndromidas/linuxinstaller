@@ -139,10 +139,10 @@ check_grub_btrfs() {
 
 # Programs to install using pacman (Default option)
 pacman_programs_default=(
-    android-tools bat bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
-    fwupd fzf gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud lib32-vulkan-icd-loader
-    lib32-vulkan-radeon mangohud net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
-    ttf-liberation ttf-meslo-nerd ufw unrar vulkan-icd-loader vulkan-radeon wget xdg-desktop-portal-gtk zoxide
+    android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac firefox
+    fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud lib32-vulkan-icd-loader
+    lib32-vulkan-radeon mangohud net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs ttf-hack-nerd
+    ttf-liberation ufw unrar vulkan-icd-loader vulkan-radeon wget xdg-desktop-portal-gtk
 )
 
 essential_programs_default=(
@@ -151,9 +151,9 @@ essential_programs_default=(
 
 # Programs to install using pacman (Minimal option)
 pacman_programs_minimal=(
-    android-tools bat bleachbit btop bluez-utils cmatrix curl dmidecode dosfstools expac eza fastfetch firefox
-    fwupd fzf net-tools noto-fonts-extra ntfs-3g pacman-contrib samba sl speedtest-cli sshfs ttf-hack-nerd
-    ttf-liberation ttf-meslo-nerd ufw unrar wget xdg-desktop-portal-gtk zoxide
+    android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac firefox
+    fwupd gnome-disk-utility hwinfo inxi net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs ttf-hack-nerd
+    ttf-liberation ufw unrar wget xdg-desktop-portal-gtk
 )
 
 essential_programs_minimal=(
