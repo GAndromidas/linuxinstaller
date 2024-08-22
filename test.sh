@@ -244,17 +244,30 @@ install_dependencies() {
     log_message "info" "Installing Dependencies..."
     
     # List of dependencies to install
-    dependencies=(figlet curl git fastfetch reflector rsync openssh base-devel pacman-contrib eza zoxide fzf)
-
-    # Install each dependency
-    for package in "${dependencies[@]}"; do
-        print_installation_info "Installing" "$package"
-        if sudo pacman -S --needed --noconfirm "$package"; then
-            log_message "success" "$package installed successfully."
-        else
-            log_message "error" "Failed to install $package."
-        fi
-    done
+    dependencies=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
+    
+    # Check CPU type and add appropriate microcode
+    if grep -q "Intel" /proc/cpuinfo; then
+        log_message "info" "Intel CPU detected. Adding intel-ucode to dependencies."
+        dependencies+=(intel-ucode)
+    elif grep -q "AMD" /proc/cpuinfo; then
+        log_message "info" "AMD CPU detected. Adding amd-ucode to dependencies."
+        dependencies+=(amd-ucode)
+    else
+        log_message "warning" "Unable to determine CPU type. No microcode package added."
+    fi
+    
+    # Convert array to space-separated string
+    packages="${dependencies[*]}"
+    
+    print_installation_info "Installing" "all dependencies"
+    
+    if sudo pacman -S --needed --noconfirm $packages; then
+        log_message "success" "All dependencies installed successfully."
+    else
+        log_message "error" "Failed to install one or more dependencies."
+        log_message "info" "Please check the output above for details on which packages failed to install."
+    fi
 }
 
 # Function to update the system
