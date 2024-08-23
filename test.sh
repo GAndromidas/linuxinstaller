@@ -432,29 +432,6 @@ configure_firewall() {
     fi
 }
 
-# Function to prompt for user confirmation
-confirm_action() {
-    local message="$1"
-    echo -e "${MAGENTA}${message} (Y/n)${RESET}"
-    read -rp "" confirm
-
-    # Convert input to lowercase for case-insensitive comparison
-    confirm="${confirm,,}"
-
-    # Handle empty input (Enter pressed)
-    if [[ -z "$confirm" ]]; then
-        confirm="y"  # Apply "yes" if Enter is pressed
-    fi
-
-    # Validate input
-    while [[ ! "$confirm" =~ ^(y|n)$ ]]; do
-        read -rp "Invalid input. Please enter 'Y' to confirm or 'n' to cancel: " confirm
-        confirm="${confirm,,}"
-    done
-
-    [[ "$confirm" == "y" ]]
-}
-
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
     echo -e "${CYAN}"
@@ -562,6 +539,29 @@ install_grub_theme() {
     cd ..
     rm -rf Top-5-Bootloader-Themes
     log_message "success" "GRUB theme installed successfully."
+}
+
+# Function to prompt for user confirmation
+confirm_action() {
+    local message="$1"
+    echo -e "${MAGENTA}${message} (Y/n)${RESET}"
+    read -rp "" confirm
+
+    # Convert input to lowercase for case-insensitive comparison
+    confirm="${confirm,,}"
+
+    # Handle empty input (Enter pressed)
+    if [[ -z "$confirm" ]]; then
+        confirm="y"  # Apply "yes" if Enter is pressed
+    fi
+
+    # Validate input
+    while [[ ! "$confirm" =~ ^(y|n)$ ]]; do
+        read -rp "Invalid input. Please enter 'Y' to confirm or 'n' to cancel: " confirm
+        confirm="${confirm,,}"
+    done
+
+    [[ "$confirm" == "y" ]]
 }
 
 # Main script
