@@ -328,7 +328,6 @@ install_flatpak_minimal_gnome() {
 yay_programs_default=(
     dropbox
     heroic-games-launcher-bin
-    teamviewer
     via-bin
 )
 

@@ -366,7 +366,6 @@ enable_services() {
         "reflector.service"
         "reflector.timer"
         "sshd"
-        "teamviewerd.service"
     )
 
     for service in "${services[@]}"; do
