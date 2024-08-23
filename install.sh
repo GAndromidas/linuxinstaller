@@ -539,12 +539,24 @@ install_grub_theme() {
     rm -rf Top-5-Bootloader-Themes
     log_message "success" "GRUB theme installed successfully."
 
-    # Configure GRUB to remember the last selected option
-    log_message "info" "Configuring GRUB to remember the last selected option..."
-    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
-    echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
-    log_message "success" "GRUB configured to remember the last selected option."
+    # Customizing GRUB with 3 seconds timeout and Btrfs snapshots
+    log_message "info" "Customizing systemd-boot with 3 seconds timeout and Btrfs snapshots..."
+    
+    # Update GRUB timeout to 3 seconds
+    sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
+
+    # Add Btrfs snapshots to systemd-boot entries
+    echo "Adding Btrfs snapshots to systemd-boot entries..."
+    for snapshot in $(sudo btrfs subvolume list / | grep timeshift | awk '{print $9}'); do
+        echo "Adding snapshot: $snapshot"
+        # Create a new entry in the loader for each snapshot
+        echo "title Timeshift Snapshot: $snapshot" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
+        echo "linux /@/$snapshot/vmlinuz-linux" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
+        echo "initrd /@/$snapshot/initramfs-linux.img" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
+        echo "options root=UUID=$(blkid -s UUID -o value /dev/sda1) rw" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"  # Adjust UUID and device as necessary
+    done
+
+    log_message "success" "Systemd-boot customized with Btrfs snapshots."
 }
 
 # Function to prompt for user confirmation
@@ -583,6 +595,8 @@ if detect_bootloader; then
     remove_fallback_entries
 else
     install_grub_theme
+    # Update loader.conf for GRUB
+    sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
 fi
 
 enable_asterisks_sudo
