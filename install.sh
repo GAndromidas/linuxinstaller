@@ -539,6 +539,13 @@ install_grub_theme() {
     cd ..
     rm -rf Top-5-Bootloader-Themes
     log_message "success" "GRUB theme installed successfully."
+
+    # Configure GRUB to remember the last selected option
+    log_message "info" "Configuring GRUB to remember the last selected option..."
+    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+    echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    log_message "success" "GRUB configured to remember the last selected option."
 }
 
 # Function to prompt for user confirmation
