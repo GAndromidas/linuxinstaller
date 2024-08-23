@@ -544,19 +544,23 @@ install_grub_theme() {
     
     # Update GRUB timeout to 3 seconds
     sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
+ 
+}
 
-    # Add Btrfs snapshots to systemd-boot entries
-    echo "Adding Btrfs snapshots to systemd-boot entries..."
+# Function to add Btrfs snapshots to GRUB entries
+add_btrfs_snapshots_to_grub() {
+    log_message "info" "Adding Btrfs snapshots to GRUB entries..."
     for snapshot in $(sudo btrfs subvolume list / | grep timeshift | awk '{print $9}'); do
         echo "Adding snapshot: $snapshot"
-        # Create a new entry in the loader for each snapshot
-        echo "title Timeshift Snapshot: $snapshot" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
-        echo "linux /@/$snapshot/vmlinuz-linux" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
-        echo "initrd /@/$snapshot/initramfs-linux.img" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"
-        echo "options root=UUID=$(blkid -s UUID -o value /dev/sda1) rw" | sudo tee -a "$ENTRIES_DIR/timeshift-$snapshot.conf"  # Adjust UUID and device as necessary
+        # Create a new entry in the GRUB configuration for each snapshot
+        echo "menuentry 'Timeshift Snapshot: $snapshot' {" | sudo tee -a /boot/grub/grub.cfg
+        echo "    linux /@/$snapshot/vmlinuz-linux" | sudo tee -a /boot/grub/grub.cfg
+        echo "    initrd /@/$snapshot/initramfs-linux.img" | sudo tee -a /boot/grub/grub.cfg
+        echo "    options root=UUID=$(blkid -s UUID -o value /dev/sda1) rw" | sudo tee -a /boot/grub/grub.cfg  # Adjust UUID and device as necessary
+        echo "}" | sudo tee -a /boot/grub/grub.cfg
     done
 
-    log_message "success" "Systemd-boot customized with Btrfs snapshots."
+    log_message "success" "GRUB customized with Btrfs snapshots."
 }
 
 # Function to prompt for user confirmation
@@ -597,6 +601,7 @@ else
     install_grub_theme
     # Update loader.conf for GRUB
     sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
+    add_btrfs_snapshots_to_grub
 fi
 
 enable_asterisks_sudo
