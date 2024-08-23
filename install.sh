@@ -539,28 +539,13 @@ install_grub_theme() {
     rm -rf Top-5-Bootloader-Themes
     log_message "success" "GRUB theme installed successfully."
 
-    # Customizing GRUB with 3 seconds timeout and Btrfs snapshots
-    log_message "info" "Customizing systemd-boot with 3 seconds timeout and Btrfs snapshots..."
-    
-    # Update GRUB timeout to 3 seconds
-    sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
- 
-}
-
-# Function to add Btrfs snapshots to GRUB entries
-add_btrfs_snapshots_to_grub() {
-    log_message "info" "Adding Btrfs snapshots to GRUB entries..."
-    for snapshot in $(sudo btrfs subvolume list / | grep timeshift | awk '{print $9}'); do
-        echo "Adding snapshot: $snapshot"
-        # Create a new entry in the GRUB configuration for each snapshot
-        echo "menuentry 'Timeshift Snapshot: $snapshot' {" | sudo tee -a /boot/grub/grub.cfg
-        echo "    linux /@/$snapshot/vmlinuz-linux" | sudo tee -a /boot/grub/grub.cfg
-        echo "    initrd /@/$snapshot/initramfs-linux.img" | sudo tee -a /boot/grub/grub.cfg
-        echo "    options root=UUID=$(blkid -s UUID -o value /dev/sda1) rw" | sudo tee -a /boot/grub/grub.cfg  # Adjust UUID and device as necessary
-        echo "}" | sudo tee -a /boot/grub/grub.cfg
-    done
-
-    log_message "success" "GRUB customized with Btrfs snapshots."
+    # Install grub-customizer
+    log_message "info" "Installing grub-customizer..."
+    if sudo pacman -S --needed --noconfirm grub-customizer; then
+        log_message "success" "grub-customizer installed successfully."
+    else
+        log_message "error" "Failed to install grub-customizer."
+    fi
 }
 
 # Function to prompt for user confirmation
@@ -599,9 +584,6 @@ if detect_bootloader; then
     remove_fallback_entries
 else
     install_grub_theme
-    # Update loader.conf for GRUB
-    sudo sed -i 's/^timeout.*/timeout 3/' /boot/grub/grub.cfg  # Set timeout to 3 seconds
-    add_btrfs_snapshots_to_grub
 fi
 
 enable_asterisks_sudo
