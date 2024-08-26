@@ -218,9 +218,11 @@ configure_pacman() {
     log_message "info" "Configuring Pacman..."
     sudo sed -i '
         /^#Color/s/^#//
-        /^Color/a ILoveCandy
         /^#VerbosePkgLists/s/^#//
         /^#ParallelDownloads/s/^#//
+        /^Color/ {
+            /ILoveCandy/! a ILoveCandy
+        }
     ' /etc/pacman.conf && \
     log_message "success" "Pacman configuration updated successfully."
 }
