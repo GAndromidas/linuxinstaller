@@ -216,16 +216,20 @@ enable_asterisks_sudo() {
 # Function to configure Pacman
 configure_pacman() {
     log_message "info" "Configuring Pacman..."
+    
+    # Uncomment specified options
     sudo sed -i '
         /^#Color/s/^#//
         /^#VerbosePkgLists/s/^#//
         /^#ParallelDownloads/s/^#//
-        /^Color/,/^$/ {
-            /ILoveCandy/! {
-                /^Color/ a ILoveCandy
-            }
-        }
-    ' /etc/pacman.conf && \
+    ' /etc/pacman.conf
+
+    # Check if ILoveCandy is already present
+    if ! grep -q "ILoveCandy" /etc/pacman.conf; then
+        # If not present, add it after the Color line
+        sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+    fi
+
     log_message "success" "Pacman configuration updated successfully."
 }
 
