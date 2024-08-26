@@ -220,8 +220,10 @@ configure_pacman() {
         /^#Color/s/^#//
         /^#VerbosePkgLists/s/^#//
         /^#ParallelDownloads/s/^#//
-        /^Color/ {
-            /ILoveCandy/! a ILoveCandy
+        /^Color/,/^$/ {
+            /ILoveCandy/! {
+                /^Color/ a ILoveCandy
+            }
         }
     ' /etc/pacman.conf && \
     log_message "success" "Pacman configuration updated successfully."
