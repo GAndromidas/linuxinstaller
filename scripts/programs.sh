@@ -180,7 +180,6 @@ essential_programs_default=(
     libreoffice-fresh
     lutris
     obs-studio
-    smplayer
     steam
     telegram-desktop
     timeshift
