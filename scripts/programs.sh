@@ -340,7 +340,15 @@ case "$FLAG" in
         installation_mode="default"
         pacman_programs=("${pacman_programs_default[@]}")
         essential_programs=("${essential_programs_default[@]}")
-        yay_programs=("${yay_programs_default[@]}")
+        
+        # Prompt for yay programs installation with default 'y'
+        read -p "Do you want to install AUR packages? (y/n, default is 'y'): " install_yay
+        install_yay=${install_yay:-y}  # Default to 'y' if empty
+        if [[ "$install_yay" == "y" ]]; then
+            yay_programs=("${yay_programs_default[@]}")
+        else
+            yay_programs=()  # Set to empty if not installing
+        fi
         ;;
     "-m")
         installation_mode="minimal"
