@@ -12,9 +12,13 @@ DEFAULT_USER=$USER
 zstyle ':omz:update' mode auto      # update automatically without asking
 
 # Plugins
-plugins=(git fzf zsh-autosuggestions zsh-syntax-highlighting)
+plugins=(git fzf)
 
 source $ZSH/oh-my-zsh.sh
+
+# Manually source the plugins
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # Aliases
 

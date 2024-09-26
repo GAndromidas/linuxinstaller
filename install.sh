@@ -288,14 +288,8 @@ update_system() {
 # Function to install Oh-My-ZSH and ZSH plugins
 install_zsh() {
     log_message "info" "Configuring ZSH..."
-    sudo pacman -S --needed --noconfirm zsh
+    sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-    sleep 1
-
-    git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-    sleep 1
-
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     log_message "success" "ZSH configured successfully."
 }
 
