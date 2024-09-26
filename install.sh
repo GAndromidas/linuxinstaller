@@ -604,7 +604,12 @@ enable_services
 create_fastfetch_config
 configure_firewall
 install_and_configure_fail2ban
-install_and_configure_virt_manager
+
+# Trigger Virt-Manager installation only for Default option
+if [[ "$FLAG" == "-d" ]]; then
+    install_and_configure_virt_manager
+fi
+
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system

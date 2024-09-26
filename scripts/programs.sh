@@ -61,8 +61,24 @@ detect_desktop_environment() {
             fi
             flatpak_install_function="install_flatpak_programs_gnome"
             ;;
+        COSMIC)
+            print_info "Cosmic DE detected."
+            if [ -n "${cosmic_install_programs+x}" ]; then
+                specific_install_programs=("${cosmic_install_programs[@]}")
+            else
+                print_warning "Cosmic install programs not defined."
+                specific_install_programs=()
+            fi
+            if [ -n "${cosmic_remove_programs+x}" ]; then
+                specific_remove_programs=("${cosmic_remove_programs[@]}")
+            else
+                print_warning "Cosmic remove programs not defined."
+                specific_remove_programs=()
+            fi
+            flatpak_install_function="install_flatpak_programs_cosmic"
+            ;;
         *)
-            print_error "No KDE or GNOME detected. Skipping DE-specific programs."
+            print_error "No KDE, GNOME, or Cosmic detected. Skipping DE-specific programs."
             specific_install_programs=()
             specific_remove_programs=()
             flatpak_install_function=""
@@ -265,6 +281,18 @@ gnome_remove_programs=(
     totem
 )
 
+# Cosmic-specific programs to install using pacman
+cosmic_install_programs=(
+    gufw
+    power-profiles-daemon
+    transmission-gtk
+)
+
+# Cosmic-specific programs to remove using pacman
+cosmic_remove_programs=(
+    htop
+)
+
 # Flatpak programs to install for KDE (Default)
 install_flatpak_programs_kde() {
     print_info "Installing Flatpak Programs for KDE..."
@@ -274,6 +302,7 @@ install_flatpak_programs_kde() {
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         net.davidotek.pupgui2
+        io.github.zen_browser.zen
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -291,11 +320,29 @@ install_flatpak_programs_gnome() {
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         com.vysp3r.ProtonPlus
+        io.github.zen_browser.zen
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
     done
     print_success "Flatpak Programs for GNOME installed successfully."
+}
+
+# Flatpak programs to install for Cosmic (Default)
+install_flatpak_programs_cosmic() {
+    print_info "Installing Flatpak Programs for Cosmic..."
+    flatpak_packages=(
+        com.spotify.Client
+        com.stremio.Stremio
+        io.github.shiftey.Desktop
+        it.mijorus.gearlever
+        com.vysp3r.ProtonPlus
+        io.github.zen_browser.zen
+    )
+    for package in "${flatpak_packages[@]}"; do
+        sudo flatpak install -y flathub "$package"
+    done
+    print_success "Flatpak Programs for Cosmic installed successfully."
 }
 
 # Minimal Flatpak programs for KDE
@@ -321,6 +368,18 @@ install_flatpak_minimal_gnome() {
         sudo flatpak install -y flathub "$package"
     done
     print_success "Minimal Flatpak Programs for GNOME installed successfully."
+}
+
+# Minimal Flatpak programs for Cosmic
+install_flatpak_minimal_cosmic() {
+    print_info "Installing Minimal Flatpak Programs for Cosmic..."
+    flatpak_packages=(
+        it.mijorus.gearlever
+    )
+    for package in "${flatpak_packages[@]}"; do
+        sudo flatpak install -y flathub "$package"
+    done
+    print_success "Minimal Flatpak Programs for Cosmic installed successfully."
 }
 
 # AUR Packages to install (Default option)
@@ -384,6 +443,8 @@ else
         install_flatpak_minimal_kde
     elif [[ "$XDG_CURRENT_DESKTOP" == "GNOME" ]]; then
         install_flatpak_minimal_gnome
+    elif [[ "$XDG_CURRENT_DESKTOP" == "COSMIC" ]]; then
+        install_flatpak_minimal_cosmic
     fi
 fi
 
