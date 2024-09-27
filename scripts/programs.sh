@@ -283,7 +283,6 @@ gnome_remove_programs=(
 
 # Cosmic-specific programs to install using pacman
 cosmic_install_programs=(
-    gufw
     power-profiles-daemon
     transmission-gtk
 )
