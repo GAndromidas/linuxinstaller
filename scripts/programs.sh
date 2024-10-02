@@ -296,12 +296,9 @@ cosmic_remove_programs=(
 install_flatpak_programs_kde() {
     print_info "Installing Flatpak Programs for KDE..."
     flatpak_packages=(
-        com.spotify.Client
-        com.stremio.Stremio
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         net.davidotek.pupgui2
-        io.github.zen_browser.zen
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -314,12 +311,9 @@ install_flatpak_programs_gnome() {
     print_info "Installing Flatpak Programs for GNOME..."
     flatpak_packages=(
         com.mattjakeman.ExtensionManager
-        com.spotify.Client
-        com.stremio.Stremio
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         com.vysp3r.ProtonPlus
-        io.github.zen_browser.zen
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -331,12 +325,9 @@ install_flatpak_programs_gnome() {
 install_flatpak_programs_cosmic() {
     print_info "Installing Flatpak Programs for Cosmic..."
     flatpak_packages=(
-        com.spotify.Client
-        com.stremio.Stremio
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         com.vysp3r.ProtonPlus
-        io.github.zen_browser.zen
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -385,7 +376,10 @@ install_flatpak_minimal_cosmic() {
 yay_programs_default=(
     dropbox
     heroic-games-launcher-bin
+    spotify
+    stremio
     via-bin
+    zen-browser-bin
 )
 
 # Main script
