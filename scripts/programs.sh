@@ -328,6 +328,7 @@ install_flatpak_programs_cosmic() {
         io.github.shiftey.Desktop
         it.mijorus.gearlever
         com.vysp3r.ProtonPlus
+        dev.edfloreshz.CosmicTweaks
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
@@ -365,6 +366,7 @@ install_flatpak_minimal_cosmic() {
     print_info "Installing Minimal Flatpak Programs for Cosmic..."
     flatpak_packages=(
         it.mijorus.gearlever
+        dev.edfloreshz.CosmicTweaks
     )
     for package in "${flatpak_packages[@]}"; do
         sudo flatpak install -y flathub "$package"
