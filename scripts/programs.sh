@@ -381,7 +381,6 @@ yay_programs_default=(
     spotify
     stremio-service-bin
     via-bin
-    zen-browser-bin
 )
 
 # Main script
