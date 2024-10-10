@@ -247,7 +247,6 @@ kde_install_programs=(
     kwalletmanager
     kvantum
     okular
-    packagekit-qt6
     python-pyqt5
     python-pyqt6
     qbittorrent
