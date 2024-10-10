@@ -378,7 +378,7 @@ yay_programs_default=(
     dropbox
     heroic-games-launcher-bin
     spotify
-    stremio-service-bin
+    stremio
     via-bin
 )
 
