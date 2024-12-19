@@ -92,9 +92,15 @@ remove_programs() {
         print_info "No specific programs to remove."
     else
         print_info "Removing Programs..."
-        $REMOVE_CMD "${specific_remove_programs[@]}"
-        handle_error "Failed to remove programs. Exiting..."
-        print_success "Programs removed successfully."
+        for program in "${specific_remove_programs[@]}"; do
+            if command -v "$program" &> /dev/null; then
+                $REMOVE_CMD "$program"
+                handle_error "Failed to remove $program. Continuing..."
+                print_success "$program removed successfully."
+            else
+                print_warning "$program not found. Skipping removal."
+            fi
+        done
     fi
 }
 
