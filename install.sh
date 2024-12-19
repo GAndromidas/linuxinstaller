@@ -339,14 +339,39 @@ configure_locales() {
 
 # Function to install YAY
 install_yay() {
-    log_message "info" "Installing YAY..."
-    cd /tmp
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
-    makepkg -si --noconfirm
-    cd ..
-    rm -rf yay
-    log_message "success" "YAY installed successfully."
+    log_message "info" "Checking for YAY installation..."
+
+    # Check if yay is installed
+    if command -v yay &> /dev/null; then
+        log_message "info" "YAY is already installed. Checking for updates..."
+        
+        # Update yay if it is installed
+        if yay -Sy --noconfirm; then
+            log_message "success" "YAY updated successfully."
+        else
+            log_message "error" "Failed to update YAY."
+        fi
+    else
+        # Check if paru is installed
+        if command -v paru &> /dev/null; then
+            log_message "info" "Paru is installed. Removing Paru..."
+            if sudo pacman -Rns --noconfirm paru; then
+                log_message "success" "Paru removed successfully."
+            else
+                log_message "error" "Failed to remove Paru."
+            fi
+        fi
+
+        # Install yay
+        log_message "info" "Installing YAY..."
+        cd /tmp
+        git clone https://aur.archlinux.org/yay.git
+        cd yay
+        makepkg -si --noconfirm
+        cd ..
+        rm -rf yay
+        log_message "success" "YAY installed successfully."
+    fi
 }
 
 # Function to install programs
