@@ -26,7 +26,7 @@ source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 alias sync='sudo pacman -Syy'
 alias update='yay -Syyu && sudo flatpak update'
 alias mirror='sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syyy'
-alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo pacman -Rns $(pacman -Qtdq)'
+alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo flatpak uninstall --unused && sudo pacman -Rns $(pacman -Qtdq)'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
 alias sr='sudo reboot'
