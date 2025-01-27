@@ -200,7 +200,6 @@ essential_programs_default=(
     gimp
     kdenlive
     libreoffice-fresh
-    lutris
     obs-studio
     steam
     telegram-desktop
