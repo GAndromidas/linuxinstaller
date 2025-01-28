@@ -4,6 +4,9 @@
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
 
+# Enable logging to a file
+exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
+
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -216,7 +219,7 @@ enable_asterisks_sudo() {
 # Function to configure Pacman
 configure_pacman() {
     log_message "info" "Configuring Pacman..."
-    
+
     # Uncomment specified options
     sudo sed -i '
         /^#Color/s/^#//
@@ -250,10 +253,10 @@ update_mirrorlist() {
 # Function to install dependencies
 install_dependencies() {
     log_message "info" "Installing Dependencies..."
-    
+
     # List of dependencies to install
     dependencies=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
-    
+
     # Check CPU type and add appropriate microcode
     if grep -q "Intel" /proc/cpuinfo; then
         log_message "info" "Intel CPU detected. Adding intel-ucode to dependencies."
@@ -264,12 +267,12 @@ install_dependencies() {
     else
         log_message "warning" "Unable to determine CPU type. No microcode package added."
     fi
-    
+
     # Convert array to space-separated string
     packages="${dependencies[*]}"
-    
+
     print_installation_info "Installing" "all dependencies"
-    
+
     if sudo pacman -S --needed --noconfirm $packages; then
         log_message "success" "All dependencies installed successfully."
     else
@@ -304,19 +307,23 @@ change_shell_to_zsh() {
 # Function to move .zshrc
 move_zshrc() {
     log_message "info" "Copying .zshrc to Home Folder..."
-    mv "$CONFIGS_DIR/.zshrc" "$HOME/" && \
-    log_message "success" ".zshrc copied successfully."
+    if [ -f "$CONFIGS_DIR/.zshrc" ]; then
+        mv "$CONFIGS_DIR/.zshrc" "$HOME/" && \
+        log_message "success" ".zshrc copied successfully."
+    else
+        log_message "error" ".zshrc not found in $CONFIGS_DIR/."
+    fi
 }
 
 # Function to install Starship and move starship.toml
 install_starship() {
     log_message "info" "Installing Starship prompt..."
-    
+
     # Install Starship via pacman
     if sudo pacman -S --needed --noconfirm starship; then
         log_message "success" "Starship prompt installed successfully."
         mkdir -p "$HOME/.config"
-        
+
         # Move starship.toml to the appropriate location
         if [ -f "$CONFIGS_DIR/starship.toml" ]; then
             mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
@@ -344,7 +351,7 @@ install_yay() {
     # Check if yay is installed
     if command -v yay &> /dev/null; then
         log_message "info" "YAY is already installed. Checking for updates..."
-        
+
         # Update yay if it is installed
         if yay -Sy --noconfirm; then
             log_message "success" "YAY updated successfully."
@@ -420,20 +427,20 @@ create_fastfetch_config() {
 # Function to configure firewall
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
-    
+
     if command -v ufw > /dev/null 2>&1; then
         log_message "info" "Using UFW for firewall configuration."
 
         # Enable UFW
         sudo ufw enable
-        
+
         # Set default policies
         sudo ufw default deny incoming
         log_message "info" "Default policy set to deny all incoming connections."
-        
+
         sudo ufw default allow outgoing
         log_message "info" "Default policy set to allow all outgoing connections."
-        
+
         # Allow SSH
         if ! sudo ufw status | grep -q "22/tcp"; then
             sudo ufw allow ssh
@@ -508,8 +515,12 @@ clear_unused_packages_cache() {
 # Function to delete the archinstaller folder
 delete_archinstaller_folder() {
     log_message "info" "Deleting Archinstaller Folder..."
-    sudo rm -rf "$SCRIPT_DIR" && \
-    log_message "success" "Archinstaller folder deleted successfully."
+    if [[ -n "$SCRIPT_DIR" && -d "$SCRIPT_DIR" ]]; then
+        sudo rm -rf "$SCRIPT_DIR"
+        log_message "success" "Archinstaller folder deleted successfully."
+    else
+        log_message "error" "Invalid or empty SCRIPT_DIR. Aborting deletion."
+    fi
 }
 
 # Function to reboot system
