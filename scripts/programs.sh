@@ -200,6 +200,7 @@ essential_programs_default=(
     gimp
     kdenlive
     libreoffice-fresh
+    lutris
     obs-studio
     steam
     telegram-desktop
@@ -252,6 +253,7 @@ kde_install_programs=(
     kwalletmanager
     kvantum
     okular
+    power-profiles-daemon
     python-pyqt5
     python-pyqt6
     qbittorrent
