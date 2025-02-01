@@ -4,11 +4,9 @@
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
 
-# Enable logging to a file
-exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
-
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
 # Set paths relative to the script's directory
 CONFIGS_DIR="$SCRIPT_DIR/configs"
@@ -411,6 +409,14 @@ enable_services() {
             log_message "warning" "$service is not installed."
         fi
     done
+
+    # Check if power-profiles-daemon is installed
+    if pacman -Q power-profiles-daemon &>/dev/null; then
+        sudo systemctl enable --now "power-profiles-daemon.service"
+        log_message "success" "power-profiles-daemon.service enabled."
+    else
+        log_message "warning" "power-profiles-daemon is not installed."
+    fi
 }
 
 # Function to create fastfetch config
