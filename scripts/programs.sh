@@ -225,6 +225,8 @@ pacman_programs_minimal=(
     gnome-disk-utility
     hwinfo
     inxi
+    lib32-vulkan-icd-loader
+    lib32-vulkan-radeon
     net-tools
     noto-fonts-extra
     ntfs-3g
@@ -236,6 +238,8 @@ pacman_programs_minimal=(
     ttf-liberation
     ufw
     unrar
+    vulkan-icd-loader
+    vulkan-radeon
     wget
     xdg-desktop-portal-gtk
 )
