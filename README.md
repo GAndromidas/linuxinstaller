@@ -25,7 +25,7 @@ This script is designed for setting up an Arch Linux system with various configu
 - Installs various programs based on user selection.
 - Enables essential services.
 - Configures a firewall with firewalld.
-- Provides options to install Fail2ban, Virt-Manager, and DaVinci Resolve.
+- Provides options to install Fail2ban and Virt-Manager.
 - Clears unused packages and cache.
 - Optionally reboots the system after installation.
 
@@ -77,7 +77,6 @@ This script is designed for setting up an Arch Linux system with various configu
 - **configure_firewall**: Configures the firewall using `firewalld`.
 - **install_and_configure_fail2ban**: Installs and configures Fail2ban.
 - **install_and_configure_virt_manager**: Installs and configures Virt-Manager.
-- **install_davinci_resolve**: Prompts and installs DaVinci Resolve if desired.
 - **clear_unused_packages_cache**: Clears unused packages and cache.
 - **delete_archinstaller_folder**: Deletes the `archinstaller` folder after completion.
 - **reboot_system**: Prompts the user to reboot the system.
