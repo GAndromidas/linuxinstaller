@@ -74,7 +74,7 @@ This script is designed for setting up an Arch Linux system with various configu
 - **install_programs**: Installs additional programs based on the user's selection.
 - **enable_services**: Enables essential system services.
 - **create_fastfetch_config**: Creates and moves the `fastfetch` configuration.
-- **configure_firewall**: Configures the firewall using `firewalld`.
+- **configure_firewall**: Configures the firewall using `ufw`.
 - **install_and_configure_fail2ban**: Installs and configures Fail2ban.
 - **install_and_configure_virt_manager**: Installs and configures Virt-Manager.
 - **clear_unused_packages_cache**: Clears unused packages and cache.
