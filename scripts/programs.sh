@@ -31,50 +31,20 @@ detect_desktop_environment() {
     case "$XDG_CURRENT_DESKTOP" in
         KDE)
             print_info "KDE detected."
-            if [ -n "${kde_install_programs+x}" ]; then
-                specific_install_programs=("${kde_install_programs[@]}")
-            else
-                print_warning "KDE install programs not defined."
-                specific_install_programs=()
-            fi
-            if [ -n "${kde_remove_programs+x}" ]; then
-                specific_remove_programs=("${kde_remove_programs[@]}")
-            else
-                print_warning "KDE remove programs not defined."
-                specific_remove_programs=()
-            fi
+            specific_install_programs=("${kde_install_programs[@]}")
+            specific_remove_programs=("${kde_remove_programs[@]}")
             flatpak_install_function="install_flatpak_programs_kde"
             ;;
         GNOME)
             print_info "GNOME detected."
-            if [ -n "${gnome_install_programs+x}" ]; then
-                specific_install_programs=("${gnome_install_programs[@]}")
-            else
-                print_warning "GNOME install programs not defined."
-                specific_install_programs=()
-            fi
-            if [ -n "${gnome_remove_programs+x}" ]; then
-                specific_remove_programs=("${gnome_remove_programs[@]}")
-            else
-                print_warning "GNOME remove programs not defined."
-                specific_remove_programs=()
-            fi
+            specific_install_programs=("${gnome_install_programs[@]}")
+            specific_remove_programs=("${gnome_remove_programs[@]}")
             flatpak_install_function="install_flatpak_programs_gnome"
             ;;
         COSMIC)
             print_info "Cosmic DE detected."
-            if [ -n "${cosmic_install_programs+x}" ]; then
-                specific_install_programs=("${cosmic_install_programs[@]}")
-            else
-                print_warning "Cosmic install programs not defined."
-                specific_install_programs=()
-            fi
-            if [ -n "${cosmic_remove_programs+x}" ]; then
-                specific_remove_programs=("${cosmic_remove_programs[@]}")
-            else
-                print_warning "Cosmic remove programs not defined."
-                specific_remove_programs=()
-            fi
+            specific_install_programs=("${cosmic_install_programs[@]}")
+            specific_remove_programs=("${cosmic_remove_programs[@]}")
             flatpak_install_function="install_flatpak_programs_cosmic"
             ;;
         *)
@@ -490,7 +460,11 @@ install_pacman_programs
 
 # Install Flatpak programs
 if [[ "$installation_mode" == "default" ]]; then
-    install_flatpak_programs
+    if [ -n "$flatpak_install_function" ]; then
+        $flatpak_install_function  # Call the appropriate Flatpak installation function
+    else
+        print_info "No Flatpak installation function defined for the detected desktop environment."
+    fi
 else
     if [[ "$XDG_CURRENT_DESKTOP" == "KDE" ]]; then
         install_flatpak_minimal_kde
