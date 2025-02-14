@@ -250,11 +250,11 @@ update_mirrorlist() {
     log_message "info" "Updating Mirrorlist..."
     sudo pacman -S --needed --noconfirm reflector rsync
 
-    sudo sed -i 's/^--latest .*/--latest 5/' /etc/xdg/reflector/reflector.conf
+    sudo sed -i 's/^--latest .*/--latest 10/' /etc/xdg/reflector/reflector.conf
     sudo sed -i 's/^--sort .*/--sort rate/' /etc/xdg/reflector/reflector.conf
     log_message "success" "reflector.conf updated successfully."
 
-    sudo reflector --verbose --protocol https --latest 10 --sort rate --save /etc/pacman.d/mirrorlist && \
+    sudo reflector --verbose --protocol https --latest 5 --sort rate --save /etc/pacman.d/mirrorlist && \
     sudo pacman -Syyy && \
     log_message "success" "Mirrorlist updated successfully."
 }
