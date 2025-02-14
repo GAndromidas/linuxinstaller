@@ -104,20 +104,38 @@ remove_programs() {
     fi
 }
 
+# Function to check if a package is installed
+is_package_installed() {
+    command -v "$1" &> /dev/null
+}
+
 # Function to install programs via pacman
 install_pacman_programs() {
     print_info "Installing Pacman Programs..."
-    $PACMAN_CMD "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"
-    handle_error "Failed to install programs. Exiting..."
-    print_success "Programs installed successfully."
+    for program in "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"; do
+        if ! is_package_installed "$program"; then
+            $PACMAN_CMD "$program"
+            handle_error "Failed to install $program. Exiting..."
+            print_success "$program installed successfully."
+        else
+            print_warning "$program is already installed. Skipping installation."
+        fi
+    done
 }
 
 # Function to install Flatpak programs
 install_flatpak_programs() {
     if [ -n "$flatpak_install_function" ]; then
         print_info "Installing Flatpak Programs..."
-        $flatpak_install_function
-        handle_error "Failed to install Flatpak programs. Exiting..."
+        for package in "${flatpak_packages[@]}"; do
+            if ! is_package_installed "$package"; then
+                sudo flatpak install -y flathub "$package"
+                handle_error "Failed to install Flatpak program $package. Exiting..."
+                print_success "$package installed successfully."
+            else
+                print_warning "$package is already installed. Skipping installation."
+            fi
+        done
     else
         print_info "No Flatpak installation function defined for the detected desktop environment."
     fi
@@ -134,9 +152,15 @@ check_yay() {
 # Function to install AUR packages
 install_aur_packages() {
     print_info "Installing AUR Packages..."
-    $AUR_INSTALL_CMD "${yay_programs[@]}"
-    handle_error "Failed to install AUR packages. Exiting..."
-    print_success "AUR Packages installed successfully."
+    for package in "${yay_programs[@]}"; do
+        if ! is_package_installed "$package"; then
+            $AUR_INSTALL_CMD "$package"
+            handle_error "Failed to install AUR package $package. Exiting..."
+            print_success "$package installed successfully."
+        else
+            print_warning "$package is already installed. Skipping installation."
+        fi
+    done
 }
 
 # Function to check for GRUB and Btrfs, and install grub-btrfs if found
@@ -152,6 +176,34 @@ check_grub_btrfs() {
         fi
     else
         print_error "GRUB not installed. Skipping grub-btrfs installation."
+    fi
+}
+
+# Function to install all AMD drivers and Vulkan packages
+install_amd_drivers() {
+    if lspci | grep -i "amd" &> /dev/null; then
+        print_info "AMD GPU detected. Installing all AMD Drivers and Vulkan Packages..."
+        local amd_driver_packages=(
+            xf86-video-amdgpu        # AMD GPU driver
+            mesa                      # OpenGL implementation
+            vulkan-radeon             # Vulkan driver for AMD GPUs
+            lib32-vulkan-radeon       # 32-bit Vulkan driver for AMD GPUs
+            vulkan-icd-loader         # Vulkan Installable Client Driver loader
+            lib32-mesa                # 32-bit Mesa library
+        )
+        
+        for package in "${amd_driver_packages[@]}"; do
+            if ! command -v "$package" &> /dev/null; then
+                print_info "Installing $package..."
+                $PACMAN_CMD "$package"
+                handle_error "Failed to install $package. Exiting..."
+                print_success "$package installed successfully."
+            else
+                print_warning "$package is already installed. Skipping installation."
+            fi
+        done
+    else
+        print_warning "No AMD GPU detected. Skipping AMD drivers installation."
     fi
 }
 
@@ -174,8 +226,6 @@ pacman_programs_default=(
     inxi
     lib32-gamemode
     lib32-mangohud
-    lib32-vulkan-icd-loader
-    lib32-vulkan-radeon
     mangohud
     net-tools
     noto-fonts-extra
@@ -188,8 +238,6 @@ pacman_programs_default=(
     ttf-liberation
     ufw
     unrar
-    vulkan-icd-loader
-    vulkan-radeon
     wget
     xdg-desktop-portal-gtk
 )
@@ -225,8 +273,6 @@ pacman_programs_minimal=(
     gnome-disk-utility
     hwinfo
     inxi
-    lib32-vulkan-icd-loader
-    lib32-vulkan-radeon
     net-tools
     noto-fonts-extra
     ntfs-3g
@@ -238,8 +284,6 @@ pacman_programs_minimal=(
     ttf-liberation
     ufw
     unrar
-    vulkan-icd-loader
-    vulkan-radeon
     wget
     xdg-desktop-portal-gtk
 )
@@ -455,3 +499,6 @@ fi
 
 # Install AUR packages
 install_aur_packages
+
+# Install all AMD drivers and Vulkan packages
+install_amd_drivers

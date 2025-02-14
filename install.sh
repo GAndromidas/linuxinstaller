@@ -128,8 +128,19 @@ show_menu() {
     done
 }
 
+# Function to check if a package is installed
+check_package_installed() {
+    local package="$1"
+    if ! pacman -Q "$package" &>/dev/null; then
+        log_message "warning" "Package '$package' is not installed. Skipping..."
+        return 1
+    fi
+    return 0
+}
+
 # Function to install kernel headers for all detected kernel types
 install_kernel_headers_for_all() {
+    check_package_installed "pacman" || return  # Check if pacman is installed
     log_message "info" "Identifying installed Linux kernel types..."
 
     # Get installed kernel types
@@ -239,7 +250,7 @@ update_mirrorlist() {
     log_message "info" "Updating Mirrorlist..."
     sudo pacman -S --needed --noconfirm reflector rsync
 
-    sudo sed -i 's/^--latest .*/--latest 10/' /etc/xdg/reflector/reflector.conf
+    sudo sed -i 's/^--latest .*/--latest 5/' /etc/xdg/reflector/reflector.conf
     sudo sed -i 's/^--sort .*/--sort rate/' /etc/xdg/reflector/reflector.conf
     log_message "success" "reflector.conf updated successfully."
 
@@ -250,6 +261,7 @@ update_mirrorlist() {
 
 # Function to install dependencies
 install_dependencies() {
+    check_package_installed "pacman" || return  # Check if pacman is installed
     log_message "info" "Installing Dependencies..."
 
     # List of dependencies to install
