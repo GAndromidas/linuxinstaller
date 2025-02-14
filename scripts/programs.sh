@@ -128,9 +128,13 @@ install_flatpak_programs() {
     if [ -n "$flatpak_install_function" ]; then
         print_info "Installing Flatpak Programs..."
         for package in "${flatpak_packages[@]}"; do
+            print_info "Checking if $package is installed..."
             if ! is_package_installed "$package"; then
-                sudo flatpak install -y flathub "$package"
-                handle_error "Failed to install Flatpak program $package. Exiting..."
+                print_info "Attempting to install $package..."
+                sudo flatpak install -y flathub "$package" || {
+                    print_error "Failed to install Flatpak program $package. Exiting..."
+                    exit 1
+                }
                 print_success "$package installed successfully."
             else
                 print_warning "$package is already installed. Skipping installation."
