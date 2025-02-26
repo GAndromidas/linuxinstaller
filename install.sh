@@ -3,6 +3,7 @@
 # Script: install.sh
 # Description: Script for setting up an Arch Linux system with various configurations and installations.
 # Author: George Andromidas
+# Modified: Added Fish shell removal for CachyOS compatibility
 
 # Get the directory of the script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -259,6 +260,81 @@ update_mirrorlist() {
     log_message "success" "Mirrorlist updated successfully."
 }
 
+# Function to check for CachyOS
+is_cachyos() {
+    if grep -q "cachyos" /etc/os-release; then
+        return 0  # True, it is CachyOS
+    else
+        return 1  # False, it is not CachyOS
+    fi
+}
+
+# Function to remove Fish shell if installed
+remove_fish_shell() {
+    log_message "info" "Checking for Fish shell installation..."
+    if pacman -Q fish &>/dev/null; then
+        log_message "info" "Fish shell detected. Removing..."
+        
+        # Remove Fish configuration
+        log_message "info" "Removing Fish configuration..."
+        if [ -d "$HOME/.config/fish" ]; then
+            rm -rf "$HOME/.config/fish"
+            log_message "success" "Fish user configuration removed."
+        fi
+        
+        # Remove Fish system-wide configuration
+        if [ -d "/etc/fish" ]; then
+            sudo rm -rf "/etc/fish"
+            log_message "success" "System-wide Fish configuration removed."
+        fi
+        
+        # Remove the Fish package
+        if sudo pacman -Rns --noconfirm fish; then
+            log_message "success" "Fish shell removed successfully."
+        else
+            log_message "error" "Failed to remove Fish shell."
+        fi
+    else
+        log_message "info" "Fish shell not installed. Skipping removal."
+    fi
+}
+
+# Function to check and handle Fish as current shell
+handle_fish_as_current_shell() {
+    log_message "info" "Checking if current shell is Fish..."
+    if [[ "$(basename "$SHELL")" == "fish" ]]; then
+        log_message "info" "Current shell is Fish. Preparing to change..."
+        # We need to ensure ZSH is installed before changing the shell
+        sudo pacman -S --needed --noconfirm zsh
+        
+        # Warn the user that they may need to restart the script in bash
+        log_message "warning" "Your current shell is Fish. For the best experience, you should:"
+        log_message "warning" "1. Exit this script (Ctrl+C)"
+        log_message "warning" "2. Start bash with the command: bash"
+        log_message "warning" "3. Run this script again"
+        
+        # Ask if they want to continue or exit
+        echo -e "${MAGENTA}Do you want to continue anyway? (Y/n)${RESET}"
+        read -rp "" continue_anyway
+        
+        # Convert input to lowercase for case-insensitive comparison
+        continue_anyway="${continue_anyway,,}"
+        
+        # Handle empty input (Enter pressed)
+        if [[ -z "$continue_anyway" ]]; then
+            continue_anyway="y"  # Apply "yes" if Enter is pressed
+        fi
+        
+        # Exit if the user chooses to
+        if [[ "$continue_anyway" != "y" ]]; then
+            log_message "info" "Exiting as requested. Please restart in bash shell."
+            exit 0
+        fi
+        
+        log_message "warning" "Continuing with Fish as the current shell. Some operations may not work correctly."
+    fi
+}
+
 # Function to install dependencies
 install_dependencies() {
     check_package_installed "pacman" || return  # Check if pacman is installed
@@ -302,15 +378,31 @@ update_system() {
 install_zsh() {
     log_message "info" "Configuring ZSH..."
     sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
-    yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || true
     log_message "success" "ZSH configured successfully."
 }
 
 # Function to change shell to ZSH
 change_shell_to_zsh() {
     log_message "info" "Changing Shell to ZSH..."
-    sudo chsh -s "$(which zsh)"
+    
+    # Install ZSH if not already installed
+    sudo pacman -S --needed --noconfirm zsh
+    
+    # Change shell for root
+    sudo chsh -s "$(which zsh)" root
+    
+    # Change shell for current user
     chsh -s "$(which zsh)"
+    
+    # If the user is currently using Fish, we need to take special measures
+    if [[ "$(basename "$SHELL")" == "fish" ]]; then
+        log_message "info" "You are currently using Fish shell."
+        log_message "info" "Your default shell has been changed to ZSH."
+        log_message "info" "The change will take effect after you log out and log back in."
+        log_message "warning" "To continue using this script, you may need to run: exec bash"
+    fi
+    
     log_message "success" "Shell changed to ZSH."
 }
 
@@ -318,7 +410,7 @@ change_shell_to_zsh() {
 move_zshrc() {
     log_message "info" "Copying .zshrc to Home Folder..."
     if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-        mv "$CONFIGS_DIR/.zshrc" "$HOME/" && \
+        cp "$CONFIGS_DIR/.zshrc" "$HOME/" && \
         log_message "success" ".zshrc copied successfully."
     else
         log_message "error" ".zshrc not found in $CONFIGS_DIR/."
@@ -336,7 +428,7 @@ install_starship() {
 
         # Move starship.toml to the appropriate location
         if [ -f "$CONFIGS_DIR/starship.toml" ]; then
-            mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
+            cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
             log_message "success" "starship.toml moved to $HOME/.config/"
         else
             log_message "warning" "starship.toml not found in $CONFIGS_DIR/"
@@ -523,9 +615,9 @@ install_and_configure_virt_manager() {
 # Function to clear unused packages and cache
 clear_unused_packages_cache() {
     log_message "info" "Clearing Unused Packages and Cache..."
-    sudo pacman -Rns $(pacman -Qdtq) --noconfirm
+    sudo pacman -Rns $(pacman -Qdtq) --noconfirm 2>/dev/null || true
     sudo pacman -Sc --noconfirm
-    yay -Sc --noconfirm
+    yay -Sc --noconfirm 2>/dev/null || true
     rm -rf ~/.cache/* && sudo paccache -r
     log_message "success" "Unused packages and cache cleared successfully."
 }
@@ -646,6 +738,14 @@ fi
 enable_asterisks_sudo
 configure_pacman
 update_mirrorlist
+
+# Check for CachyOS and handle Fish shell
+if is_cachyos; then
+    log_message "info" "CachyOS detected."
+    handle_fish_as_current_shell
+    remove_fish_shell
+fi
+
 install_dependencies
 update_system
 install_zsh
