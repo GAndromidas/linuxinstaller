@@ -68,6 +68,10 @@
             "key": " "
         },
         {
+            "type": "swap",
+            "key": " "
+        },
+        {
             "type": "disk",
             "key": " "
         },
