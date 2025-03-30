@@ -446,7 +446,51 @@ create_fastfetch_config() {
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
 
-    if command -v ufw > /dev/null 2>&1; then
+    # Check if firewalld is installed
+    if command -v firewalld > /dev/null 2>&1; then
+        log_message "info" "Using Firewalld for firewall configuration."
+
+        # Start and enable firewalld
+        sudo systemctl start firewalld
+        sudo systemctl enable firewalld
+
+        # Set default policies
+        sudo firewall-cmd --set-default-zone=drop
+        log_message "info" "Default policy set to deny all incoming connections."
+
+        sudo firewall-cmd --set-default-zone=public
+        log_message "info" "Default policy set to allow all outgoing connections."
+
+        # Allow SSH
+        if ! sudo firewall-cmd --list-all | grep -q "22/tcp"; then
+            sudo firewall-cmd --add-service=ssh --permanent
+            sudo firewall-cmd --reload
+            log_message "success" "SSH allowed through Firewalld."
+        else
+            log_message "warning" "SSH is already allowed. Skipping SSH service configuration."
+        fi
+
+        # Check if KDE Connect is installed
+        if pacman -Q kdeconnect &>/dev/null; then
+            # Allow specific ports for KDE Connect
+            sudo firewall-cmd --add-port=1714-1764/udp --permanent
+            sudo firewall-cmd --add-port=1714-1764/tcp --permanent
+            sudo firewall-cmd --reload
+            log_message "success" "KDE Connect ports allowed through Firewalld."
+        else
+            log_message "warning" "KDE Connect is not installed. Skipping KDE Connect service configuration."
+        fi
+
+        log_message "success" "Firewall configured successfully using Firewalld."
+    else
+        log_message "info" "No firewall detected. Installing UFW..."
+
+        # Install UFW if not present
+        if ! command -v ufw > /dev/null 2>&1; then
+            sudo pacman -S --needed --noconfirm ufw
+            log_message "success" "UFW installed successfully."
+        fi
+
         log_message "info" "Using UFW for firewall configuration."
 
         # Enable UFW
@@ -477,10 +521,7 @@ configure_firewall() {
             log_message "warning" "KDE Connect is not installed. Skipping KDE Connect service configuration."
         fi
 
-        log_message "success" "Firewall configured successfully."
-    else
-        log_message "error" "UFW not found. Please install UFW."
-        return 1
+        log_message "success" "Firewall configured successfully using UFW."
     fi
 }
 
@@ -502,21 +543,6 @@ install_and_configure_fail2ban() {
         fi
     else
         log_message "warning" "Fail2ban installation and configuration skipped."
-    fi
-}
-
-# Function to install and configure Virt-Manager
-install_and_configure_virt_manager() {
-    echo -e "${CYAN}"
-    figlet "Virt Manager"
-    echo -e "${NC}"
-
-    if confirm_action "Do you want to install and configure Virt-Manager?"; then
-        log_message "info" "Installing Virt-Manager..."
-        (cd "$SCRIPTS_DIR" && ./virt_manager.sh) && \
-        log_message "success" "Virt-Manager configured successfully."
-    else
-        log_message "warning" "Virt-Manager installation and configuration skipped."
     fi
 }
 
@@ -659,12 +685,6 @@ enable_services
 create_fastfetch_config
 configure_firewall
 install_and_configure_fail2ban
-
-# Trigger Virt-Manager installation only for Default option
-if [[ "$FLAG" == "-d" ]]; then
-    install_and_configure_virt_manager
-fi
-
 clear_unused_packages_cache
 delete_archinstaller_folder
 reboot_system

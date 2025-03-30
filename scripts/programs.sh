@@ -210,7 +210,6 @@ pacman_programs_default=(
     sshfs
     ttf-hack-nerd
     ttf-liberation
-    ufw
     unrar
     wget
     xdg-desktop-portal-gtk
@@ -256,7 +255,6 @@ pacman_programs_minimal=(
     sshfs
     ttf-hack-nerd
     ttf-liberation
-    ufw
     unrar
     wget
     xdg-desktop-portal-gtk
