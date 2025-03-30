@@ -398,50 +398,6 @@ install_programs() {
     log_message "success" "Programs installed successfully."
 }
 
-# Function to enable multiple services
-enable_services() {
-    log_message "info" "Enabling Services..."
-    local services=(
-        "bluetooth"
-        "cronie"
-        "ufw"
-        "fstrim.timer"
-        "paccache.timer"
-        "reflector.service"
-        "reflector.timer"
-        "sshd"
-        "teamviewerd.service"
-    )
-
-    for service in "${services[@]}"; do
-        if systemctl list-unit-files | grep -q "^$service"; then
-            sudo systemctl enable --now "$service"
-            log_message "success" "$service enabled."
-        else
-            log_message "warning" "$service is not installed."
-        fi
-    done
-
-    # Check if power-profiles-daemon is installed
-    if pacman -Q power-profiles-daemon &>/dev/null; then
-        sudo systemctl enable --now "power-profiles-daemon.service"
-        log_message "success" "power-profiles-daemon.service enabled."
-    else
-        log_message "warning" "power-profiles-daemon is not installed."
-    fi
-}
-
-# Function to create fastfetch config
-create_fastfetch_config() {
-    log_message "info" "Creating fastfetch config..."
-    fastfetch --gen-config && \
-    log_message "success" "fastfetch config created successfully."
-
-    log_message "info" "Copying fastfetch config from repository to ~/.config/fastfetch/..."
-    cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc" && \
-    log_message "success" "fastfetch config copied successfully."
-}
-
 # Function to configure firewall
 configure_firewall() {
     log_message "info" "Configuring Firewall..."
@@ -523,6 +479,50 @@ configure_firewall() {
 
         log_message "success" "Firewall configured successfully using UFW."
     fi
+}
+
+# Function to enable multiple services
+enable_services() {
+    log_message "info" "Enabling Services..."
+    local services=(
+        "bluetooth"
+        "cronie"
+        "ufw"
+        "fstrim.timer"
+        "paccache.timer"
+        "reflector.service"
+        "reflector.timer"
+        "sshd"
+        "teamviewerd.service"
+    )
+
+    for service in "${services[@]}"; do
+        if systemctl list-unit-files | grep -q "^$service"; then
+            sudo systemctl enable --now "$service"
+            log_message "success" "$service enabled."
+        else
+            log_message "warning" "$service is not installed."
+        fi
+    done
+
+    # Check if power-profiles-daemon is installed
+    if pacman -Q power-profiles-daemon &>/dev/null; then
+        sudo systemctl enable --now "power-profiles-daemon.service"
+        log_message "success" "power-profiles-daemon.service enabled."
+    else
+        log_message "warning" "power-profiles-daemon is not installed."
+    fi
+}
+
+# Function to create fastfetch config
+create_fastfetch_config() {
+    log_message "info" "Creating fastfetch config..."
+    fastfetch --gen-config && \
+    log_message "success" "fastfetch config created successfully."
+
+    log_message "info" "Copying fastfetch config from repository to ~/.config/fastfetch/..."
+    cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc" && \
+    log_message "success" "fastfetch config copied successfully."
 }
 
 # Function to install and configure Fail2ban
@@ -681,9 +681,9 @@ install_starship
 configure_locales
 install_yay
 install_programs
+configure_firewall
 enable_services
 create_fastfetch_config
-configure_firewall
 install_and_configure_fail2ban
 clear_unused_packages_cache
 delete_archinstaller_folder
