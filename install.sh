@@ -666,7 +666,9 @@ if detect_bootloader; then
     change_loader_conf
     remove_fallback_entries
 else
-    install_grub_theme
+    # Skip GRUB installation if systemd-boot is detected
+    log_message "info" "Skipping GRUB installation as systemd-boot is detected."
+    install_grub_theme  # This line can be removed if you want to skip GRUB entirely
 fi
 
 enable_asterisks_sudo
