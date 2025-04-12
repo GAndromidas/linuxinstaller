@@ -35,13 +35,24 @@
             "format": "{1} {2}"
         },
         {
-            "type": "uptime",
-            "key": " 󰅐"
+            "type": "de",
+            "key": " 󰕮"
         },
         {
-            "type": "command",
-            "key": " 󰃰",
-            "text": "birth_install=$(stat -c %W /); current=$(date +%s); time_progression=$((current - birth_install)); days_difference=$((time_progression / 86400)); echo $days_difference days"
+            "type": "wm",
+            "key": " "
+        },
+        {
+            "type": "shell",
+            "key": " "
+        },
+        {
+            "type": "terminal",
+            "key": " "
+        },
+        {
+            "type": "packages",
+            "key": " 󰏖"
         },
         "break",
         {
@@ -89,24 +100,13 @@
         },
         "break",
         {
-            "type": "de",
-            "key": " 󰕮"
+            "type": "uptime",
+            "key": " 󰅐"
         },
         {
-            "type": "wm",
-            "key": " "
-        },
-        {
-            "type": "shell",
-            "key": " "
-        },
-        {
-            "type": "terminal",
-            "key": " "
-        },
-        {
-            "type": "packages",
-            "key": " 󰏖"
+            "type": "command",
+            "key": " 󰃰",
+            "text": "birth_install=$(stat -c %W /); current=$(date +%s); time_progression=$((current - birth_install)); days_difference=$((time_progression / 86400)); echo $days_difference days"
         },
         "break",
         {
