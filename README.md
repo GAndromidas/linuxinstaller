@@ -1,3 +1,6 @@
+# YouTube Video
+https://www.youtube.com/watch?v=lWoKlybEjeU
+
 # Arch Linux Installation Script
 
 This script is designed for setting up an Arch Linux system with various configurations and installations. The script offers a user-friendly menu for selecting different installation options and automates numerous post-installation tasks.
