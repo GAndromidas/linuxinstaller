@@ -525,6 +525,13 @@ create_fastfetch_config() {
     log_message "success" "fastfetch config copied successfully."
 }
 
+# Function to setup Plymouth
+setup_plymouth() {
+    log_message "info" "Setting up Plymouth..."
+    (cd "$SCRIPTS_DIR" && ./setup_plymouth.sh) && \
+    log_message "success" "Plymouth setup completed successfully."
+}
+
 # Function to install and configure Fail2ban
 install_and_configure_fail2ban() {
     echo -e "${CYAN}"
@@ -686,6 +693,7 @@ install_programs
 configure_firewall
 enable_services
 create_fastfetch_config
+setup_plymouth
 install_and_configure_fail2ban
 clear_unused_packages_cache
 delete_archinstaller_folder
