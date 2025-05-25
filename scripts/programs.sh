@@ -402,9 +402,11 @@ install_flatpak_minimal_cosmic() {
 
 # AUR Packages to install (Default option)
 yay_programs_default=(
+    brave-bin
     heroic-games-launcher-bin
     megasync-bin
     spotify
+    stacer-bin
     stremio
     teamviewer
     via-bin
