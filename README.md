@@ -46,7 +46,7 @@
 - Optional installation of popular programs (user-selected).
 - Essential services enabled (networking, firewall, etc).
 - Firewall setup (firewalld or ufw).
-- Optional: Fail2ban, Virt-Manager.
+- Optional: Fail2ban.
 - Cleans up unused packages and cache.
 - Guided menu-based UI for installation options.
 - Optional reboot after installation.
