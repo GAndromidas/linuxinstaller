@@ -9,7 +9,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=27
+TOTAL_STEPS=31
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
@@ -300,6 +300,85 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
+# === KERNEL HEADER FUNCTIONS ===
+
+get_installed_kernel_types() {
+    local kernel_types=()
+    pacman -Q linux &>/dev/null && kernel_types+=("linux")
+    pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+    pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+    pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+    echo "${kernel_types[@]}"
+}
+
+install_kernel_headers_for_all() {
+    step "Installing kernel headers for all installed kernels"
+    local kernel_types
+    kernel_types=($(get_installed_kernel_types))
+    if [ ${#kernel_types[@]} -eq 0 ]; then
+        log_warning "No supported kernel types detected. Please check your system configuration."
+        return
+    fi
+    for kernel in "${kernel_types[@]}"; do
+        local headers_package="${kernel}-headers"
+        if sudo pacman -S --needed --noconfirm "$headers_package"; then
+            log_success "$headers_package installed successfully."
+            INSTALLED_PACKAGES+=("$headers_package")
+        else
+            log_error "Error: Failed to install $headers_package."
+        fi
+    done
+}
+
+# === SYSTEMD-BOOT FUNCTIONS ===
+
+make_systemd_boot_silent() {
+    step "Making Systemd-Boot silent for all installed kernels"
+    local ENTRIES_DIR="/boot/loader/entries"
+    local kernel_types
+    kernel_types=($(get_installed_kernel_types))
+    for kernel in "${kernel_types[@]}"; do
+        local linux_entry
+        linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
+        if [ -z "$linux_entry" ]; then
+            log_warning "Linux entry not found for kernel: $kernel"
+            continue
+        fi
+        if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
+            log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+        else
+            log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
+        fi
+    done
+}
+
+change_loader_conf() {
+    step "Changing loader.conf"
+    local LOADER_CONF="/boot/loader/loader.conf"
+    if [ ! -f "$LOADER_CONF" ]; then
+        log_warning "loader.conf not found at $LOADER_CONF"
+        return
+    fi
+    sudo sed -i '1{/^default @saved/!i default @saved}' "$LOADER_CONF"
+    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
+    sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
+    log_success "Loader configuration updated."
+}
+
+remove_fallback_entries() {
+    step "Removing fallback entries from systemd-boot"
+    local ENTRIES_DIR="/boot/loader/entries"
+    local entries_removed=0
+    for entry in "$ENTRIES_DIR"/*fallback.conf; do
+        [ -f "$entry" ] || continue
+        if sudo rm "$entry"; then
+            log_success "Removed fallback entry: $(basename "$entry")"
+            entries_removed=1
+        fi
+    done
+    [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
+}
+
 setup_maintenance() {
   if command -v paccache >/dev/null; then
     run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
@@ -416,6 +495,12 @@ main() {
   set_sudo_pwfeedback
   cleanup_helpers
   detect_and_install_gpu_drivers
+
+  install_kernel_headers_for_all
+  make_systemd_boot_silent
+  change_loader_conf
+  remove_fallback_entries
+
   setup_maintenance
   cleanup_and_optimize
   print_summary
