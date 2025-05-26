@@ -1,482 +1,359 @@
 #!/bin/bash
 
-# Constants for commands
-PACMAN_CMD="sudo pacman -S --needed --noconfirm"
-REMOVE_CMD="sudo pacman -Rns --noconfirm"
-AUR_INSTALL_CMD="yay -S --noconfirm"
-
-# Color codes
+# ===== Colors for output =====
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-# Function to print messages with colors
-print_info() { echo -e "${CYAN}$1${RESET}"; }
-print_success() { echo -e "${GREEN}$1${RESET}"; }
-print_warning() { echo -e "${YELLOW}$1${RESET}"; }
-print_error() { echo -e "${RED}$1${RESET}"; }
+# ===== Step/Log helpers =====
+CURRENT_STEP=1
+ERRORS=()
+INSTALLED_PKGS=()
+REMOVED_PKGS=()
 
-# Function to handle errors
-handle_error() {
-    if [ $? -ne 0 ]; then
-        print_error "$1"
-        exit 1
-    fi
+step() {
+  echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
+  ((CURRENT_STEP++))
 }
 
-# Function to detect desktop environment and set specific programs to install or remove
-detect_desktop_environment() {
-    case "$XDG_CURRENT_DESKTOP" in
-        KDE)
-            print_info "KDE detected."
-            specific_install_programs=("${kde_install_programs[@]}")
-            specific_remove_programs=("${kde_remove_programs[@]}")
-            flatpak_install_function="install_flatpak_programs_kde"
-            ;;
-        GNOME)
-            print_info "GNOME detected."
-            specific_install_programs=("${gnome_install_programs[@]}")
-            specific_remove_programs=("${gnome_remove_programs[@]}")
-            flatpak_install_function="install_flatpak_programs_gnome"
-            ;;
-        COSMIC)
-            print_info "Cosmic DE detected."
-            specific_install_programs=("${cosmic_install_programs[@]}")
-            specific_remove_programs=("${cosmic_remove_programs[@]}")
-            flatpak_install_function="install_flatpak_programs_cosmic"
-            ;;
-        *)
-            print_error "No KDE, GNOME, or Cosmic detected. Skipping DE-specific programs."
-            specific_install_programs=()
-            specific_remove_programs=()
-            flatpak_install_function=""
-            ;;
-    esac
-}
+log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
 
-# Function to remove programs
-remove_programs() {
-    if [ ${#specific_remove_programs[@]} -eq 0 ]; then
-        print_info "No specific programs to remove."
-    else
-        print_info "Removing Programs..."
-        for program in "${specific_remove_programs[@]}"; do
-            if command -v "$program" &> /dev/null; then
-                $REMOVE_CMD "$program"
-                handle_error "Failed to remove $program. Continuing..."
-                print_success "$program removed successfully."
-            else
-                print_warning "$program not found. Skipping removal."
-            fi
-        done
-    fi
-}
-
-# Function to check if a package is installed
-is_package_installed() {
-    command -v "$1" &> /dev/null
-}
-
-# Function to install programs via pacman
-install_pacman_programs() {
-    print_info "Installing Pacman Programs..."
-    for program in "${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}"; do
-        if ! is_package_installed "$program"; then
-            $PACMAN_CMD "$program"
-            handle_error "Failed to install $program. Exiting..."
-            print_success "$program installed successfully."
-        else
-            print_warning "$program is already installed. Skipping installation."
-        fi
-    done
-}
-
-# Function to install Flatpak programs
-install_flatpak_programs() {
-    if [ -n "$flatpak_install_function" ]; then
-        print_info "Installing Flatpak Programs..."
-        for package in "${flatpak_packages[@]}"; do
-            print_info "Checking if $package is installed..."
-            if ! is_package_installed "$package"; then
-                print_info "Attempting to install $package..."
-                sudo flatpak install -y flathub "$package" || {
-                    print_error "Failed to install Flatpak program $package. Exiting..."
-                    exit 1
-                }
-                print_success "$package installed successfully."
-            else
-                print_warning "$package is already installed. Skipping installation."
-            fi
-        done
-    else
-        print_info "No Flatpak installation function defined for the detected desktop environment."
-    fi
-}
-
-# Function to check if yay is installed
-check_yay() {
-    if ! command -v yay &> /dev/null; then
-        print_error "Error: yay is not installed. Please install yay and try again."
-        exit 1
-    fi
-}
-
-# Function to install AUR packages
-install_aur_packages() {
-    print_info "Installing AUR Packages..."
-    for package in "${yay_programs[@]}"; do
-        if ! is_package_installed "$package"; then
-            $AUR_INSTALL_CMD "$package"
-            handle_error "Failed to install AUR package $package. Exiting..."
-            print_success "$package installed successfully."
-        else
-            print_warning "$package is already installed. Skipping installation."
-        fi
-    done
-}
-
-# Function to check for GRUB and Btrfs, and install grub-btrfs if found
-check_grub_btrfs() {
-    if command -v grub-install &> /dev/null; then
-        if mount | grep -q 'btrfs'; then
-            print_info "Btrfs detected. Installing grub-btrfs..."
-            $PACMAN_CMD grub-btrfs
-            handle_error "Failed to install grub-btrfs. Exiting..."
-            print_success "grub-btrfs installed successfully."
-        else
-            print_warning "Btrfs not detected. Skipping grub-btrfs installation."
-        fi
-    else
-        print_error "GRUB not installed. Skipping grub-btrfs installation."
-    fi
-}
-
-# Function to install all AMD drivers and Vulkan packages
-install_amd_drivers() {
-    if lspci | grep -i "amd" &> /dev/null; then
-        print_info "AMD GPU detected. Installing all AMD Drivers and Vulkan Packages..."
-        local amd_driver_packages=(
-            xf86-video-amdgpu        # AMD GPU driver
-            mesa                      # OpenGL implementation
-            vulkan-radeon             # Vulkan driver for AMD GPUs
-            lib32-vulkan-radeon       # 32-bit Vulkan driver for AMD GPUs
-            vulkan-icd-loader         # Vulkan Installable Client Driver loader
-            lib32-mesa                # 32-bit Mesa library
-        )
-        
-        for package in "${amd_driver_packages[@]}"; do
-            if ! command -v "$package" &> /dev/null; then
-                print_info "Installing $package..."
-                $PACMAN_CMD "$package"
-                handle_error "Failed to install $package. Exiting..."
-                print_success "$package installed successfully."
-            else
-                print_warning "$package is already installed. Skipping installation."
-            fi
-        done
-    else
-        print_warning "No AMD GPU detected. Skipping AMD drivers installation."
-    fi
-}
-
-# Programs to install using pacman (Default option)
+# ===== Program Lists =====
 pacman_programs_default=(
-    android-tools
-    bat
-    bleachbit
-    btop
-    bluez-utils
-    cmatrix
-    dmidecode
-    dosfstools
-    expac
-    firefox
-    fwupd
-    gamemode
-    gnome-disk-utility
-    hwinfo
-    inxi
-    lib32-gamemode
-    lib32-mangohud
-    mangohud
-    net-tools
-    noto-fonts-extra
-    ntfs-3g
-    samba
-    sl
-    speedtest-cli
-    sshfs
-    ttf-hack-nerd
-    ttf-liberation
-    unrar
-    wget
-    xdg-desktop-portal-gtk
+  android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac
+  firefox fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud
+  mangohud net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs
+  ttf-hack-nerd ttf-liberation unrar wget xdg-desktop-portal-gtk
 )
-
 essential_programs_default=(
-    discord
-    filezilla
-    gimp
-    kdenlive
-    libreoffice-fresh
-    lutris
-    obs-studio
-    steam
-    telegram-desktop
-    timeshift
-    vlc
-    wine
+  discord filezilla gimp kdenlive libreoffice-fresh lutris obs-studio steam
+  telegram-desktop timeshift vlc wine
 )
 
-# Programs to install using pacman (Minimal option)
 pacman_programs_minimal=(
-    android-tools
-    bat
-    bleachbit
-    btop
-    bluez-utils
-    cmatrix
-    dmidecode
-    dosfstools
-    expac
-    firefox
-    fwupd
-    gnome-disk-utility
-    hwinfo
-    inxi
-    net-tools
-    noto-fonts-extra
-    ntfs-3g
-    samba
-    sl
-    speedtest-cli
-    sshfs
-    ttf-hack-nerd
-    ttf-liberation
-    unrar
-    wget
-    xdg-desktop-portal-gtk
+  android-tools bat bleachbit btop bluez-utils cmatrix dmidecode dosfstools expac
+  firefox fwupd gnome-disk-utility hwinfo inxi net-tools noto-fonts-extra ntfs-3g
+  samba sl speedtest-cli sshfs ttf-hack-nerd ttf-liberation unrar wget xdg-desktop-portal-gtk
 )
-
 essential_programs_minimal=(
-    libreoffice-fresh
-    timeshift
-    vlc
+  libreoffice-fresh timeshift vlc
 )
 
-# KDE-specific programs to install using pacman
-kde_install_programs=(
-    gwenview
-    kdeconnect
-    kwalletmanager
-    kvantum
-    okular
-    power-profiles-daemon
-    python-pyqt5
-    python-pyqt6
-    qbittorrent
-    spectacle
-)
+kde_install_programs=(gwenview kdeconnect kwalletmanager kvantum okular power-profiles-daemon python-pyqt5 python-pyqt6 qbittorrent spectacle)
+kde_remove_programs=(htop)
+gnome_install_programs=(celluloid dconf-editor gnome-tweaks gufw seahorse transmission-gtk)
+gnome_remove_programs=(epiphany gnome-contacts gnome-maps gnome-music gnome-tour htop snapshot totem)
+cosmic_install_programs=(power-profiles-daemon transmission-gtk)
+cosmic_remove_programs=(htop)
 
-# KDE-specific programs to remove using pacman
-kde_remove_programs=(
-    htop
-)
+yay_programs_default=(brave-bin heroic-games-launcher-bin megasync-bin spotify stacer-bin stremio teamviewer via-bin)
 
-# GNOME-specific programs to install using pacman
-gnome_install_programs=(
-    celluloid
-    dconf-editor
-    gnome-tweaks
-    gufw
-    seahorse
-    transmission-gtk
-)
-
-# GNOME-specific programs to remove using pacman
-gnome_remove_programs=(
-    epiphany
-    gnome-contacts
-    gnome-maps
-    gnome-music
-    gnome-tour
-    htop
-    snapshot
-    totem
-)
-
-# Cosmic-specific programs to install using pacman
-cosmic_install_programs=(
-    power-profiles-daemon
-    transmission-gtk
-)
-
-# Cosmic-specific programs to remove using pacman
-cosmic_remove_programs=(
-    htop
-)
-
-# Flatpak programs to install for KDE (Default)
-install_flatpak_programs_kde() {
-    print_info "Installing Flatpak Programs for KDE..."
-    flatpak_packages=(
-        io.github.shiftey.Desktop
-        it.mijorus.gearlever
-        net.davidotek.pupgui2
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Flatpak Programs for KDE installed successfully."
+# ===== Main Menu =====
+show_menu() {
+  echo -e "${YELLOW}User Program Installer${RESET}"
+  echo "Select installation mode:"
+  echo "  1) Default (Recommended, full set)"
+  echo "  2) Minimal (Smaller set)"
+  echo "  3) Exit"
+  while true; do
+    read -p "Enter your choice [1-3]: " menu_choice
+    case "$menu_choice" in
+      1) INSTALL_MODE="default"; break ;;
+      2) INSTALL_MODE="minimal"; break ;;
+      3) echo -e "${CYAN}Exiting.${RESET}"; exit 0 ;;
+      *) echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}" ;;
+    esac
+  done
+  echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
-# Flatpak programs to install for GNOME (Default)
-install_flatpak_programs_gnome() {
-    print_info "Installing Flatpak Programs for GNOME..."
-    flatpak_packages=(
-        com.mattjakeman.ExtensionManager
-        io.github.shiftey.Desktop
-        it.mijorus.gearlever
-        com.vysp3r.ProtonPlus
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Flatpak Programs for GNOME installed successfully."
+# ===== Helper functions =====
+is_package_installed() { command -v "$1" &>/dev/null; }
+
+handle_error() {
+  if [ $? -ne 0 ]; then
+    log_error "$1"
+    return 1
+  fi
+  return 0
 }
 
-# Flatpak programs to install for Cosmic (Default)
-install_flatpak_programs_cosmic() {
-    print_info "Installing Flatpak Programs for Cosmic..."
-    flatpak_packages=(
-        io.github.shiftey.Desktop
-        it.mijorus.gearlever
-        com.vysp3r.ProtonPlus
-        dev.edfloreshz.CosmicTweaks
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Flatpak Programs for Cosmic installed successfully."
+check_yay() {
+  if ! command -v yay &>/dev/null; then
+    log_error "yay (AUR helper) is not installed. Please install yay and rerun."
+    exit 1
+  fi
 }
 
-# Minimal Flatpak programs for KDE
-install_flatpak_minimal_kde() {
-    print_info "Installing Minimal Flatpak Programs for KDE..."
-    flatpak_packages=(
-        it.mijorus.gearlever
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Minimal Flatpak Programs for KDE installed successfully."
-}
-
-# Minimal Flatpak programs for GNOME
-install_flatpak_minimal_gnome() {
-    print_info "Installing Minimal Flatpak Programs for GNOME..."
-    flatpak_packages=(
-        com.mattjakeman.ExtensionManager
-        it.mijorus.gearlever
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Minimal Flatpak Programs for GNOME installed successfully."
-}
-
-# Minimal Flatpak programs for Cosmic
-install_flatpak_minimal_cosmic() {
-    print_info "Installing Minimal Flatpak Programs for Cosmic..."
-    flatpak_packages=(
-        it.mijorus.gearlever
-        dev.edfloreshz.CosmicTweaks
-    )
-    for package in "${flatpak_packages[@]}"; do
-        sudo flatpak install -y flathub "$package"
-    done
-    print_success "Minimal Flatpak Programs for Cosmic installed successfully."
-}
-
-# AUR Packages to install (Default option)
-yay_programs_default=(
-    brave-bin
-    heroic-games-launcher-bin
-    megasync-bin
-    spotify
-    stacer-bin
-    stremio
-    teamviewer
-    via-bin
-)
-
-# Main script
-# Get the flag from command line argument
-FLAG="$1"
-
-# Set programs to install based on installation mode
-case "$FLAG" in
-    "-d")
-        installation_mode="default"
-        pacman_programs=("${pacman_programs_default[@]}")
-        essential_programs=("${essential_programs_default[@]}")
-        
-        # Prompt for yay programs installation with default 'y'
-        read -p "Do you want to install AUR packages? (y/n, default is 'y'): " install_yay
-        install_yay=${install_yay:-y}  # Default to 'y' if empty
-        if [[ "$install_yay" == "y" ]]; then
-            yay_programs=("${yay_programs_default[@]}")
-        else
-            yay_programs=()  # Set to empty if not installing
-        fi
-        ;;
-    "-m")
-        installation_mode="minimal"
+detect_desktop_environment() {
+  case "$XDG_CURRENT_DESKTOP" in
+    KDE)
+      log_success "KDE detected."
+      specific_install_programs=("${kde_install_programs[@]}")
+      specific_remove_programs=("${kde_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_kde"
+      ;;
+    GNOME)
+      log_success "GNOME detected."
+      specific_install_programs=("${gnome_install_programs[@]}")
+      specific_remove_programs=("${gnome_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_gnome"
+      ;;
+    COSMIC)
+      log_success "Cosmic DE detected."
+      specific_install_programs=("${cosmic_install_programs[@]}")
+      specific_remove_programs=("${cosmic_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_cosmic"
+      ;;
+    *)
+      log_warning "No KDE, GNOME, or Cosmic detected."
+      specific_install_programs=()
+      specific_remove_programs=()
+      # Fallback: if default chosen, switch program lists to minimal and use generic minimal flatpak
+      if [[ "$INSTALL_MODE" == "default" ]]; then
+        log_warning "Falling back to minimal set for unsupported DE/WM."
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
-        ;;
-    *)
-        print_error "Invalid flag. Exiting."
-        exit 1
-        ;;
-esac
+        flatpak_install_function="install_flatpak_minimal_generic"
+      else
+        flatpak_install_function="install_flatpak_minimal_generic"
+      fi
+      ;;
+  esac
+}
 
-# Check for yay
-check_yay
-
-# Detect desktop environment
-detect_desktop_environment
-
-# Check for GRUB and Btrfs, and install grub-btrfs if found
-check_grub_btrfs
-
-# Remove specified programs
-remove_programs
-
-# Install specified programs via pacman
-install_pacman_programs
-
-# Install Flatpak programs
-if [[ "$installation_mode" == "default" ]]; then
-    if [ -n "$flatpak_install_function" ]; then
-        $flatpak_install_function  # Call the appropriate Flatpak installation function
+# ===== Install/Remove Functions =====
+remove_programs() {
+  step "Removing DE-specific programs"
+  if [ ${#specific_remove_programs[@]} -eq 0 ]; then
+    log_success "No specific programs to remove."
+    return
+  fi
+  for program in "${specific_remove_programs[@]}"; do
+    if is_package_installed "$program"; then
+      sudo pacman -Rns --noconfirm "$program"
+      if handle_error "Failed to remove $program."; then
+        log_success "$program removed."
+        REMOVED_PKGS+=("$program")
+      fi
     else
-        print_info "No Flatpak installation function defined for the detected desktop environment."
+      log_warning "$program not found. Skipping removal."
     fi
-else
-    if [[ "$XDG_CURRENT_DESKTOP" == "KDE" ]]; then
-        install_flatpak_minimal_kde
-    elif [[ "$XDG_CURRENT_DESKTOP" == "GNOME" ]]; then
-        install_flatpak_minimal_gnome
-    elif [[ "$XDG_CURRENT_DESKTOP" == "COSMIC" ]]; then
-        install_flatpak_minimal_cosmic
+  done
+}
+
+install_pacman_programs() {
+  step "Installing Pacman programs"
+  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}")
+  for program in "${pkgs[@]}"; do
+    if ! is_package_installed "$program"; then
+      sudo pacman -S --needed --noconfirm "$program"
+      if handle_error "Failed to install $program."; then
+        log_success "$program installed."
+        INSTALLED_PKGS+=("$program")
+      fi
+    else
+      log_warning "$program is already installed."
     fi
+  done
+}
+
+install_flatpak_programs_kde() {
+  step "Installing Flatpak programs for KDE"
+  local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_programs_gnome() {
+  step "Installing Flatpak programs for GNOME"
+  local flatpaks=(com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_programs_cosmic() {
+  step "Installing Flatpak programs for Cosmic"
+  local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+
+install_flatpak_minimal_kde() {
+  step "Installing minimal Flatpak programs for KDE"
+  local flatpaks=(it.mijorus.gearlever)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_gnome() {
+  step "Installing minimal Flatpak programs for GNOME"
+  local flatpaks=(com.mattjakeman.ExtensionManager it.mijorus.gearlever)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_cosmic() {
+  step "Installing minimal Flatpak programs for Cosmic"
+  local flatpaks=(it.mijorus.gearlever dev.edfloreshz.CosmicTweaks)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_generic() {
+  step "Installing minimal Flatpak programs (generic DE/WM)"
+  local flatpaks=(it.mijorus.gearlever)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg"
+    if handle_error "Failed to install Flatpak $pkg."; then
+      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+
+install_aur_packages() {
+  step "Installing AUR packages"
+  for pkg in "${yay_programs[@]}"; do
+    if ! is_package_installed "$pkg"; then
+      yay -S --noconfirm "$pkg"
+      if handle_error "Failed to install AUR $pkg."; then
+        log_success "$pkg (AUR) installed."
+        INSTALLED_PKGS+=("$pkg (AUR)")
+      fi
+    else
+      log_warning "$pkg is already installed."
+    fi
+  done
+}
+
+install_amd_drivers() {
+  step "Checking for AMD GPU (and drivers)"
+  if lspci | grep -i "amd" &>/dev/null; then
+    log_success "AMD GPU detected. Installing drivers..."
+    local amd_drivers=(xf86-video-amdgpu mesa vulkan-radeon lib32-vulkan-radeon vulkan-icd-loader lib32-mesa)
+    for pkg in "${amd_drivers[@]}"; do
+      if ! is_package_installed "$pkg"; then
+        sudo pacman -S --needed --noconfirm "$pkg"
+        if handle_error "Failed to install $pkg."; then
+          log_success "$pkg (AMD driver) installed."
+          INSTALLED_PKGS+=("$pkg (driver)")
+        fi
+      else
+        log_warning "$pkg is already installed."
+      fi
+    done
+  else
+    log_warning "No AMD GPU found. Skipping AMD drivers."
+  fi
+}
+
+# ===== Summary =====
+print_summary() {
+  echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
+  if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
+    echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PKGS[*]}"
+  else
+    echo -e "${YELLOW}No new packages were installed.${RESET}"
+  fi
+  if [ ${#REMOVED_PKGS[@]} -gt 0 ]; then
+    echo -e "${RED}Removed:${RESET} ${REMOVED_PKGS[*]}"
+  else
+    echo -e "${GREEN}No packages were removed.${RESET}"
+  fi
+  if [ ${#ERRORS[@]} -gt 0 ]; then
+    echo -e "${RED}Errors:${RESET}"
+    for err in "${ERRORS[@]}"; do
+      echo -e "  - ${YELLOW}$err${RESET}"
+    done
+  else
+    echo -e "${GREEN}All steps completed successfully!${RESET}"
+  fi
+  echo -e "${CYAN}===============================${RESET}"
+}
+
+# ===== Main Run Function =====
+run() {
+  show_menu
+
+  # Set program arrays based on mode
+  case "$INSTALL_MODE" in
+    default)
+      pacman_programs=("${pacman_programs_default[@]}")
+      essential_programs=("${essential_programs_default[@]}")
+      yay_programs=()
+      read -p "Install AUR packages? (y/n, default y): " install_yay
+      install_yay=${install_yay:-y}
+      if [[ "$install_yay" =~ ^[Yy]$ ]]; then
+        yay_programs=("${yay_programs_default[@]}")
+      fi
+      ;;
+    minimal)
+      pacman_programs=("${pacman_programs_minimal[@]}")
+      essential_programs=("${essential_programs_minimal[@]}")
+      yay_programs=()
+      ;;
+  esac
+
+  check_yay
+  detect_desktop_environment
+  remove_programs
+  install_pacman_programs
+
+  # Flatpak handling
+  if [[ "$INSTALL_MODE" == "default" ]]; then
+    if [ -n "$flatpak_install_function" ]; then
+      $flatpak_install_function
+    else
+      log_warning "No Flatpak install function for your DE."
+    fi
+  else
+    case "$XDG_CURRENT_DESKTOP" in
+      KDE) install_flatpak_minimal_kde ;;
+      GNOME) install_flatpak_minimal_gnome ;;
+      COSMIC) install_flatpak_minimal_cosmic ;;
+      *) install_flatpak_minimal_generic ;;
+    esac
+  fi
+
+  if [ ${#yay_programs[@]} -gt 0 ]; then
+    install_aur_packages
+  fi
+
+  install_amd_drivers
+
+  print_summary
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  run
 fi
-
-# Install AUR packages
-install_aur_packages
-
-# Install all AMD drivers and Vulkan packages
-install_amd_drivers
