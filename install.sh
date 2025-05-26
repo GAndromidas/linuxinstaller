@@ -147,7 +147,7 @@ install_starship() {
   if [ -f "$HOME/.config/starship.toml" ]; then
     log_warning "starship config already exists. Skipping."
   else
-    run_step "Configuring starship prompt" bash -c 'mkdir -p "$HOME/.config" && [ -f "$CONFIGS_DIR/starship.toml" ] && cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"'
+    run_step "Configuring starship prompt" bash -c "mkdir -p \"\$HOME/.config\" && [ -f \"\$CONFIGS_DIR/starship.toml\" ] && cp \"\$CONFIGS_DIR/starship.toml\" \"\$HOME/.config/starship.toml\""
   fi
 }
 
