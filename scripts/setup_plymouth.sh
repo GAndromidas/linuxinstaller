@@ -190,7 +190,7 @@ print_success "Detected bootloader: $BOOTLOADER"
 print_status "Checking Plymouth installation..."
 if ! pacman -Qi plymouth &>/dev/null; then
     print_status "Installing Plymouth..."
-    sudo pacman -S --needed plymouth
+    sudo pacman -S --noconfirm --needed plymouth
 else
     print_success "Plymouth is already installed"
 fi

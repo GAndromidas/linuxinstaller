@@ -45,11 +45,17 @@ show_menu() {
   echo "Please select your installation mode:"
   echo "  1) Default (Full setup)"
   echo "  2) Minimal (Core utilities only)"
-  read -p "Enter your choice [1-2]: " menu_choice
-  case "$menu_choice" in
-    2) INSTALL_MODE="minimal" ;;
-    *) INSTALL_MODE="default" ;;
-  esac
+  echo "  3) Exit"
+
+  while true; do
+    read -p "Enter your choice [1-3]: " menu_choice
+    case "$menu_choice" in
+      1) INSTALL_MODE="default"; break ;;
+      2) INSTALL_MODE="minimal"; break ;;
+      3) echo -e "${CYAN}Exiting the installer. Goodbye!${RESET}"; exit 0 ;;
+      *) echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}" ;;
+    esac
+  done
   echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
@@ -82,9 +88,15 @@ run_step() {
   local description="$1"
   shift
   step "$description"
-  "$@" > /dev/null 2>&1 &
-  spinner
-  local status=${PIPESTATUS[0]}
+  # If the command includes sudo, do NOT use spinner or backgrounding
+  if [[ "$*" == *"sudo "* ]]; then
+    "$@"
+  else
+    "$@" &
+    spinner
+    wait $!
+  fi
+  local status=$?
   if [ $status -eq 0 ]; then
     log_success "$description"
     # Track installed/removed for summary
@@ -142,17 +154,22 @@ generate_locales() {
 }
 
 run_custom_scripts() {
-  if [ -x "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
+  echo "SCRIPTS_DIR: $SCRIPTS_DIR"
+  ls -l "$SCRIPTS_DIR"
+  if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
     run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
   fi
-  if [ -x "$SCRIPTS_DIR/programs.sh" ]; then
+  if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/programs.sh"
     if [[ "$INSTALL_MODE" == "minimal" ]]; then
       run_step "Installing minimal user programs" "$SCRIPTS_DIR/programs.sh" -m
     else
       run_step "Installing default user programs" "$SCRIPTS_DIR/programs.sh" -d
     fi
   fi
-  if [ -x "$SCRIPTS_DIR/fail2ban.sh" ]; then
+  if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/fail2ban.sh"
     run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
   fi
 }
@@ -183,13 +200,31 @@ detect_and_install_gpu_drivers() {
   echo -e "${CYAN}Detecting GPU and installing appropriate drivers...${RESET}"
   GPU_INFO=$(lspci | grep -E "VGA|3D")
   if echo "$GPU_INFO" | grep -qi nvidia; then
-    if echo "$GPU_INFO" | grep -Eqi 'GT 5[0-9][0-9]M|Fermi|540M'; then
-      run_step "Installing NVIDIA 390xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-390xx-dkms nvidia-390xx-utils lib32-nvidia-390xx-utils
-    else
-      run_step "Installing NVIDIA DKMS driver (for multi-kernel)" sudo pacman -S --noconfirm nvidia-dkms nvidia-utils
-      # Uncomment if you want 32-bit support for steam/wine:
-      # run_step "Installing 32-bit NVIDIA utils" sudo pacman -S --noconfirm lib32-nvidia-utils
-    fi
+    echo -e "${YELLOW}NVIDIA GPU detected!${RESET}"
+    echo "Choose a driver to install:"
+    echo "  1) Latest proprietary (nvidia-dkms)"
+    echo "  2) Legacy 390xx (AUR, very old cards)"
+    echo "  3) Legacy 340xx (AUR, ancient cards)"
+    echo "  4) Open-source Nouveau (recommended for unsupported/old cards)"
+    echo "  5) Skip GPU driver installation"
+    read -p "Enter your choice [1-5, default 4]: " nvidia_choice
+    case "$nvidia_choice" in
+      1)
+        run_step "Installing NVIDIA DKMS driver" sudo pacman -S --noconfirm nvidia-dkms nvidia-utils
+        ;;
+      2)
+        run_step "Installing NVIDIA 390xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-390xx-dkms nvidia-390xx-utils lib32-nvidia-390xx-utils
+        ;;
+      3)
+        run_step "Installing NVIDIA 340xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-340xx-dkms nvidia-340xx-utils lib32-nvidia-340xx-utils
+        ;;
+      5)
+        echo -e "${YELLOW}Skipping NVIDIA driver installation.${RESET}"
+        ;;
+      ""|4|*)
+        run_step "Installing open-source Nouveau driver for NVIDIA" sudo pacman -S --noconfirm xf86-video-nouveau mesa
+        ;;
+    esac
   elif echo "$GPU_INFO" | grep -qi amd; then
     run_step "Installing AMDGPU drivers" sudo pacman -S --noconfirm xf86-video-amdgpu mesa
   elif echo "$GPU_INFO" | grep -qi intel; then
@@ -261,29 +296,46 @@ prompt_reboot() {
   echo
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
   echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}"
-  read -p "$(echo -e "${CYAN}Reboot now? (Y/n): ${RESET}")" reboot_ans
-  reboot_ans=${reboot_ans,,}
-  if [[ -z "$reboot_ans" || "$reboot_ans" == "y" ]]; then
-    echo -e "${CYAN}Rebooting...${RESET}"
-    sudo reboot
-  else
-    echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}"
-  fi
+  while true; do
+    read -rp "$(echo -e "${CYAN}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+    reboot_ans=${reboot_ans,,}  # lowercase
+    case "$reboot_ans" in
+      ""|y|yes)
+        echo -e "${CYAN}Rebooting...${RESET}"
+        sudo reboot
+        break
+        ;;
+      n|no)
+        echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}"
+        break
+        ;;
+      *)
+        echo -e "${RED}Please answer Y (yes) or N (no).${RESET}"
+        ;;
+    esac
+  done
 }
 
 # ========== Main Script Logic ==========
 
 main() {
-  # Sudo keepalive
+  clear
+  arch_ascii
+  show_menu
+
+  # Prompt for sudo password up front in a clear way
+  echo -e "${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
   sudo -v
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Incorrect password or sudo privileges required. Exiting.${RESET}"
+    exit 1
+  fi
+
+  # Keep sudo alive in background
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
   # Log to file as well
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
-
-  clear
-  arch_ascii
-  show_menu
 
   install_helper_utils
   configure_pacman
