@@ -54,7 +54,7 @@ show_menu() {
 }
 
 step() {
-  echo -e "\n${CYAN}[$CURRENT_STEP/$TOTAL_STEPS] $1${RESET}"
+  echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
   ((CURRENT_STEP++))
 }
 
@@ -105,13 +105,10 @@ configure_pacman() {
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
   run_step "Enabling multilib repo" bash -c '
     if grep -q "^\[multilib\]" /etc/pacman.conf; then
-      # Already enabled, do nothing
       exit 0
     elif grep -q "^#\[multilib\]" /etc/pacman.conf; then
-      # Uncomment both [multilib] and the next line (Include)
       sudo sed -i "/^#\\[multilib\\]/,/^#Include/s/^#//" /etc/pacman.conf
     else
-      # Not present at all, add at end
       echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
     fi
   '
@@ -122,19 +119,10 @@ update_mirrors_and_system() {
   run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
-install_yay() {
-  if ! command -v yay >/dev/null; then
-    run_step "Installing yay (AUR helper)" bash -c 'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm && cd .. && rm -rf yay'
-    INSTALLED_PACKAGES+=(yay)
-  else
-    log_warning "yay is already installed. Skipping."
-  fi
-}
-
 setup_zsh() {
   if ! command -v zsh >/dev/null; then
     run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
-    INSTALLED_PACKAGES+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
+    INSTALLED_PACKAGES+=("zsh" "zsh-autosuggestions" "zsh-syntax-highlighting")
   else
     log_warning "zsh is already installed. Skipping."
   fi
@@ -150,22 +138,22 @@ setup_zsh() {
 }
 
 install_starship() {
-    if ! command -v starship >/dev/null; then
-        run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
-    else
-        log_warning "starship is already installed. Skipping installation."
-    fi
+  if ! command -v starship >/dev/null; then
+    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
+  else
+    log_warning "starship is already installed. Skipping installation."
+  fi
 
-    mkdir -p "$HOME/.config"
+  mkdir -p "$HOME/.config"
 
-    if [ -f "$HOME/.config/starship.toml" ]; then
-        log_warning "starship.toml already exists in $HOME/.config/, skipping move."
-    elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
-        mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
-        log_success "starship.toml moved to $HOME/.config/"
-    else
-        log_warning "starship.toml not found in $CONFIGS_DIR/"
-    fi
+  if [ -f "$HOME/.config/starship.toml" ]; then
+    log_warning "starship.toml already exists in $HOME/.config/, skipping move."
+  elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
+    mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
+    log_success "starship.toml moved to $HOME/.config/"
+  else
+    log_warning "starship.toml not found in $CONFIGS_DIR/"
+  fi
 }
 
 generate_locales() {
@@ -173,12 +161,17 @@ generate_locales() {
 }
 
 run_custom_scripts() {
-  echo "SCRIPTS_DIR: $SCRIPTS_DIR"
-  ls -l "$SCRIPTS_DIR"
   if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
     chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
     run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
   fi
+
+  # --- PROGRAMS: install yay first, then programs.sh ---
+  if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/install_yay.sh"
+    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/install_yay.sh"
+  fi
+
   if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
     chmod +x "$SCRIPTS_DIR/programs.sh"
     if [[ "$INSTALL_MODE" == "minimal" ]]; then
@@ -187,6 +180,7 @@ run_custom_scripts() {
       run_step "Installing default user programs" "$SCRIPTS_DIR/programs.sh" -d
     fi
   fi
+
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
     if command -v figlet >/dev/null; then
       figlet "Fail2ban"
@@ -300,113 +294,106 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
-# === CPU MICROCODE DETECTION AND INSTALLATION ===
-
 install_cpu_microcode() {
-    step "Detecting CPU and installing appropriate microcode"
-    local pkg=""
-    if grep -q "Intel" /proc/cpuinfo; then
-        log_success "Intel CPU detected. Installing intel-ucode."
-        pkg="intel-ucode"
-    elif grep -q "AMD" /proc/cpuinfo; then
-        log_success "AMD CPU detected. Installing amd-ucode."
-        pkg="amd-ucode"
-    else
-        log_warning "Unable to determine CPU type. No microcode package will be installed."
-    fi
+  step "Detecting CPU and installing appropriate microcode"
+  local pkg=""
+  if grep -q "Intel" /proc/cpuinfo; then
+    log_success "Intel CPU detected. Installing intel-ucode."
+    pkg="intel-ucode"
+  elif grep -q "AMD" /proc/cpuinfo; then
+    log_success "AMD CPU detected. Installing amd-ucode."
+    pkg="amd-ucode"
+  else
+    log_warning "Unable to determine CPU type. No microcode package will be installed."
+  fi
 
-    if [ -n "$pkg" ]; then
-        if pacman -Q "$pkg" &>/dev/null; then
-            log_warning "$pkg is already installed. Skipping."
-        else
-            if sudo pacman -S --needed --noconfirm "$pkg"; then
-                log_success "$pkg installed successfully."
-                INSTALLED_PACKAGES+=("$pkg")
-            else
-                log_error "Failed to install $pkg."
-            fi
-        fi
+  if [ -n "$pkg" ]; then
+    if pacman -Q "$pkg" &>/dev/null; then
+      log_warning "$pkg is already installed. Skipping."
+    else
+      if sudo pacman -S --needed --noconfirm "$pkg"; then
+        log_success "$pkg installed successfully."
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        log_error "Failed to install $pkg."
+      fi
     fi
+  fi
 }
 
-# === KERNEL HEADER FUNCTIONS ===
-
 get_installed_kernel_types() {
-    local kernel_types=()
-    pacman -Q linux &>/dev/null && kernel_types+=("linux")
-    pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-    pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-    pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-    echo "${kernel_types[@]}"
+  local kernel_types=()
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
 }
 
 install_kernel_headers_for_all() {
-    step "Installing kernel headers for all installed kernels"
-    local kernel_types
-    kernel_types=($(get_installed_kernel_types))
-    if [ ${#kernel_types[@]} -eq 0 ]; then
-        log_warning "No supported kernel types detected. Please check your system configuration."
-        return
+  step "Installing kernel headers for all installed kernels"
+  local kernel_types
+  kernel_types=($(get_installed_kernel_types))
+  if [ ${#kernel_types[@]} -eq 0 ]; then
+    log_warning "No supported kernel types detected. Please check your system configuration."
+    return
+  fi
+  for kernel in "${kernel_types[@]}"; do
+    local headers_package="${kernel}-headers"
+    if sudo pacman -S --needed --noconfirm "$headers_package"; then
+      log_success "$headers_package installed successfully."
+      INSTALLED_PACKAGES+=("$headers_package")
+    else
+      log_error "Error: Failed to install $headers_package."
     fi
-    for kernel in "${kernel_types[@]}"; do
-        local headers_package="${kernel}-headers"
-        if sudo pacman -S --needed --noconfirm "$headers_package"; then
-            log_success "$headers_package installed successfully."
-            INSTALLED_PACKAGES+=("$headers_package")
-        else
-            log_error "Error: Failed to install $headers_package."
-        fi
-    done
+  done
 }
 
-# === SYSTEMD-BOOT FUNCTIONS ===
-
 make_systemd_boot_silent() {
-    step "Making Systemd-Boot silent for all installed kernels"
-    local ENTRIES_DIR="/boot/loader/entries"
-    local kernel_types
-    kernel_types=($(get_installed_kernel_types))
-    for kernel in "${kernel_types[@]}"; do
-        local linux_entry
-        linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
-        if [ -z "$linux_entry" ]; then
-            log_warning "Linux entry not found for kernel: $kernel"
-            continue
-        fi
-        # No backup: -i only, no extension!
-        if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
-            log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
-        else
-            log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
-        fi
-    done
+  step "Making Systemd-Boot silent for all installed kernels"
+  local ENTRIES_DIR="/boot/loader/entries"
+  local kernel_types
+  kernel_types=($(get_installed_kernel_types))
+  for kernel in "${kernel_types[@]}"; do
+    local linux_entry
+    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
+    if [ -z "$linux_entry" ]; then
+      log_warning "Linux entry not found for kernel: $kernel"
+      continue
+    fi
+    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
+      log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    else
+      log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
+    fi
+  done
 }
 
 change_loader_conf() {
-    step "Changing loader.conf"
-    local LOADER_CONF="/boot/loader/loader.conf"
-    if [ ! -f "$LOADER_CONF" ]; then
-        log_warning "loader.conf not found at $LOADER_CONF"
-        return
-    fi
-    sudo sed -i '1{/^default @saved/!i default @saved}' "$LOADER_CONF"
-    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
-    sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
-    log_success "Loader configuration updated."
+  step "Changing loader.conf"
+  local LOADER_CONF="/boot/loader/loader.conf"
+  if [ ! -f "$LOADER_CONF" ]; then
+    log_warning "loader.conf not found at $LOADER_CONF"
+    return
+  fi
+  sudo sed -i '1{/^default @saved/!i default @saved}' "$LOADER_CONF"
+  sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
+  sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
+  log_success "Loader configuration updated."
 }
 
 remove_fallback_entries() {
-    step "Removing fallback entries from systemd-boot"
-    local ENTRIES_DIR="/boot/loader/entries"
-    local entries_removed=0
-    for entry in "$ENTRIES_DIR"/*fallback.conf; do
-        [ -f "$entry" ] || continue
-        if sudo rm "$entry"; then
-            log_success "Removed fallback entry: $(basename "$entry")"
-            entries_removed=1
-        fi
-    done
-    [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
+  step "Removing fallback entries from systemd-boot"
+  local ENTRIES_DIR="/boot/loader/entries"
+  local entries_removed=0
+  for entry in "$ENTRIES_DIR"/*fallback.conf; do
+    [ -f "$entry" ] || continue
+    if sudo rm "$entry"; then
+      log_success "Removed fallback entry: $(basename "$entry")"
+      entries_removed=1
+    fi
+  done
+  [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
 }
 
 setup_maintenance() {
@@ -508,18 +495,21 @@ main() {
     exit 1
   fi
 
+  # Keep sudo alive while the script runs
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
+  # Log output to file
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
   install_helper_utils
   configure_pacman
   update_mirrors_and_system
-  install_yay
+
   setup_zsh
   install_starship
   generate_locales
   run_custom_scripts
+
   setup_fastfetch_config
   setup_firewall_and_services
   set_sudo_pwfeedback
