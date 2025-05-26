@@ -214,9 +214,30 @@ setup_fastfetch_config() {
 setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
-  for service in bluetooth cronie ufw fstrim.timer sshd; do
-    run_step "Enabling $service" sudo systemctl enable --now "$service"
+  # Extended services list with more system services
+  local services=(
+    "bluetooth"
+    "cronie"
+    "ufw"
+    "fstrim.timer"
+    "paccache.timer"
+    "reflector.service"
+    "reflector.timer"
+    "sshd"
+    "teamviewerd.service"
+    "power-profiles-daemon.service"
+  )
+  for service in "${services[@]}"; do
+    if systemctl list-unit-files | grep -q "^$service"; then
+      run_step "Enabling $service" sudo systemctl enable --now "$service"
+    else
+      log_warning "$service is not installed."
+    fi
   done
+}
+
+set_sudo_pwfeedback() {
+  run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
 }
 
 cleanup_helpers() {
@@ -263,7 +284,11 @@ detect_and_install_gpu_drivers() {
 }
 
 setup_maintenance() {
-  run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
+  if command -v paccache >/dev/null; then
+    run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
+  else
+    log_warning "paccache not found. Skipping paccache cache cleaning."
+  fi
   run_step "Removing orphaned packages" bash -c 'orphans=$(pacman -Qtdq); if [[ -n "$orphans" ]]; then sudo pacman -Rns --noconfirm $orphans; fi'
   run_step "System update" sudo pacman -Syu --noconfirm
   if command -v yay >/dev/null; then
@@ -371,6 +396,7 @@ main() {
   run_custom_scripts
   setup_fastfetch_config
   setup_firewall_and_services
+  set_sudo_pwfeedback
   cleanup_helpers
   detect_and_install_gpu_drivers
   setup_maintenance
