@@ -16,7 +16,7 @@
 
 ## 🚀 Overview
 
-**archinstaller** is a user-friendly and highly customizable post-install script for Arch Linux. It automates essential system configuration, package installation, and desktop setup, allowing you to get started with a polished Arch system in minutes.
+**archinstaller** is a user-friendly and highly customizable post-install script for Arch Linux. It automates essential system configuration, package installation, and desktop setup, allowing you to get a fully working system in minutes. 
 
 ---
 
@@ -36,20 +36,26 @@
 
 ## ✨ Features
 
-- Automated installation and configuration of kernel headers (based on installed kernel).
-- Bootloader setup: systemd-boot or GRUB.
-- Enhanced Pacman (color, parallel downloads).
-- System and mirrorlist updates.
-- ZSH + Oh-My-ZSH + Starship prompt + plugins.
-- Locale and timezone configuration.
-- YAY (AUR helper) installation.
-- Optional installation of popular programs (user-selected).
-- Essential services enabled (networking, firewall, etc).
-- Firewall setup (firewalld or ufw).
-- Optional: Fail2ban.
-- Cleans up unused packages and cache.
-- Guided menu-based UI for installation options.
-- Optional reboot after installation.
+- **Step-wise, color-coded, and robust scripts for system and user program setup**
+- Installs kernel headers for all installed kernels (linux, lts, zen, hardened)
+- Bootloader tweaks (systemd-boot)
+- Enhanced Pacman configuration (color, parallel downloads, ILoveCandy)
+- Mirrorlist ranking via reflector
+- ZSH + Oh-My-ZSH + Starship prompt + plugins
+- Locales and timezone configuration
+- **YAY (AUR helper) installed via its own standalone script** (`scripts/install_yay.sh`)
+- User program installation is handled by `programs.sh`, **now fully flag-driven**:  
+  - No interactive menu in `programs.sh`—mode is set from the top-level `install.sh`
+  - `-d` for Default, `-m` for Minimal
+  - Desktop environment detection; minimal set fallback for unknown DE/WM
+- AUR and Flatpak program installation, with improved error handling and summary
+- Optional: Fail2ban and Plymouth each have their own robust scripts in `scripts/`
+- Firewall setup (ufw)
+- Service enablement (Bluetooth, cron, ufw, fstrim, etc)
+- System maintenance: cache cleaning, orphans removal, SSD trim
+- Guided menu-based UI for install mode in `install.sh` only
+- Optional reboot after installation
+- **All major sub-scripts (`fail2ban.sh`, `setup_plymouth.sh`, etc) use the same color-coded, step-wise logic as the main installer**
 
 ---
 
@@ -61,10 +67,10 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Follow the interactive prompts to select:
+Follow the interactive prompts in `install.sh` to select:
 
-- Default Installation
-- Minimal Installation
+- Default Installation (full-featured, recommended)
+- Minimal Installation (core utilities only)
 - Exit
 
 ---
@@ -72,28 +78,33 @@ Follow the interactive prompts to select:
 ## 📒 Usage Details
 
 - Run as root or with sudo privileges.
-- The script will guide you through menu-driven choices for software and configuration.
-- Supports both minimal and full-featured setups.
-- Designed to be idempotent – safe to run multiple times.
+- `install.sh` guides you through all high-level choices.
+- User program installation mode (Default/Minimal) is only chosen in `install.sh` and passed as a flag to `programs.sh`. No duplicate prompts.
+- All sub-scripts (`programs.sh`, `fail2ban.sh`, `setup_plymouth.sh`, etc) are modular and use robust output and logging, matching the main installer.
+- Designed to be idempotent—safe to run multiple times.
 
 ---
 
 ## 🛠️ Script Details
 
-### Key Variables
+### Structure
 
-- `KERNEL_HEADERS`: Default Linux headers.
-- Various directory path variables (`LOADER_DIR`, `ENTRIES_DIR`, etc).
-- Color codes for enhanced terminal output.
+- **install.sh**: Main orchestrator. Handles all sudo, system prep, user interaction, and delegates to sub-scripts.
+- **scripts/install_yay.sh**: Installs yay AUR helper independently (modular, no password reprompt).
+- **scripts/programs.sh**: Handles user-level and DE-specific program installation. Accepts `-d` (Default) or `-m` (Minimal) flag only—no internal menu. Handles Flatpak, Pacman, and AUR.
+- **scripts/fail2ban.sh**: Full step-wise install/configure with robust output.
+- **scripts/setup_plymouth.sh**: Step-wise Plymouth install and configuration.
+- **configs/**: Contains sample configs for shell, starship prompt, fastfetch, etc.
 
-### Main Functions
+### Main Logic
 
-- `print_info`, `print_success`, `print_warning`, `print_error`: Informative colored output.
-- `show_menu`: Main navigation.
-- `install_kernel_headers`, `install_zsh`, `install_yay`, etc: Core install routines.
-- `configure_pacman`, `update_mirrorlist`, `enable_services`, etc: System configuration steps.
-- `install_and_configure_fail2ban`, `install_and_configure_virt_manager`: Optional extras.
-- `clear_unused_packages_cache`, `delete_archinstaller_folder`, `reboot_system`: Maintenance and finish.
+- Colored, step-wise logging for all scripts.
+- Sudo session is kept alive throughout install.
+- All critical actions (install, enable, configure) are modular functions.
+- Error handling and summary at the end for every script.
+- Programs and services are only installed/enabled if not already present.
+- Automatic fallback to minimal set for unknown DE/WM in `programs.sh` if Default is chosen.
+- All script flags and menus are at the top-level (`install.sh`).
 
 ---
 
@@ -106,7 +117,10 @@ Follow the interactive prompts to select:
 **A:** Check the error output in the terminal, and review the script logs if enabled.
 
 **Q:** Can I customize what gets installed?  
-**A:** Yes, the menu allows you to choose between installation sets, and you can further edit `install.sh` for more control.
+**A:** Yes, the menu allows you to choose between installation sets, and you can further edit `install.sh` and `programs.sh` for more control.
+
+**Q:** Does the user program installer (`programs.sh`) prompt me for install mode?  
+**A:** No, you choose Default or Minimal in `install.sh` only. `programs.sh` receives the mode as a flag (`-d` or `-m`).
 
 ---
 
