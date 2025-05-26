@@ -182,8 +182,24 @@ run_custom_scripts() {
     fi
   fi
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/fail2ban.sh"
-    run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
+    while true; do
+      read -rp "$(echo -e "${CYAN}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
+      fail2ban_ans=${fail2ban_ans,,}
+      case "$fail2ban_ans" in
+        ""|y|yes)
+          chmod +x "$SCRIPTS_DIR/fail2ban.sh"
+          run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
+          break
+          ;;
+        n|no)
+          log_warning "Skipped Fail2ban installation."
+          break
+          ;;
+        *)
+          echo -e "${RED}Please answer Y (yes) or N (no).${RESET}"
+          ;;
+      esac
+    done
   fi
 }
 
@@ -317,6 +333,11 @@ print_summary() {
 
 prompt_reboot() {
   echo
+  if command -v figlet >/dev/null; then
+    figlet "Reboot System"
+  else
+    echo -e "${CYAN}========== Reboot System ==========${RESET}"
+  fi
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
   echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}"
   while true; do
