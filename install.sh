@@ -10,7 +10,7 @@ RESET='\033[0m'
 # Step tracking
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=26  # Adjust as needed
+TOTAL_STEPS=26  # Adjust if you add/remove steps
 
 # Summary arrays
 INSTALLED_PACKAGES=()
@@ -258,10 +258,15 @@ cleanup_and_optimize() {
   # 3. Optionally clear shell/user history
   # run_step "Clearing user shell history" bash -c "cat /dev/null > ~/.bash_history; history -c"
 
-  # 4. Remove installer directory
+  # 4. Conditionally remove installer directory only if there are no errors
   if [[ -d "$SCRIPT_DIR" ]]; then
-    cd ~
-    run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
+    if [ ${#ERRORS[@]} -eq 0 ]; then
+      cd ~
+      run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
+    else
+      echo -e "${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted."
+      echo -e "Please review $SCRIPT_DIR/install.log for troubleshooting.${RESET}"
+    fi
   fi
 
   # 5. Sync disks before reboot
