@@ -7,25 +7,20 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-# Step tracking
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=26  # Adjust if you add/remove steps
+TOTAL_STEPS=26
 
-# Summary arrays
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
 
-# Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
-# Helper utilities
 HELPER_UTILS=(figlet fastfetch fzf reflector rsync git curl base-devel zoxide eza)
 REMOVE_AFTER_INSTALL=(figlet)
 
-# ========== ASCII Art ==========
 arch_ascii() {
   echo -e "${CYAN}"
   cat << "EOF"
@@ -39,7 +34,6 @@ EOF
   echo -e "${RESET}"
 }
 
-# ========== Menu ==========
 show_menu() {
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
@@ -59,8 +53,6 @@ show_menu() {
   echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
-# ========== Utility Functions ==========
-
 step() {
   echo -e "${CYAN}[$CURRENT_STEP/$TOTAL_STEPS] $1${RESET}"
   ((CURRENT_STEP++))
@@ -78,7 +70,6 @@ run_step() {
   local status=$?
   if [ $status -eq 0 ]; then
     log_success "$description"
-    # Track installed/removed for summary
     if [[ "$description" == "Installing helper utilities" ]]; then
       INSTALLED_PACKAGES+=("${HELPER_UTILS[@]}")
     elif [[ "$description" == "Installing UFW firewall" ]]; then
@@ -93,8 +84,6 @@ run_step() {
     log_error "$description"
   fi
 }
-
-# ========== Modular Setup Functions ==========
 
 install_helper_utils() {
   local to_install=()
@@ -275,24 +264,16 @@ setup_maintenance() {
   if command -v yay >/dev/null; then
     run_step "AUR update (yay)" yay -Syu --noconfirm
   fi
-  # Optionally, add systemd timer for routine maintenance here
 }
 
 cleanup_and_optimize() {
   echo -e "${CYAN}Performing final cleanup and optimizations...${RESET}"
 
-  # 1. SSD Optimization
   if lsblk -d -o rota | grep -q '^0$'; then
     run_step "Running fstrim on SSDs" sudo fstrim -v /
   fi
-
-  # 2. Remove temp files
   run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
 
-  # 3. Optionally clear shell/user history
-  # run_step "Clearing user shell history" bash -c "cat /dev/null > ~/.bash_history; history -c"
-
-  # 4. Conditionally remove installer directory only if there are no errors
   if [[ -d "$SCRIPT_DIR" ]]; then
     if [ ${#ERRORS[@]} -eq 0 ]; then
       cd ~
@@ -303,7 +284,6 @@ cleanup_and_optimize() {
     fi
   fi
 
-  # 5. Sync disks before reboot
   run_step "Syncing disk writes" sync
 }
 
@@ -342,7 +322,7 @@ prompt_reboot() {
   echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}"
   while true; do
     read -rp "$(echo -e "${CYAN}Reboot now? [Y/n]: ${RESET}")" reboot_ans
-    reboot_ans=${reboot_ans,,}  # lowercase
+    reboot_ans=${reboot_ans,,}
     case "$reboot_ans" in
       ""|y|yes)
         echo -e "${CYAN}Rebooting...${RESET}"
@@ -360,14 +340,11 @@ prompt_reboot() {
   done
 }
 
-# ========== Main Script Logic ==========
-
 main() {
   clear
   arch_ascii
   show_menu
 
-  # Prompt for sudo password up front in a clear way
   echo -e "${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
   sudo -v
   if [ $? -ne 0 ]; then
@@ -375,10 +352,8 @@ main() {
     exit 1
   fi
 
-  # Keep sudo alive in background
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-  # Log to file as well
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
   install_helper_utils
