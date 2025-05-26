@@ -61,20 +61,6 @@ show_menu() {
 
 # ========== Utility Functions ==========
 
-spinner() {
-  local pid=$!
-  local spinstr='|/-\'
-  local delay=0.09
-  while ps -p $pid &>/dev/null; do
-    local temp=${spinstr#?}
-    printf " [%c]  " "$spinstr"
-    spinstr=$temp${spinstr%"$temp"}
-    sleep $delay
-    printf "\b\b\b\b\b\b"
-  done
-  printf "      \b\b\b\b\b\b"
-}
-
 step() {
   echo -e "${CYAN}[$CURRENT_STEP/$TOTAL_STEPS] $1${RESET}"
   ((CURRENT_STEP++))
@@ -88,14 +74,7 @@ run_step() {
   local description="$1"
   shift
   step "$description"
-  # If the command includes sudo, yay, or makepkg, do NOT use spinner or backgrounding
-  if [[ "$*" == *"sudo "* || "$*" == *"yay "* || "$*" == *"makepkg "* ]]; then
-    "$@"
-  else
-    "$@" &
-    spinner
-    wait $!
-  fi
+  "$@"
   local status=$?
   if [ $status -eq 0 ]; then
     log_success "$description"
@@ -118,7 +97,18 @@ run_step() {
 # ========== Modular Setup Functions ==========
 
 install_helper_utils() {
-  run_step "Installing helper utilities" sudo pacman -S --needed --noconfirm "${HELPER_UTILS[@]}"
+  local to_install=()
+  for util in "${HELPER_UTILS[@]}"; do
+    if ! command -v "$util" >/dev/null; then
+      to_install+=("$util")
+    else
+      log_warning "$util is already installed. Skipping."
+    fi
+  done
+  if [ ${#to_install[@]} -gt 0 ]; then
+    run_step "Installing helper utilities" sudo pacman -S --needed --noconfirm "${to_install[@]}"
+    INSTALLED_PACKAGES+=("${to_install[@]}")
+  fi
 }
 
 configure_pacman() {
@@ -132,12 +122,26 @@ update_mirrors_and_system() {
 }
 
 install_yay() {
-  run_step "Installing yay (AUR helper)" bash -c 'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm && cd .. && rm -rf yay'
+  if ! command -v yay >/dev/null; then
+    run_step "Installing yay (AUR helper)" bash -c 'cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm && cd .. && rm -rf yay'
+    INSTALLED_PACKAGES+=(yay)
+  else
+    log_warning "yay is already installed. Skipping."
+  fi
 }
 
 setup_zsh() {
-  run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
-  run_step "Installing Oh-My-Zsh" bash -c 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+  if ! command -v zsh >/dev/null; then
+    run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
+    INSTALLED_PACKAGES+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
+  else
+    log_warning "zsh is already installed. Skipping."
+  fi
+  if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    run_step "Installing Oh-My-Zsh" bash -c 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+  else
+    log_warning "Oh-My-Zsh is already installed. Skipping."
+  fi
   run_step "Changing shell to ZSH" sudo chsh -s "$(which zsh)" "$USER"
   if [ -f "$CONFIGS_DIR/.zshrc" ]; then
     run_step "Configuring .zshrc" cp "$CONFIGS_DIR/.zshrc" "$HOME/"
@@ -145,8 +149,17 @@ setup_zsh() {
 }
 
 install_starship() {
-  run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
-  run_step "Configuring starship prompt" bash -c 'mkdir -p "$HOME/.config" && [ -f "$CONFIGS_DIR/starship.toml" ] && cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"'
+  if ! command -v starship >/dev/null; then
+    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
+    INSTALLED_PACKAGES+=(starship)
+  else
+    log_warning "starship is already installed. Skipping."
+  fi
+  if [ -f "$HOME/.config/starship.toml" ]; then
+    log_warning "starship config already exists. Skipping."
+  else
+    run_step "Configuring starship prompt" bash -c 'mkdir -p "$HOME/.config" && [ -f "$CONFIGS_DIR/starship.toml" ] && cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"'
+  fi
 }
 
 generate_locales() {
@@ -176,10 +189,15 @@ run_custom_scripts() {
 
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
-    run_step "Creating fastfetch config" bash -c '
-      fastfetch --gen-config
-      [[ -f "$CONFIGS_DIR/config.jsonc" ]] && mkdir -p "$HOME/.config/fastfetch" && cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-    '
+    if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
+      log_warning "fastfetch config already exists. Skipping generation."
+    else
+      run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
+    fi
+    if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
+      mkdir -p "$HOME/.config/fastfetch"
+      cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+    fi
   fi
 }
 
