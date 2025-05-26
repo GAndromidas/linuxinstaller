@@ -9,7 +9,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=31
+TOTAL_STEPS=32
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
@@ -300,6 +300,35 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
+# === CPU MICROCODE DETECTION AND INSTALLATION ===
+
+install_cpu_microcode() {
+    step "Detecting CPU and installing appropriate microcode"
+    local pkg=""
+    if grep -q "Intel" /proc/cpuinfo; then
+        log_success "Intel CPU detected. Installing intel-ucode."
+        pkg="intel-ucode"
+    elif grep -q "AMD" /proc/cpuinfo; then
+        log_success "AMD CPU detected. Installing amd-ucode."
+        pkg="amd-ucode"
+    else
+        log_warning "Unable to determine CPU type. No microcode package will be installed."
+    fi
+
+    if [ -n "$pkg" ]; then
+        if pacman -Q "$pkg" &>/dev/null; then
+            log_warning "$pkg is already installed. Skipping."
+        else
+            if sudo pacman -S --needed --noconfirm "$pkg"; then
+                log_success "$pkg installed successfully."
+                INSTALLED_PACKAGES+=("$pkg")
+            else
+                log_error "Failed to install $pkg."
+            fi
+        fi
+    fi
+}
+
 # === KERNEL HEADER FUNCTIONS ===
 
 get_installed_kernel_types() {
@@ -496,6 +525,7 @@ main() {
   cleanup_helpers
   detect_and_install_gpu_drivers
 
+  install_cpu_microcode
   install_kernel_headers_for_all
   make_systemd_boot_silent
   change_loader_conf
