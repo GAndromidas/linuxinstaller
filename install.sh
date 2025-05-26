@@ -19,7 +19,7 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
 HELPER_UTILS=(figlet fastfetch fzf reflector rsync git curl base-devel zoxide eza)
-REMOVE_AFTER_INSTALL=(figlet)
+REMOVE_AFTER_INSTALL=() # <--- Do not remove figlet anymore
 
 arch_ascii() {
   echo -e "${CYAN}"
@@ -220,7 +220,7 @@ setup_firewall_and_services() {
 }
 
 cleanup_helpers() {
-  run_step "Removing figlet" sudo pacman -Rns --noconfirm "${REMOVE_AFTER_INSTALL[@]}"
+  # Do not remove figlet anymore!
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
