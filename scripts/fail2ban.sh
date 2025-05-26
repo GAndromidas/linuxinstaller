@@ -1,53 +1,96 @@
 #!/bin/bash
 
-# Color functions
+# ======= Colors and Step/Log Helpers =======
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+CYAN='\033[0;36m'
+RESET='\033[0m'
 
-# Function to install Fail2ban
+CURRENT_STEP=1
+ERRORS=()
+INSTALLED=()
+ENABLED=()
+CONFIGURED=()
+
+step() {
+  echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
+  ((CURRENT_STEP++))
+}
+
+log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
+
+run_step() {
+  local description="$1"
+  shift
+  step "$description"
+  "$@"
+  local status=$?
+  if [ $status -eq 0 ]; then
+    log_success "$description"
+  else
+    log_error "$description"
+  fi
+  return $status
+}
+
+# ======= Fail2ban Setup Steps =======
+
 install_fail2ban() {
-    echo -e "${YELLOW}Installing Fail2ban...${NC}"
-    if sudo pacman -S --noconfirm fail2ban; then
-        echo -e "${GREEN}Fail2ban installed successfully.${NC}"
-    else
-        echo -e "${RED}Failed to install Fail2ban.${NC}"
-        exit 1
-    fi
+  if pacman -Q fail2ban >/dev/null 2>&1; then
+    log_warning "fail2ban is already installed. Skipping."
+    return 0
+  fi
+  sudo pacman -S --needed --noconfirm fail2ban
 }
 
-# Function to configure Fail2ban
+enable_and_start_fail2ban() {
+  sudo systemctl enable --now fail2ban
+}
+
 configure_fail2ban() {
-    echo -e "${YELLOW}Configuring Fail2ban...${NC}"
-    sudo systemctl enable fail2ban
-    sudo systemctl start fail2ban
-
-    # Configure jail.local
-    sudo bash -c 'cat > /etc/fail2ban/jail.local' << EOF
-[DEFAULT]
-ignoreip = 127.0.0.1/8
-bantime  = 600
-findtime  = 600
-maxretry = 3
-
-[sshd]
-enabled = true
-port    = ssh
-logpath = /var/log/auth.log
-backend = systemd
-EOF
-
-    sudo systemctl restart fail2ban
+  # This is a basic example. Adjust to your custom config logic as needed.
+  local jail_local="/etc/fail2ban/jail.local"
+  if [ ! -f "$jail_local" ]; then
+    sudo cp /etc/fail2ban/jail.conf "$jail_local"
+    sudo sed -i 's/^backend = auto/backend = systemd/' "$jail_local"
+    sudo sed -i 's/^bantime  = 10m/bantime = 30m/' "$jail_local"
+    sudo sed -i 's/^maxretry = 5/maxretry = 3/' "$jail_local"
+    log_success "Basic jail.local created and customized."
+    CONFIGURED+=("jail.local")
+  else
+    log_warning "jail.local already exists. Skipping creation."
+  fi
+  # You can add more configuration or jail file tweaks below as needed.
 }
 
-# Main script execution
+status_fail2ban() {
+  sudo systemctl status fail2ban --no-pager
+}
+
+print_summary() {
+  echo -e "\n${CYAN}========= FAIL2BAN SUMMARY =========${RESET}"
+  if [ ${#ERRORS[@]} -eq 0 ]; then
+    echo -e "${GREEN}Fail2ban installed and configured successfully!${RESET}"
+  else
+    echo -e "${RED}Some steps failed:${RESET}"
+    for err in "${ERRORS[@]}"; do
+      echo -e "  - ${YELLOW}$err${RESET}"
+    done
+  fi
+  echo -e "${CYAN}====================================${RESET}"
+}
+
+# ======= Main =======
 main() {
-    install_fail2ban
-    configure_fail2ban
+  run_step "Installing fail2ban" install_fail2ban
+  run_step "Enabling and starting fail2ban" enable_and_start_fail2ban
+  run_step "Configuring fail2ban (jail.local)" configure_fail2ban
+  run_step "Checking fail2ban status" status_fail2ban
 
-    echo -e "${GREEN}Fail2ban installation and configuration completed.${NC}"
+  print_summary
 }
 
-# Run the main function
-main
+main "$@"
