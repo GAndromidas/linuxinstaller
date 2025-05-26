@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
-HELPER_UTILS=(figlet fastfetch fzf reflector rsync git curl base-devel zoxide eza)
+HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
 REMOVE_AFTER_INSTALL=()
 
 arch_ascii() {
@@ -103,12 +103,18 @@ install_helper_utils() {
 configure_pacman() {
   run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
-  run_step "Enabling multilib repo" bash -c \
-    "if ! grep -q '^\[multilib\]' /etc/pacman.conf; then \
-      echo -e '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' | sudo tee -a /etc/pacman.conf >/dev/null ; \
-     elif grep -q '^#\[multilib\]' /etc/pacman.conf; then \
-      sudo sed -i '/^#\[multilib\]/,/^#Include/s/^#//' /etc/pacman.conf ; \
-     fi"
+  run_step "Enabling multilib repo" bash -c '
+    if grep -q "^\[multilib\]" /etc/pacman.conf; then
+      # Already enabled, do nothing
+      exit 0
+    elif grep -q "^#\[multilib\]" /etc/pacman.conf; then
+      # Uncomment both [multilib] and the next line (Include)
+      sudo sed -i "/^#\\[multilib\\]/,/^#Include/s/^#//" /etc/pacman.conf
+    else
+      # Not present at all, add at end
+      echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+    fi
+  '
 }
 
 update_mirrors_and_system() {
@@ -144,7 +150,6 @@ setup_zsh() {
 }
 
 install_starship() {
-    # Install starship prompt if not already installed
     if ! command -v starship >/dev/null; then
         run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
     else
@@ -153,7 +158,6 @@ install_starship() {
 
     mkdir -p "$HOME/.config"
 
-    # Only move config if it doesn't already exist
     if [ -f "$HOME/.config/starship.toml" ]; then
         log_warning "starship.toml already exists in $HOME/.config/, skipping move."
     elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
@@ -228,7 +232,6 @@ setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
 
-  # List of services (systemd units)
   local services=(
     "bluetooth"
     "cronie"
@@ -243,7 +246,6 @@ setup_firewall_and_services() {
   )
 
   for service in "${services[@]}"; do
-    # Only enable if the systemd unit file exists in standard locations
     if [ -f "/usr/lib/systemd/system/$service" ] || [ -f "/etc/systemd/system/$service" ]; then
       run_step "Enabling $service" sudo systemctl enable --now "$service"
     else
