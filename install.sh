@@ -9,7 +9,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=26
+TOTAL_STEPS=27
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
@@ -103,6 +103,12 @@ install_helper_utils() {
 configure_pacman() {
   run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
+  run_step "Enabling multilib repo" bash -c \
+    "if ! grep -q '^\[multilib\]' /etc/pacman.conf; then \
+      echo -e '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' | sudo tee -a /etc/pacman.conf >/dev/null ; \
+     elif grep -q '^#\[multilib\]' /etc/pacman.conf; then \
+      sudo sed -i '/^#\[multilib\]/,/^#Include/s/^#//' /etc/pacman.conf ; \
+     fi"
 }
 
 update_mirrors_and_system() {
@@ -138,17 +144,24 @@ setup_zsh() {
 }
 
 install_starship() {
-  if ! command -v starship >/dev/null; then
-    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
-    INSTALLED_PACKAGES+=(starship)
-  else
-    log_warning "starship is already installed. Skipping."
-  fi
-  if [ -f "$HOME/.config/starship.toml" ]; then
-    log_warning "starship config already exists. Skipping."
-  else
-    run_step "Configuring starship prompt" bash -c "mkdir -p \"\$HOME/.config\" && [ -f \"\$CONFIGS_DIR/starship.toml\" ] && cp \"\$CONFIGS_DIR/starship.toml\" \"\$HOME/.config/starship.toml\""
-  fi
+    # Install starship prompt if not already installed
+    if ! command -v starship >/dev/null; then
+        run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
+    else
+        log_warning "starship is already installed. Skipping installation."
+    fi
+
+    mkdir -p "$HOME/.config"
+
+    # Only move config if it doesn't already exist
+    if [ -f "$HOME/.config/starship.toml" ]; then
+        log_warning "starship.toml already exists in $HOME/.config/, skipping move."
+    elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
+        mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
+        log_success "starship.toml moved to $HOME/.config/"
+    else
+        log_warning "starship.toml not found in $CONFIGS_DIR/"
+    fi
 }
 
 generate_locales() {
@@ -214,7 +227,8 @@ setup_fastfetch_config() {
 setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
-  # Extended services list with more system services
+
+  # List of services (systemd units)
   local services=(
     "bluetooth"
     "cronie"
@@ -227,11 +241,13 @@ setup_firewall_and_services() {
     "teamviewerd.service"
     "power-profiles-daemon.service"
   )
+
   for service in "${services[@]}"; do
-    if systemctl list-unit-files | grep -q "^$service"; then
+    # Only enable if the systemd unit file exists in standard locations
+    if [ -f "/usr/lib/systemd/system/$service" ] || [ -f "/etc/systemd/system/$service" ]; then
       run_step "Enabling $service" sudo systemctl enable --now "$service"
     else
-      log_warning "$service is not installed."
+      log_warning "$service is not installed or not available as a systemd service. Skipping."
     fi
   done
 }
@@ -241,7 +257,6 @@ set_sudo_pwfeedback() {
 }
 
 cleanup_helpers() {
-  # Do not remove figlet anymore!
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
