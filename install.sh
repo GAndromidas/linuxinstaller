@@ -171,6 +171,11 @@ run_custom_scripts() {
     fi
   fi
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
+    if command -v figlet >/dev/null; then
+      figlet "Fail2ban"
+    else
+      echo -e "${CYAN}========== Fail2ban ==========${RESET}"
+    fi
     while true; do
       read -rp "$(echo -e "${CYAN}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
       fail2ban_ans=${fail2ban_ans,,}
