@@ -3,7 +3,7 @@
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
+YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
@@ -54,13 +54,13 @@ show_menu() {
 }
 
 step() {
-  echo -e "${CYAN}[$CURRENT_STEP/$TOTAL_STEPS] $1${RESET}"
+  echo -e "\n${CYAN}[$CURRENT_STEP/$TOTAL_STEPS] $1${RESET}"
   ((CURRENT_STEP++))
 }
 
-log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
-log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
+log_success() { echo -e "\n${GREEN}[OK] $1${RESET}\n"; }
+log_warning() { echo -e "\n${YELLOW}[WARN] $1${RESET}\n"; }
+log_error()   { echo -e "\n${RED}[FAIL] $1${RESET}\n"; ERRORS+=("$1"); }
 
 run_step() {
   local description="$1"
@@ -174,10 +174,10 @@ run_custom_scripts() {
     if command -v figlet >/dev/null; then
       figlet "Fail2ban"
     else
-      echo -e "${CYAN}========== Fail2ban ==========${RESET}"
+      echo -e "${YELLOW}========== Fail2ban ==========${RESET}"
     fi
     while true; do
-      read -rp "$(echo -e "${CYAN}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
+      read -rp "$(echo -e "${YELLOW}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
       fail2ban_ans=${fail2ban_ans,,}
       case "$fail2ban_ans" in
         ""|y|yes)
@@ -284,8 +284,8 @@ cleanup_and_optimize() {
       cd ~
       run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
     else
-      echo -e "${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted."
-      echo -e "Please review $SCRIPT_DIR/install.log for troubleshooting.${RESET}"
+      echo -e "\n${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted."
+      echo -e "Please review $SCRIPT_DIR/install.log for troubleshooting.${RESET}\n"
     fi
   fi
 
@@ -306,13 +306,13 @@ print_summary() {
   fi
   echo -e "${CYAN}===================================${RESET}"
   if [ ${#ERRORS[@]} -gt 0 ]; then
-    echo -e "\n${RED}The following steps failed:${RESET}"
+    echo -e "\n${RED}The following steps failed:${RESET}\n"
     for err in "${ERRORS[@]}"; do
-      echo -e "  - $err"
+      echo -e "${YELLOW}  - $err${RESET}"
     done
-    echo -e "${YELLOW}Check the install log for more details: ${CYAN}$SCRIPT_DIR/install.log${RESET}"
+    echo -e "\n${YELLOW}Check the install log for more details: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
   else
-    echo -e "\n${GREEN}All steps completed successfully!${RESET}"
+    echo -e "\n${GREEN}All steps completed successfully!${RESET}\n"
   fi
 }
 
@@ -321,25 +321,25 @@ prompt_reboot() {
   if command -v figlet >/dev/null; then
     figlet "Reboot System"
   else
-    echo -e "${CYAN}========== Reboot System ==========${RESET}"
+    echo -e "${YELLOW}========== Reboot System ==========${RESET}"
   fi
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
-  echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}"
+  echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
   while true; do
-    read -rp "$(echo -e "${CYAN}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+    read -rp "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
     reboot_ans=${reboot_ans,,}
     case "$reboot_ans" in
       ""|y|yes)
-        echo -e "${CYAN}Rebooting...${RESET}"
+        echo -e "\n${CYAN}Rebooting...${RESET}\n"
         sudo reboot
         break
         ;;
       n|no)
-        echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}"
+        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}\n"
         break
         ;;
       *)
-        echo -e "${RED}Please answer Y (yes) or N (no).${RESET}"
+        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
         ;;
     esac
   done
