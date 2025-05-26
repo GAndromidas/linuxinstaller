@@ -88,8 +88,8 @@ run_step() {
   local description="$1"
   shift
   step "$description"
-  # If the command includes sudo, do NOT use spinner or backgrounding
-  if [[ "$*" == *"sudo "* ]]; then
+  # If the command includes sudo, yay, or makepkg, do NOT use spinner or backgrounding
+  if [[ "$*" == *"sudo "* || "$*" == *"yay "* || "$*" == *"makepkg "* ]]; then
     "$@"
   else
     "$@" &
