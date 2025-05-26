@@ -19,7 +19,7 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
 HELPER_UTILS=(figlet fastfetch fzf reflector rsync git curl base-devel zoxide eza)
-REMOVE_AFTER_INSTALL=() # <--- Do not remove figlet anymore
+REMOVE_AFTER_INSTALL=()
 
 arch_ascii() {
   echo -e "${CYAN}"
