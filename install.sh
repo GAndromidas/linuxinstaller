@@ -373,6 +373,7 @@ make_systemd_boot_silent() {
             log_warning "Linux entry not found for kernel: $kernel"
             continue
         fi
+        # No backup: -i only, no extension!
         if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
             log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
         else
