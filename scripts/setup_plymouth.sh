@@ -10,6 +10,22 @@ RESET='\033[0m'
 CURRENT_STEP=1
 ERRORS=()
 
+show_progress_bar() {
+  local current=$1
+  local total=$2
+  local width=40
+  local percent=$(( 100 * current / total ))
+  local filled=$(( width * current / total ))
+  local empty=$(( width - filled ))
+  printf "\r["
+  for ((i=0; i<filled; i++)); do printf "#"; done
+  for ((i=0; i<empty; i++)); do printf " "; done
+  printf "] %3d%%" $percent
+  if (( current == total )); then
+    echo    # new line at 100%
+  fi
+}
+
 step() {
   echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
   ((CURRENT_STEP++))
@@ -34,7 +50,6 @@ run_step() {
 }
 
 # ======= Plymouth Setup Steps =======
-
 install_plymouth() {
   if pacman -Q plymouth >/dev/null 2>&1; then
     log_warning "Plymouth is already installed. Skipping."
@@ -97,11 +112,36 @@ print_summary() {
 
 # ======= Main =======
 main() {
+  # Print figlet banner if available
+  if command -v figlet >/dev/null; then
+    figlet "Plymouth Setup"
+  else
+    echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
+  fi
+
+  local steps_total=5
+  local step_index=1
+
+  show_progress_bar $step_index $steps_total
   run_step "Installing Plymouth" install_plymouth
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Rebuilding initramfs" rebuild_initramfs
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Setting Plymouth theme" set_plymouth_theme
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Adding 'splash' to kernel parameters" add_kernel_parameters
+
+  show_progress_bar $steps_total $steps_total
 
   print_summary
 }

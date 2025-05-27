@@ -21,6 +21,25 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
 REMOVE_AFTER_INSTALL=()
 
+show_progress_bar() {
+  local width=40
+  local filled=$(( width * (CURRENT_STEP-1) / TOTAL_STEPS ))
+  local empty=$(( width - filled ))
+  printf "${CYAN}["
+  for ((i=0; i<filled; i++)); do printf "#"; done
+  for ((i=0; i<empty; i++)); do printf " "; done
+  printf "] %3d/%d${RESET}\n" $((CURRENT_STEP-1)) "$TOTAL_STEPS"
+}
+
+figlet_banner() {
+  local title="$1"
+  if command -v figlet >/dev/null; then
+    figlet "$title"
+  else
+    echo -e "${CYAN}========== $title ==========${RESET}"
+  fi
+}
+
 arch_ascii() {
   echo -e "${CYAN}"
   cat << "EOF"
@@ -35,6 +54,7 @@ EOF
 }
 
 show_menu() {
+  figlet_banner "Arch Installer"
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
   echo "  1) Default (Full setup)"
@@ -54,6 +74,9 @@ show_menu() {
 }
 
 step() {
+  clear
+  show_progress_bar
+  figlet_banner "$1"
   echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
   ((CURRENT_STEP++))
 }
@@ -166,7 +189,6 @@ run_custom_scripts() {
     run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
   fi
 
-  # --- PROGRAMS: install yay first, then programs.sh ---
   if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
     chmod +x "$SCRIPTS_DIR/install_yay.sh"
     run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/install_yay.sh"
@@ -182,11 +204,7 @@ run_custom_scripts() {
   fi
 
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
-    if command -v figlet >/dev/null; then
-      figlet "Fail2ban"
-    else
-      echo -e "${YELLOW}========== Fail2ban ==========${RESET}"
-    fi
+    figlet_banner "Fail2ban"
     while true; do
       read -rp "$(echo -e "${YELLOW}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
       fail2ban_ans=${fail2ban_ans,,}
@@ -257,7 +275,7 @@ cleanup_helpers() {
 }
 
 detect_and_install_gpu_drivers() {
-  echo -e "${CYAN}Detecting GPU and installing appropriate drivers...${RESET}"
+  step "Detecting GPU and installing appropriate drivers"
   GPU_INFO=$(lspci | grep -E "VGA|3D")
   if echo "$GPU_INFO" | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected!${RESET}"
@@ -410,8 +428,7 @@ setup_maintenance() {
 }
 
 cleanup_and_optimize() {
-  echo -e "${CYAN}Performing final cleanup and optimizations...${RESET}"
-
+  step "Performing final cleanup and optimizations"
   if lsblk -d -o rota | grep -q '^0$'; then
     run_step "Running fstrim on SSDs" sudo fstrim -v /
   fi
@@ -431,7 +448,8 @@ cleanup_and_optimize() {
 }
 
 print_summary() {
-  echo -e "\n${CYAN}========= INSTALL SUMMARY =========${RESET}"
+  figlet_banner "Install Summary"
+  echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
   if [ ${#INSTALLED_PACKAGES[@]} -gt 0 ]; then
     echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PACKAGES[*]}"
   else
@@ -455,12 +473,7 @@ print_summary() {
 }
 
 prompt_reboot() {
-  echo
-  if command -v figlet >/dev/null; then
-    figlet "Reboot System"
-  else
-    echo -e "${YELLOW}========== Reboot System ==========${RESET}"
-  fi
+  figlet_banner "Reboot System"
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
   echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
   while true; do
@@ -495,33 +508,27 @@ main() {
     exit 1
   fi
 
-  # Keep sudo alive while the script runs
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-  # Log output to file
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
   install_helper_utils
   configure_pacman
   update_mirrors_and_system
-
   setup_zsh
   install_starship
   generate_locales
   run_custom_scripts
-
   setup_fastfetch_config
   setup_firewall_and_services
   set_sudo_pwfeedback
   cleanup_helpers
   detect_and_install_gpu_drivers
-
   install_cpu_microcode
   install_kernel_headers_for_all
   make_systemd_boot_silent
   change_loader_conf
   remove_fallback_entries
-
   setup_maintenance
   cleanup_and_optimize
   print_summary

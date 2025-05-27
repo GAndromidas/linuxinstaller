@@ -13,6 +13,22 @@ INSTALLED=()
 ENABLED=()
 CONFIGURED=()
 
+show_progress_bar() {
+  local current=$1
+  local total=$2
+  local width=40
+  local percent=$(( 100 * current / total ))
+  local filled=$(( width * current / total ))
+  local empty=$(( width - filled ))
+  printf "\r["
+  for ((i=0; i<filled; i++)); do printf "#"; done
+  for ((i=0; i<empty; i++)); do printf " "; done
+  printf "] %3d%%" $percent
+  if (( current == total )); then
+    echo    # new line at 100%
+  fi
+}
+
 step() {
   echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
   ((CURRENT_STEP++))
@@ -37,7 +53,6 @@ run_step() {
 }
 
 # ======= Fail2ban Setup Steps =======
-
 install_fail2ban() {
   if pacman -Q fail2ban >/dev/null 2>&1; then
     log_warning "fail2ban is already installed. Skipping."
@@ -85,10 +100,32 @@ print_summary() {
 
 # ======= Main =======
 main() {
+  # Print figlet banner if available
+  if command -v figlet >/dev/null; then
+    figlet "Fail2ban Setup"
+  else
+    echo -e "${CYAN}=== Fail2ban Setup ===${RESET}"
+  fi
+
+  local steps_total=4
+  local step_index=1
+
+  show_progress_bar $step_index $steps_total
   run_step "Installing fail2ban" install_fail2ban
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Enabling and starting fail2ban" enable_and_start_fail2ban
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Configuring fail2ban (jail.local)" configure_fail2ban
+  ((step_index++))
+
+  show_progress_bar $step_index $steps_total
   run_step "Checking fail2ban status" status_fail2ban
+
+  show_progress_bar $steps_total $steps_total
 
   print_summary
 }
