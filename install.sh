@@ -6,7 +6,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=32  # Change this if you add/remove steps!
+TOTAL_STEPS=32  # Adjust if you add/remove steps
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
@@ -37,7 +37,6 @@ run_step() {
   local description="$1"
   shift
   show_progress_bar
-  # All output goes to log, not screen
   { "$@"; } >>"$LOG_FILE" 2>&1
   ((CURRENT_STEP++))
 }
@@ -150,6 +149,7 @@ _run_custom_scripts() {
       "$SCRIPTS_DIR/programs.sh" -d
     fi
   fi
+  # NO PROMPT: Always install fail2ban.sh if it exists
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
     chmod +x "$SCRIPTS_DIR/fail2ban.sh"
     "$SCRIPTS_DIR/fail2ban.sh"
@@ -326,10 +326,8 @@ main() {
   arch_ascii
   show_menu
 
-  # Clear log file
   : >"$LOG_FILE"
 
-  # Sudo password prompt
   sudo -v
   if [ $? -ne 0 ]; then
     exit 1
