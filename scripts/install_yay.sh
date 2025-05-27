@@ -10,12 +10,16 @@ RESET='\033[0m'
 if command -v yay >/dev/null; then
   echo -e "${YELLOW}yay is already installed. Removing it before reinstalling.${RESET}"
   sudo pacman -Rns --noconfirm yay || true
+  # Remove any remaining yay binary in /usr/bin
+  if [ -f /usr/bin/yay ]; then
+    sudo rm -f /usr/bin/yay
+  fi
 fi
 
 # Clean up any existing yay clone in /tmp
 if [ -d /tmp/yay ]; then
   echo -e "${YELLOW}Removing existing /tmp/yay folder.${RESET}"
-  rm -rf /tmp/yay
+  sudo rm -rf /tmp/yay
 fi
 
 echo -e "${GREEN}Installing yay (AUR helper)...${RESET}"
@@ -24,7 +28,7 @@ git clone https://aur.archlinux.org/yay.git
 cd yay
 makepkg -si --noconfirm
 cd ..
-rm -rf yay
+sudo rm -rf yay
 
 if command -v yay >/dev/null; then
   echo -e "${GREEN}yay installed successfully!${RESET}"
