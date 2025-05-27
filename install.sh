@@ -54,7 +54,6 @@ EOF
 }
 
 show_menu() {
-  figlet_banner "Arch Installer"
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
   echo "  1) Default (Full setup)"
