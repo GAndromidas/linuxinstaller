@@ -204,24 +204,8 @@ run_custom_scripts() {
 
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
     figlet_banner "Fail2ban"
-    while true; do
-      read -rp "$(echo -e "${YELLOW}Install & configure Fail2ban? [Y/n]: ${RESET}")" fail2ban_ans
-      fail2ban_ans=${fail2ban_ans,,}
-      case "$fail2ban_ans" in
-        ""|y|yes)
-          chmod +x "$SCRIPTS_DIR/fail2ban.sh"
-          run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
-          break
-          ;;
-        n|no)
-          log_warning "Skipped Fail2ban installation."
-          break
-          ;;
-        *)
-          echo -e "${RED}Please answer Y (yes) or N (no).${RESET}"
-          ;;
-      esac
-    done
+    chmod +x "$SCRIPTS_DIR/fail2ban.sh"
+    run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
   fi
 }
 
