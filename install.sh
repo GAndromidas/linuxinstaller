@@ -74,8 +74,8 @@ show_menu() {
 
 step() {
   clear
-  show_progress_bar
   figlet_banner "$1"
+  show_progress_bar
   echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
   ((CURRENT_STEP++))
 }
