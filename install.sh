@@ -48,14 +48,14 @@ arch_ascii() {
 }
 
 show_menu() {
-  run_step "Show menu" _show_menu
-}
-_show_menu() {
-  echo "Welcome to the Arch Installer script!" >>"$LOG_FILE"
-  echo "Please select your installation mode:" >>"$LOG_FILE"
-  echo "  1) Default (Full setup)" >>"$LOG_FILE"
-  echo "  2) Minimal (Core utilities only)" >>"$LOG_FILE"
-  echo "  3) Exit" >>"$LOG_FILE"
+  if command -v figlet >/dev/null; then
+    figlet "Arch Installer"
+  fi
+  echo "Welcome to the Arch Installer script!"
+  echo "Please select your installation mode:"
+  echo "  1) Default (Full setup)"
+  echo "  2) Minimal (Core utilities only)"
+  echo "  3) Exit"
   while true; do
     read -p "Enter your choice [1-3]: " menu_choice
     case "$menu_choice" in
@@ -149,7 +149,7 @@ _run_custom_scripts() {
       "$SCRIPTS_DIR/programs.sh" -d
     fi
   fi
-  # NO PROMPT: Always install fail2ban.sh if it exists
+  # Always install fail2ban.sh if it exists, no prompt
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
     chmod +x "$SCRIPTS_DIR/fail2ban.sh"
     "$SCRIPTS_DIR/fail2ban.sh"
@@ -324,7 +324,7 @@ _prompt_reboot() {
 main() {
   clear
   arch_ascii
-  show_menu
+  show_menu  # DO NOT use run_step here
 
   : >"$LOG_FILE"
 
