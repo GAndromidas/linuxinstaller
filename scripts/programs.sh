@@ -29,10 +29,28 @@ gnome_remove_programs=(epiphany gnome-contacts gnome-maps gnome-music gnome-tour
 cosmic_install_programs=(power-profiles-daemon transmission-gtk)
 cosmic_remove_programs=(htop)
 yay_programs_default=(brave-bin heroic-games-launcher-bin megasync-bin spotify stacer-bin stremio teamviewer via-bin)
+yay_programs_minimal=(brave-bin stacer-bin stremio teamviewer)
 
-is_package_installed() { command -v "$1" &>/dev/null; }
+is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
+
+show_progress_bar() {
+  local current=$1
+  local total=$2
+  local width=40
+  local percent=$(( 100 * current / total ))
+  local filled=$(( width * current / total ))
+  local empty=$(( width - filled ))
+
+  printf "\r["
+  for ((i=0; i<filled; i++)); do printf "#"; done
+  for ((i=0; i<empty; i++)); do printf " "; done
+  printf "] %3d%%" $percent
+  if (( current == total )); then
+    echo    # new line at 100%
+  fi
+}
 
 detect_desktop_environment() {
   case "$XDG_CURRENT_DESKTOP" in
@@ -41,31 +59,34 @@ detect_desktop_environment() {
       specific_install_programs=("${kde_install_programs[@]}")
       specific_remove_programs=("${kde_remove_programs[@]}")
       flatpak_install_function="install_flatpak_programs_kde"
+      flatpak_minimal_function="install_flatpak_minimal_kde"
       ;;
     GNOME)
       log_success "GNOME detected."
       specific_install_programs=("${gnome_install_programs[@]}")
       specific_remove_programs=("${gnome_remove_programs[@]}")
       flatpak_install_function="install_flatpak_programs_gnome"
+      flatpak_minimal_function="install_flatpak_minimal_gnome"
       ;;
     COSMIC)
       log_success "Cosmic DE detected."
       specific_install_programs=("${cosmic_install_programs[@]}")
       specific_remove_programs=("${cosmic_remove_programs[@]}")
       flatpak_install_function="install_flatpak_programs_cosmic"
+      flatpak_minimal_function="install_flatpak_minimal_cosmic"
       ;;
     *)
       log_warning "No KDE, GNOME, or Cosmic detected."
       specific_install_programs=()
       specific_remove_programs=()
-      # Fallback: if default chosen, switch program lists to minimal and use generic minimal flatpak
       if [[ "$INSTALL_MODE" == "default" ]]; then
         log_warning "Falling back to minimal set for unsupported DE/WM."
         pacman_programs=("${pacman_programs_minimal[@]}")
         essential_programs=("${essential_programs_minimal[@]}")
         flatpak_install_function="install_flatpak_minimal_generic"
+        flatpak_minimal_function="install_flatpak_minimal_generic"
       else
-        flatpak_install_function="install_flatpak_minimal_generic"
+        flatpak_minimal_function="install_flatpak_minimal_generic"
       fi
       ;;
   esac
@@ -79,7 +100,7 @@ remove_programs() {
   fi
   for program in "${specific_remove_programs[@]}"; do
     if is_package_installed "$program"; then
-      sudo pacman -Rns --noconfirm "$program"
+      sudo pacman -Rns --noconfirm "$program" &>/dev/null
       if handle_error "Failed to remove $program."; then
         log_success "$program removed."
         REMOVED_PKGS+=("$program")
@@ -91,28 +112,62 @@ remove_programs() {
 }
 
 install_pacman_programs() {
+  if command -v figlet >/dev/null; then
+    figlet "Programs Installing"
+  else
+    echo -e "${CYAN}=== Programs Installing ===${RESET}"
+  fi
+
   step "Installing Pacman programs"
   local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}")
+  local total=${#pkgs[@]}
+  local current=0
   for program in "${pkgs[@]}"; do
+    ((current++))
+    show_progress_bar "$current" "$total"
     if ! is_package_installed "$program"; then
-      sudo pacman -S --needed --noconfirm "$program"
+      sudo pacman -S --needed --noconfirm "$program" &>/dev/null
       if handle_error "Failed to install $program."; then
-        log_success "$program installed."
         INSTALLED_PKGS+=("$program")
       fi
-    else
-      log_warning "$program is already installed."
     fi
   done
+  show_progress_bar "$total" "$total" # 100%
+}
+
+install_aur_packages() {
+  if [ ${#yay_programs[@]} -eq 0 ]; then
+    return
+  fi
+
+  if command -v figlet >/dev/null; then
+    figlet "AUR Installing"
+  else
+    echo -e "${CYAN}=== AUR Installing ===${RESET}"
+  fi
+
+  step "Installing AUR packages"
+  local total=${#yay_programs[@]}
+  local current=0
+  for pkg in "${yay_programs[@]}"; do
+    ((current++))
+    show_progress_bar "$current" "$total"
+    if ! is_package_installed "$pkg"; then
+      yay -S --noconfirm "$pkg" &>/dev/null
+      if handle_error "Failed to install AUR $pkg."; then
+        INSTALLED_PKGS+=("$pkg (AUR)")
+      fi
+    fi
+  done
+  show_progress_bar "$total" "$total"
 }
 
 install_flatpak_programs_kde() {
   step "Installing Flatpak programs for KDE"
   local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2)
   for pkg in "${flatpaks[@]}"; do
-    flatpak install -y flathub "$pkg"
+    flatpak install -y flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
-      log_success "$pkg (Flatpak) installed."
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
   done
@@ -121,9 +176,8 @@ install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
   local flatpaks=(com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus)
   for pkg in "${flatpaks[@]}"; do
-    flatpak install -y flathub "$pkg"
+    flatpak install -y flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
-      log_success "$pkg (Flatpak) installed."
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
   done
@@ -132,9 +186,38 @@ install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
   local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks)
   for pkg in "${flatpaks[@]}"; do
-    flatpak install -y flathub "$pkg"
+    flatpak install -y flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
-      log_success "$pkg (Flatpak) installed."
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_kde() {
+  step "Installing minimal Flatpak programs for KDE"
+  local flatpaks=(it.mijorus.gearlever)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg" &>/dev/null
+    if handle_error "Failed to install Flatpak $pkg."; then
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_gnome() {
+  step "Installing minimal Flatpak programs for GNOME"
+  local flatpaks=(com.mattjakeman.ExtensionManager it.mijorus.gearlever)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg" &>/dev/null
+    if handle_error "Failed to install Flatpak $pkg."; then
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    fi
+  done
+}
+install_flatpak_minimal_cosmic() {
+  step "Installing minimal Flatpak programs for Cosmic"
+  local flatpaks=(it.mijorus.gearlever dev.edfloreshz.CosmicTweaks)
+  for pkg in "${flatpaks[@]}"; do
+    flatpak install -y flathub "$pkg" &>/dev/null
+    if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
   done
@@ -143,48 +226,11 @@ install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
   local flatpaks=(it.mijorus.gearlever)
   for pkg in "${flatpaks[@]}"; do
-    flatpak install -y flathub "$pkg"
+    flatpak install -y flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
-      log_success "$pkg (Flatpak) installed."
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
   done
-}
-
-install_aur_packages() {
-  step "Installing AUR packages"
-  for pkg in "${yay_programs[@]}"; do
-    if ! is_package_installed "$pkg"; then
-      yay -S --noconfirm "$pkg"
-      if handle_error "Failed to install AUR $pkg."; then
-        log_success "$pkg (AUR) installed."
-        INSTALLED_PKGS+=("$pkg (AUR)")
-      fi
-    else
-      log_warning "$pkg is already installed."
-    fi
-  done
-}
-
-install_amd_drivers() {
-  step "Checking for AMD GPU (and drivers)"
-  if lspci | grep -i "amd" &>/dev/null; then
-    log_success "AMD GPU detected. Installing drivers..."
-    local amd_drivers=(xf86-video-amdgpu mesa vulkan-radeon lib32-vulkan-radeon vulkan-icd-loader lib32-mesa)
-    for pkg in "${amd_drivers[@]}"; do
-      if ! is_package_installed "$pkg"; then
-        sudo pacman -S --needed --noconfirm "$pkg"
-        if handle_error "Failed to install $pkg."; then
-          log_success "$pkg (AMD driver) installed."
-          INSTALLED_PKGS+=("$pkg (driver)")
-        fi
-      else
-        log_warning "$pkg is already installed."
-      fi
-    done
-  else
-    log_warning "No AMD GPU found. Skipping AMD drivers."
-  fi
 }
 
 print_summary() {
@@ -212,7 +258,6 @@ print_summary() {
 
 # === MAIN LOGIC ===
 
-# Parse flag
 if [[ "$1" == "-d" ]]; then
   INSTALL_MODE="default"
   pacman_programs=("${pacman_programs_default[@]}")
@@ -222,7 +267,7 @@ elif [[ "$1" == "-m" ]]; then
   INSTALL_MODE="minimal"
   pacman_programs=("${pacman_programs_minimal[@]}")
   essential_programs=("${essential_programs_minimal[@]}")
-  yay_programs=()
+  yay_programs=("${yay_programs_minimal[@]}")
 else
   echo -e "${RED}Error: You must run this script with -d (default) or -m (minimal) flag. Example: ./programs.sh -d${RESET}"
   exit 1
@@ -241,17 +286,12 @@ if [[ "$INSTALL_MODE" == "default" ]]; then
     log_warning "No Flatpak install function for your DE."
   fi
 else
-  case "$XDG_CURRENT_DESKTOP" in
-    KDE) install_flatpak_minimal_kde ;;
-    GNOME) install_flatpak_minimal_gnome ;;
-    COSMIC) install_flatpak_minimal_cosmic ;;
-    *) install_flatpak_minimal_generic ;;
-  esac
+  if [ -n "$flatpak_minimal_function" ]; then
+    $flatpak_minimal_function
+  else
+    install_flatpak_minimal_generic
+  fi
 fi
 
-if [ ${#yay_programs[@]} -gt 0 ]; then
-  install_aur_packages
-fi
-
-install_amd_drivers
+install_aur_packages
 print_summary
