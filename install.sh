@@ -48,9 +48,6 @@ arch_ascii() {
 }
 
 show_menu() {
-  if command -v figlet >/dev/null; then
-    figlet "Arch Installer"
-  fi
   echo "Welcome to the Arch Installer script!"
   echo "Please select your installation mode:"
   echo "  1) Default (Full setup)"
@@ -323,8 +320,8 @@ _prompt_reboot() {
 
 main() {
   clear
-  arch_ascii
-  show_menu  # DO NOT use run_step here
+  arch_ascii         # Only show figlet Arch Installer ONCE, here
+  show_menu          # No figlet here
 
   : >"$LOG_FILE"
 
