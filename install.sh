@@ -21,17 +21,6 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
 HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
 
-# Draws a progress bar for the current step
-show_progress_bar() {
-  local width=40
-  local filled=$(( width * (CURRENT_STEP-1) / TOTAL_STEPS ))
-  local empty=$(( width - filled ))
-  printf "${CYAN}["
-  for ((i=0; i<filled; i++)); do printf "#"; done
-  for ((i=0; i<empty; i++)); do printf " "; done
-  printf "] %3d/%d${RESET}\n" $((CURRENT_STEP-1)) "$TOTAL_STEPS"
-}
-
 # Prints a banner using figlet if available, otherwise plain text
 figlet_banner() {
   local title="$1"
@@ -81,7 +70,6 @@ show_menu() {
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
-  show_progress_bar
   echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
   ((CURRENT_STEP++))
 }
