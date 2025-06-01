@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -61,7 +62,7 @@ show_menu() {
   echo "  3) Exit"
 
   while true; do
-    read -p "Enter your choice [1-3]: " menu_choice
+    read -r -p "Enter your choice [1-3]: " menu_choice
     case "$menu_choice" in
       1) INSTALL_MODE="default"; break ;;
       2) INSTALL_MODE="minimal"; break ;;
@@ -96,7 +97,8 @@ run_step() {
     elif [[ "$description" == "Installing UFW firewall" ]]; then
       INSTALLED_PACKAGES+=("ufw")
     elif [[ "$description" =~ ^Installing\  ]]; then
-      local pkg=$(echo "$description" | awk '{print $2}')
+      local pkg
+      pkg=$(echo "$description" | awk '{print $2}')
       INSTALLED_PACKAGES+=("$pkg")
     elif [[ "$description" == "Removing figlet" ]]; then
       REMOVED_PACKAGES+=("figlet")
@@ -115,7 +117,7 @@ install_helper_utils() {
       log_warning "$util is already installed. Skipping."
     fi
   done
-  if [ ${#to_install[@]} -gt 0 ]; then
+  if [ "${#to_install[@]}" -gt 0 ]; then
     run_step "Installing helper utilities" sudo pacman -S --needed --noconfirm "${to_install[@]}"
     INSTALLED_PACKAGES+=("${to_install[@]}")
   fi
@@ -152,7 +154,7 @@ setup_zsh() {
   else
     log_warning "Oh-My-Zsh is already installed. Skipping."
   fi
-  run_step "Changing shell to ZSH" sudo chsh -s "$(which zsh)" "$USER"
+  run_step "Changing shell to ZSH" sudo chsh -s "$(command -v zsh)" "$USER"
   if [ -f "$CONFIGS_DIR/.zshrc" ]; then
     run_step "Configuring .zshrc" cp "$CONFIGS_DIR/.zshrc" "$HOME/"
   fi
@@ -249,7 +251,12 @@ setup_firewall_and_services() {
 }
 
 set_sudo_pwfeedback() {
-  run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
+  # Only add pwfeedback if not already present
+  if ! sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+    run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
+  else
+    log_warning "sudo pwfeedback already enabled. Skipping."
+  fi
 }
 
 cleanup_helpers() {
@@ -258,6 +265,7 @@ cleanup_helpers() {
 
 detect_and_install_gpu_drivers() {
   step "Detecting GPU and installing appropriate drivers"
+  local GPU_INFO
   GPU_INFO=$(lspci | grep -E "VGA|3D")
   if echo "$GPU_INFO" | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected!${RESET}"
@@ -267,7 +275,7 @@ detect_and_install_gpu_drivers() {
     echo "  3) Legacy 340xx (AUR, ancient cards)"
     echo "  4) Open-source Nouveau (recommended for unsupported/old cards)"
     echo "  5) Skip GPU driver installation"
-    read -p "Enter your choice [1-5, default 4]: " nvidia_choice
+    read -r -p "Enter your choice [1-5, default 4]: " nvidia_choice
     case "$nvidia_choice" in
       1)
         run_step "Installing NVIDIA DKMS driver" sudo pacman -S --noconfirm nvidia-dkms nvidia-utils
@@ -334,7 +342,7 @@ install_kernel_headers_for_all() {
   step "Installing kernel headers for all installed kernels"
   local kernel_types
   kernel_types=($(get_installed_kernel_types))
-  if [ ${#kernel_types[@]} -eq 0 ]; then
+  if [ "${#kernel_types[@]}" -eq 0 ]; then
     log_warning "No supported kernel types detected. Please check your system configuration."
     return
   fi
@@ -417,7 +425,7 @@ cleanup_and_optimize() {
   run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
 
   if [[ -d "$SCRIPT_DIR" ]]; then
-    if [ ${#ERRORS[@]} -eq 0 ]; then
+    if [ "${#ERRORS[@]}" -eq 0 ]; then
       cd ~
       run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
     else
@@ -432,18 +440,18 @@ cleanup_and_optimize() {
 print_summary() {
   figlet_banner "Install Summary"
   echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
-  if [ ${#INSTALLED_PACKAGES[@]} -gt 0 ]; then
+  if [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ]; then
     echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PACKAGES[*]}"
   else
     echo -e "${YELLOW}No new packages were installed.${RESET}"
   fi
-  if [ ${#REMOVED_PACKAGES[@]} -gt 0 ]; then
+  if [ "${#REMOVED_PACKAGES[@]}" -gt 0 ]; then
     echo -e "${RED}Removed:${RESET} ${REMOVED_PACKAGES[*]}"
   else
     echo -e "${GREEN}No packages were removed.${RESET}"
   fi
   echo -e "${CYAN}===================================${RESET}"
-  if [ ${#ERRORS[@]} -gt 0 ]; then
+  if [ "${#ERRORS[@]}" -gt 0 ]; then
     echo -e "\n${RED}The following steps failed:${RESET}\n"
     for err in "${ERRORS[@]}"; do
       echo -e "${YELLOW}  - $err${RESET}"
@@ -459,7 +467,7 @@ prompt_reboot() {
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
   echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
   while true; do
-    read -rp "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+    read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
     reboot_ans=${reboot_ans,,}
     case "$reboot_ans" in
       ""|y|yes)
@@ -490,7 +498,10 @@ main() {
     exit 1
   fi
 
+  # Keep sudo alive and trap to kill it on exit
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+  SUDO_KEEPALIVE_PID=$!
+  trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null' EXIT
 
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
