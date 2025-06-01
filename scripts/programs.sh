@@ -54,27 +54,15 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-get_closest_flathub_mirror() {
-  local mirror_url="https://dl.flathub.org/repo/"
-  step "Using official Flathub mirror: $mirror_url"
-  echo "$mirror_url"
-}
-
 check_flatpak() {
   if ! command -v flatpak &>/dev/null; then
     log_error "flatpak is not installed. Please install flatpak and rerun."
     exit 1
   fi
-  local mirror_url
-  mirror_url=$(get_closest_flathub_mirror)
   if ! flatpak remote-list | grep -q flathub; then
-    step "Adding Flathub remote (official mirror)"
-    flatpak remote-add --if-not-exists flathub "$mirror_url"
+    step "Adding Flathub remote"
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     handle_error "Failed to add Flathub remote."
-  else
-    step "Setting Flathub remote URL to official mirror"
-    flatpak remote-modify flathub --url="$mirror_url"
-    handle_error "Failed to set Flathub remote URL."
   fi
   step "Updating Flatpak remotes"
   flatpak update -y
@@ -199,7 +187,7 @@ install_flatpak_programs_list() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    flatpak install --verbose flathub "$pkg"
+    flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
