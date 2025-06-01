@@ -1,27 +1,37 @@
 #!/bin/bash
 set -euo pipefail
 
-# Color variables for output formatting
+# =========================
+#  Arch Linux Installer
+#  Automated setup script
+# =========================
+
+# --- Color variables for output formatting ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-ERRORS=()
-CURRENT_STEP=1
-TOTAL_STEPS=$(grep -E 'step |run_step ' "$0" | wc -l)
+# --- Global arrays and variables ---
+ERRORS=()                # Collects error messages for summary
+CURRENT_STEP=1           # Tracks current step for progress display
+TOTAL_STEPS=$(grep -E 'step |run_step ' "$0" | wc -l)  # Total steps for progress
 
-INSTALLED_PACKAGES=()
-REMOVED_PACKAGES=()
+INSTALLED_PACKAGES=()    # Tracks installed packages
+REMOVED_PACKAGES=()      # Tracks removed packages
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIGS_DIR="$SCRIPT_DIR/configs"
-SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Script directory
+CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
+HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)  # Helper utilities to install
 
-# Prints a banner using figlet if available, otherwise plain text
+# =========================
+#  Utility/Helper Functions
+# =========================
+
+# Print a banner using figlet or fallback to plain text
 figlet_banner() {
   local title="$1"
   echo -e "${CYAN}\n============================================================${RESET}"
@@ -32,7 +42,7 @@ figlet_banner() {
   fi
 }
 
-# Prints an ASCII logo for Arch Linux
+# Print Arch ASCII art
 arch_ascii() {
   echo -e "${CYAN}"
   cat << "EOF"
@@ -46,7 +56,7 @@ EOF
   echo -e "${RESET}"
 }
 
-# Shows the main menu and sets the installation mode
+# Show installation mode menu and set INSTALL_MODE
 show_menu() {
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
@@ -66,7 +76,7 @@ show_menu() {
   echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
-# Prints a step banner and increments the step counter
+# Print step banner and progress
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
@@ -74,12 +84,12 @@ step() {
   ((CURRENT_STEP++))
 }
 
-# Logging helpers for success, warning, and error messages
+# Log success, warning, or error messages
 log_success() { echo -e "\n${GREEN}[OK] $1${RESET}\n"; }
 log_warning() { echo -e "\n${YELLOW}[WARN] $1${RESET}\n"; }
 log_error()   { echo -e "\n${RED}[FAIL] $1${RESET}\n"; ERRORS+=("$1"); }
 
-# Runs a step, logs its result, and tracks installed/removed packages
+# Run a step, print progress, and handle errors
 run_step() {
   local description="$1"
   shift
@@ -88,6 +98,7 @@ run_step() {
   local status=$?
   if [ $status -eq 0 ]; then
     log_success "$description"
+    # Track installed/removed packages for summary
     if [[ "$description" == "Installing helper utilities" ]]; then
       INSTALLED_PACKAGES+=("${HELPER_UTILS[@]}")
     elif [[ "$description" == "Installing UFW firewall" ]]; then
@@ -104,7 +115,11 @@ run_step() {
   fi
 }
 
-# Checks for root and pacman, exits if not suitable
+# =========================
+#  Main Installation Steps
+# =========================
+
+# Check for root and pacman
 check_prerequisites() {
   step "Checking system prerequisites"
   if [[ $EUID -eq 0 ]]; then
@@ -118,7 +133,7 @@ check_prerequisites() {
   log_success "Prerequisites OK."
 }
 
-# Installs helper utilities if missing
+# Install helper utilities if missing
 install_helper_utils() {
   local to_install=()
   for util in "${HELPER_UTILS[@]}"; do
@@ -134,7 +149,7 @@ install_helper_utils() {
   fi
 }
 
-# Configures pacman.conf for color, verbose, parallel downloads, multilib, and ILoveCandy
+# Configure pacman: color, candy, multilib
 configure_pacman() {
   run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
@@ -149,13 +164,145 @@ configure_pacman() {
   '
 }
 
-# Updates mirrorlist using reflector and fully updates the system
+# Update mirrors and system
 update_mirrors_and_system() {
   run_step "Updating mirrorlist" sudo reflector --verbose --protocol https --latest 5 --sort rate --save /etc/pacman.d/mirrorlist
   run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
-# Installs and configures ZSH, Oh-My-Zsh, and plugins
+# Enable sudo password feedback
+set_sudo_pwfeedback() {
+  if ! sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+    run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
+  else
+    log_warning "sudo pwfeedback already enabled. Skipping."
+  fi
+}
+
+# Make systemd-boot silent for all kernels
+make_systemd_boot_silent() {
+  step "Making Systemd-Boot silent for all installed kernels"
+  local ENTRIES_DIR="/boot/loader/entries"
+  local kernel_types
+  kernel_types=($(get_installed_kernel_types))
+  for kernel in "${kernel_types[@]}"; do
+    local linux_entry
+    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
+    if [ -z "$linux_entry" ]; then
+      log_warning "Linux entry not found for kernel: $kernel"
+      continue
+    fi
+    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
+      log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
+    else
+      log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
+    fi
+  done
+}
+
+# Change loader.conf for systemd-boot
+change_loader_conf() {
+  step "Changing loader.conf"
+  local LOADER_CONF="/boot/loader/loader.conf"
+  if [ ! -f "$LOADER_CONF" ]; then
+    log_warning "loader.conf not found at $LOADER_CONF"
+    return
+  fi
+
+  sudo sed -i '/^default /d' "$LOADER_CONF"
+  sudo sed -i '1i default @saved' "$LOADER_CONF"
+
+  if grep -q '^timeout' "$LOADER_CONF"; then
+    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
+  else
+    echo "timeout 3" | sudo tee -a "$LOADER_CONF" >/dev/null
+  fi
+
+  if grep -Eq '^[#]*console-mode[[:space:]]+keep' "$LOADER_CONF"; then
+    sudo sed -i 's/^[#]*console-mode[[:space:]]\+keep/console-mode max/' "$LOADER_CONF"
+  elif grep -Eq '^[#]*console-mode[[:space:]]+.*' "$LOADER_CONF"; then
+    sudo sed -i 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' "$LOADER_CONF"
+  else
+    echo "console-mode max" | sudo tee -a "$LOADER_CONF" >/dev/null
+  fi
+
+  log_success "Loader configuration updated."
+}
+
+# Remove fallback entries from systemd-boot
+remove_fallback_entries() {
+  step "Removing fallback entries from systemd-boot"
+  local ENTRIES_DIR="/boot/loader/entries"
+  local entries_removed=0
+  for entry in "$ENTRIES_DIR"/*fallback.conf; do
+    [ -f "$entry" ] || continue
+    if sudo rm "$entry"; then
+      log_success "Removed fallback entry: $(basename "$entry")"
+      entries_removed=1
+    fi
+  done
+  [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
+}
+
+# Install CPU microcode based on detected CPU
+install_cpu_microcode() {
+  step "Detecting CPU and installing appropriate microcode"
+  local pkg=""
+  if grep -q "Intel" /proc/cpuinfo; then
+    log_success "Intel CPU detected. Installing intel-ucode."
+    pkg="intel-ucode"
+  elif grep -q "AMD" /proc/cpuinfo; then
+    log_success "AMD CPU detected. Installing amd-ucode."
+    pkg="amd-ucode"
+  else
+    log_warning "Unable to determine CPU type. No microcode package will be installed."
+  fi
+
+  if [ -n "$pkg" ]; then
+    if pacman -Q "$pkg" &>/dev/null; then
+      log_warning "$pkg is already installed. Skipping."
+    else
+      if sudo pacman -S --needed --noconfirm "$pkg"; then
+        log_success "$pkg installed successfully."
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        log_error "Failed to install $pkg."
+      fi
+    fi
+  fi
+}
+
+# Helper: Get installed kernel types
+get_installed_kernel_types() {
+  local kernel_types=()
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
+}
+
+# Install kernel headers for all installed kernels
+install_kernel_headers_for_all() {
+  step "Installing kernel headers for all installed kernels"
+  local kernel_types
+  kernel_types=($(get_installed_kernel_types))
+  if [ "${#kernel_types[@]}" -eq 0 ]; then
+    log_warning "No supported kernel types detected. Please check your system configuration."
+    return
+  fi
+  for kernel in "${kernel_types[@]}"; do
+    local headers_package="${kernel}-headers"
+    if sudo pacman -S --needed --noconfirm "$headers_package"; then
+      log_success "$headers_package installed successfully."
+      INSTALLED_PACKAGES+=("$headers_package")
+    else
+      log_error "Error: Failed to install $headers_package."
+    fi
+  done
+}
+
+# Install and configure ZSH and Oh-My-Zsh
 setup_zsh() {
   if ! command -v zsh >/dev/null; then
     run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
@@ -174,7 +321,7 @@ setup_zsh() {
   fi
 }
 
-# Installs starship prompt and copies config if available
+# Install and configure starship prompt
 install_starship() {
   if ! command -v starship >/dev/null; then
     run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
@@ -194,12 +341,12 @@ install_starship() {
   fi
 }
 
-# Enables Greek locale and generates locales
+# Generate locales (example: Greek UTF-8)
 generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-# Runs custom user scripts if present (Plymouth, yay, user programs, fail2ban)
+# Run custom user scripts (plymouth, yay, programs, fail2ban)
 run_custom_scripts() {
   if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
     chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
@@ -227,7 +374,7 @@ run_custom_scripts() {
   fi
 }
 
-# Generates and copies fastfetch config if fastfetch is installed
+# Configure fastfetch if installed
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
@@ -242,7 +389,7 @@ setup_fastfetch_config() {
   fi
 }
 
-# Installs and enables UFW firewall, enables a list of systemd services if present
+# Install and enable firewall and system services
 setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
@@ -269,22 +416,12 @@ setup_firewall_and_services() {
   done
 }
 
-# Enables sudo password feedback if not already enabled
-set_sudo_pwfeedback() {
-  # Only add pwfeedback if not already present
-  if ! sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
-    run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
-  else
-    log_warning "sudo pwfeedback already enabled. Skipping."
-  fi
-}
-
-# Removes yay build directory after install
+# Clean up yay build directory
 cleanup_helpers() {
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
-# Detects GPU vendor and installs appropriate drivers (NVIDIA, AMD, Intel, or skip)
+# Detect GPU and install appropriate drivers
 detect_and_install_gpu_drivers() {
   step "Detecting GPU and installing appropriate drivers"
   local GPU_INFO
@@ -324,133 +461,7 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
-# Detects CPU vendor and installs appropriate microcode package
-install_cpu_microcode() {
-  step "Detecting CPU and installing appropriate microcode"
-  local pkg=""
-  if grep -q "Intel" /proc/cpuinfo; then
-    log_success "Intel CPU detected. Installing intel-ucode."
-    pkg="intel-ucode"
-  elif grep -q "AMD" /proc/cpuinfo; then
-    log_success "AMD CPU detected. Installing amd-ucode."
-    pkg="amd-ucode"
-  else
-    log_warning "Unable to determine CPU type. No microcode package will be installed."
-  fi
-
-  if [ -n "$pkg" ]; then
-    if pacman -Q "$pkg" &>/dev/null; then
-      log_warning "$pkg is already installed. Skipping."
-    else
-      if sudo pacman -S --needed --noconfirm "$pkg"; then
-        log_success "$pkg installed successfully."
-        INSTALLED_PACKAGES+=("$pkg")
-      else
-        log_error "Failed to install $pkg."
-      fi
-    fi
-  fi
-}
-
-# Gets a list of installed kernel types (linux, linux-lts, etc.)
-get_installed_kernel_types() {
-  local kernel_types=()
-  pacman -Q linux &>/dev/null && kernel_types+=("linux")
-  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-  echo "${kernel_types[@]}"
-}
-
-# Installs headers for all installed kernels
-install_kernel_headers_for_all() {
-  step "Installing kernel headers for all installed kernels"
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
-  if [ "${#kernel_types[@]}" -eq 0 ]; then
-    log_warning "No supported kernel types detected. Please check your system configuration."
-    return
-  fi
-  for kernel in "${kernel_types[@]}"; do
-    local headers_package="${kernel}-headers"
-    if sudo pacman -S --needed --noconfirm "$headers_package"; then
-      log_success "$headers_package installed successfully."
-      INSTALLED_PACKAGES+=("$headers_package")
-    else
-      log_error "Error: Failed to install $headers_package."
-    fi
-  done
-}
-
-# Adds silent boot options to all systemd-boot loader entries for installed kernels
-make_systemd_boot_silent() {
-  step "Making Systemd-Boot silent for all installed kernels"
-  local ENTRIES_DIR="/boot/loader/entries"
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
-  for kernel in "${kernel_types[@]}"; do
-    local linux_entry
-    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
-    if [ -z "$linux_entry" ]; then
-      log_warning "Linux entry not found for kernel: $kernel"
-      continue
-    fi
-    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
-      log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
-    else
-      log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
-    fi
-  done
-}
-
-# Configures /boot/loader/loader.conf for default entry, timeout, and console mode
-change_loader_conf() {
-  step "Changing loader.conf"
-  local LOADER_CONF="/boot/loader/loader.conf"
-  if [ ! -f "$LOADER_CONF" ]; then
-    log_warning "loader.conf not found at $LOADER_CONF"
-    return
-  fi
-
-  # Remove any existing 'default' lines, then add 'default @saved' at the top
-  sudo sed -i '/^default /d' "$LOADER_CONF"
-  sudo sed -i '1i default @saved' "$LOADER_CONF"
-
-  # Set timeout to 3 (add if missing)
-  if grep -q '^timeout' "$LOADER_CONF"; then
-    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
-  else
-    echo "timeout 3" | sudo tee -a "$LOADER_CONF" >/dev/null
-  fi
-
-  # Uncomment and set console-mode to max if present, otherwise add it
-  if grep -Eq '^[#]*console-mode[[:space:]]+keep' "$LOADER_CONF"; then
-    sudo sed -i 's/^[#]*console-mode[[:space:]]\+keep/console-mode max/' "$LOADER_CONF"
-  elif grep -Eq '^[#]*console-mode[[:space:]]+.*' "$LOADER_CONF"; then
-    sudo sed -i 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' "$LOADER_CONF"
-  else
-    echo "console-mode max" | sudo tee -a "$LOADER_CONF" >/dev/null
-  fi
-
-  log_success "Loader configuration updated."
-}
-
-# Removes fallback boot entries from systemd-boot
-remove_fallback_entries() {
-  step "Removing fallback entries from systemd-boot"
-  local ENTRIES_DIR="/boot/loader/entries"
-  local entries_removed=0
-  for entry in "$ENTRIES_DIR"/*fallback.conf; do
-    [ -f "$entry" ] || continue
-    if sudo rm "$entry"; then
-      log_success "Removed fallback entry: $(basename "$entry")"
-      entries_removed=1
-    fi
-  done
-  [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
-}
-
-# Removes orphaned packages using pacman
+# Remove orphaned packages
 remove_orphans() {
   orphans=$(pacman -Qtdq 2>/dev/null || true)
   if [[ -n "$orphans" ]]; then
@@ -460,7 +471,7 @@ remove_orphans() {
   fi
 }
 
-# Performs maintenance: clean pacman cache, remove orphans, update system and AUR
+# Maintenance: clean cache, remove orphans, update system/AUR
 setup_maintenance() {
   if command -v paccache >/dev/null; then
     run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
@@ -474,7 +485,7 @@ setup_maintenance() {
   fi
 }
 
-# Final cleanup: fstrim SSDs, clean /tmp, optionally delete installer, sync disk
+# Final cleanup and optimizations
 cleanup_and_optimize() {
   step "Performing final cleanup and optimizations"
   if lsblk -d -o rota | grep -q '^0$'; then
@@ -496,7 +507,7 @@ cleanup_and_optimize() {
   run_step "Syncing disk writes" sync
 }
 
-# Prints a summary of installed/removed packages and any errors
+# Print summary of installation
 print_summary() {
   figlet_banner "Install Summary"
   echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
@@ -522,7 +533,7 @@ print_summary() {
   fi
 }
 
-# Prompts user to reboot at the end of installation
+# Prompt user to reboot at the end
 prompt_reboot() {
   figlet_banner "Reboot System"
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
@@ -547,12 +558,16 @@ prompt_reboot() {
   done
 }
 
-# Main function: orchestrates the entire installation process
+# =========================
+#  Main Function
+# =========================
+
 main() {
   clear
   arch_ascii
   show_menu
 
+  # Ask for sudo password up front
   echo -e "${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
   sudo -v
   if [ $? -ne 0 ]; then
@@ -565,26 +580,30 @@ main() {
   SUDO_KEEPALIVE_PID=$!
   trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null' EXIT
 
+  # Log all output to install.log
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
+  # --- Main installation steps in order ---
   check_prerequisites
   install_helper_utils
   configure_pacman
+
   update_mirrors_and_system
+  set_sudo_pwfeedback
+  make_systemd_boot_silent
+  change_loader_conf
+  remove_fallback_entries
+  install_cpu_microcode
+  install_kernel_headers_for_all
+
   setup_zsh
   install_starship
   generate_locales
   run_custom_scripts
   setup_fastfetch_config
   setup_firewall_and_services
-  set_sudo_pwfeedback
   cleanup_helpers
   detect_and_install_gpu_drivers
-  install_cpu_microcode
-  install_kernel_headers_for_all
-  make_systemd_boot_silent
-  change_loader_conf
-  remove_fallback_entries
   setup_maintenance
   cleanup_and_optimize
   print_summary
