@@ -31,7 +31,6 @@ HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacma
 #  Utility/Helper Functions
 # =========================
 
-# Print a banner using figlet if available
 figlet_banner() {
   local title="$1"
   echo -e "${CYAN}\n============================================================${RESET}"
@@ -42,7 +41,6 @@ figlet_banner() {
   fi
 }
 
-# Print an ASCII Arch Linux logo
 arch_ascii() {
   echo -e "${CYAN}"
   cat << "EOF"
@@ -56,7 +54,6 @@ EOF
   echo -e "${RESET}"
 }
 
-# Show installation mode menu
 show_menu() {
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
@@ -76,7 +73,6 @@ show_menu() {
   echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
-# Print step banner and increment step counter
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
@@ -84,12 +80,10 @@ step() {
   ((CURRENT_STEP++))
 }
 
-# Logging helpers
 log_success() { echo -e "\n${GREEN}[OK] $1${RESET}\n"; }
 log_warning() { echo -e "\n${YELLOW}[WARN] $1${RESET}\n"; }
 log_error()   { echo -e "\n${RED}[FAIL] $1${RESET}\n"; ERRORS+=("$1"); }
 
-# Run a step and handle logging and package tracking
 run_step() {
   local description="$1"
   shift
@@ -98,7 +92,6 @@ run_step() {
   local status=$?
   if [ $status -eq 0 ]; then
     log_success "$description"
-    # Track installed/removed packages for summary
     if [[ "$description" == "Installing helper utilities" ]]; then
       INSTALLED_PACKAGES+=("${HELPER_UTILS[@]}")
     elif [[ "$description" == "Installing UFW firewall" ]]; then
@@ -119,7 +112,6 @@ run_step() {
 #  Main Installation Steps
 # =========================
 
-# Check for root and pacman
 check_prerequisites() {
   step "Checking system prerequisites"
   if [[ $EUID -eq 0 ]]; then
@@ -133,7 +125,6 @@ check_prerequisites() {
   log_success "Prerequisites OK."
 }
 
-# Install helper utilities if not already present
 install_helper_utils() {
   local to_install=()
   for util in "${HELPER_UTILS[@]}"; do
@@ -149,7 +140,6 @@ install_helper_utils() {
   fi
 }
 
-# Configure pacman: color, verbose, parallel downloads, multilib, ILoveCandy
 configure_pacman() {
   run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
@@ -164,13 +154,11 @@ configure_pacman() {
   '
 }
 
-# Update mirrors and system
 update_mirrors_and_system() {
   run_step "Updating mirrorlist" sudo reflector --verbose --protocol https --latest 5 --sort rate --save /etc/pacman.d/mirrorlist
   run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
-# Enable sudo password feedback
 set_sudo_pwfeedback() {
   if ! sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
     run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
@@ -179,7 +167,129 @@ set_sudo_pwfeedback() {
   fi
 }
 
-# Add silent boot options to all systemd-boot entries
+install_cpu_microcode() {
+  step "Detecting CPU and installing appropriate microcode"
+  local pkg=""
+  if grep -q "Intel" /proc/cpuinfo; then
+    log_success "Intel CPU detected. Installing intel-ucode."
+    pkg="intel-ucode"
+  elif grep -q "AMD" /proc/cpuinfo; then
+    log_success "AMD CPU detected. Installing amd-ucode."
+    pkg="amd-ucode"
+  else
+    log_warning "Unable to determine CPU type. No microcode package will be installed."
+  fi
+
+  if [ -n "$pkg" ]; then
+    if pacman -Q "$pkg" &>/dev/null; then
+      log_warning "$pkg is already installed. Skipping."
+    else
+      if sudo pacman -S --needed --noconfirm "$pkg"; then
+        log_success "$pkg installed successfully."
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        log_error "Failed to install $pkg."
+      fi
+    fi
+  fi
+}
+
+get_installed_kernel_types() {
+  local kernel_types=()
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
+}
+
+install_kernel_headers_for_all() {
+  step "Installing kernel headers for all installed kernels"
+  local kernel_types
+  kernel_types=($(get_installed_kernel_types))
+  if [ "${#kernel_types[@]}" -eq 0 ]; then
+    log_warning "No supported kernel types detected. Please check your system configuration."
+    return
+  fi
+  for kernel in "${kernel_types[@]}"; do
+    local headers_package="${kernel}-headers"
+    if sudo pacman -S --needed --noconfirm "$headers_package"; then
+      log_success "$headers_package installed successfully."
+      INSTALLED_PACKAGES+=("$headers_package")
+    else
+      log_error "Error: Failed to install $headers_package."
+    fi
+  done
+}
+
+generate_locales() {
+  run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
+}
+
+setup_zsh() {
+  if ! command -v zsh >/dev/null; then
+    run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
+    INSTALLED_PACKAGES+=("zsh" "zsh-autosuggestions" "zsh-syntax-highlighting")
+  else
+    log_warning "zsh is already installed. Skipping."
+  fi
+  if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    run_step "Installing Oh-My-Zsh" bash -c 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+  else
+    log_warning "Oh-My-Zsh is already installed. Skipping."
+  fi
+  run_step "Changing shell to ZSH" sudo chsh -s "$(command -v zsh)" "$USER"
+  if [ -f "$CONFIGS_DIR/.zshrc" ]; then
+    run_step "Configuring .zshrc" cp "$CONFIGS_DIR/.zshrc" "$HOME/"
+  fi
+}
+
+install_starship() {
+  if ! command -v starship >/dev/null; then
+    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
+  else
+    log_warning "starship is already installed. Skipping installation."
+  fi
+
+  mkdir -p "$HOME/.config"
+
+  if [ -f "$HOME/.config/starship.toml" ]; then
+    log_warning "starship.toml already exists in $HOME/.config/, skipping move."
+  elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
+    mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
+    log_success "starship.toml moved to $HOME/.config/"
+  else
+    log_warning "starship.toml not found in $CONFIGS_DIR/"
+  fi
+}
+
+run_custom_scripts() {
+  if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
+    run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
+  fi
+
+  if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/install_yay.sh"
+    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/install_yay.sh"
+  fi
+
+  if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/programs.sh"
+    if [[ "$INSTALL_MODE" == "minimal" ]]; then
+      run_step "Installing minimal user programs" "$SCRIPTS_DIR/programs.sh" -m
+    else
+      run_step "Installing default user programs" "$SCRIPTS_DIR/programs.sh" -d
+    fi
+  fi
+
+  if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
+    figlet_banner "Fail2ban"
+    chmod +x "$SCRIPTS_DIR/fail2ban.sh"
+    run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
+  fi
+}
+
 make_systemd_boot_silent() {
   step "Making Systemd-Boot silent for all installed kernels"
   local ENTRIES_DIR="/boot/loader/entries"
@@ -200,7 +310,6 @@ make_systemd_boot_silent() {
   done
 }
 
-# Configure loader.conf for systemd-boot
 change_loader_conf() {
   step "Changing loader.conf"
   local LOADER_CONF="/boot/loader/loader.conf"
@@ -229,7 +338,6 @@ change_loader_conf() {
   log_success "Loader configuration updated."
 }
 
-# Remove fallback entries from systemd-boot
 remove_fallback_entries() {
   step "Removing fallback entries from systemd-boot"
   local ENTRIES_DIR="/boot/loader/entries"
@@ -244,137 +352,6 @@ remove_fallback_entries() {
   [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
 }
 
-# Detect CPU and install microcode
-install_cpu_microcode() {
-  step "Detecting CPU and installing appropriate microcode"
-  local pkg=""
-  if grep -q "Intel" /proc/cpuinfo; then
-    log_success "Intel CPU detected. Installing intel-ucode."
-    pkg="intel-ucode"
-  elif grep -q "AMD" /proc/cpuinfo; then
-    log_success "AMD CPU detected. Installing amd-ucode."
-    pkg="amd-ucode"
-  else
-    log_warning "Unable to determine CPU type. No microcode package will be installed."
-  fi
-
-  if [ -n "$pkg" ]; then
-    if pacman -Q "$pkg" &>/dev/null; then
-      log_warning "$pkg is already installed. Skipping."
-    else
-      if sudo pacman -S --needed --noconfirm "$pkg"; then
-        log_success "$pkg installed successfully."
-        INSTALLED_PACKAGES+=("$pkg")
-      else
-        log_error "Failed to install $pkg."
-      fi
-    fi
-  fi
-}
-
-# Get list of installed kernel types
-get_installed_kernel_types() {
-  local kernel_types=()
-  pacman -Q linux &>/dev/null && kernel_types+=("linux")
-  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-  echo "${kernel_types[@]}"
-}
-
-# Install headers for all installed kernels
-install_kernel_headers_for_all() {
-  step "Installing kernel headers for all installed kernels"
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
-  if [ "${#kernel_types[@]}" -eq 0 ]; then
-    log_warning "No supported kernel types detected. Please check your system configuration."
-    return
-  fi
-  for kernel in "${kernel_types[@]}"; do
-    local headers_package="${kernel}-headers"
-    if sudo pacman -S --needed --noconfirm "$headers_package"; then
-      log_success "$headers_package installed successfully."
-      INSTALLED_PACKAGES+=("$headers_package")
-    else
-      log_error "Error: Failed to install $headers_package."
-    fi
-  done
-}
-
-# Install and configure ZSH and Oh-My-Zsh
-setup_zsh() {
-  if ! command -v zsh >/dev/null; then
-    run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
-    INSTALLED_PACKAGES+=("zsh" "zsh-autosuggestions" "zsh-syntax-highlighting")
-  else
-    log_warning "zsh is already installed. Skipping."
-  fi
-  if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    run_step "Installing Oh-My-Zsh" bash -c 'RUNZSH=no CHSH=no KEEP_ZSHRC=yes yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
-  else
-    log_warning "Oh-My-Zsh is already installed. Skipping."
-  fi
-  run_step "Changing shell to ZSH" sudo chsh -s "$(command -v zsh)" "$USER"
-  if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-    run_step "Configuring .zshrc" cp "$CONFIGS_DIR/.zshrc" "$HOME/"
-  fi
-}
-
-# Install and configure starship prompt
-install_starship() {
-  if ! command -v starship >/dev/null; then
-    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
-  else
-    log_warning "starship is already installed. Skipping installation."
-  fi
-
-  mkdir -p "$HOME/.config"
-
-  if [ -f "$HOME/.config/starship.toml" ]; then
-    log_warning "starship.toml already exists in $HOME/.config/, skipping move."
-  elif [ -f "$CONFIGS_DIR/starship.toml" ]; then
-    mv "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml"
-    log_success "starship.toml moved to $HOME/.config/"
-  else
-    log_warning "starship.toml not found in $CONFIGS_DIR/"
-  fi
-}
-
-# Generate locales (example: Greek)
-generate_locales() {
-  run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
-}
-
-# Run any custom user scripts if present
-run_custom_scripts() {
-  if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
-    run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
-  fi
-
-  if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/install_yay.sh"
-    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/install_yay.sh"
-  fi
-
-  if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/programs.sh"
-    if [[ "$INSTALL_MODE" == "minimal" ]]; then
-      run_step "Installing minimal user programs" "$SCRIPTS_DIR/programs.sh" -m
-    else
-      run_step "Installing default user programs" "$SCRIPTS_DIR/programs.sh" -d
-    fi
-  fi
-
-  if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
-    figlet_banner "Fail2ban"
-    chmod +x "$SCRIPTS_DIR/fail2ban.sh"
-    run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
-  fi
-}
-
-# Setup fastfetch config if available
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
@@ -389,7 +366,6 @@ setup_fastfetch_config() {
   fi
 }
 
-# Install and enable firewall and other systemd services
 setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
@@ -416,12 +392,10 @@ setup_firewall_and_services() {
   done
 }
 
-# Clean up yay build directory
 cleanup_helpers() {
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
-# Detect GPU and install appropriate drivers
 detect_and_install_gpu_drivers() {
   step "Detecting GPU and installing appropriate drivers"
   local GPU_INFO
@@ -461,7 +435,6 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
-# Remove orphaned packages
 remove_orphans() {
   orphans=$(pacman -Qtdq 2>/dev/null || true)
   if [[ -n "$orphans" ]]; then
@@ -471,7 +444,6 @@ remove_orphans() {
   fi
 }
 
-# Maintenance: clean cache, remove orphans, update system and AUR
 setup_maintenance() {
   if command -v paccache >/dev/null; then
     run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
@@ -485,16 +457,13 @@ setup_maintenance() {
   fi
 }
 
-# Final cleanup and optimizations
 cleanup_and_optimize() {
   step "Performing final cleanup and optimizations"
-  # Run fstrim if SSD detected
   if lsblk -d -o rota | grep -q '^0$'; then
     run_step "Running fstrim on SSDs" sudo fstrim -v /
   fi
   run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
 
-  # Remove installer directory if no errors
   if [[ -d "$SCRIPT_DIR" ]]; then
     if [ "${#ERRORS[@]}" -eq 0 ]; then
       cd "$HOME"
@@ -509,7 +478,6 @@ cleanup_and_optimize() {
   run_step "Syncing disk writes" sync
 }
 
-# Print summary of installed/removed packages and errors
 print_summary() {
   figlet_banner "Install Summary"
   echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
@@ -535,7 +503,6 @@ print_summary() {
   fi
 }
 
-# Prompt user to reboot at the end
 prompt_reboot() {
   figlet_banner "Reboot System"
   echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
@@ -585,23 +552,21 @@ main() {
   # Log all output to install.log
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
-  # --- Main installation steps in order ---
+  # --- Main installation steps in recommended order ---
   check_prerequisites
   install_helper_utils
   configure_pacman
-
   update_mirrors_and_system
   set_sudo_pwfeedback
+  install_cpu_microcode
+  install_kernel_headers_for_all
+  generate_locales
+  setup_zsh
+  install_starship
+  run_custom_scripts
   make_systemd_boot_silent
   change_loader_conf
   remove_fallback_entries
-  install_cpu_microcode
-  install_kernel_headers_for_all
-
-  setup_zsh
-  install_starship
-  generate_locales
-  run_custom_scripts
   setup_fastfetch_config
   setup_firewall_and_services
   cleanup_helpers
