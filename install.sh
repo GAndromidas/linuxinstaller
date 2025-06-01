@@ -10,7 +10,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=33
+TOTAL_STEPS=$(grep -E 'step |run_step ' "$0" | wc -l)
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
