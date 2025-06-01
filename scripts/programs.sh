@@ -187,9 +187,13 @@ install_flatpak_programs_list() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
+    if ! flatpak list | grep -q "$pkg"; then
+      flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
+      if handle_error "Failed to install Flatpak $pkg."; then
+        INSTALLED_PKGS+=("$pkg (flatpak)")
+      fi
+    else
+      log_warning "$pkg is already installed. Skipping installation."
     fi
     echo ""
   done
@@ -198,37 +202,68 @@ install_flatpak_programs_list() {
 
 install_flatpak_programs_kde() {
   step "Installing Flatpak programs for KDE"
-  install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2
+  local flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    net.davidotek.pupgui2
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
-  install_flatpak_programs_list com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus
+  local flatpaks=(
+    com.mattjakeman.ExtensionManager
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    com.vysp3r.ProtonPlus
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
-  install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks
+  local flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    com.vysp3r.ProtonPlus
+    dev.edfloreshz.CosmicTweaks
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_kde() {
   step "Installing minimal Flatpak programs for KDE"
-  install_flatpak_programs_list it.mijorus.gearlever
+  local flatpaks=(
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_gnome() {
   step "Installing minimal Flatpak programs for GNOME"
-  install_flatpak_programs_list com.mattjakeman.ExtensionManager it.mijorus.gearlever
+  local flatpaks=(
+    com.mattjakeman.ExtensionManager
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_cosmic() {
   step "Installing minimal Flatpak programs for Cosmic"
-  install_flatpak_programs_list it.mijorus.gearlever dev.edfloreshz.CosmicTweaks
+  local flatpaks=(
+    it.mijorus.gearlever
+    dev.edfloreshz.CosmicTweaks
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
-  install_flatpak_programs_list it.mijorus.gearlever
+  local flatpaks=(
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 print_summary() {
