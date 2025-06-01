@@ -479,14 +479,14 @@ configure_ufw() {
 
 enable_services() {
   local services=(
-    "bluetooth"
-    "cronie"
-    "ufw"
+    "bluetooth.service"
+    "cronie.service"
+    "ufw.service"
     "fstrim.timer"
     "paccache.timer"
     "reflector.service"
     "reflector.timer"
-    "sshd"
+    "sshd.service"
     "teamviewerd.service"
     "power-profiles-daemon.service"
   )
