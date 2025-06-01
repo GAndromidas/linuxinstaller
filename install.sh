@@ -16,7 +16,7 @@ RESET='\033[0m'
 # --- Global arrays and variables ---
 ERRORS=()                # Collects error messages for summary
 CURRENT_STEP=1           # Tracks current step for progress display
-TOTAL_STEPS=0           # Will be set dynamically based on actual steps
+TOTAL_STEPS=0            # Will be set dynamically based on actual steps
 INSTALLED_PACKAGES=()    # Tracks installed packages
 REMOVED_PACKAGES=()      # Tracks removed packages
 
@@ -25,6 +25,8 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files direc
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
 HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)  # Helper utilities to install
+
+INSTALL_MODE=""  # <-- Ensure this is always defined
 
 # =========================
 #  Utility/Helper Functions
@@ -113,7 +115,7 @@ run_step() {
 
 count_steps() {
     TOTAL_STEPS=0
-    
+
     # Core steps that always run
     ((TOTAL_STEPS++))  # check_prerequisites
     ((TOTAL_STEPS++))  # install_helper_utils
@@ -125,21 +127,13 @@ count_steps() {
     ((TOTAL_STEPS++))  # generate_locales
     ((TOTAL_STEPS++))  # setup_zsh (includes 4 sub-steps)
     ((TOTAL_STEPS++))  # install_starship
-    
+
     # Custom scripts that exist
-    if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
-        ((TOTAL_STEPS++))
-    fi
-    if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
-        ((TOTAL_STEPS++))
-    fi
-    if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
-        ((TOTAL_STEPS++))
-    fi
-    if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
-        ((TOTAL_STEPS++))
-    fi
-    
+    [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ] && ((TOTAL_STEPS++))
+    [ -f "$SCRIPTS_DIR/install_yay.sh" ] && ((TOTAL_STEPS++))
+    [ -f "$SCRIPTS_DIR/programs.sh" ] && ((TOTAL_STEPS++))
+    [ -f "$SCRIPTS_DIR/fail2ban.sh" ] && ((TOTAL_STEPS++))
+
     # Remaining core steps
     ((TOTAL_STEPS++))  # make_systemd_boot_silent
     ((TOTAL_STEPS++))  # change_loader_conf
@@ -388,13 +382,13 @@ remove_fallback_entries() {
   step "Removing fallback entries from systemd-boot"
   local ENTRIES_DIR="/boot/loader/entries"
   local entries_removed=0
-  
+
   # Check if directory exists
   if [ ! -d "$ENTRIES_DIR" ]; then
     log_warning "Entries directory $ENTRIES_DIR does not exist"
     return 0
   fi
-  
+
   shopt -s nullglob
   for entry in "$ENTRIES_DIR"/*fallback.conf; do
     [ -f "$entry" ] || continue
@@ -406,11 +400,11 @@ remove_fallback_entries() {
     fi
   done
   shopt -u nullglob
-  
+
   if [ $entries_removed -eq 0 ]; then
     log_warning "No fallback entries found to remove."
   fi
-  
+
   return 0  # Explicitly return success
 }
 
@@ -600,7 +594,7 @@ main() {
 
   # Count steps before starting
   count_steps
-  
+
   # Reset current step counter
   CURRENT_STEP=1
 
