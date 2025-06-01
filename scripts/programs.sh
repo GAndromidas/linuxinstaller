@@ -215,7 +215,7 @@ install_flatpak_programs_list() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    flatpak install -y flathub "$pkg"
+    flatpak install --verbose flathub "$pkg"
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
