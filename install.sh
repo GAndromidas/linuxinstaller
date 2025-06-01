@@ -20,7 +20,6 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
 HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync zoxide)
-REMOVE_AFTER_INSTALL=()
 
 show_progress_bar() {
   local width=40
@@ -426,7 +425,7 @@ cleanup_and_optimize() {
 
   if [[ -d "$SCRIPT_DIR" ]]; then
     if [ "${#ERRORS[@]}" -eq 0 ]; then
-      cd ~
+      cd "$HOME"
       run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
     else
       echo -e "\n${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted."
