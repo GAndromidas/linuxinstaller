@@ -468,8 +468,9 @@ cleanup_and_optimize() {
       cd "$HOME"
       run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
     else
-      echo -e "\n${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted."
-      echo -e "Please review $SCRIPT_DIR/install.log for troubleshooting.${RESET}\n"
+      echo -e "\n${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted.${RESET}\n"
+      echo -e "${RED}ERROR: One or more steps failed. Please check the log for details:${RESET}"
+      echo -e "${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
     fi
   fi
 
