@@ -47,9 +47,7 @@ progress_bar() {
   printf "%0.s#" $(seq 1 $filled)
   printf "%0.s-" $(seq 1 $empty)
   printf "] %3d%%" "$percent"
-  if [ "$progress" -eq "$total" ]; then
-    echo ""
-  fi
+  # Don't echo newline here, so we can append info on the same line
 }
 
 # Check if a package is installed (either in PATH or via pacman)
@@ -150,14 +148,16 @@ install_pacman_programs() {
   for program in "${pkgs[@]}"; do
     ((count++))
     progress_bar "$count" "$total"
+    printf "   ${CYAN}Installing:${RESET} %-40s" "$program"
     if ! is_package_installed "$program"; then
       sudo pacman -S --needed --noconfirm "$program" &>/dev/null
       if handle_error "Failed to install $program."; then
         INSTALLED_PKGS+=("$program")
       fi
     fi
+    echo ""
   done
-  progress_bar "$total" "$total"
+  progress_bar "$total" "$total"; echo ""
 }
 
 # Install AUR packages using yay
@@ -179,14 +179,16 @@ install_aur_packages() {
   for pkg in "${yay_programs[@]}"; do
     ((count++))
     progress_bar "$count" "$total"
+    printf "   ${CYAN}Installing AUR:${RESET} %-40s" "$pkg"
     if ! is_package_installed "$pkg"; then
       yay -S --noconfirm "$pkg" &>/dev/null
       if handle_error "Failed to install AUR $pkg."; then
         INSTALLED_PKGS+=("$pkg (AUR)")
       fi
     fi
+    echo ""
   done
-  progress_bar "$total" "$total"
+  progress_bar "$total" "$total"; echo ""
 }
 
 # Generic Flatpak install function with improved feedback
@@ -197,13 +199,14 @@ install_flatpak_programs_list() {
   for pkg in "${flatpaks[@]}"; do
     ((count++))
     progress_bar "$count" "$total"
-    echo -e "${CYAN}Installing Flatpak: $pkg${RESET}"
+    printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
     flatpak install -y flathub "$pkg"
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
+    echo ""
   done
-  progress_bar "$total" "$total"
+  progress_bar "$total" "$total"; echo ""
 }
 
 # Install Flatpak programs for KDE
