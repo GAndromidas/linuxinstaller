@@ -35,7 +35,6 @@ yay_programs_minimal=(brave-bin stacer-bin stremio teamviewer)
 
 # ===== Helper Functions =====
 
-# Simple progress bar
 progress_bar() {
   local progress=$1
   local total=$2
@@ -47,26 +46,20 @@ progress_bar() {
   printf "%0.s#" $(seq 1 $filled)
   printf "%0.s-" $(seq 1 $empty)
   printf "] %3d%%" "$percent"
-  # Don't echo newline here, so we can append info on the same line
 }
 
-# Check if a package is installed (either in PATH or via pacman)
 is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
 
-# Handle error after a command; log and return 1 if failed
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
-# Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-# Always use the official Flathub mirror (fixed URL)
 get_closest_flathub_mirror() {
   local mirror_url="https://dl.flathub.org/repo/"
   step "Using official Flathub mirror: $mirror_url"
   echo "$mirror_url"
 }
 
-# Ensure flatpak is installed and flathub is enabled (official mirror only)
 check_flatpak() {
   if ! command -v flatpak &>/dev/null; then
     log_error "flatpak is not installed. Please install flatpak and rerun."
@@ -87,7 +80,6 @@ check_flatpak() {
   flatpak update -y
 }
 
-# Detect desktop environment and set program lists accordingly
 detect_desktop_environment() {
   case "$XDG_CURRENT_DESKTOP" in
     KDE)
@@ -115,20 +107,15 @@ detect_desktop_environment() {
       log_warning "No KDE, GNOME, or Cosmic detected."
       specific_install_programs=()
       specific_remove_programs=()
-      if [[ "$INSTALL_MODE" == "default" ]]; then
-        log_warning "Falling back to minimal set for unsupported DE/WM."
-        pacman_programs=("${pacman_programs_minimal[@]}")
-        essential_programs=("${essential_programs_minimal[@]}")
-        flatpak_install_function="install_flatpak_minimal_generic"
-        flatpak_minimal_function="install_flatpak_minimal_generic"
-      else
-        flatpak_minimal_function="install_flatpak_minimal_generic"
-      fi
+      log_warning "Falling back to minimal set for unsupported DE/WM."
+      pacman_programs=("${pacman_programs_minimal[@]}")
+      essential_programs=("${essential_programs_minimal[@]}")
+      flatpak_install_function="install_flatpak_minimal_generic"
+      flatpak_minimal_function="install_flatpak_minimal_generic"
       ;;
   esac
 }
 
-# Remove DE-specific programs
 remove_programs() {
   step "Removing DE-specific programs"
   if [ ${#specific_remove_programs[@]} -eq 0 ]; then
@@ -148,7 +135,6 @@ remove_programs() {
   done
 }
 
-# Install Pacman programs
 install_pacman_programs() {
   step "Installing Pacman programs"
   if command -v figlet >/dev/null; then
@@ -175,7 +161,6 @@ install_pacman_programs() {
   progress_bar "$total" "$total"; echo ""
 }
 
-# Install AUR packages using yay
 install_aur_packages() {
   step "Installing AUR packages"
   if [ ${#yay_programs[@]} -eq 0 ]; then
@@ -206,7 +191,6 @@ install_aur_packages() {
   progress_bar "$total" "$total"; echo ""
 }
 
-# Generic Flatpak install function with improved feedback
 install_flatpak_programs_list() {
   local flatpaks=("$@")
   local total=${#flatpaks[@]}
@@ -224,49 +208,41 @@ install_flatpak_programs_list() {
   progress_bar "$total" "$total"; echo ""
 }
 
-# Install Flatpak programs for KDE
 install_flatpak_programs_kde() {
   step "Installing Flatpak programs for KDE"
   install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2
 }
 
-# Install Flatpak programs for GNOME
 install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
   install_flatpak_programs_list com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus
 }
 
-# Install Flatpak programs for Cosmic
 install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
   install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks
 }
 
-# Install minimal Flatpak programs for KDE
 install_flatpak_minimal_kde() {
   step "Installing minimal Flatpak programs for KDE"
   install_flatpak_programs_list it.mijorus.gearlever
 }
 
-# Install minimal Flatpak programs for GNOME
 install_flatpak_minimal_gnome() {
   step "Installing minimal Flatpak programs for GNOME"
   install_flatpak_programs_list com.mattjakeman.ExtensionManager it.mijorus.gearlever
 }
 
-# Install minimal Flatpak programs for Cosmic
 install_flatpak_minimal_cosmic() {
   step "Installing minimal Flatpak programs for Cosmic"
   install_flatpak_programs_list it.mijorus.gearlever dev.edfloreshz.CosmicTweaks
 }
 
-# Install minimal Flatpak programs for generic DE/WM
 install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
   install_flatpak_programs_list it.mijorus.gearlever
 }
 
-# Print summary of actions taken
 print_summary() {
   echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
   if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
@@ -292,7 +268,6 @@ print_summary() {
 
 # ===== MAIN LOGIC =====
 
-# Parse arguments and set install mode
 if [[ "$1" == "-d" ]]; then
   INSTALL_MODE="default"
   pacman_programs=("${pacman_programs_default[@]}")
@@ -314,7 +289,6 @@ detect_desktop_environment
 remove_programs
 install_pacman_programs
 
-# Flatpak handling based on DE and mode
 if [[ "$INSTALL_MODE" == "default" ]]; then
   if [ -n "$flatpak_install_function" ]; then
     $flatpak_install_function
