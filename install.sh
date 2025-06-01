@@ -33,6 +33,7 @@ show_progress_bar() {
 
 figlet_banner() {
   local title="$1"
+  echo -e "${CYAN}\n============================================================${RESET}"
   if command -v figlet >/dev/null; then
     figlet "$title"
   else
@@ -73,6 +74,7 @@ show_menu() {
 }
 
 step() {
+  echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
   show_progress_bar
   echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
