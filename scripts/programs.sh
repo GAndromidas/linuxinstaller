@@ -7,11 +7,13 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
+# ===== Globals =====
 CURRENT_STEP=1
 ERRORS=()
 INSTALLED_PKGS=()
 REMOVED_PKGS=()
 
+# ===== Output Functions =====
 step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
 log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
@@ -31,27 +33,18 @@ cosmic_remove_programs=(htop)
 yay_programs_default=(brave-bin heroic-games-launcher-bin megasync-bin spotify stacer-bin stremio teamviewer via-bin)
 yay_programs_minimal=(brave-bin stacer-bin stremio teamviewer)
 
+# ===== Helper Functions =====
+
+# Check if a package is installed (either in PATH or via pacman)
 is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
+
+# Handle error after a command; log and return 1 if failed
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
+
+# Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-show_progress_bar() {
-  local current=$1
-  local total=$2
-  local width=40
-  local percent=$(( 100 * current / total ))
-  local filled=$(( width * current / total ))
-  local empty=$(( width - filled ))
-
-  printf "\r["
-  for ((i=0; i<filled; i++)); do printf "#"; done
-  for ((i=0; i<empty; i++)); do printf " "; done
-  printf "] %3d%%" $percent
-  if (( current == total )); then
-    echo    # new line at 100%
-  fi
-}
-
+# Detect desktop environment and set program lists accordingly
 detect_desktop_environment() {
   case "$XDG_CURRENT_DESKTOP" in
     KDE)
@@ -92,6 +85,7 @@ detect_desktop_environment() {
   esac
 }
 
+# Remove DE-specific programs
 remove_programs() {
   step "Removing DE-specific programs"
   if [ ${#specific_remove_programs[@]} -eq 0 ]; then
@@ -111,20 +105,17 @@ remove_programs() {
   done
 }
 
+# Install Pacman programs
 install_pacman_programs() {
+  step "Installing Pacman programs"
   if command -v figlet >/dev/null; then
     figlet "Programs Installing"
   else
     echo -e "${CYAN}=== Programs Installing ===${RESET}"
   fi
 
-  step "Installing Pacman programs"
   local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}")
-  local total=${#pkgs[@]}
-  local current=0
   for program in "${pkgs[@]}"; do
-    ((current++))
-    show_progress_bar "$current" "$total"
     if ! is_package_installed "$program"; then
       sudo pacman -S --needed --noconfirm "$program" &>/dev/null
       if handle_error "Failed to install $program."; then
@@ -132,11 +123,13 @@ install_pacman_programs() {
       fi
     fi
   done
-  show_progress_bar "$total" "$total" # 100%
 }
 
+# Install AUR packages using yay
 install_aur_packages() {
+  step "Installing AUR packages"
   if [ ${#yay_programs[@]} -eq 0 ]; then
+    log_success "No AUR packages to install."
     return
   fi
 
@@ -146,12 +139,7 @@ install_aur_packages() {
     echo -e "${CYAN}=== AUR Installing ===${RESET}"
   fi
 
-  step "Installing AUR packages"
-  local total=${#yay_programs[@]}
-  local current=0
   for pkg in "${yay_programs[@]}"; do
-    ((current++))
-    show_progress_bar "$current" "$total"
     if ! is_package_installed "$pkg"; then
       yay -S --noconfirm "$pkg" &>/dev/null
       if handle_error "Failed to install AUR $pkg."; then
@@ -159,9 +147,9 @@ install_aur_packages() {
       fi
     fi
   done
-  show_progress_bar "$total" "$total"
 }
 
+# Install Flatpak programs for KDE
 install_flatpak_programs_kde() {
   step "Installing Flatpak programs for KDE"
   local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2)
@@ -172,6 +160,8 @@ install_flatpak_programs_kde() {
     fi
   done
 }
+
+# Install Flatpak programs for GNOME
 install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
   local flatpaks=(com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus)
@@ -182,6 +172,8 @@ install_flatpak_programs_gnome() {
     fi
   done
 }
+
+# Install Flatpak programs for Cosmic
 install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
   local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks)
@@ -192,6 +184,8 @@ install_flatpak_programs_cosmic() {
     fi
   done
 }
+
+# Install minimal Flatpak programs for KDE
 install_flatpak_minimal_kde() {
   step "Installing minimal Flatpak programs for KDE"
   local flatpaks=(it.mijorus.gearlever)
@@ -202,6 +196,8 @@ install_flatpak_minimal_kde() {
     fi
   done
 }
+
+# Install minimal Flatpak programs for GNOME
 install_flatpak_minimal_gnome() {
   step "Installing minimal Flatpak programs for GNOME"
   local flatpaks=(com.mattjakeman.ExtensionManager it.mijorus.gearlever)
@@ -212,6 +208,8 @@ install_flatpak_minimal_gnome() {
     fi
   done
 }
+
+# Install minimal Flatpak programs for Cosmic
 install_flatpak_minimal_cosmic() {
   step "Installing minimal Flatpak programs for Cosmic"
   local flatpaks=(it.mijorus.gearlever dev.edfloreshz.CosmicTweaks)
@@ -222,6 +220,8 @@ install_flatpak_minimal_cosmic() {
     fi
   done
 }
+
+# Install minimal Flatpak programs for generic DE/WM
 install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
   local flatpaks=(it.mijorus.gearlever)
@@ -233,6 +233,7 @@ install_flatpak_minimal_generic() {
   done
 }
 
+# Print summary of actions taken
 print_summary() {
   echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
   if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
@@ -256,8 +257,9 @@ print_summary() {
   echo -e "${CYAN}===============================${RESET}"
 }
 
-# === MAIN LOGIC ===
+# ===== MAIN LOGIC =====
 
+# Parse arguments and set install mode
 if [[ "$1" == "-d" ]]; then
   INSTALL_MODE="default"
   pacman_programs=("${pacman_programs_default[@]}")
@@ -278,7 +280,7 @@ detect_desktop_environment
 remove_programs
 install_pacman_programs
 
-# Flatpak handling
+# Flatpak handling based on DE and mode
 if [[ "$INSTALL_MODE" == "default" ]]; then
   if [ -n "$flatpak_install_function" ]; then
     $flatpak_install_function
