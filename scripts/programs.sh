@@ -59,63 +59,14 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 # Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-# Get closest Flathub mirror based on country
+# Always use the official Flathub mirror
 get_closest_flathub_mirror() {
-  local country
-  country=$(curl -s --max-time 3 https://ipinfo.io/country 2>/dev/null | tr -d '\n')
-  local mirror_url
-  case "$country" in
-    GR|CY)
-      mirror_url="https://ftp.cc.uoc.gr/mirrors/linux/flathub/flathub.flatpakrepo" # Greece
-      ;;
-    DE|AT|CH|PL|CZ|HU|SK|RO|BG|HR|SI|RS|BA|ME|MK|AL|NL|DK|SE|NO|FI|EE|LV|LT)
-      mirror_url="https://mirror.gwdg.de/pub/linux/flathub/flathub.flatpakrepo" # Germany
-      ;;
-    FR|BE|LU|MC)
-      mirror_url="https://fr.mirror.babylon.network/flathub/flathub.flatpakrepo" # France
-      ;;
-    GB|IE|IM|JE|GG)
-      mirror_url="https://mirror.bytemark.co.uk/flathub/flathub.flatpakrepo" # UK
-      ;;
-    US|CA|MX)
-      mirror_url="https://mirror.sjc02.svwh.net/flathub/flathub.flatpakrepo" # USA
-      ;;
-    AU|NZ|FJ|PG|SB|VU|NC)
-      mirror_url="https://mirror.aarnet.edu.au/pub/flathub/flathub.flatpakrepo" # Australia
-      ;;
-    JP|KR|CN|TW|HK|SG|MY|TH|VN|PH|ID)
-      mirror_url="https://ftp.jaist.ac.jp/pub/Linux/flathub/flathub.flatpakrepo" # Japan
-      ;;
-    IN|PK|BD|LK|NP)
-      mirror_url="https://mirror.nus.edu.sg/flathub/flathub.flatpakrepo" # Singapore (closest for South Asia)
-      ;;
-    ZA|NG|EG|MA|KE|DZ|TN|GH|SN|UG)
-      mirror_url="https://mirror.is.co.za/mirror/flathub/flathub.flatpakrepo" # South Africa
-      ;;
-    BR|AR|CL|CO|PE|VE|UY|PY|BO|EC|SR|GF)
-      mirror_url="https://mirror.ufscar.br/flathub/flathub.flatpakrepo" # Brazil
-      ;;
-    RU|BY|UA|MD|GE|AM|AZ|KZ|KG|TJ|TM|UZ)
-      mirror_url="https://mirror.yandex.ru/mirrors/flathub/flathub.flatpakrepo" # Russia
-      ;;
-    IL|TR|SA|AE|IR|IQ|JO|LB|OM|QA|KW|BH|YE|PS|SY)
-      mirror_url="https://mirror.gwdg.de/pub/linux/flathub/flathub.flatpakrepo" # Germany (closest for Middle East)
-      ;;
-    ES|PT|AD)
-      mirror_url="https://mirror.gwdg.de/pub/linux/flathub/flathub.flatpakrepo" # Germany (closest for Spain/Portugal)
-      ;;
-    IT|SM|VA)
-      mirror_url="https://mirror.gwdg.de/pub/linux/flathub/flathub.flatpakrepo" # Germany (closest for Italy)
-      ;;
-    *)
-      mirror_url="https://dl.flathub.org/repo/flathub.flatpakrepo" # Default (global)
-      ;;
-  esac
-  step "Detected Flathub mirror: $mirror_url"
+  local mirror_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
+  step "Using official Flathub mirror: $mirror_url"
   echo "$mirror_url"
 }
 
-# Ensure flatpak is installed and flathub is enabled (auto mirror)
+# Ensure flatpak is installed and flathub is enabled (official mirror only)
 check_flatpak() {
   if ! command -v flatpak &>/dev/null; then
     log_error "flatpak is not installed. Please install flatpak and rerun."
@@ -124,11 +75,11 @@ check_flatpak() {
   local mirror_url
   mirror_url=$(get_closest_flathub_mirror)
   if ! flatpak remote-list | grep -q flathub; then
-    step "Adding Flathub remote (auto-detected mirror)"
+    step "Adding Flathub remote (official mirror)"
     flatpak remote-add --if-not-exists flathub "$mirror_url"
     handle_error "Failed to add Flathub remote."
   else
-    step "Setting Flathub remote URL to closest mirror"
+    step "Setting Flathub remote URL to official mirror"
     flatpak remote-modify flathub --url="$mirror_url"
     handle_error "Failed to set Flathub remote URL."
   fi
