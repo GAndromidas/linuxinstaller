@@ -31,7 +31,7 @@ HELPER_UTILS=(base-devel curl eza fastfetch figlet flatpak fzf git openssh pacma
 #  Utility/Helper Functions
 # =========================
 
-# Print a banner using figlet or fallback to plain text
+# Print a banner using figlet if available
 figlet_banner() {
   local title="$1"
   echo -e "${CYAN}\n============================================================${RESET}"
@@ -42,7 +42,7 @@ figlet_banner() {
   fi
 }
 
-# Print Arch ASCII art
+# Print an ASCII Arch Linux logo
 arch_ascii() {
   echo -e "${CYAN}"
   cat << "EOF"
@@ -56,7 +56,7 @@ EOF
   echo -e "${RESET}"
 }
 
-# Show installation mode menu and set INSTALL_MODE
+# Show installation mode menu
 show_menu() {
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
@@ -76,7 +76,7 @@ show_menu() {
   echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
-# Print step banner and progress
+# Print step banner and increment step counter
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
@@ -84,12 +84,12 @@ step() {
   ((CURRENT_STEP++))
 }
 
-# Log success, warning, or error messages
+# Logging helpers
 log_success() { echo -e "\n${GREEN}[OK] $1${RESET}\n"; }
 log_warning() { echo -e "\n${YELLOW}[WARN] $1${RESET}\n"; }
 log_error()   { echo -e "\n${RED}[FAIL] $1${RESET}\n"; ERRORS+=("$1"); }
 
-# Run a step, print progress, and handle errors
+# Run a step and handle logging and package tracking
 run_step() {
   local description="$1"
   shift
@@ -133,7 +133,7 @@ check_prerequisites() {
   log_success "Prerequisites OK."
 }
 
-# Install helper utilities if missing
+# Install helper utilities if not already present
 install_helper_utils() {
   local to_install=()
   for util in "${HELPER_UTILS[@]}"; do
@@ -149,7 +149,7 @@ install_helper_utils() {
   fi
 }
 
-# Configure pacman: color, candy, multilib
+# Configure pacman: color, verbose, parallel downloads, multilib, ILoveCandy
 configure_pacman() {
   run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
   run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
@@ -179,7 +179,7 @@ set_sudo_pwfeedback() {
   fi
 }
 
-# Make systemd-boot silent for all kernels
+# Add silent boot options to all systemd-boot entries
 make_systemd_boot_silent() {
   step "Making Systemd-Boot silent for all installed kernels"
   local ENTRIES_DIR="/boot/loader/entries"
@@ -200,7 +200,7 @@ make_systemd_boot_silent() {
   done
 }
 
-# Change loader.conf for systemd-boot
+# Configure loader.conf for systemd-boot
 change_loader_conf() {
   step "Changing loader.conf"
   local LOADER_CONF="/boot/loader/loader.conf"
@@ -244,7 +244,7 @@ remove_fallback_entries() {
   [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
 }
 
-# Install CPU microcode based on detected CPU
+# Detect CPU and install microcode
 install_cpu_microcode() {
   step "Detecting CPU and installing appropriate microcode"
   local pkg=""
@@ -272,7 +272,7 @@ install_cpu_microcode() {
   fi
 }
 
-# Helper: Get installed kernel types
+# Get list of installed kernel types
 get_installed_kernel_types() {
   local kernel_types=()
   pacman -Q linux &>/dev/null && kernel_types+=("linux")
@@ -282,7 +282,7 @@ get_installed_kernel_types() {
   echo "${kernel_types[@]}"
 }
 
-# Install kernel headers for all installed kernels
+# Install headers for all installed kernels
 install_kernel_headers_for_all() {
   step "Installing kernel headers for all installed kernels"
   local kernel_types
@@ -341,12 +341,12 @@ install_starship() {
   fi
 }
 
-# Generate locales (example: Greek UTF-8)
+# Generate locales (example: Greek)
 generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-# Run custom user scripts (plymouth, yay, programs, fail2ban)
+# Run any custom user scripts if present
 run_custom_scripts() {
   if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
     chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
@@ -374,7 +374,7 @@ run_custom_scripts() {
   fi
 }
 
-# Configure fastfetch if installed
+# Setup fastfetch config if available
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
@@ -389,7 +389,7 @@ setup_fastfetch_config() {
   fi
 }
 
-# Install and enable firewall and system services
+# Install and enable firewall and other systemd services
 setup_firewall_and_services() {
   run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
   run_step "Enabling firewall" sudo ufw enable
@@ -471,7 +471,7 @@ remove_orphans() {
   fi
 }
 
-# Maintenance: clean cache, remove orphans, update system/AUR
+# Maintenance: clean cache, remove orphans, update system and AUR
 setup_maintenance() {
   if command -v paccache >/dev/null; then
     run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
@@ -488,11 +488,13 @@ setup_maintenance() {
 # Final cleanup and optimizations
 cleanup_and_optimize() {
   step "Performing final cleanup and optimizations"
+  # Run fstrim if SSD detected
   if lsblk -d -o rota | grep -q '^0$'; then
     run_step "Running fstrim on SSDs" sudo fstrim -v /
   fi
   run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
 
+  # Remove installer directory if no errors
   if [[ -d "$SCRIPT_DIR" ]]; then
     if [ "${#ERRORS[@]}" -eq 0 ]; then
       cd "$HOME"
@@ -507,7 +509,7 @@ cleanup_and_optimize() {
   run_step "Syncing disk writes" sync
 }
 
-# Print summary of installation
+# Print summary of installed/removed packages and errors
 print_summary() {
   figlet_banner "Install Summary"
   echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
