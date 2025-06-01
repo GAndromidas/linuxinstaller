@@ -385,9 +385,25 @@ change_loader_conf() {
     log_warning "loader.conf not found at $LOADER_CONF"
     return
   fi
-  sudo sed -i '1{/^default @saved/!i default @saved}' "$LOADER_CONF"
-  sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
-  sudo sed -i 's/^#console-mode.*/console-mode max/' "$LOADER_CONF"
+
+  # Remove any existing 'default' lines, then add 'default @saved' at the top
+  sudo sed -i '/^default /d' "$LOADER_CONF"
+  sudo sed -i '1i default @saved' "$LOADER_CONF"
+
+  # Set timeout to 3 (add if missing)
+  if grep -q '^timeout' "$LOADER_CONF"; then
+    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
+  else
+    echo "timeout 3" | sudo tee -a "$LOADER_CONF" >/dev/null
+  fi
+
+  # Set console-mode to max (add if missing)
+  if grep -q '^console-mode' "$LOADER_CONF"; then
+    sudo sed -i 's/^console-mode.*/console-mode max/' "$LOADER_CONF"
+  else
+    echo "console-mode max" | sudo tee -a "$LOADER_CONF" >/dev/null
+  fi
+
   log_success "Loader configuration updated."
 }
 
