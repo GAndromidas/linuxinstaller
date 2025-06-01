@@ -342,16 +342,30 @@ remove_fallback_entries() {
   step "Removing fallback entries from systemd-boot"
   local ENTRIES_DIR="/boot/loader/entries"
   local entries_removed=0
+  
+  # Check if directory exists
+  if [ ! -d "$ENTRIES_DIR" ]; then
+    log_warning "Entries directory $ENTRIES_DIR does not exist"
+    return 0
+  fi
+  
   shopt -s nullglob
   for entry in "$ENTRIES_DIR"/*fallback.conf; do
     [ -f "$entry" ] || continue
     if sudo rm "$entry"; then
       log_success "Removed fallback entry: $(basename "$entry")"
       entries_removed=1
+    else
+      log_error "Failed to remove fallback entry: $(basename "$entry")"
     fi
   done
   shopt -u nullglob
-  [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
+  
+  if [ $entries_removed -eq 0 ]; then
+    log_warning "No fallback entries found to remove."
+  fi
+  
+  return 0  # Explicitly return success
 }
 
 setup_fastfetch_config() {
