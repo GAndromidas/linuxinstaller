@@ -10,7 +10,7 @@ RESET='\033[0m'
 
 ERRORS=()
 CURRENT_STEP=1
-TOTAL_STEPS=32
+TOTAL_STEPS=33
 
 INSTALLED_PACKAGES=()
 REMOVED_PACKAGES=()
@@ -107,6 +107,19 @@ run_step() {
   else
     log_error "$description"
   fi
+}
+
+check_prerequisites() {
+  step "Checking system prerequisites"
+  if [[ $EUID -eq 0 ]]; then
+    log_error "Do not run this script as root. Please run as a regular user with sudo privileges."
+    exit 1
+  fi
+  if ! command -v pacman >/dev/null; then
+    log_error "This script is intended for Arch Linux systems with pacman."
+    exit 1
+  fi
+  log_success "Prerequisites OK."
 }
 
 install_helper_utils() {
@@ -421,13 +434,22 @@ remove_fallback_entries() {
   [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
 }
 
+remove_orphans() {
+  orphans=$(pacman -Qtdq 2>/dev/null || true)
+  if [[ -n "$orphans" ]]; then
+    sudo pacman -Rns --noconfirm $orphans
+  else
+    echo "No orphaned packages to remove."
+  fi
+}
+
 setup_maintenance() {
   if command -v paccache >/dev/null; then
     run_step "Cleaning pacman cache (keep last 3 packages)" sudo paccache -r
   else
     log_warning "paccache not found. Skipping paccache cache cleaning."
   fi
-  run_step "Removing orphaned packages" bash -c 'orphans=$(pacman -Qtdq); if [[ -n "$orphans" ]]; then sudo pacman -Rns --noconfirm $orphans; fi'
+  run_step "Removing orphaned packages" remove_orphans
   run_step "System update" sudo pacman -Syu --noconfirm
   if command -v yay >/dev/null; then
     run_step "AUR update (yay)" yay -Syu --noconfirm
@@ -522,6 +544,7 @@ main() {
 
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
+  check_prerequisites
   install_helper_utils
   configure_pacman
   update_mirrors_and_system
