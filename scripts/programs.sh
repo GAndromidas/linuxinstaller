@@ -59,16 +59,21 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 # Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-# Ensure flatpak is installed and flathub is enabled
+# Ensure flatpak is installed and flathub is enabled (using GRNET mirror for Greece)
 check_flatpak() {
   if ! command -v flatpak &>/dev/null; then
     log_error "flatpak is not installed. Please install flatpak and rerun."
     exit 1
   fi
   if ! flatpak remote-list | grep -q flathub; then
-    step "Adding Flathub remote"
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    step "Adding Flathub remote (GRNET mirror, Greece)"
+    flatpak remote-add --if-not-exists flathub https://ftp.cc.uoc.gr/mirrors/linux/flathub/flathub.flatpakrepo
     handle_error "Failed to add Flathub remote."
+  else
+    # If flathub exists, set its URL to the GRNET mirror for best speed
+    step "Setting Flathub remote URL to GRNET mirror (Greece)"
+    flatpak remote-modify flathub --url=https://ftp.cc.uoc.gr/mirrors/linux/flathub/flathub.flatpakrepo
+    handle_error "Failed to set Flathub remote URL."
   fi
 }
 
