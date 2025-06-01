@@ -16,7 +16,6 @@ RESET='\033[0m'
 # --- Global arrays and variables ---
 ERRORS=()                # Collects error messages for summary
 CURRENT_STEP=1           # Tracks current step for progress display
-TOTAL_STEPS=0            # Will be set dynamically based on actual steps
 INSTALLED_PACKAGES=()    # Tracks installed packages
 REMOVED_PACKAGES=()      # Tracks removed packages
 
@@ -89,7 +88,7 @@ show_menu() {
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
   figlet_banner "$1"
-  echo -e "\n${CYAN}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${RESET}"
+  echo -e "\n${CYAN}[${CURRENT_STEP}] $1${RESET}"
   ((CURRENT_STEP++))
 }
 
@@ -119,45 +118,6 @@ run_step() {
   else
     log_error "$description"
   fi
-}
-
-# =========================
-#  Step Counting Function
-# =========================
-
-count_steps() {
-    TOTAL_STEPS=0
-
-    # Core steps that always run
-    ((TOTAL_STEPS++))  # check_prerequisites
-    ((TOTAL_STEPS++))  # install_helper_utils
-    ((TOTAL_STEPS++))  # configure_pacman (includes 3 sub-steps)
-    ((TOTAL_STEPS++))  # update_mirrors_and_system (includes 2 sub-steps)
-    ((TOTAL_STEPS++))  # set_sudo_pwfeedback
-    ((TOTAL_STEPS++))  # install_cpu_microcode
-    ((TOTAL_STEPS++))  # install_kernel_headers_for_all
-    ((TOTAL_STEPS++))  # generate_locales
-    ((TOTAL_STEPS++))  # setup_zsh (includes 4 sub-steps)
-    ((TOTAL_STEPS++))  # install_starship
-
-    # Custom scripts that exist
-    [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ] && ((TOTAL_STEPS++))
-    [ -f "$SCRIPTS_DIR/install_yay.sh" ] && ((TOTAL_STEPS++))
-    [ -f "$SCRIPTS_DIR/programs.sh" ] && ((TOTAL_STEPS++))
-    [ -f "$SCRIPTS_DIR/fail2ban.sh" ] && ((TOTAL_STEPS++))
-
-    # Remaining core steps
-    ((TOTAL_STEPS++))  # make_systemd_boot_silent
-    ((TOTAL_STEPS++))  # change_loader_conf
-    ((TOTAL_STEPS++))  # remove_fallback_entries
-    ((TOTAL_STEPS++))  # setup_fastfetch_config
-    ((TOTAL_STEPS++))  # setup_firewall_and_services
-    ((TOTAL_STEPS++))  # cleanup_helpers
-    ((TOTAL_STEPS++))  # detect_and_install_gpu_drivers
-    ((TOTAL_STEPS++))  # setup_maintenance
-    ((TOTAL_STEPS++))  # cleanup_and_optimize
-    ((TOTAL_STEPS++))  # print_summary
-    ((TOTAL_STEPS++))  # prompt_reboot
 }
 
 # =========================
@@ -603,9 +563,6 @@ main() {
   clear
   arch_ascii
   show_menu
-
-  # Count steps before starting
-  count_steps
 
   # Reset current step counter
   CURRENT_STEP=1
