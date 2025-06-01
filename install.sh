@@ -342,6 +342,7 @@ remove_fallback_entries() {
   step "Removing fallback entries from systemd-boot"
   local ENTRIES_DIR="/boot/loader/entries"
   local entries_removed=0
+  shopt -s nullglob
   for entry in "$ENTRIES_DIR"/*fallback.conf; do
     [ -f "$entry" ] || continue
     if sudo rm "$entry"; then
@@ -349,6 +350,7 @@ remove_fallback_entries() {
       entries_removed=1
     fi
   done
+  shopt -u nullglob
   [ $entries_removed -eq 0 ] && log_warning "No fallback entries found to remove."
 }
 
