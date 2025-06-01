@@ -59,9 +59,9 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 # Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
-# Always use the official Flathub mirror
+# Always use the official Flathub mirror (fixed URL)
 get_closest_flathub_mirror() {
-  local mirror_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
+  local mirror_url="https://dl.flathub.org/repo/"
   step "Using official Flathub mirror: $mirror_url"
   echo "$mirror_url"
 }
@@ -83,6 +83,8 @@ check_flatpak() {
     flatpak remote-modify flathub --url="$mirror_url"
     handle_error "Failed to set Flathub remote URL."
   fi
+  step "Updating Flatpak remotes"
+  flatpak update -y
 }
 
 # Detect desktop environment and set program lists accordingly
