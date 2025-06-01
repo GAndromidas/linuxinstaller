@@ -395,9 +395,89 @@ setup_fastfetch_config() {
 }
 
 setup_firewall_and_services() {
-  run_step "Installing UFW firewall" sudo pacman -S --needed --noconfirm ufw
-  run_step "Enabling firewall" sudo ufw enable
+  step "Setting up firewall and services"
+  
+  # First handle firewall setup
+  if command -v firewalld >/dev/null 2>&1; then
+    run_step "Configuring Firewalld" configure_firewalld
+  else
+    run_step "Configuring UFW" configure_ufw
+  fi
+  
+  # Then handle services
+  run_step "Enabling system services" enable_services
+}
 
+configure_firewalld() {
+  # Start and enable firewalld
+  sudo systemctl start firewalld
+  sudo systemctl enable firewalld
+
+  # Set default policies
+  sudo firewall-cmd --set-default-zone=drop
+  log_success "Default policy set to deny all incoming connections."
+
+  sudo firewall-cmd --set-default-zone=public
+  log_success "Default policy set to allow all outgoing connections."
+
+  # Allow SSH
+  if ! sudo firewall-cmd --list-all | grep -q "22/tcp"; then
+    sudo firewall-cmd --add-service=ssh --permanent
+    sudo firewall-cmd --reload
+    log_success "SSH allowed through Firewalld."
+  else
+    log_warning "SSH is already allowed. Skipping SSH service configuration."
+  fi
+
+  # Check if KDE Connect is installed
+  if pacman -Q kdeconnect &>/dev/null; then
+    # Allow specific ports for KDE Connect
+    sudo firewall-cmd --add-port=1714-1764/udp --permanent
+    sudo firewall-cmd --add-port=1714-1764/tcp --permanent
+    sudo firewall-cmd --reload
+    log_success "KDE Connect ports allowed through Firewalld."
+  else
+    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+  fi
+}
+
+configure_ufw() {
+  # Install UFW if not present
+  if ! command -v ufw >/dev/null 2>&1; then
+    sudo pacman -S --needed --noconfirm ufw
+    log_success "UFW installed successfully."
+  fi
+
+  # Enable UFW
+  sudo ufw enable
+
+  # Set default policies
+  sudo ufw default deny incoming
+  log_success "Default policy set to deny all incoming connections."
+
+  sudo ufw default allow outgoing
+  log_success "Default policy set to allow all outgoing connections."
+
+  # Allow SSH
+  if ! sudo ufw status | grep -q "22/tcp"; then
+    sudo ufw allow ssh
+    log_success "SSH allowed through UFW."
+  else
+    log_warning "SSH is already allowed. Skipping SSH service configuration."
+  fi
+
+  # Check if KDE Connect is installed
+  if pacman -Q kdeconnect &>/dev/null; then
+    # Allow specific ports for KDE Connect
+    sudo ufw allow 1714:1764/udp
+    sudo ufw allow 1714:1764/tcp
+    log_success "KDE Connect ports allowed through UFW."
+  else
+    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+  fi
+}
+
+enable_services() {
   local services=(
     "bluetooth"
     "cronie"
@@ -413,7 +493,8 @@ setup_firewall_and_services() {
 
   for service in "${services[@]}"; do
     if [ -f "/usr/lib/systemd/system/$service" ] || [ -f "/etc/systemd/system/$service" ]; then
-      run_step "Enabling $service" sudo systemctl enable --now "$service"
+      sudo systemctl enable --now "$service"
+      log_success "$service enabled."
     else
       log_warning "$service is not installed or not available as a systemd service. Skipping."
     fi
