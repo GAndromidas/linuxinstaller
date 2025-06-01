@@ -65,13 +65,25 @@ show_menu() {
   while true; do
     read -r -p "Enter your choice [1-3]: " menu_choice
     case "$menu_choice" in
-      1) INSTALL_MODE="default"; break ;;
-      2) INSTALL_MODE="minimal"; break ;;
-      3) echo -e "${CYAN}Exiting the installer. Goodbye!${RESET}"; exit 0 ;;
-      *) echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}" ;;
+      1) 
+        INSTALL_MODE="default"
+        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
+        break 
+        ;;
+      2) 
+        INSTALL_MODE="minimal"
+        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
+        break 
+        ;;
+      3) 
+        echo -e "${CYAN}Exiting the installer. Goodbye!${RESET}"
+        exit 0 
+        ;;
+      *) 
+        echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}" 
+        ;;
     esac
   done
-  echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
 }
 
 step() {
@@ -599,7 +611,7 @@ main() {
   CURRENT_STEP=1
 
   # Ask for sudo password up front
-  echo -e "${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
+  echo -e "\n${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
   sudo -v
   if [ $? -ne 0 ]; then
     echo -e "${RED}Incorrect password or sudo privileges required. Exiting.${RESET}"
@@ -613,6 +625,8 @@ main() {
 
   # Log all output to install.log
   exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
+
+  echo -e "\n${GREEN}Starting installation with mode: $INSTALL_MODE${RESET}\n"
 
   # --- Main installation steps in recommended order ---
   check_prerequisites
