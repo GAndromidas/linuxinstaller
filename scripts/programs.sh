@@ -61,6 +61,19 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 # Ensure yay is installed for AUR support
 check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
 
+# Ensure flatpak is installed and flathub is enabled
+check_flatpak() {
+  if ! command -v flatpak &>/dev/null; then
+    log_error "flatpak is not installed. Please install flatpak and rerun."
+    exit 1
+  fi
+  if ! flatpak remote-list | grep -q flathub; then
+    step "Adding Flathub remote"
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    handle_error "Failed to add Flathub remote."
+  fi
+}
+
 # Detect desktop environment and set program lists accordingly
 detect_desktop_environment() {
   case "$XDG_CURRENT_DESKTOP" in
@@ -176,123 +189,63 @@ install_aur_packages() {
   progress_bar "$total" "$total"
 }
 
-# Install Flatpak programs for KDE
-install_flatpak_programs_kde() {
-  step "Installing Flatpak programs for KDE"
-  local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2)
+# Generic Flatpak install function with improved feedback
+install_flatpak_programs_list() {
+  local flatpaks=("$@")
   local total=${#flatpaks[@]}
   local count=0
   for pkg in "${flatpaks[@]}"; do
     ((count++))
     progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
+    echo -e "${CYAN}Installing Flatpak: $pkg${RESET}"
+    flatpak install -y flathub "$pkg"
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
   done
   progress_bar "$total" "$total"
+}
+
+# Install Flatpak programs for KDE
+install_flatpak_programs_kde() {
+  step "Installing Flatpak programs for KDE"
+  install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever net.davidotek.pupgui2
 }
 
 # Install Flatpak programs for GNOME
 install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
-  local flatpaks=(com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list com.mattjakeman.ExtensionManager io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus
 }
 
 # Install Flatpak programs for Cosmic
 install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
-  local flatpaks=(io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list io.github.shiftey.Desktop it.mijorus.gearlever com.vysp3r.ProtonPlus dev.edfloreshz.CosmicTweaks
 }
 
 # Install minimal Flatpak programs for KDE
 install_flatpak_minimal_kde() {
   step "Installing minimal Flatpak programs for KDE"
-  local flatpaks=(it.mijorus.gearlever)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list it.mijorus.gearlever
 }
 
 # Install minimal Flatpak programs for GNOME
 install_flatpak_minimal_gnome() {
   step "Installing minimal Flatpak programs for GNOME"
-  local flatpaks=(com.mattjakeman.ExtensionManager it.mijorus.gearlever)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list com.mattjakeman.ExtensionManager it.mijorus.gearlever
 }
 
 # Install minimal Flatpak programs for Cosmic
 install_flatpak_minimal_cosmic() {
   step "Installing minimal Flatpak programs for Cosmic"
-  local flatpaks=(it.mijorus.gearlever dev.edfloreshz.CosmicTweaks)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list it.mijorus.gearlever dev.edfloreshz.CosmicTweaks
 }
 
 # Install minimal Flatpak programs for generic DE/WM
 install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
-  local flatpaks=(it.mijorus.gearlever)
-  local total=${#flatpaks[@]}
-  local count=0
-  for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    flatpak install -y flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    fi
-  done
-  progress_bar "$total" "$total"
+  install_flatpak_programs_list it.mijorus.gearlever
 }
 
 # Print summary of actions taken
@@ -338,6 +291,7 @@ else
 fi
 
 check_yay
+check_flatpak
 detect_desktop_environment
 remove_programs
 install_pacman_programs
