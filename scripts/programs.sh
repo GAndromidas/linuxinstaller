@@ -135,10 +135,13 @@ install_pacman_programs() {
   fi
 
   echo -e "${CYAN}Installing with pacman:${RESET} ${to_install[*]}"
-  sudo pacman -S --needed --noconfirm "${to_install[@]}" &>/dev/null
-  if handle_error "Failed to install some Pacman packages."; then
-    INSTALLED_PKGS+=("${to_install[@]}")
-  fi
+  for program in "${to_install[@]}"; do
+    sudo pacman -S --needed --noconfirm "$program" &>/dev/null
+    if handle_error "Failed to install $program."; then
+      log_success "$program installed (pacman)."
+      INSTALLED_PKGS+=("$program")
+    fi
+  done
 }
 
 install_aur_packages() {
@@ -168,12 +171,13 @@ install_aur_packages() {
   fi
 
   echo -e "${CYAN}Installing with yay:${RESET} ${to_install[*]}"
-  yay -S --noconfirm "${to_install[@]}" &>/dev/null
-  if handle_error "Failed to install some AUR packages."; then
-    for pkg in "${to_install[@]}"; do
+  for pkg in "${to_install[@]}"; do
+    yay -S --noconfirm "$pkg" &>/dev/null
+    if handle_error "Failed to install $pkg (AUR)."; then
+      log_success "$pkg installed (AUR)."
       INSTALLED_PKGS+=("$pkg (AUR)")
-    done
-  fi
+    fi
+  done
 }
 
 install_flatpak_programs_list() {
@@ -192,12 +196,13 @@ install_flatpak_programs_list() {
   fi
 
   echo -e "${CYAN}Installing with flatpak:${RESET} ${to_install[*]}"
-  flatpak install --assumeyes --or-update flathub "${to_install[@]}" &>/dev/null
-  if handle_error "Failed to install some Flatpak packages."; then
-    for pkg in "${to_install[@]}"; do
+  for pkg in "${to_install[@]}"; do
+    flatpak install --assumeyes --or-update flathub "$pkg" &>/dev/null
+    if handle_error "Failed to install $pkg (flatpak)."; then
+      log_success "$pkg installed (flatpak)."
       INSTALLED_PKGS+=("$pkg (flatpak)")
-    done
-  fi
+    fi
+  done
 }
 
 install_flatpak_programs_kde() {
