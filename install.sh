@@ -121,6 +121,22 @@ run_step() {
 }
 
 # =========================
+#  Pacman Install Helper
+# =========================
+
+install_packages_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    echo -e "${CYAN}Installing: $pkg${RESET}"
+    if sudo pacman -S --noconfirm --needed "$pkg"; then
+      INSTALLED_PACKAGES+=("$pkg")
+    else
+      log_error "Failed to install $pkg"
+    fi
+  done
+}
+
+# =========================
 #  Main Installation Steps
 # =========================
 
@@ -147,8 +163,9 @@ install_helper_utils() {
     fi
   done
   if [ "${#to_install[@]}" -gt 0 ]; then
-    run_step "Installing helper utilities" sudo pacman -S --needed --noconfirm "${to_install[@]}"
-    INSTALLED_PACKAGES+=("${to_install[@]}")
+    step "Installing helper utilities"
+    install_packages_quietly "${to_install[@]}"
+    log_success "Helper utilities installed."
   fi
 }
 
@@ -196,12 +213,7 @@ install_cpu_microcode() {
     if pacman -Q "$pkg" &>/dev/null; then
       log_warning "$pkg is already installed. Skipping."
     else
-      if sudo pacman -S --needed --noconfirm "$pkg"; then
-        log_success "$pkg installed successfully."
-        INSTALLED_PACKAGES+=("$pkg")
-      else
-        log_error "Failed to install $pkg."
-      fi
+      install_packages_quietly "$pkg"
     fi
   fi
 }
@@ -225,12 +237,7 @@ install_kernel_headers_for_all() {
   fi
   for kernel in "${kernel_types[@]}"; do
     local headers_package="${kernel}-headers"
-    if sudo pacman -S --needed --noconfirm "$headers_package"; then
-      log_success "$headers_package installed successfully."
-      INSTALLED_PACKAGES+=("$headers_package")
-    else
-      log_error "Error: Failed to install $headers_package."
-    fi
+    install_packages_quietly "$headers_package"
   done
 }
 
@@ -240,8 +247,8 @@ generate_locales() {
 
 setup_zsh() {
   if ! command -v zsh >/dev/null; then
-    run_step "Installing ZSH and plugins" sudo pacman -S --needed --noconfirm zsh zsh-autosuggestions zsh-syntax-highlighting
-    INSTALLED_PACKAGES+=("zsh" "zsh-autosuggestions" "zsh-syntax-highlighting")
+    step "Installing ZSH and plugins"
+    install_packages_quietly zsh zsh-autosuggestions zsh-syntax-highlighting
   else
     log_warning "zsh is already installed. Skipping."
   fi
@@ -258,7 +265,8 @@ setup_zsh() {
 
 install_starship() {
   if ! command -v starship >/dev/null; then
-    run_step "Installing starship prompt" sudo pacman -S --needed --noconfirm starship
+    step "Installing starship prompt"
+    install_packages_quietly starship
   else
     log_warning "starship is already installed. Skipping installation."
   fi
@@ -444,7 +452,7 @@ configure_firewalld() {
 configure_ufw() {
   # Install UFW if not present
   if ! command -v ufw >/dev/null 2>&1; then
-    sudo pacman -S --needed --noconfirm ufw
+    install_packages_quietly ufw
     log_success "UFW installed successfully."
   fi
 
@@ -520,7 +528,8 @@ detect_and_install_gpu_drivers() {
     read -r -p "Enter your choice [1-5, default 4]: " nvidia_choice
     case "$nvidia_choice" in
       1)
-        run_step "Installing NVIDIA DKMS driver" sudo pacman -S --noconfirm nvidia-dkms nvidia-utils
+        step "Installing NVIDIA DKMS driver"
+        install_packages_quietly nvidia-dkms nvidia-utils
         ;;
       2)
         run_step "Installing NVIDIA 390xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-390xx-dkms nvidia-390xx-utils lib32-nvidia-390xx-utils
@@ -532,13 +541,16 @@ detect_and_install_gpu_drivers() {
         echo -e "${YELLOW}Skipping NVIDIA driver installation.${RESET}"
         ;;
       ""|4|*)
-        run_step "Installing open-source Nouveau driver for NVIDIA" sudo pacman -S --noconfirm xf86-video-nouveau mesa
+        step "Installing open-source Nouveau driver for NVIDIA"
+        install_packages_quietly xf86-video-nouveau mesa
         ;;
     esac
   elif echo "$GPU_INFO" | grep -qi amd; then
-    run_step "Installing AMDGPU drivers" sudo pacman -S --noconfirm xf86-video-amdgpu mesa
+    step "Installing AMDGPU drivers"
+    install_packages_quietly xf86-video-amdgpu mesa
   elif echo "$GPU_INFO" | grep -qi intel; then
-    run_step "Installing Intel graphics drivers" sudo pacman -S --noconfirm mesa xf86-video-intel
+    step "Installing Intel graphics drivers"
+    install_packages_quietly mesa xf86-video-intel
   else
     log_warning "No supported GPU detected or unable to determine GPU vendor."
   fi
