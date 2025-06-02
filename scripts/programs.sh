@@ -181,7 +181,7 @@ install_aur_packages() {
   progress_bar "$total" "$total"; echo ""
 }
 
- install_flatpak_programs_list() {
+install_flatpak_programs_list() {
   local flatpaks=("$@")
   local total=${#flatpaks[@]}
   local count=0
@@ -189,7 +189,7 @@ install_aur_packages() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    # Directly attempt to install; flatpak will skip if already installed
+    # Always attempt to install; flatpak will skip if already installed
     flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
