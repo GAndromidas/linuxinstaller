@@ -16,7 +16,7 @@
 
 ## 🚀 Overview
 
-**archinstaller** is a user-friendly and highly customizable post-install script for Arch Linux. It automates essential system configuration, package installation, and desktop setup, allowing you to get a fully working system in minutes. 
+**archinstaller** is a modular, user-friendly, and highly customizable post-install script for Arch Linux. It automates essential system configuration, package installation, and desktop setup, allowing you to get a fully working system in minutes.
 
 ---
 
@@ -36,7 +36,7 @@
 
 ## ✨ Features
 
-- **Step-wise, color-coded, and robust scripts for system and user program setup**
+- **Modular, step-wise, and color-coded scripts for system and user program setup**
 - Installs kernel headers for all installed kernels (linux, lts, zen, hardened)
 - Bootloader tweaks (systemd-boot)
 - Enhanced Pacman configuration (color, parallel downloads, ILoveCandy)
@@ -44,9 +44,8 @@
 - ZSH + Oh-My-ZSH + Starship prompt + plugins
 - Locales and timezone configuration
 - **YAY (AUR helper) installed via its own standalone script** (`scripts/install_yay.sh`)
-- User program installation is handled by `programs.sh`, **now fully flag-driven**:  
+- **User program installation is fully flag-driven** (`-d` for Default, `-m` for Minimal)  
   - No interactive menu in `programs.sh`—mode is set from the top-level `install.sh`
-  - `-d` for Default, `-m` for Minimal
   - Desktop environment detection; minimal set fallback for unknown DE/WM
 - AUR and Flatpak program installation, with improved error handling and summary
 - Optional: Fail2ban and Plymouth each have their own robust scripts in `scripts/`
@@ -56,6 +55,8 @@
 - Guided menu-based UI for install mode in `install.sh` only
 - Optional reboot after installation
 - **All major sub-scripts (`fail2ban.sh`, `setup_plymouth.sh`, etc) use the same color-coded, step-wise logic as the main installer**
+- **Idempotent:** Safe to run multiple times; only acts when needed
+- **No password reprompt:** Sudo session is kept alive throughout install
 
 ---
 
