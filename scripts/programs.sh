@@ -189,8 +189,9 @@ install_flatpak_programs_list() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    if ! flatpak list | grep -q "$pkg"; then
-      flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
+    # Improved check: match app ID exactly
+    if ! flatpak list --app | awk '{print $2}' | grep -wq "$pkg"; then
+      flatpak install -y --noninteractive flathub "$pkg"
       if handle_error "Failed to install Flatpak $pkg."; then
         INSTALLED_PKGS+=("$pkg (flatpak)")
       fi
