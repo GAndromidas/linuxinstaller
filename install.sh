@@ -127,10 +127,16 @@ run_step() {
 install_packages_quietly() {
   local pkgs=("$@")
   for pkg in "${pkgs[@]}"; do
-    echo -e "${CYAN}Installing: $pkg${RESET}"
-    if sudo pacman -S --noconfirm --needed "$pkg"; then
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
       INSTALLED_PACKAGES+=("$pkg")
     else
+      echo -e "${RED}[FAIL]${RESET}"
       log_error "Failed to install $pkg"
     fi
   done
