@@ -115,12 +115,8 @@ print_summary() {
 
 # ======= Main =======
 main() {
-  # Print figlet banner if available
-  if command -v figlet >/dev/null; then
-    figlet "Plymouth Setup"
-  else
-    echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
-  fi
+  # Print simple banner (no figlet)
+  echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
 
   run_step "Installing Plymouth" install_plymouth
   run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook

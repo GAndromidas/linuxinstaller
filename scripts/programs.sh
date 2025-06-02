@@ -170,11 +170,7 @@ remove_programs() {
 
 install_pacman_programs() {
   step "Installing Pacman programs"
-  if command -v figlet >/dev/null; then
-    figlet "Programs Installing"
-  else
-    echo -e "${CYAN}=== Programs Installing ===${RESET}"
-  fi
+  echo -e "${CYAN}=== Programs Installing ===${RESET}"
 
   local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
   if [ "${#specific_install_programs[@]}" -gt 0 ]; then
@@ -191,11 +187,7 @@ install_aur_packages() {
     return
   fi
 
-  if command -v figlet >/dev/null; then
-    figlet "AUR Installing"
-  else
-    echo -e "${CYAN}=== AUR Installing ===${RESET}"
-  fi
+  echo -e "${CYAN}=== AUR Installing ===${RESET}"
 
   install_aur_quietly "${yay_programs[@]}"
 }

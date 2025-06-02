@@ -116,12 +116,7 @@ print_summary() {
 
 # ======= Main =======
 main() {
-  # Print figlet banner if available
-  if command -v figlet >/dev/null; then
-    figlet "Fail2ban Setup"
-  else
-    echo -e "${CYAN}=== Fail2ban Setup ===${RESET}"
-  fi
+  echo -e "${CYAN}=== Fail2ban Setup ===${RESET}"
 
   run_step "Installing fail2ban" install_fail2ban
   run_step "Enabling and starting fail2ban" enable_and_start_fail2ban

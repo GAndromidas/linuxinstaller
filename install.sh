@@ -87,7 +87,6 @@ show_menu() {
 
 step() {
   echo -e "${CYAN}\n============================================================${RESET}"
-  figlet_banner "$1"
   echo -e "\n${CYAN}[${CURRENT_STEP}] $1${RESET}"
   ((CURRENT_STEP++))
 }
@@ -310,7 +309,6 @@ run_custom_scripts() {
   fi
 
   if [ -f "$SCRIPTS_DIR/fail2ban.sh" ]; then
-    figlet_banner "Fail2ban"
     chmod +x "$SCRIPTS_DIR/fail2ban.sh"
     run_step "Configuring fail2ban" "$SCRIPTS_DIR/fail2ban.sh"
   fi

@@ -14,12 +14,8 @@ log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; }
 step()        { echo -e "\n${CYAN}[$1] $2${RESET}"; }
 
-# ===== Banner =====
-if command -v figlet >/dev/null; then
-  figlet "yay Install"
-else
-  echo -e "${CYAN}=== yay Install ===${RESET}"
-fi
+# ===== Simple Banner =====
+echo -e "${CYAN}=== yay Install ===${RESET}"
 
 CUR_STEP=1
 
