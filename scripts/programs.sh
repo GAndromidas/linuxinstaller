@@ -57,6 +57,62 @@ check_flatpak() {
   flatpak update -y
 }
 
+# ===== Unified Quiet Install Functions =====
+
+install_pacman_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
+    fi
+  done
+}
+
+install_flatpak_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    if flatpak list --app | grep -qw "$pkg"; then
+      echo -e "${YELLOW}Flatpak: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
+    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install Flatpak $pkg"
+    fi
+  done
+}
+
+install_aur_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}AUR: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}AUR: $pkg ...${RESET} "
+    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg (AUR)")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install AUR $pkg"
+    fi
+  done
+}
+
 detect_desktop_environment() {
   case "$XDG_CURRENT_DESKTOP" in
     KDE)
@@ -120,34 +176,12 @@ install_pacman_programs() {
     echo -e "${CYAN}=== Programs Installing ===${RESET}"
   fi
 
-  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}")
-  # Filter out already installed packages
-  local to_install=()
-  for program in "${pkgs[@]}"; do
-    if ! is_package_installed "$program"; then
-      to_install+=("$program")
-    fi
-  done
-
-  if [ ${#to_install[@]} -eq 0 ]; then
-    log_success "All Pacman packages already installed."
-    return
+  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
+  if [ "${#specific_install_programs[@]}" -gt 0 ]; then
+    pkgs+=("${specific_install_programs[@]}")
   fi
 
-  echo -e "${CYAN}Installing with pacman:${RESET}"
-  local count=1
-  local total=${#to_install[@]}
-  for program in "${to_install[@]}"; do
-    echo -ne "${YELLOW}[$count/$total] Installing $program...${RESET}\r"
-    sudo pacman -S --needed --noconfirm "$program" &>/dev/null
-    if handle_error "Failed to install $program."; then
-      echo -e "${GREEN}[$count/$total] $program installed (pacman).${RESET}"
-      INSTALLED_PKGS+=("$program")
-    else
-      echo -e "${RED}[$count/$total] Failed to install $program.${RESET}"
-    fi
-    ((count++))
-  done
+  install_pacman_quietly "${pkgs[@]}"
 }
 
 install_aur_packages() {
@@ -163,64 +197,12 @@ install_aur_packages() {
     echo -e "${CYAN}=== AUR Installing ===${RESET}"
   fi
 
-  # Filter out already installed AUR packages
-  local to_install=()
-  for pkg in "${yay_programs[@]}"; do
-    if ! is_package_installed "$pkg"; then
-      to_install+=("$pkg")
-    fi
-  done
-
-  if [ ${#to_install[@]} -eq 0 ]; then
-    log_success "All AUR packages already installed."
-    return
-  fi
-
-  echo -e "${CYAN}Installing with yay:${RESET}"
-  local count=1
-  local total=${#to_install[@]}
-  for pkg in "${to_install[@]}"; do
-    echo -ne "${YELLOW}[$count/$total] Installing $pkg...${RESET}\r"
-    yay -S --noconfirm "$pkg" &>/dev/null
-    if handle_error "Failed to install $pkg (AUR)."; then
-      echo -e "${GREEN}[$count/$total] $pkg installed (AUR).${RESET}"
-      INSTALLED_PKGS+=("$pkg (AUR)")
-    else
-      echo -e "${RED}[$count/$total] Failed to install $pkg (AUR).${RESET}"
-    fi
-    ((count++))
-  done
+  install_aur_quietly "${yay_programs[@]}"
 }
 
 install_flatpak_programs_list() {
   local flatpaks=("$@")
-  # Filter out already installed Flatpaks
-  local to_install=()
-  for pkg in "${flatpaks[@]}"; do
-    if ! flatpak list --app | grep -q "$pkg"; then
-      to_install+=("$pkg")
-    fi
-  done
-
-  if [ ${#to_install[@]} -eq 0 ]; then
-    log_success "All Flatpak packages already installed."
-    return
-  fi
-
-  echo -e "${CYAN}Installing with flatpak:${RESET}"
-  local count=1
-  local total=${#to_install[@]}
-  for pkg in "${to_install[@]}"; do
-    echo -ne "${YELLOW}[$count/$total] Installing $pkg...${RESET}\r"
-    flatpak install --assumeyes --or-update flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install $pkg (flatpak)."; then
-      echo -e "${GREEN}[$count/$total] $pkg installed (flatpak).${RESET}"
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    else
-      echo -e "${RED}[$count/$total] Failed to install $pkg (flatpak).${RESET}"
-    fi
-    ((count++))
-  done
+  install_flatpak_quietly "${flatpaks[@]}"
 }
 
 install_flatpak_programs_kde() {

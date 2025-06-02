@@ -1,76 +1,71 @@
 #!/bin/bash
 set -e
 
-# Colors
+# ===== Colors for output =====
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-RED='\033[0;31m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-show_progress_bar() {
-  local current=$1
-  local total=$2
-  local width=40
-  local percent=$(( 100 * current / total ))
-  local filled=$(( width * current / total ))
-  local empty=$(( width - filled ))
-  printf "\r["
-  for ((i=0; i<filled; i++)); do printf "#"; done
-  for ((i=0; i<empty; i++)); do printf " "; done
-  printf "] %3d%%" $percent
-  if (( current == total )); then
-    echo    # new line at 100%
-  fi
-}
+# ===== Output Functions =====
+log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; }
+step()        { echo -e "\n${CYAN}[$1] $2${RESET}"; }
 
-# Print figlet banner if available
+# ===== Banner =====
 if command -v figlet >/dev/null; then
   figlet "yay Install"
 else
   echo -e "${CYAN}=== yay Install ===${RESET}"
 fi
 
-steps_total=4
-step=1
+CUR_STEP=1
 
 # Step 1: Cleanup previous yay installation
-show_progress_bar $step $steps_total
+step $CUR_STEP "Cleanup previous yay installation"
 if command -v yay >/dev/null; then
-  echo -e "${YELLOW}\nyay is already installed. Removing it before reinstalling.${RESET}"
+  log_warning "yay is already installed. Removing it before reinstalling."
   sudo pacman -Rns --noconfirm yay || true
-  # Remove any remaining yay binary in /usr/bin
   if [ -f /usr/bin/yay ]; then
     sudo rm -f /usr/bin/yay
   fi
 fi
 if [ -d /tmp/yay ]; then
-  echo -e "${YELLOW}Removing existing /tmp/yay folder.${RESET}"
+  log_warning "Removing existing /tmp/yay folder."
   sudo rm -rf /tmp/yay
 fi
-((step++))
+((CUR_STEP++))
 
 # Step 2: Clone yay repo
-show_progress_bar $step $steps_total
-echo -e "${GREEN}\nCloning yay repository...${RESET}"
-cd /tmp
-git clone https://aur.archlinux.org/yay.git
-((step++))
+step $CUR_STEP "Cloning yay repository"
+if git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
+  log_success "yay repository cloned."
+else
+  log_error "Failed to clone yay repository."
+  exit 1
+fi
+((CUR_STEP++))
 
 # Step 3: Build and install yay
-show_progress_bar $step $steps_total
-echo -e "${GREEN}\nBuilding and installing yay...${RESET}"
-cd yay
-makepkg -si --noconfirm
-cd ..
-sudo rm -rf yay
-((step++))
+step $CUR_STEP "Building and installing yay"
+cd /tmp/yay
+if makepkg -si --noconfirm >/dev/null 2>&1; then
+  log_success "yay built and installed."
+else
+  log_error "Failed to build/install yay."
+  exit 1
+fi
+cd /tmp
+sudo rm -rf /tmp/yay
+((CUR_STEP++))
 
 # Step 4: Final check
-show_progress_bar $step $steps_total
+step $CUR_STEP "Final check"
 if command -v yay >/dev/null; then
-  echo -e "${GREEN}\nyay installed successfully!${RESET}"
+  log_success "yay installed successfully!"
 else
-  echo -e "${RED}\nyay installation failed.${RESET}"
+  log_error "yay installation failed."
   exit 1
 fi

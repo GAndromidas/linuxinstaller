@@ -13,22 +13,6 @@ INSTALLED=()
 ENABLED=()
 CONFIGURED=()
 
-show_progress_bar() {
-  local current=$1
-  local total=$2
-  local width=40
-  local percent=$(( 100 * current / total ))
-  local filled=$(( width * current / total ))
-  local empty=$(( width - filled ))
-  printf "\r["
-  for ((i=0; i<filled; i++)); do printf "#"; done
-  for ((i=0; i<empty; i++)); do printf " "; done
-  printf "] %3d%%" $percent
-  if (( current == total )); then
-    echo    # new line at 100%
-  fi
-}
-
 step() {
   echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
   ((CURRENT_STEP++))
@@ -55,38 +39,70 @@ run_step() {
 # ======= Fail2ban Setup Steps =======
 install_fail2ban() {
   if pacman -Q fail2ban >/dev/null 2>&1; then
-    log_warning "fail2ban is already installed. Skipping."
+    echo -e "${YELLOW}Installing: fail2ban ... [SKIP] Already installed${RESET}"
     return 0
   fi
-  sudo pacman -S --needed --noconfirm fail2ban
+  echo -ne "${CYAN}Installing: fail2ban ...${RESET} "
+  if sudo pacman -S --needed --noconfirm fail2ban >/dev/null 2>&1; then
+    echo -e "${GREEN}[OK]${RESET}"
+    INSTALLED+=("fail2ban")
+    return 0
+  else
+    echo -e "${RED}[FAIL]${RESET}"
+    return 1
+  fi
 }
 
 enable_and_start_fail2ban() {
-  sudo systemctl enable --now fail2ban
+  echo -ne "${CYAN}Enabling & starting: fail2ban ...${RESET} "
+  if sudo systemctl enable --now fail2ban >/dev/null 2>&1; then
+    echo -e "${GREEN}[OK]${RESET}"
+    ENABLED+=("fail2ban")
+    return 0
+  else
+    echo -e "${RED}[FAIL]${RESET}"
+    return 1
+  fi
 }
 
 configure_fail2ban() {
-  # This is a basic example. Adjust to your custom config logic as needed.
   local jail_local="/etc/fail2ban/jail.local"
   if [ ! -f "$jail_local" ]; then
+    echo -ne "${CYAN}Configuring: jail.local ...${RESET} "
     sudo cp /etc/fail2ban/jail.conf "$jail_local"
     sudo sed -i 's/^backend = auto/backend = systemd/' "$jail_local"
     sudo sed -i 's/^bantime  = 10m/bantime = 30m/' "$jail_local"
     sudo sed -i 's/^maxretry = 5/maxretry = 3/' "$jail_local"
-    log_success "Basic jail.local created and customized."
+    echo -e "${GREEN}[OK]${RESET}"
     CONFIGURED+=("jail.local")
   else
+    echo -e "${YELLOW}Configuring: jail.local ... [SKIP] Already exists${RESET}"
     log_warning "jail.local already exists. Skipping creation."
   fi
-  # You can add more configuration or jail file tweaks below as needed.
 }
 
 status_fail2ban() {
-  sudo systemctl status fail2ban --no-pager
+  echo -ne "${CYAN}Checking: fail2ban status ...${RESET} "
+  if sudo systemctl status fail2ban --no-pager >/dev/null 2>&1; then
+    echo -e "${GREEN}[OK]${RESET}"
+    return 0
+  else
+    echo -e "${RED}[FAIL]${RESET}"
+    return 1
+  fi
 }
 
 print_summary() {
   echo -e "\n${CYAN}========= FAIL2BAN SUMMARY =========${RESET}"
+  if [ ${#INSTALLED[@]} -gt 0 ]; then
+    echo -e "${GREEN}Installed:${RESET} ${INSTALLED[*]}"
+  fi
+  if [ ${#ENABLED[@]} -gt 0 ]; then
+    echo -e "${GREEN}Enabled:${RESET} ${ENABLED[*]}"
+  fi
+  if [ ${#CONFIGURED[@]} -gt 0 ]; then
+    echo -e "${GREEN}Configured:${RESET} ${CONFIGURED[*]}"
+  fi
   if [ ${#ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Fail2ban installed and configured successfully!${RESET}"
   else
@@ -107,25 +123,10 @@ main() {
     echo -e "${CYAN}=== Fail2ban Setup ===${RESET}"
   fi
 
-  local steps_total=4
-  local step_index=1
-
-  show_progress_bar $step_index $steps_total
   run_step "Installing fail2ban" install_fail2ban
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Enabling and starting fail2ban" enable_and_start_fail2ban
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Configuring fail2ban (jail.local)" configure_fail2ban
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Checking fail2ban status" status_fail2ban
-
-  show_progress_bar $steps_total $steps_total
 
   print_summary
 }

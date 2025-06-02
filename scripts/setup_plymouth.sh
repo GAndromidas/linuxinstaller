@@ -9,22 +9,7 @@ RESET='\033[0m'
 
 CURRENT_STEP=1
 ERRORS=()
-
-show_progress_bar() {
-  local current=$1
-  local total=$2
-  local width=40
-  local percent=$(( 100 * current / total ))
-  local filled=$(( width * current / total ))
-  local empty=$(( width - filled ))
-  printf "\r["
-  for ((i=0; i<filled; i++)); do printf "#"; done
-  for ((i=0; i<empty; i++)); do printf " "; done
-  printf "] %3d%%" $percent
-  if (( current == total )); then
-    echo    # new line at 100%
-  fi
-}
+INSTALLED_PKGS=()
 
 step() {
   echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
@@ -49,13 +34,28 @@ run_step() {
   return $status
 }
 
+# ======= Pacman Quiet Install Function =======
+install_pacman_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
+    fi
+  done
+}
+
 # ======= Plymouth Setup Steps =======
 install_plymouth() {
-  if pacman -Q plymouth >/dev/null 2>&1; then
-    log_warning "Plymouth is already installed. Skipping."
-    return 0
-  fi
-  sudo pacman -S --needed --noconfirm plymouth
+  install_pacman_quietly plymouth
 }
 
 enable_plymouth_hook() {
@@ -99,6 +99,9 @@ add_kernel_parameters() {
 
 print_summary() {
   echo -e "\n${CYAN}========= PLYMOUTH SUMMARY =========${RESET}"
+  if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
+    echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PKGS[*]}"
+  fi
   if [ ${#ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Plymouth installed and configured successfully!${RESET}"
   else
@@ -119,29 +122,11 @@ main() {
     echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
   fi
 
-  local steps_total=5
-  local step_index=1
-
-  show_progress_bar $step_index $steps_total
   run_step "Installing Plymouth" install_plymouth
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Rebuilding initramfs" rebuild_initramfs
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Setting Plymouth theme" set_plymouth_theme
-  ((step_index++))
-
-  show_progress_bar $step_index $steps_total
   run_step "Adding 'splash' to kernel parameters" add_kernel_parameters
-
-  show_progress_bar $steps_total $steps_total
 
   print_summary
 }
