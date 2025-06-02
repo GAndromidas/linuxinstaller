@@ -189,8 +189,8 @@ install_flatpak_programs_list() {
     ((count++))
     progress_bar "$count" "$total"
     printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    # Always attempt to install; flatpak will skip if already installed
-    flatpak install -y --noninteractive flathub "$pkg" &>/dev/null
+    # Use --assumeyes and --or-update to avoid prompts and stuck installs
+    flatpak install --assumeyes --or-update flathub "$pkg" &>/dev/null
     if handle_error "Failed to install Flatpak $pkg."; then
       INSTALLED_PKGS+=("$pkg (flatpak)")
     fi
