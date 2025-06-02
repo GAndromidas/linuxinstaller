@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
+
 # ===== Colors for output =====
 RED='\033[0;31m'
 GREEN='\033[0;32m'
