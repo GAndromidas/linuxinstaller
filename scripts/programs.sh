@@ -37,19 +37,6 @@ yay_programs_minimal=(brave-bin stacer-bin stremio teamviewer)
 
 # ===== Helper Functions =====
 
-progress_bar() {
-  local progress=$1
-  local total=$2
-  local width=40
-  local percent=$((progress * 100 / total))
-  local filled=$((progress * width / total))
-  local empty=$((width - filled))
-  printf "\r["
-  printf "%0.s#" $(seq 1 $filled)
-  printf "%0.s-" $(seq 1 $empty)
-  printf "] %3d%%" "$percent"
-}
-
 is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
 
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
@@ -134,21 +121,24 @@ install_pacman_programs() {
   fi
 
   local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}" "${specific_install_programs[@]}")
-  local total=${#pkgs[@]}
-  local count=0
+  # Filter out already installed packages
+  local to_install=()
   for program in "${pkgs[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    printf "   ${CYAN}Installing:${RESET} %-40s" "$program"
     if ! is_package_installed "$program"; then
-      sudo pacman -S --needed --noconfirm "$program" &>/dev/null
-      if handle_error "Failed to install $program."; then
-        INSTALLED_PKGS+=("$program")
-      fi
+      to_install+=("$program")
     fi
-    echo ""
   done
-  progress_bar "$total" "$total"; echo ""
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    log_success "All Pacman packages already installed."
+    return
+  fi
+
+  echo -e "${CYAN}Installing with pacman:${RESET} ${to_install[*]}"
+  sudo pacman -S --needed --noconfirm "${to_install[@]}" &>/dev/null
+  if handle_error "Failed to install some Pacman packages."; then
+    INSTALLED_PKGS+=("${to_install[@]}")
+  fi
 }
 
 install_aur_packages() {
@@ -164,39 +154,50 @@ install_aur_packages() {
     echo -e "${CYAN}=== AUR Installing ===${RESET}"
   fi
 
-  local total=${#yay_programs[@]}
-  local count=0
+  # Filter out already installed AUR packages
+  local to_install=()
   for pkg in "${yay_programs[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    printf "   ${CYAN}Installing AUR:${RESET} %-40s" "$pkg"
     if ! is_package_installed "$pkg"; then
-      yay -S --noconfirm "$pkg" &>/dev/null
-      if handle_error "Failed to install AUR $pkg."; then
-        INSTALLED_PKGS+=("$pkg (AUR)")
-      fi
+      to_install+=("$pkg")
     fi
-    echo ""
   done
-  progress_bar "$total" "$total"; echo ""
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    log_success "All AUR packages already installed."
+    return
+  fi
+
+  echo -e "${CYAN}Installing with yay:${RESET} ${to_install[*]}"
+  yay -S --noconfirm "${to_install[@]}" &>/dev/null
+  if handle_error "Failed to install some AUR packages."; then
+    for pkg in "${to_install[@]}"; do
+      INSTALLED_PKGS+=("$pkg (AUR)")
+    done
+  fi
 }
 
 install_flatpak_programs_list() {
   local flatpaks=("$@")
-  local total=${#flatpaks[@]}
-  local count=0
+  # Filter out already installed Flatpaks
+  local to_install=()
   for pkg in "${flatpaks[@]}"; do
-    ((count++))
-    progress_bar "$count" "$total"
-    printf "   ${CYAN}Installing Flatpak:${RESET} %-40s" "$pkg"
-    # Use --assumeyes and --or-update to avoid prompts and stuck installs
-    flatpak install --assumeyes --or-update flathub "$pkg" &>/dev/null
-    if handle_error "Failed to install Flatpak $pkg."; then
-      INSTALLED_PKGS+=("$pkg (flatpak)")
+    if ! flatpak list --app | grep -q "$pkg"; then
+      to_install+=("$pkg")
     fi
-    echo ""
   done
-  progress_bar "$total" "$total"; echo ""
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    log_success "All Flatpak packages already installed."
+    return
+  fi
+
+  echo -e "${CYAN}Installing with flatpak:${RESET} ${to_install[*]}"
+  flatpak install --assumeyes --or-update flathub "${to_install[@]}" &>/dev/null
+  if handle_error "Failed to install some Flatpak packages."; then
+    for pkg in "${to_install[@]}"; do
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    done
+  fi
 }
 
 install_flatpak_programs_kde() {
