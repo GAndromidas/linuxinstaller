@@ -134,13 +134,19 @@ install_pacman_programs() {
     return
   fi
 
-  echo -e "${CYAN}Installing with pacman:${RESET} ${to_install[*]}"
+  echo -e "${CYAN}Installing with pacman:${RESET}"
+  local count=1
+  local total=${#to_install[@]}
   for program in "${to_install[@]}"; do
+    echo -ne "${YELLOW}[$count/$total] Installing $program...${RESET}\r"
     sudo pacman -S --needed --noconfirm "$program" &>/dev/null
     if handle_error "Failed to install $program."; then
-      log_success "$program installed (pacman)."
+      echo -e "${GREEN}[$count/$total] $program installed (pacman).${RESET}"
       INSTALLED_PKGS+=("$program")
+    else
+      echo -e "${RED}[$count/$total] Failed to install $program.${RESET}"
     fi
+    ((count++))
   done
 }
 
@@ -170,13 +176,19 @@ install_aur_packages() {
     return
   fi
 
-  echo -e "${CYAN}Installing with yay:${RESET} ${to_install[*]}"
+  echo -e "${CYAN}Installing with yay:${RESET}"
+  local count=1
+  local total=${#to_install[@]}
   for pkg in "${to_install[@]}"; do
+    echo -ne "${YELLOW}[$count/$total] Installing $pkg...${RESET}\r"
     yay -S --noconfirm "$pkg" &>/dev/null
     if handle_error "Failed to install $pkg (AUR)."; then
-      log_success "$pkg installed (AUR)."
+      echo -e "${GREEN}[$count/$total] $pkg installed (AUR).${RESET}"
       INSTALLED_PKGS+=("$pkg (AUR)")
+    else
+      echo -e "${RED}[$count/$total] Failed to install $pkg (AUR).${RESET}"
     fi
+    ((count++))
   done
 }
 
@@ -195,13 +207,19 @@ install_flatpak_programs_list() {
     return
   fi
 
-  echo -e "${CYAN}Installing with flatpak:${RESET} ${to_install[*]}"
+  echo -e "${CYAN}Installing with flatpak:${RESET}"
+  local count=1
+  local total=${#to_install[@]}
   for pkg in "${to_install[@]}"; do
+    echo -ne "${YELLOW}[$count/$total] Installing $pkg...${RESET}\r"
     flatpak install --assumeyes --or-update flathub "$pkg" &>/dev/null
     if handle_error "Failed to install $pkg (flatpak)."; then
-      log_success "$pkg installed (flatpak)."
+      echo -e "${GREEN}[$count/$total] $pkg installed (flatpak).${RESET}"
       INSTALLED_PKGS+=("$pkg (flatpak)")
+    else
+      echo -e "${RED}[$count/$total] Failed to install $pkg (flatpak).${RESET}"
     fi
+    ((count++))
   done
 }
 
