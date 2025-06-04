@@ -1003,6 +1003,30 @@ class ArchInstaller:
             else:
                 self.print_colored("\nPlease answer Y (yes) or N (no).", Colors.RED)
 
+    def show_menu(self):
+        """Show the installation menu and get user choice"""
+        self.print_colored("\nWelcome to the Arch Installer script!", Colors.YELLOW)
+        print("Please select your installation mode:")
+        print("  1) Default (Full setup)")
+        print("  2) Minimal (Core utilities only)")
+        print("  3) Exit")
+
+        while True:
+            choice = input("Enter your choice [1-3]: ").strip()
+            if choice == '1':
+                self.config.install_mode = InstallMode.DEFAULT
+                self.print_colored(f"Selected mode: {self.config.install_mode.value}", Colors.CYAN)
+                break
+            elif choice == '2':
+                self.config.install_mode = InstallMode.MINIMAL
+                self.print_colored(f"Selected mode: {self.config.install_mode.value}", Colors.CYAN)
+                break
+            elif choice == '3':
+                self.print_colored("Exiting the installer. Goodbye!", Colors.CYAN)
+                sys.exit(0)
+            else:
+                self.print_colored("Invalid choice! Please enter 1, 2, or 3.", Colors.RED)
+
     def main(self):
         self.print_banner()
         self.show_menu()
