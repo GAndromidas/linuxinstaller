@@ -128,6 +128,8 @@ install_packages_quietly() {
   local max_parallel=4  # Adjust based on your system's capabilities
   local pids=()
   local running=0
+  local temp_dir=$(mktemp -d)
+  local status_files=()
 
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
@@ -140,20 +142,30 @@ install_packages_quietly() {
       for pid in "${!pids[@]}"; do
         if ! kill -0 ${pids[$pid]} 2>/dev/null; then
           wait ${pids[$pid]}
+          # Read status from temp file
+          if [ -f "${status_files[$pid]}" ]; then
+            cat "${status_files[$pid]}"
+            rm "${status_files[$pid]}"
+          fi
           unset pids[$pid]
+          unset status_files[$pid]
           ((running--))
         fi
       done
       sleep 0.1
     done
 
+    # Create temp file for this package's status
+    local status_file="$temp_dir/pkg_$$_$RANDOM"
+    status_files+=("$status_file")
+    
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
     (
       if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}"
+        echo -e "${GREEN}[OK]${RESET}" > "$status_file"
         INSTALLED_PACKAGES+=("$pkg")
       else
-        echo -e "${RED}[FAIL]${RESET}"
+        echo -e "${RED}[FAIL]${RESET}" > "$status_file"
         log_error "Failed to install $pkg"
       fi
     ) &
@@ -161,10 +173,17 @@ install_packages_quietly() {
     ((running++))
   done
 
-  # Wait for remaining processes
-  for pid in "${pids[@]}"; do
-    wait $pid
+  # Wait for remaining processes and show their output
+  for pid in "${!pids[@]}"; do
+    wait ${pids[$pid]}
+    if [ -f "${status_files[$pid]}" ]; then
+      cat "${status_files[$pid]}"
+      rm "${status_files[$pid]}"
+    fi
   done
+
+  # Cleanup
+  rm -rf "$temp_dir"
 }
 
 # =========================
