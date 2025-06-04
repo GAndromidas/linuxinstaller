@@ -66,6 +66,24 @@ install_pacman_quietly() {
   local running=0
   local temp_dir=$(mktemp -d)
   local status_files=()
+  local failed_packages=()
+
+  # Function to handle package installation
+  install_single_package() {
+    local pkg="$1"
+    local status_file="$2"
+    
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
+      INSTALLED_PKGS+=("$pkg")
+      return 0
+    else
+      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
+      log_error "Failed to install $pkg"
+      failed_packages+=("$pkg")
+      return 1
+    fi
+  }
 
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
@@ -97,13 +115,7 @@ install_pacman_quietly() {
     
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
     (
-      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-        INSTALLED_PKGS+=("$pkg")
-      else
-        echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-        log_error "Failed to install $pkg"
-      fi
+      install_single_package "$pkg" "$status_file"
     ) &
     pids+=($!)
     ((running++))
@@ -120,6 +132,12 @@ install_pacman_quietly() {
 
   # Cleanup
   rm -rf "$temp_dir"
+
+  # Return error if any packages failed to install
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    return 1
+  fi
+  return 0
 }
 
 install_flatpak_quietly() {
@@ -129,6 +147,24 @@ install_flatpak_quietly() {
   local running=0
   local temp_dir=$(mktemp -d)
   local status_files=()
+  local failed_packages=()
+
+  # Function to handle flatpak installation
+  install_single_flatpak() {
+    local pkg="$1"
+    local status_file="$2"
+    
+    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+      return 0
+    else
+      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
+      log_error "Failed to install Flatpak $pkg"
+      failed_packages+=("$pkg")
+      return 1
+    fi
+  }
 
   for pkg in "${pkgs[@]}"; do
     if flatpak list --app | grep -qw "$pkg"; then
@@ -157,13 +193,7 @@ install_flatpak_quietly() {
     
     echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
     (
-      if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-        INSTALLED_PKGS+=("$pkg (flatpak)")
-      else
-        echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-        log_error "Failed to install Flatpak $pkg"
-      fi
+      install_single_flatpak "$pkg" "$status_file"
     ) &
     pids+=($!)
     ((running++))
@@ -178,6 +208,12 @@ install_flatpak_quietly() {
   done
 
   rm -rf "$temp_dir"
+
+  # Return error if any packages failed to install
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    return 1
+  fi
+  return 0
 }
 
 install_aur_quietly() {
@@ -187,6 +223,24 @@ install_aur_quietly() {
   local running=0
   local temp_dir=$(mktemp -d)
   local status_files=()
+  local failed_packages=()
+
+  # Function to handle AUR installation
+  install_single_aur() {
+    local pkg="$1"
+    local status_file="$2"
+    
+    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
+      INSTALLED_PKGS+=("$pkg (AUR)")
+      return 0
+    else
+      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
+      log_error "Failed to install AUR $pkg"
+      failed_packages+=("$pkg")
+      return 1
+    fi
+  }
 
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
@@ -215,13 +269,7 @@ install_aur_quietly() {
     
     echo -ne "${CYAN}AUR: $pkg ...${RESET} "
     (
-      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-        INSTALLED_PKGS+=("$pkg (AUR)")
-      else
-        echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-        log_error "Failed to install AUR $pkg"
-      fi
+      install_single_aur "$pkg" "$status_file"
     ) &
     pids+=($!)
     ((running++))
@@ -236,6 +284,12 @@ install_aur_quietly() {
   done
 
   rm -rf "$temp_dir"
+
+  # Return error if any packages failed to install
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    return 1
+  fi
+  return 0
 }
 
 detect_desktop_environment() {
