@@ -134,16 +134,6 @@ Contributions are welcome! Please fork this repository and submit a pull request
 
 ---
 
-## 🔭 Roadmap
-
-- [ ] Add more desktop environment options
-- [ ] Community-driven configuration profiles
-- [ ] Improved error logging and recovery
-- [ ] Internationalization (i18n) support
-- [ ] Automated CI testing
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
