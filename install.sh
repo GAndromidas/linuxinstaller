@@ -128,9 +128,16 @@ install_packages_quietly() {
   local max_parallel=4  # Adjust based on your system's capabilities
   local pids=()
   local running=0
-  local temp_dir=$(mktemp -d)
+  local temp_dir
   local status_files=()
   local failed_packages=()
+
+  # Create temp directory first
+  temp_dir=$(mktemp -d)
+  if [ $? -ne 0 ]; then
+    log_error "Failed to create temporary directory"
+    return 1
+  fi
 
   # Function to handle package installation
   install_single_package() {
