@@ -149,6 +149,9 @@ install_packages_quietly() {
     fi
   }
 
+  # Set up trap to clean up on exit
+  trap 'rm -rf "$temp_dir"; kill $(jobs -p) 2>/dev/null || true' EXIT
+
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
@@ -160,6 +163,7 @@ install_packages_quietly() {
       for pid in "${!pids[@]}"; do
         if ! kill -0 ${pids[$pid]} 2>/dev/null; then
           wait ${pids[$pid]}
+          local exit_code=$?
           # Read status from temp file
           if [ -f "${status_files[$pid]}" ]; then
             cat "${status_files[$pid]}"
@@ -168,6 +172,9 @@ install_packages_quietly() {
           unset pids[$pid]
           unset status_files[$pid]
           ((running--))
+          if [ $exit_code -ne 0 ]; then
+            log_error "Package installation failed with exit code $exit_code"
+          fi
         fi
       done
       sleep 0.1
@@ -179,6 +186,7 @@ install_packages_quietly() {
     
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
     (
+      set -e
       install_single_package "$pkg" "$status_file"
     ) &
     pids+=($!)
@@ -186,8 +194,9 @@ install_packages_quietly() {
   done
 
   # Wait for remaining processes and show their output
+  local exit_code=0
   for pid in "${!pids[@]}"; do
-    wait ${pids[$pid]}
+    wait ${pids[$pid]} || exit_code=$?
     if [ -f "${status_files[$pid]}" ]; then
       cat "${status_files[$pid]}"
       rm "${status_files[$pid]}"
@@ -201,6 +210,10 @@ install_packages_quietly() {
   if [ ${#failed_packages[@]} -gt 0 ]; then
     log_error "Failed to install packages: ${failed_packages[*]}"
     return 1
+  fi
+
+  if [ $exit_code -ne 0 ]; then
+    return $exit_code
   fi
 
   return 0
