@@ -57,59 +57,137 @@ check_flatpak() {
   flatpak update -y
 }
 
-# ===== Unified Quiet Install Functions =====
+# ===== Parallel Installation Functions =====
 
 install_pacman_quietly() {
   local pkgs=("$@")
+  local max_parallel=4  # Adjust based on system capabilities
+  local pids=()
+  local running=0
+
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
+
+    # Wait if we've reached max parallel processes
+    while [ $running -ge $max_parallel ]; do
+      for pid in "${!pids[@]}"; do
+        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
+          wait ${pids[$pid]}
+          unset pids[$pid]
+          ((running--))
+        fi
+      done
+      sleep 0.1
+    done
+
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install $pkg"
-    fi
+    (
+      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${RESET}"
+        INSTALLED_PKGS+=("$pkg")
+      else
+        echo -e "${RED}[FAIL]${RESET}"
+        log_error "Failed to install $pkg"
+      fi
+    ) &
+    pids+=($!)
+    ((running++))
+  done
+
+  # Wait for remaining processes
+  for pid in "${pids[@]}"; do
+    wait $pid
   done
 }
 
 install_flatpak_quietly() {
   local pkgs=("$@")
+  local max_parallel=2  # Flatpak is more resource-intensive, so use fewer parallel processes
+  local pids=()
+  local running=0
+
   for pkg in "${pkgs[@]}"; do
     if flatpak list --app | grep -qw "$pkg"; then
       echo -e "${YELLOW}Flatpak: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
+
+    # Wait if we've reached max parallel processes
+    while [ $running -ge $max_parallel ]; do
+      for pid in "${!pids[@]}"; do
+        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
+          wait ${pids[$pid]}
+          unset pids[$pid]
+          ((running--))
+        fi
+      done
+      sleep 0.1
+    done
+
     echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
-    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install Flatpak $pkg"
-    fi
+    (
+      if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${RESET}"
+        INSTALLED_PKGS+=("$pkg (flatpak)")
+      else
+        echo -e "${RED}[FAIL]${RESET}"
+        log_error "Failed to install Flatpak $pkg"
+      fi
+    ) &
+    pids+=($!)
+    ((running++))
+  done
+
+  # Wait for remaining processes
+  for pid in "${pids[@]}"; do
+    wait $pid
   done
 }
 
 install_aur_quietly() {
   local pkgs=("$@")
+  local max_parallel=2  # AUR builds are resource-intensive, so use fewer parallel processes
+  local pids=()
+  local running=0
+
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}AUR: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
+
+    # Wait if we've reached max parallel processes
+    while [ $running -ge $max_parallel ]; do
+      for pid in "${!pids[@]}"; do
+        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
+          wait ${pids[$pid]}
+          unset pids[$pid]
+          ((running--))
+        fi
+      done
+      sleep 0.1
+    done
+
     echo -ne "${CYAN}AUR: $pkg ...${RESET} "
-    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg (AUR)")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install AUR $pkg"
-    fi
+    (
+      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${RESET}"
+        INSTALLED_PKGS+=("$pkg (AUR)")
+      else
+        echo -e "${RED}[FAIL]${RESET}"
+        log_error "Failed to install AUR $pkg"
+      fi
+    ) &
+    pids+=($!)
+    ((running++))
+  done
+
+  # Wait for remaining processes
+  for pid in "${pids[@]}"; do
+    wait $pid
   done
 }
 

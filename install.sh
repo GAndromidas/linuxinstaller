@@ -125,19 +125,45 @@ run_step() {
 
 install_packages_quietly() {
   local pkgs=("$@")
+  local max_parallel=4  # Adjust based on your system's capabilities
+  local pids=()
+  local running=0
+
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
+
+    # Wait if we've reached max parallel processes
+    while [ $running -ge $max_parallel ]; do
+      for pid in "${!pids[@]}"; do
+        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
+          wait ${pids[$pid]}
+          unset pids[$pid]
+          ((running--))
+        fi
+      done
+      sleep 0.1
+    done
+
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PACKAGES+=("$pkg")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install $pkg"
-    fi
+    (
+      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${RESET}"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        echo -e "${RED}[FAIL]${RESET}"
+        log_error "Failed to install $pkg"
+      fi
+    ) &
+    pids+=($!)
+    ((running++))
+  done
+
+  # Wait for remaining processes
+  for pid in "${pids[@]}"; do
+    wait $pid
   done
 }
 
