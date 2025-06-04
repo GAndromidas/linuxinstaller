@@ -125,105 +125,20 @@ run_step() {
 
 install_packages_quietly() {
   local pkgs=("$@")
-  local max_parallel=4  # Adjust based on your system's capabilities
-  local pids=()
-  local running=0
-  local temp_dir
-  local status_files=()
-  local failed_packages=()
-
-  # Create temp directory first
-  temp_dir=$(mktemp -d)
-  if [ $? -ne 0 ]; then
-    log_error "Failed to create temporary directory"
-    return 1
-  fi
-
-  # Function to handle package installation
-  install_single_package() {
-    local pkg="$1"
-    local status_file="$2"
-    
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-      INSTALLED_PACKAGES+=("$pkg")
-      return 0
-    else
-      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-      log_error "Failed to install $pkg"
-      failed_packages+=("$pkg")
-      return 1
-    fi
-  }
-
-  # Set up trap to clean up on exit
-  trap 'rm -rf "$temp_dir"; kill $(jobs -p) 2>/dev/null || true' EXIT
-
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-
-    # Wait if we've reached max parallel processes
-    while [ $running -ge $max_parallel ]; do
-      for pid in "${!pids[@]}"; do
-        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
-          wait ${pids[$pid]}
-          local exit_code=$?
-          # Read status from temp file
-          if [ -f "${status_files[$pid]}" ]; then
-            cat "${status_files[$pid]}"
-            rm "${status_files[$pid]}"
-          fi
-          unset pids[$pid]
-          unset status_files[$pid]
-          ((running--))
-          if [ $exit_code -ne 0 ]; then
-            log_error "Package installation failed with exit code $exit_code"
-          fi
-        fi
-      done
-      sleep 0.1
-    done
-
-    # Create temp file for this package's status
-    local status_file="$temp_dir/pkg_$$_$RANDOM"
-    status_files+=("$status_file")
-    
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    (
-      set -e
-      install_single_package "$pkg" "$status_file"
-    ) &
-    pids+=($!)
-    ((running++))
-  done
-
-  # Wait for remaining processes and show their output
-  local exit_code=0
-  for pid in "${!pids[@]}"; do
-    wait ${pids[$pid]} || exit_code=$?
-    if [ -f "${status_files[$pid]}" ]; then
-      cat "${status_files[$pid]}"
-      rm "${status_files[$pid]}"
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PACKAGES+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
     fi
   done
-
-  # Cleanup
-  rm -rf "$temp_dir"
-
-  # Return error if any packages failed to install
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    log_error "Failed to install packages: ${failed_packages[*]}"
-    return 1
-  fi
-
-  if [ $exit_code -ne 0 ]; then
-    return $exit_code
-  fi
-
-  return 0
 }
 
 # =========================

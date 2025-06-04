@@ -57,254 +57,60 @@ check_flatpak() {
   flatpak update -y
 }
 
-# ===== Parallel Installation Functions =====
+# ===== Unified Quiet Install Functions =====
 
 install_pacman_quietly() {
   local pkgs=("$@")
-  local max_parallel=4
-  local pids=()
-  local running=0
-  local temp_dir=$(mktemp -d)
-  local status_files=()
-  local failed_packages=()
-
-  # Function to handle package installation
-  install_single_package() {
-    local pkg="$1"
-    local status_file="$2"
-    
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-      INSTALLED_PKGS+=("$pkg")
-      return 0
-    else
-      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-      log_error "Failed to install $pkg"
-      failed_packages+=("$pkg")
-      return 1
-    fi
-  }
-
-  # Set up trap to clean up on exit
-  trap 'rm -rf "$temp_dir"; kill $(jobs -p) 2>/dev/null || true' EXIT
-
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-
-    # Wait if we've reached max parallel processes
-    while [ $running -ge $max_parallel ]; do
-      for pid in "${!pids[@]}"; do
-        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
-          wait ${pids[$pid]}
-          local exit_code=$?
-          # Read status from temp file
-          if [ -f "${status_files[$pid]}" ]; then
-            cat "${status_files[$pid]}"
-            rm "${status_files[$pid]}"
-          fi
-          unset pids[$pid]
-          unset status_files[$pid]
-          ((running--))
-          if [ $exit_code -ne 0 ]; then
-            log_error "Package installation failed with exit code $exit_code"
-          fi
-        fi
-      done
-      sleep 0.1
-    done
-
-    # Create temp file for this package's status
-    local status_file="$temp_dir/pkg_$$_$RANDOM"
-    status_files+=("$status_file")
-    
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    (
-      set -e
-      install_single_package "$pkg" "$status_file"
-    ) &
-    pids+=($!)
-    ((running++))
-  done
-
-  # Wait for remaining processes and show their output
-  local exit_code=0
-  for pid in "${!pids[@]}"; do
-    wait ${pids[$pid]} || exit_code=$?
-    if [ -f "${status_files[$pid]}" ]; then
-      cat "${status_files[$pid]}"
-      rm "${status_files[$pid]}"
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
     fi
   done
-
-  # Cleanup
-  rm -rf "$temp_dir"
-
-  # Return error if any packages failed to install
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    log_error "Failed to install packages: ${failed_packages[*]}"
-    return 1
-  fi
-
-  if [ $exit_code -ne 0 ]; then
-    return $exit_code
-  fi
-
-  return 0
 }
 
 install_flatpak_quietly() {
   local pkgs=("$@")
-  local max_parallel=2
-  local pids=()
-  local running=0
-  local temp_dir=$(mktemp -d)
-  local status_files=()
-  local failed_packages=()
-
-  # Function to handle flatpak installation
-  install_single_flatpak() {
-    local pkg="$1"
-    local status_file="$2"
-    
-    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-      INSTALLED_PKGS+=("$pkg (flatpak)")
-      return 0
-    else
-      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-      log_error "Failed to install Flatpak $pkg"
-      failed_packages+=("$pkg")
-      return 1
-    fi
-  }
-
   for pkg in "${pkgs[@]}"; do
     if flatpak list --app | grep -qw "$pkg"; then
       echo -e "${YELLOW}Flatpak: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-
-    while [ $running -ge $max_parallel ]; do
-      for pid in "${!pids[@]}"; do
-        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
-          wait ${pids[$pid]}
-          if [ -f "${status_files[$pid]}" ]; then
-            cat "${status_files[$pid]}"
-            rm "${status_files[$pid]}"
-          fi
-          unset pids[$pid]
-          unset status_files[$pid]
-          ((running--))
-        fi
-      done
-      sleep 0.1
-    done
-
-    local status_file="$temp_dir/pkg_$$_$RANDOM"
-    status_files+=("$status_file")
-    
     echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
-    (
-      install_single_flatpak "$pkg" "$status_file"
-    ) &
-    pids+=($!)
-    ((running++))
-  done
-
-  for pid in "${!pids[@]}"; do
-    wait ${pids[$pid]}
-    if [ -f "${status_files[$pid]}" ]; then
-      cat "${status_files[$pid]}"
-      rm "${status_files[$pid]}"
+    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg (flatpak)")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install Flatpak $pkg"
     fi
   done
-
-  rm -rf "$temp_dir"
-
-  # Return error if any packages failed to install
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    return 1
-  fi
-  return 0
 }
 
 install_aur_quietly() {
   local pkgs=("$@")
-  local max_parallel=2
-  local pids=()
-  local running=0
-  local temp_dir=$(mktemp -d)
-  local status_files=()
-  local failed_packages=()
-
-  # Function to handle AUR installation
-  install_single_aur() {
-    local pkg="$1"
-    local status_file="$2"
-    
-    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}" > "$status_file"
-      INSTALLED_PKGS+=("$pkg (AUR)")
-      return 0
-    else
-      echo -e "${RED}[FAIL]${RESET}" > "$status_file"
-      log_error "Failed to install AUR $pkg"
-      failed_packages+=("$pkg")
-      return 1
-    fi
-  }
-
   for pkg in "${pkgs[@]}"; do
     if pacman -Q "$pkg" &>/dev/null; then
       echo -e "${YELLOW}AUR: $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-
-    while [ $running -ge $max_parallel ]; do
-      for pid in "${!pids[@]}"; do
-        if ! kill -0 ${pids[$pid]} 2>/dev/null; then
-          wait ${pids[$pid]}
-          if [ -f "${status_files[$pid]}" ]; then
-            cat "${status_files[$pid]}"
-            rm "${status_files[$pid]}"
-          fi
-          unset pids[$pid]
-          unset status_files[$pid]
-          ((running--))
-        fi
-      done
-      sleep 0.1
-    done
-
-    local status_file="$temp_dir/pkg_$$_$RANDOM"
-    status_files+=("$status_file")
-    
     echo -ne "${CYAN}AUR: $pkg ...${RESET} "
-    (
-      install_single_aur "$pkg" "$status_file"
-    ) &
-    pids+=($!)
-    ((running++))
-  done
-
-  for pid in "${!pids[@]}"; do
-    wait ${pids[$pid]}
-    if [ -f "${status_files[$pid]}" ]; then
-      cat "${status_files[$pid]}"
-      rm "${status_files[$pid]}"
+    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PKGS+=("$pkg (AUR)")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install AUR $pkg"
     fi
   done
-
-  rm -rf "$temp_dir"
-
-  # Return error if any packages failed to install
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    return 1
-  fi
-  return 0
 }
 
 detect_desktop_environment() {
@@ -371,36 +177,24 @@ install_pacman_programs() {
     pkgs+=("${specific_install_programs[@]}")
   fi
 
-  if ! install_pacman_quietly "${pkgs[@]}"; then
-    log_error "Some Pacman packages failed to install"
-    return 1
-  fi
-  return 0
+  install_pacman_quietly "${pkgs[@]}"
 }
 
 install_aur_packages() {
   step "Installing AUR packages"
   if [ ${#yay_programs[@]} -eq 0 ]; then
     log_success "No AUR packages to install."
-    return 0
+    return
   fi
 
   echo -e "${CYAN}=== AUR Installing ===${RESET}"
 
-  if ! install_aur_quietly "${yay_programs[@]}"; then
-    log_error "Some AUR packages failed to install"
-    return 1
-  fi
-  return 0
+  install_aur_quietly "${yay_programs[@]}"
 }
 
 install_flatpak_programs_list() {
   local flatpaks=("$@")
-  if ! install_flatpak_quietly "${flatpaks[@]}"; then
-    log_error "Some Flatpak packages failed to install"
-    return 1
-  fi
-  return 0
+  install_flatpak_quietly "${flatpaks[@]}"
 }
 
 install_flatpak_programs_kde() {
@@ -509,55 +303,25 @@ else
   exit 1
 fi
 
-# Initialize installation status
-INSTALLATION_SUCCESS=true
+check_yay
+check_flatpak
+detect_desktop_environment
+remove_programs
+install_pacman_programs
 
-# Run checks
-check_yay || INSTALLATION_SUCCESS=false
-check_flatpak || INSTALLATION_SUCCESS=false
-
-# Only proceed if checks passed
-if [ "$INSTALLATION_SUCCESS" = true ]; then
-  # Detect desktop environment
-  detect_desktop_environment
-
-  # Remove programs
-  remove_programs || INSTALLATION_SUCCESS=false
-
-  # Install pacman programs
-  if [ "$INSTALLATION_SUCCESS" = true ]; then
-    install_pacman_programs || INSTALLATION_SUCCESS=false
+if [[ "$INSTALL_MODE" == "default" ]]; then
+  if [ -n "$flatpak_install_function" ]; then
+    $flatpak_install_function
+  else
+    log_warning "No Flatpak install function for your DE."
   fi
-
-  # Install flatpak programs
-  if [ "$INSTALLATION_SUCCESS" = true ]; then
-    if [[ "$INSTALL_MODE" == "default" ]]; then
-      if [ -n "$flatpak_install_function" ]; then
-        $flatpak_install_function || INSTALLATION_SUCCESS=false
-      else
-        log_warning "No Flatpak install function for your DE."
-      fi
-    else
-      if [ -n "$flatpak_minimal_function" ]; then
-        $flatpak_minimal_function || INSTALLATION_SUCCESS=false
-      else
-        install_flatpak_minimal_generic || INSTALLATION_SUCCESS=false
-      fi
-    fi
-  fi
-
-  # Install AUR packages
-  if [ "$INSTALLATION_SUCCESS" = true ]; then
-    install_aur_packages || INSTALLATION_SUCCESS=false
-  fi
-fi
-
-# Print summary
-print_summary
-
-# Exit with appropriate status
-if [ "$INSTALLATION_SUCCESS" = true ]; then
-  exit 0
 else
-  exit 1
+  if [ -n "$flatpak_minimal_function" ]; then
+    $flatpak_minimal_function
+  else
+    install_flatpak_minimal_generic
+  fi
 fi
+
+install_aur_packages
+print_summary
