@@ -199,8 +199,10 @@ install_packages_quietly() {
 
   # Return error if any packages failed to install
   if [ ${#failed_packages[@]} -gt 0 ]; then
+    log_error "Failed to install packages: ${failed_packages[*]}"
     return 1
   fi
+
   return 0
 }
 

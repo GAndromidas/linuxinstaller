@@ -356,24 +356,36 @@ install_pacman_programs() {
     pkgs+=("${specific_install_programs[@]}")
   fi
 
-  install_pacman_quietly "${pkgs[@]}"
+  if ! install_pacman_quietly "${pkgs[@]}"; then
+    log_error "Some Pacman packages failed to install"
+    return 1
+  fi
+  return 0
 }
 
 install_aur_packages() {
   step "Installing AUR packages"
   if [ ${#yay_programs[@]} -eq 0 ]; then
     log_success "No AUR packages to install."
-    return
+    return 0
   fi
 
   echo -e "${CYAN}=== AUR Installing ===${RESET}"
 
-  install_aur_quietly "${yay_programs[@]}"
+  if ! install_aur_quietly "${yay_programs[@]}"; then
+    log_error "Some AUR packages failed to install"
+    return 1
+  fi
+  return 0
 }
 
 install_flatpak_programs_list() {
   local flatpaks=("$@")
-  install_flatpak_quietly "${flatpaks[@]}"
+  if ! install_flatpak_quietly "${flatpaks[@]}"; then
+    log_error "Some Flatpak packages failed to install"
+    return 1
+  fi
+  return 0
 }
 
 install_flatpak_programs_kde() {
@@ -482,25 +494,55 @@ else
   exit 1
 fi
 
-check_yay
-check_flatpak
-detect_desktop_environment
-remove_programs
-install_pacman_programs
+# Initialize installation status
+INSTALLATION_SUCCESS=true
 
-if [[ "$INSTALL_MODE" == "default" ]]; then
-  if [ -n "$flatpak_install_function" ]; then
-    $flatpak_install_function
-  else
-    log_warning "No Flatpak install function for your DE."
+# Run checks
+check_yay || INSTALLATION_SUCCESS=false
+check_flatpak || INSTALLATION_SUCCESS=false
+
+# Only proceed if checks passed
+if [ "$INSTALLATION_SUCCESS" = true ]; then
+  # Detect desktop environment
+  detect_desktop_environment
+
+  # Remove programs
+  remove_programs || INSTALLATION_SUCCESS=false
+
+  # Install pacman programs
+  if [ "$INSTALLATION_SUCCESS" = true ]; then
+    install_pacman_programs || INSTALLATION_SUCCESS=false
   fi
-else
-  if [ -n "$flatpak_minimal_function" ]; then
-    $flatpak_minimal_function
-  else
-    install_flatpak_minimal_generic
+
+  # Install flatpak programs
+  if [ "$INSTALLATION_SUCCESS" = true ]; then
+    if [[ "$INSTALL_MODE" == "default" ]]; then
+      if [ -n "$flatpak_install_function" ]; then
+        $flatpak_install_function || INSTALLATION_SUCCESS=false
+      else
+        log_warning "No Flatpak install function for your DE."
+      fi
+    else
+      if [ -n "$flatpak_minimal_function" ]; then
+        $flatpak_minimal_function || INSTALLATION_SUCCESS=false
+      else
+        install_flatpak_minimal_generic || INSTALLATION_SUCCESS=false
+      fi
+    fi
+  fi
+
+  # Install AUR packages
+  if [ "$INSTALLATION_SUCCESS" = true ]; then
+    install_aur_packages || INSTALLATION_SUCCESS=false
   fi
 fi
 
-install_aur_packages
+# Print summary
 print_summary
+
+# Exit with appropriate status
+if [ "$INSTALLATION_SUCCESS" = true ]; then
+  exit 0
+else
+  exit 1
+fi
