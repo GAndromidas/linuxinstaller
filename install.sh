@@ -492,15 +492,16 @@ configure_ufw() {
 enable_services() {
   local services=(
     "bluetooth.service"
+    "cpupower.service"
     "cronie.service"
-    "ufw.service"
     "fstrim.timer"
     "paccache.timer"
+    "power-profiles-daemon.service"
     "reflector.service"
     "reflector.timer"
     "sshd.service"
     "teamviewerd.service"
-    "power-profiles-daemon.service"
+    "ufw.service"
   )
 
   for service in "${services[@]}"; do
@@ -524,27 +525,32 @@ detect_and_install_gpu_drivers() {
   if echo "$GPU_INFO" | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected!${RESET}"
     echo "Choose a driver to install:"
-    echo "  1) Latest proprietary (nvidia-dkms)"
-    echo "  2) Legacy 390xx (AUR, very old cards)"
-    echo "  3) Legacy 340xx (AUR, ancient cards)"
-    echo "  4) Open-source Nouveau (recommended for unsupported/old cards)"
-    echo "  5) Skip GPU driver installation"
-    read -r -p "Enter your choice [1-5, default 4]: " nvidia_choice
+    echo "  1) Open-source NVIDIA (nvidia-open-dkms) with Vulkan"
+    echo "  2) Latest proprietary (nvidia-dkms)"
+    echo "  3) Legacy 390xx (AUR, very old cards)"
+    echo "  4) Legacy 340xx (AUR, ancient cards)"
+    echo "  5) Open-source Nouveau (recommended for unsupported/old cards)"
+    echo "  6) Skip GPU driver installation"
+    read -r -p "Enter your choice [1-6, default 1]: " nvidia_choice
     case "$nvidia_choice" in
       1)
+        step "Installing Open-source NVIDIA driver with Vulkan support"
+        install_packages_quietly nvidia-open-dkms nvidia-utils
+        ;;
+      2)
         step "Installing NVIDIA DKMS driver"
         install_packages_quietly nvidia-dkms nvidia-utils
         ;;
-      2)
+      3)
         run_step "Installing NVIDIA 390xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-390xx-dkms nvidia-390xx-utils lib32-nvidia-390xx-utils
         ;;
-      3)
+      4)
         run_step "Installing NVIDIA 340xx legacy DKMS driver" yay -S --noconfirm --needed nvidia-340xx-dkms nvidia-340xx-utils lib32-nvidia-340xx-utils
         ;;
-      5)
+      6)
         echo -e "${YELLOW}Skipping NVIDIA driver installation.${RESET}"
         ;;
-      ""|4|*)
+      ""|5|*)
         step "Installing open-source Nouveau driver for NVIDIA"
         install_packages_quietly xf86-video-nouveau mesa
         ;;
