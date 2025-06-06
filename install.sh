@@ -55,21 +55,6 @@ EOF
 }
 
 show_menu() {
-  # Check if INSTALL_MODE is already set from environment
-  if [ -n "$INSTALL_MODE" ]; then
-    case "$INSTALL_MODE" in
-      "default")
-        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
-        return
-        ;;
-      "minimal")
-        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
-        return
-        ;;
-    esac
-  fi
-
-  # If INSTALL_MODE is not set, show the menu
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
   echo "  1) Default (Full setup)"
