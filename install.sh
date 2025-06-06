@@ -514,6 +514,38 @@ enable_services() {
   done
 }
 
+setup_zram_swap() {
+  step "Setting up ZRAM swap"
+  
+  # Install zram-generator
+  if ! pacman -Q zram-generator &>/dev/null; then
+    install_packages_quietly zram-generator
+  else
+    log_warning "zram-generator is already installed. Skipping installation."
+  fi
+
+  # Create or update zram-generator configuration
+  local ZRAM_CONF="/etc/systemd/zram-generator.conf"
+  
+  # Check if file exists and has [zram0] section
+  if [ -f "$ZRAM_CONF" ] && grep -q "^\[zram0\]" "$ZRAM_CONF"; then
+    log_warning "ZRAM configuration already exists with [zram0] section. Skipping configuration."
+  else
+    # Create new configuration
+    sudo tee "$ZRAM_CONF" > /dev/null << EOF
+[zram0]
+zram-size = ram * 0.5
+compression-algorithm = zstd
+swap-priority = 100
+EOF
+    log_success "ZRAM configuration created at $ZRAM_CONF"
+  fi
+
+  # Enable and start ZRAM
+  run_step "Enabling ZRAM swap" sudo systemctl daemon-reexec
+  run_step "Starting ZRAM swap" sudo systemctl restart systemd-zram-setup@zram0
+}
+
 cleanup_helpers() {
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
@@ -705,6 +737,7 @@ main() {
   remove_fallback_entries
   setup_fastfetch_config
   setup_firewall_and_services
+  setup_zram_swap
   cleanup_helpers
   detect_and_install_gpu_drivers
   setup_maintenance
