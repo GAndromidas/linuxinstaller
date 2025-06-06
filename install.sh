@@ -517,33 +517,46 @@ enable_services() {
 setup_zram_swap() {
   step "Setting up ZRAM swap"
   
-  # Install zram-generator
+  # Install zram-generator if not present
   if ! pacman -Q zram-generator &>/dev/null; then
     install_packages_quietly zram-generator
   else
     log_warning "zram-generator is already installed. Skipping installation."
   fi
 
+  # Stop and disable existing ZRAM service if it's running
+  if systemctl is-active --quiet systemd-zram-setup@zram0; then
+    log_warning "Stopping existing ZRAM service..."
+    sudo systemctl stop systemd-zram-setup@zram0
+    sudo systemctl disable systemd-zram-setup@zram0
+  fi
+
   # Create or update zram-generator configuration
   local ZRAM_CONF="/etc/systemd/zram-generator.conf"
   
-  # Check if file exists and has [zram0] section
-  if [ -f "$ZRAM_CONF" ] && grep -q "^\[zram0\]" "$ZRAM_CONF"; then
-    log_warning "ZRAM configuration already exists with [zram0] section. Skipping configuration."
-  else
-    # Create new configuration
-    sudo tee "$ZRAM_CONF" > /dev/null << EOF
+  # Create new configuration regardless of existing one
+  sudo tee "$ZRAM_CONF" > /dev/null << EOF
 [zram0]
 zram-size = ram * 0.5
 compression-algorithm = zstd
 swap-priority = 100
 EOF
-    log_success "ZRAM configuration created at $ZRAM_CONF"
-  fi
+  log_success "ZRAM configuration created/updated at $ZRAM_CONF"
 
-  # Enable and start ZRAM
-  run_step "Enabling ZRAM swap" sudo systemctl daemon-reexec
-  run_step "Starting ZRAM swap" sudo systemctl restart systemd-zram-setup@zram0
+  # Re-enable and start ZRAM
+  log_warning "Re-enabling ZRAM swap..."
+  sudo systemctl daemon-reexec
+  sudo systemctl enable systemd-zram-setup@zram0
+  sudo systemctl start systemd-zram-setup@zram0
+
+  # Verify ZRAM is working
+  if systemctl is-active --quiet systemd-zram-setup@zram0; then
+    log_success "ZRAM swap has been successfully configured and activated"
+    echo -e "${CYAN}Current swap status:${RESET}"
+    swapon --show
+  else
+    log_error "Failed to activate ZRAM swap. Please check the system logs for details."
+  fi
 }
 
 cleanup_helpers() {
