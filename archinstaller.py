@@ -6,17 +6,56 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QRadioButton, QPushButton, QTextEdit, 
                             QProgressBar, QLabel, QGroupBox, QButtonGroup,
-                            QMessageBox)
+                            QMessageBox, QFrame)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont, QTextCursor, QPalette, QColor
+from PyQt6.QtGui import QFont, QTextCursor, QPalette, QColor, QPixmap, QPainter, QPen
+
+class ArchLogo(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(150)
+        self.setMaximumHeight(150)
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Set colors
+        arch_blue = QColor("#1793D1")
+        painter.setPen(QPen(arch_blue, 2, Qt.PenStyle.SolidLine))
+        
+        # Draw Arch logo
+        center_x = self.width() // 2
+        center_y = self.height() // 2
+        size = min(self.width(), self.height()) // 2
+        
+        # Draw the main triangle
+        painter.drawLine(center_x, center_y - size//2, 
+                        center_x - size//2, center_y + size//2)
+        painter.drawLine(center_x, center_y - size//2,
+                        center_x + size//2, center_y + size//2)
+        painter.drawLine(center_x - size//2, center_y + size//2,
+                        center_x + size//2, center_y + size//2)
+        
+        # Draw the inner triangle
+        inner_size = size // 2
+        painter.drawLine(center_x, center_y - inner_size//2,
+                        center_x - inner_size//2, center_y + inner_size//2)
+        painter.drawLine(center_x, center_y - inner_size//2,
+                        center_x + inner_size//2, center_y + inner_size//2)
+        painter.drawLine(center_x - inner_size//2, center_y + inner_size//2,
+                        center_x + inner_size//2, center_y + inner_size//2)
 
 class InstallerThread(QThread):
     output_received = pyqtSignal(str)
+    progress_updated = pyqtSignal(int, str)
     finished = pyqtSignal(int)
 
     def __init__(self, install_mode):
         super().__init__()
         self.install_mode = install_mode
+        self.total_steps = 20  # Total number of installation steps
+        self.current_step = 0
 
     def run(self):
         script_dir = Path(__file__).parent
@@ -30,7 +69,67 @@ class InstallerThread(QThread):
             )
 
             for line in process.stdout:
-                self.output_received.emit(line.strip())
+                line = line.strip()
+                self.output_received.emit(line)
+                
+                # Track progress based on step markers
+                if "[1]" in line:
+                    self.current_step = 1
+                    self.progress_updated.emit(1, "Checking prerequisites")
+                elif "[2]" in line:
+                    self.current_step = 2
+                    self.progress_updated.emit(2, "Installing helper utilities")
+                elif "[3]" in line:
+                    self.current_step = 3
+                    self.progress_updated.emit(3, "Configuring Pacman")
+                elif "[4]" in line:
+                    self.current_step = 4
+                    self.progress_updated.emit(4, "Updating system")
+                elif "[5]" in line:
+                    self.current_step = 5
+                    self.progress_updated.emit(5, "Setting up sudo")
+                elif "[6]" in line:
+                    self.current_step = 6
+                    self.progress_updated.emit(6, "Installing CPU microcode")
+                elif "[7]" in line:
+                    self.current_step = 7
+                    self.progress_updated.emit(7, "Installing kernel headers")
+                elif "[8]" in line:
+                    self.current_step = 8
+                    self.progress_updated.emit(8, "Generating locales")
+                elif "[9]" in line:
+                    self.current_step = 9
+                    self.progress_updated.emit(9, "Setting up ZSH")
+                elif "[10]" in line:
+                    self.current_step = 10
+                    self.progress_updated.emit(10, "Installing Starship")
+                elif "[11]" in line:
+                    self.current_step = 11
+                    self.progress_updated.emit(11, "Running custom scripts")
+                elif "[12]" in line:
+                    self.current_step = 12
+                    self.progress_updated.emit(12, "Configuring boot")
+                elif "[13]" in line:
+                    self.current_step = 13
+                    self.progress_updated.emit(13, "Setting up Fastfetch")
+                elif "[14]" in line:
+                    self.current_step = 14
+                    self.progress_updated.emit(14, "Configuring firewall")
+                elif "[15]" in line:
+                    self.current_step = 15
+                    self.progress_updated.emit(15, "Installing GPU drivers")
+                elif "[16]" in line:
+                    self.current_step = 16
+                    self.progress_updated.emit(16, "Setting up maintenance")
+                elif "[17]" in line:
+                    self.current_step = 17
+                    self.progress_updated.emit(17, "Cleaning up")
+                elif "[18]" in line:
+                    self.current_step = 18
+                    self.progress_updated.emit(18, "Printing summary")
+                elif "[19]" in line:
+                    self.current_step = 19
+                    self.progress_updated.emit(19, "Finalizing installation")
 
             process.wait()
             self.finished.emit(process.returncode)
@@ -68,14 +167,14 @@ class ArchInstallerGUI(QMainWindow):
                 color: #ffffff;
             }
             QPushButton {
-                background-color: #0d47a1;
+                background-color: #1793D1;
                 color: white;
                 border: none;
                 padding: 5px 15px;
                 border-radius: 3px;
             }
             QPushButton:hover {
-                background-color: #1565c0;
+                background-color: #1a9ee0;
             }
             QPushButton:disabled {
                 background-color: #424242;
@@ -92,7 +191,10 @@ class ArchInstallerGUI(QMainWindow):
                 text-align: center;
             }
             QProgressBar::chunk {
-                background-color: #0d47a1;
+                background-color: #1793D1;
+            }
+            QLabel {
+                color: #ffffff;
             }
         """)
 
@@ -103,19 +205,15 @@ class ArchInstallerGUI(QMainWindow):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # ASCII Art
-        ascii_art = """
-      _             _     ___           _        _ _
-     / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
-    / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
-   / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
-  /_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
-        """
-        
-        ascii_label = QLabel(ascii_art)
-        ascii_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ascii_label.setStyleSheet("color: #00a8ff; font-family: monospace;")
-        main_layout.addWidget(ascii_label)
+        # Arch Logo
+        self.arch_logo = ArchLogo()
+        main_layout.addWidget(self.arch_logo)
+
+        # Title
+        title_label = QLabel("Arch Linux Installer")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #1793D1;")
+        main_layout.addWidget(title_label)
 
         # Installation Mode Group
         mode_group = QGroupBox("Installation Mode")
@@ -134,8 +232,24 @@ class ArchInstallerGUI(QMainWindow):
         mode_group.setLayout(mode_layout)
         main_layout.addWidget(mode_group)
 
+        # Progress Information
+        progress_group = QGroupBox("Installation Progress")
+        progress_layout = QVBoxLayout()
+        
+        self.progress_label = QLabel("Ready to start installation")
+        self.progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        progress_layout.addWidget(self.progress_label)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 19)  # 19 steps total
+        self.progress_bar.setValue(0)
+        progress_layout.addWidget(self.progress_bar)
+        
+        progress_group.setLayout(progress_layout)
+        main_layout.addWidget(progress_group)
+
         # Output Area
-        output_group = QGroupBox("Installation Progress")
+        output_group = QGroupBox("Installation Log")
         output_layout = QVBoxLayout()
         
         self.output_text = QTextEdit()
@@ -145,11 +259,6 @@ class ArchInstallerGUI(QMainWindow):
         
         output_group.setLayout(output_layout)
         main_layout.addWidget(output_group)
-
-        # Progress Bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setTextVisible(False)
-        main_layout.addWidget(self.progress_bar)
 
         # Buttons
         button_layout = QHBoxLayout()
@@ -171,6 +280,10 @@ class ArchInstallerGUI(QMainWindow):
         self.output_text.append(text)
         self.output_text.moveCursor(QTextCursor.MoveOperation.End)
 
+    def update_progress(self, step, description):
+        self.progress_bar.setValue(step)
+        self.progress_label.setText(description)
+
     def start_installation(self):
         # Check if running as root
         if os.geteuid() == 0:
@@ -183,7 +296,6 @@ class ArchInstallerGUI(QMainWindow):
             return
 
         self.start_button.setEnabled(False)
-        self.progress_bar.setRange(0, 0)  # Indeterminate progress
         
         # Get selected mode
         install_mode = "default" if self.default_radio.isChecked() else "minimal"
@@ -191,12 +303,11 @@ class ArchInstallerGUI(QMainWindow):
         # Create and start installer thread
         self.installer_thread = InstallerThread(install_mode)
         self.installer_thread.output_received.connect(self.append_output)
+        self.installer_thread.progress_updated.connect(self.update_progress)
         self.installer_thread.finished.connect(self.installation_finished)
         self.installer_thread.start()
 
     def installation_finished(self, return_code):
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(100)
         self.start_button.setEnabled(True)
         
         if return_code == 0:
