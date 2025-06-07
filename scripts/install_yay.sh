@@ -23,6 +23,7 @@ CUR_STEP=1
 step $CUR_STEP "Cleanup previous yay installation"
 if command -v yay >/dev/null; then
   log_warning "yay is already installed. Removing it before reinstalling."
+  echo -e "${YELLOW}Please enter your password to remove existing yay installation:${RESET}"
   sudo pacman -Rns --noconfirm yay || true
   if [ -f /usr/bin/yay ]; then
     sudo rm -f /usr/bin/yay
@@ -47,7 +48,8 @@ fi
 # Step 3: Build and install yay
 step $CUR_STEP "Building and installing yay"
 cd /tmp/yay
-if makepkg -si --noconfirm >/dev/null 2>&1; then
+echo -e "${YELLOW}Please enter your password to build and install yay:${RESET}"
+if makepkg -si --noconfirm; then
   log_success "yay built and installed."
 else
   log_error "Failed to build/install yay."
