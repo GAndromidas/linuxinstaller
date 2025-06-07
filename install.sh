@@ -492,7 +492,6 @@ configure_ufw() {
 enable_services() {
   local services=(
     "bluetooth.service"
-    "cpupower.service"
     "cronie.service"
     "fstrim.timer"
     "paccache.timer"
