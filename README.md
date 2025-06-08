@@ -1,6 +1,7 @@
 # Archinstaller: Arch Linux Post-Installation Script
 
-[![MIT License](https://img.shields.io/github/license/GAndromidas/archinstaller.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/releases)
+[![Total Downloads](https://img.shields.io/github/downloads/GAndromidas/archinstaller/total.svg)](https://github.com/GAndromidas/archinstaller/releases)
 [![GitHub stars](https://img.shields.io/github/stars/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/commits/main)
 
