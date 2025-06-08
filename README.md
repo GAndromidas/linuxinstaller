@@ -1,9 +1,11 @@
 # Archinstaller: Arch Linux Post-Installation Script
 
-[![Latest Release](https://img.shields.io/github/v/release/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/releases)
-[![Total Downloads](https://img.shields.io/github/downloads/GAndromidas/archinstaller/total.svg)](https://github.com/GAndromidas/archinstaller/releases)
-[![GitHub stars](https://img.shields.io/github/stars/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/GAndromidas/archinstaller.svg)](https://github.com/GAndromidas/archinstaller/commits/main)
+[![Latest Release](https://img.shields.io/github/v/release/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
+[![Total Downloads](https://img.shields.io/github/downloads/GAndromidas/archinstaller/total.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
+[![GitHub stars](https://img.shields.io/github/stars/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/commits/main)
+[![Open Issues](https://img.shields.io/github/issues/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/pulls)
 
 ---
 
