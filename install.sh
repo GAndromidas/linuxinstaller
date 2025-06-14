@@ -289,14 +289,14 @@ install_starship() {
 }
 
 run_custom_scripts() {
-  if [ -f "$SCRIPTS_DIR/setup_plymouth.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/setup_plymouth.sh"
-    run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/setup_plymouth.sh"
+  if [ -f "$SCRIPTS_DIR/plymouth.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/plymouth.sh"
+    run_step "Setting up Plymouth boot splash" "$SCRIPTS_DIR/plymouth.sh"
   fi
 
-  if [ -f "$SCRIPTS_DIR/install_yay.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/install_yay.sh"
-    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/install_yay.sh"
+  if [ -f "$SCRIPTS_DIR/yay.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/yay.sh"
+    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/yay.sh"
   fi
 
   if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
