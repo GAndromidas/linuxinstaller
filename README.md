@@ -96,10 +96,10 @@ Follow the interactive menu to select:
 
 ### Structure
 - **install.sh**: Main orchestrator script
-- **scripts/install_yay.sh**: YAY AUR helper installation
+- **scripts/yay.sh**: YAY AUR helper installation
 - **scripts/programs.sh**: Package installation and DE customization
 - **scripts/fail2ban.sh**: Fail2ban setup (optional)
-- **scripts/setup_plymouth.sh**: Plymouth setup (optional)
+- **scripts/plymouth.sh**: Plymouth setup (optional)
 - **configs/**: Configuration templates
 
 ### Package Sets
