@@ -499,7 +499,6 @@ enable_services() {
     "reflector.service"
     "reflector.timer"
     "sshd.service"
-    "teamviewerd.service"
     "ufw.service"
   )
 

@@ -32,8 +32,8 @@ gnome_install_programs=(celluloid dconf-editor gnome-tweaks gufw seahorse transm
 gnome_remove_programs=(epiphany gnome-contacts gnome-maps gnome-music gnome-tour htop snapshot totem)
 cosmic_install_programs=(power-profiles-daemon transmission-gtk)
 cosmic_remove_programs=(htop)
-yay_programs_default=(heroic-games-launcher-bin megasync-bin spotify stacer-bin stremio teamviewer via-bin)
-yay_programs_minimal=(stacer-bin stremio teamviewer)
+yay_programs_default=(heroic-games-launcher-bin megasync-bin spotify stacer-bin stremio via-bin)
+yay_programs_minimal=(stacer-bin stremio)
 
 # ===== Helper Functions =====
 
