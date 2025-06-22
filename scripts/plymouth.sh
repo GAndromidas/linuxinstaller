@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 source "$(dirname "$0")/common.sh"
 
 # ======= Colors and Step/Log Helpers =======
