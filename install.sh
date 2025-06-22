@@ -715,11 +715,7 @@ main() {
 
   # Ask for sudo password up front
   echo -e "\n${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
-  sudo -v
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Incorrect password or sudo privileges required. Exiting.${RESET}"
-    exit 1
-  fi
+  sudo -v || { echo -e "${RED}Sudo required. Exiting.${RESET}"; exit 1; }
 
   # Keep sudo alive and trap to kill it on exit
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
