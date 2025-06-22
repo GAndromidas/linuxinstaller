@@ -118,14 +118,36 @@ run_step() {
   fi
 }
 
-# Remove package checking - let pacman handle it
+# Enhanced package installation with progress indicators
 install_packages_quietly() {
   local pkgs=("$@")
-  if [ "${#pkgs[@]}" -gt 0 ]; then
-    echo -ne "${CYAN}Installing ${#pkgs[@]} packages...${RESET} "
-    sudo pacman -S --noconfirm --needed "${pkgs[@]}" >/dev/null 2>&1 && \
-      echo -e "${GREEN}[OK]${RESET}" || echo -e "${RED}[FAIL]${RESET}"
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No packages to install${RESET}"
+    return
   fi
+  
+  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
+  
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PACKAGES+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
+    fi
+  done
+  
+  echo -e "${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 # Batch install helper for multiple package groups

@@ -73,12 +73,18 @@ check_flatpak() {
 
 install_pacman_quietly() {
   local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
+  
   for pkg in "${pkgs[@]}"; do
+    ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
+      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
+    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
       PROGRAMS_INSTALLED+=("$pkg")
@@ -88,16 +94,29 @@ install_pacman_quietly() {
       PROGRAMS_ERRORS+=("Failed to install $pkg")
     fi
   done
+  
+  echo -e "${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 install_flatpak_quietly() {
   local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No Flatpak packages to install${RESET}"
+    return
+  fi
+  
+  echo -e "${CYAN}Installing ${total} packages via Flatpak...${RESET}"
+  
   for pkg in "${pkgs[@]}"; do
+    ((current++))
     if flatpak list --app | grep -qw "$pkg"; then
-      echo -e "${YELLOW}Flatpak: $pkg ... [SKIP] Already installed${RESET}"
+      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-    echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
+    echo -ne "${CYAN}[${current}/${total}] Flatpak: $pkg ...${RESET} "
     if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
       PROGRAMS_INSTALLED+=("$pkg (flatpak)")
@@ -107,16 +126,29 @@ install_flatpak_quietly() {
       PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
     fi
   done
+  
+  echo -e "${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 install_aur_quietly() {
   local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No AUR packages to install${RESET}"
+    return
+  fi
+  
+  echo -e "${CYAN}Installing ${total} packages via AUR (yay)...${RESET}"
+  
   for pkg in "${pkgs[@]}"; do
+    ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}AUR: $pkg ... [SKIP] Already installed${RESET}"
+      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
       continue
     fi
-    echo -ne "${CYAN}AUR: $pkg ...${RESET} "
+    echo -ne "${CYAN}[${current}/${total}] AUR: $pkg ...${RESET} "
     if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
       PROGRAMS_INSTALLED+=("$pkg (AUR)")
@@ -126,6 +158,8 @@ install_aur_quietly() {
       PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
     fi
   done
+  
+  echo -e "${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 detect_desktop_environment() {
