@@ -21,11 +21,20 @@ HELPER_UTILS=(base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fz
 
 INSTALL_MODE=""  # <-- Ensure this is always defined
 
+# Performance tracking
+START_TIME=$(date +%s)
+
+# Ensure critical variables are defined
+: "${HOME:=/home/$USER}"
+: "${USER:=$(whoami)}"
+: "${XDG_CURRENT_DESKTOP:=}"
+: "${INSTALL_MODE:=default}"
+
 # Utility/Helper Functions
 figlet_banner() {
   local title="$1"
   echo -e "${CYAN}\n============================================================${RESET}"
-  if command -v figlet >/dev/null; then
+  if command -v figlet >/dev/null 2>/dev/null; then
     figlet "$title"
   else
     echo -e "${CYAN}========== $title ==========${RESET}"
@@ -77,14 +86,13 @@ show_menu() {
 }
 
 step() {
-  echo -e "${CYAN}\n============================================================${RESET}"
-  echo -e "\n${CYAN}[${CURRENT_STEP}] $1${RESET}"
+  echo -e "\n${CYAN}→ $1${RESET}"
   ((CURRENT_STEP++))
 }
 
-log_success() { echo -e "\n${GREEN}[OK] $1${RESET}\n"; }
-log_warning() { echo -e "\n${YELLOW}[WARN] $1${RESET}\n"; }
-log_error()   { echo -e "\n${RED}[FAIL] $1${RESET}\n"; ERRORS+=("$1"); }
+log_success() { echo -e "${GREEN}✓ $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}! $1${RESET}"; }
+log_error()   { echo -e "${RED}✗ $1${RESET}"; ERRORS+=("$1"); }
 
 run_step() {
   local description="$1"
@@ -110,48 +118,50 @@ run_step() {
   fi
 }
 
-# Pacman Install Helper
+# Remove package checking - let pacman handle it
 install_packages_quietly() {
   local pkgs=("$@")
-  for pkg in "${pkgs[@]}"; do
-    if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
-      continue
-    fi
-    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PACKAGES+=("$pkg")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install $pkg"
-    fi
+  if [ "${#pkgs[@]}" -gt 0 ]; then
+    echo -ne "${CYAN}Installing ${#pkgs[@]} packages...${RESET} "
+    sudo pacman -S --noconfirm --needed "${pkgs[@]}" >/dev/null 2>&1 && \
+      echo -e "${GREEN}[OK]${RESET}" || echo -e "${RED}[FAIL]${RESET}"
+  fi
+}
+
+# Batch install helper for multiple package groups
+install_package_groups() {
+  local groups=("$@")
+  local all_packages=()
+  
+  for group in "${groups[@]}"; do
+    case "$group" in
+      "helpers")
+        all_packages+=("${HELPER_UTILS[@]}")
+        ;;
+      "zsh")
+        all_packages+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
+        ;;
+      "starship")
+        all_packages+=(starship)
+        ;;
+      "zram")
+        all_packages+=(zram-generator)
+        ;;
+      # Add more groups as needed
+    esac
   done
+  
+  if [ "${#all_packages[@]}" -gt 0 ]; then
+    install_packages_quietly "${all_packages[@]}"
+  fi
 }
 
 print_summary() {
-  figlet_banner "Install Summary"
-  echo -e "${CYAN}========= INSTALL SUMMARY =========${RESET}"
-  if [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PACKAGES[*]}"
-  else
-    echo -e "${YELLOW}No new packages were installed.${RESET}"
-  fi
-  if [ "${#REMOVED_PACKAGES[@]}" -gt 0 ]; then
-    echo -e "${RED}Removed:${RESET} ${REMOVED_PACKAGES[*]}"
-  else
-    echo -e "${GREEN}No packages were removed.${RESET}"
-  fi
-  echo -e "${CYAN}===================================${RESET}"
-  if [ "${#ERRORS[@]}" -gt 0 ]; then
-    echo -e "\n${RED}The following steps failed:${RESET}\n"
-    for err in "${ERRORS[@]}"; do
-      echo -e "${YELLOW}  - $err${RESET}"
-    done
-    echo -e "\n${YELLOW}Check the install log for more details: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
-  else
-    echo -e "\n${GREEN}All steps completed successfully!${RESET}\n"
-  fi
+  echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
+  [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
+  [ "${#REMOVED_PACKAGES[@]}" -gt 0 ] && echo -e "${RED}Removed: ${REMOVED_PACKAGES[*]}${RESET}"
+  [ "${#ERRORS[@]}" -gt 0 ] && echo -e "\n${RED}Errors: ${ERRORS[*]}${RESET}"
+  echo -e "${CYAN}======================${RESET}"
 }
 
 prompt_reboot() {
@@ -176,4 +186,76 @@ prompt_reboot() {
         ;;
     esac
   done
+}
+
+# Pre-download package lists for faster installation
+preload_package_lists() {
+  step "Preloading package lists for faster installation"
+  sudo pacman -Sy --noconfirm >/dev/null 2>&1
+  if command -v yay >/dev/null; then
+    yay -Sy --noconfirm >/dev/null 2>&1
+  else
+    log_warning "yay not available for AUR package list update"
+  fi
+}
+
+# Optimized system update
+fast_system_update() {
+  step "Performing optimized system update"
+  sudo pacman -Syu --noconfirm --overwrite="*"
+  if command -v yay >/dev/null; then
+    yay -Syu --noconfirm
+  else
+    log_warning "yay not available for AUR update"
+  fi
+}
+
+# Performance tracking
+log_performance() {
+  local step_name="$1"
+  local current_time=$(date +%s)
+  local elapsed=$((current_time - START_TIME))
+  echo -e "${CYAN}[PERF] $step_name completed in ${elapsed}s${RESET}"
+}
+
+# Function to collect errors from custom scripts
+collect_custom_script_errors() {
+  local script_name="$1"
+  local script_errors=("$@")
+  shift
+  for error in "${script_errors[@]}"; do
+    ERRORS+=("$script_name: $error")
+  done
+}
+
+# Check if command exists
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Validate file system operations
+validate_file_operation() {
+  local operation="$1"
+  local file="$2"
+  local description="$3"
+  
+  # Check if file exists (for read operations)
+  if [[ "$operation" == "read" ]] && [ ! -f "$file" ]; then
+    log_error "File $file does not exist. Cannot perform: $description"
+    return 1
+  fi
+  
+  # Check if directory exists (for write operations)
+  if [[ "$operation" == "write" ]] && [ ! -d "$(dirname "$file")" ]; then
+    log_error "Directory $(dirname "$file") does not exist. Cannot perform: $description"
+    return 1
+  fi
+  
+  # Check permissions
+  if [[ "$operation" == "write" ]] && [ ! -w "$(dirname "$file")" ]; then
+    log_error "No write permission for $(dirname "$file"). Cannot perform: $description"
+    return 1
+  fi
+  
+  return 0
 } 

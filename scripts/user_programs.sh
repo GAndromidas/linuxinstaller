@@ -1,20 +1,19 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 source "$(dirname "$0")/common.sh"
 
-# Run custom scripts in order, if present
-for custom_script in "plymouth.sh" "yay.sh" "programs.sh" "fail2ban.sh"; do
-  if [ -f "$(dirname "$0")/$custom_script" ]; then
-    chmod +x "$(dirname "$0")/$custom_script"
-    # Pass install mode to programs.sh if needed
-    if [[ "$custom_script" == "programs.sh" ]]; then
-      if [[ "$INSTALL_MODE" == "minimal" ]]; then
-        run_step "Installing minimal user programs" "$(dirname "$0")/$custom_script" -m
-      else
-        run_step "Installing default user programs" "$(dirname "$0")/$custom_script" -d
-      fi
+step "Installing user programs"
+
+# Run ALL custom scripts in parallel
+for script in "plymouth.sh" "yay.sh" "programs.sh" "fail2ban.sh"; do
+  if [ -f "$(dirname "$0")/$script" ]; then
+    chmod +x "$(dirname "$0")/$script"
+    if [[ "$script" == "programs.sh" ]]; then
+      "$(dirname "$0")/$script" "$INSTALL_MODE" &
     else
-      run_step "Running $custom_script" "$(dirname "$0")/$custom_script"
+      "$(dirname "$0")/$script" &
     fi
   fi
-done 
+done
+
+wait  # Wait for all to complete 

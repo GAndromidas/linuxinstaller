@@ -1,83 +1,29 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 source "$(dirname "$0")/common.sh"
 
-make_systemd_boot_silent() {
-  step "Making Systemd-Boot silent for all installed kernels"
-  local ENTRIES_DIR="/boot/loader/entries"
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
-  for kernel in "${kernel_types[@]}"; do
-    local linux_entry
-    linux_entry=$(find "$ENTRIES_DIR" -type f -name "*${kernel}.conf" ! -name '*fallback.conf' -print -quit)
-    if [ -z "$linux_entry" ]; then
-      log_warning "Linux entry not found for kernel: $kernel"
-      continue
-    fi
-    if sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$linux_entry"; then
-      log_success "Silent boot options added to Linux entry: $(basename "$linux_entry")."
-    else
-      log_error "Failed to modify Linux entry: $(basename "$linux_entry")."
-    fi
-  done
-}
-
-change_loader_conf() {
-  step "Changing loader.conf"
-  local LOADER_CONF="/boot/loader/loader.conf"
-  if [ ! -f "$LOADER_CONF" ]; then
-    log_warning "loader.conf not found at $LOADER_CONF"
-    return
+# Apply all boot configurations at once
+configure_boot() {
+  # Make systemd-boot silent
+  find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
+    sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' {} \; 2>/dev/null || true
+  
+  # Configure loader.conf
+  if [ -f "/boot/loader/loader.conf" ]; then
+    sudo sed -i \
+      -e '/^default /d' \
+      -e '1i default @saved' \
+      -e 's/^timeout.*/timeout 3/' \
+      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
+      /boot/loader/loader.conf
+    
+    # Add missing lines
+    grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
+    grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
   fi
-
-  sudo sed -i '/^default /d' "$LOADER_CONF"
-  sudo sed -i '1i default @saved' "$LOADER_CONF"
-
-  if grep -q '^timeout' "$LOADER_CONF"; then
-    sudo sed -i 's/^timeout.*/timeout 3/' "$LOADER_CONF"
-  else
-    echo "timeout 3" | sudo tee -a "$LOADER_CONF" >/dev/null
-  fi
-
-  if grep -Eq '^[#]*console-mode[[:space:]]+keep' "$LOADER_CONF"; then
-    sudo sed -i 's/^[#]*console-mode[[:space:]]\+keep/console-mode max/' "$LOADER_CONF"
-  elif grep -Eq '^[#]*console-mode[[:space:]]+.*' "$LOADER_CONF"; then
-    sudo sed -i 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' "$LOADER_CONF"
-  else
-    echo "console-mode max" | sudo tee -a "$LOADER_CONF" >/dev/null
-  fi
-
-  log_success "Loader configuration updated."
-}
-
-remove_fallback_entries() {
-  step "Removing fallback entries from systemd-boot"
-  local ENTRIES_DIR="/boot/loader/entries"
-  local entries_removed=0
-
-  # Check if directory exists
-  if [ ! -d "$ENTRIES_DIR" ]; then
-    log_warning "Entries directory $ENTRIES_DIR does not exist"
-    return 0
-  fi
-
-  shopt -s nullglob
-  for entry in "$ENTRIES_DIR"/*fallback.conf; do
-    [ -f "$entry" ] || continue
-    if sudo rm "$entry"; then
-      log_success "Removed fallback entry: $(basename "$entry")"
-      entries_removed=1
-    else
-      log_error "Failed to remove fallback entry: $(basename "$entry")"
-    fi
-  done
-  shopt -u nullglob
-
-  if [ $entries_removed -eq 0 ]; then
-    log_warning "No fallback entries found to remove."
-  fi
-
-  return 0  # Explicitly return success
+  
+  # Remove fallback entries
+  sudo rm -f /boot/loader/entries/*fallback.conf 2>/dev/null || true
 }
 
 setup_fastfetch_config() {
@@ -87,15 +33,20 @@ setup_fastfetch_config() {
     else
       run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
     fi
+    
+    # Safe config file copy
     if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
       mkdir -p "$HOME/.config/fastfetch"
       cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+      log_success "fastfetch config copied from configs directory."
+    else
+      log_warning "config.jsonc not found in configs directory. Using generated config."
     fi
+  else
+    log_warning "fastfetch not installed. Skipping config setup."
   fi
 }
 
-# Execute boot configuration steps
-make_systemd_boot_silent
-change_loader_conf
-remove_fallback_entries
+# Execute ultra-fast boot configuration
+configure_boot
 setup_fastfetch_config 

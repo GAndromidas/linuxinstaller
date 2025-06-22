@@ -1,52 +1,63 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 source "$(dirname "$0")/common.sh"
 
 check_prerequisites() {
   step "Checking system prerequisites"
   if [[ $EUID -eq 0 ]]; then
     log_error "Do not run this script as root. Please run as a regular user with sudo privileges."
-    exit 1
+    return 1
   fi
   if ! command -v pacman >/dev/null; then
     log_error "This script is intended for Arch Linux systems with pacman."
-    exit 1
+    return 1
   fi
   log_success "Prerequisites OK."
 }
 
-install_helper_utils() {
-  local to_install=()
-  for util in "${HELPER_UTILS[@]}"; do
-    if ! command -v "$util" >/dev/null; then
-      to_install+=("$util")
-    else
-      log_warning "$util is already installed. Skipping."
-    fi
-  done
-  if [ "${#to_install[@]}" -gt 0 ]; then
-    step "Installing helper utilities"
-    install_packages_quietly "${to_install[@]}"
-    log_success "Helper utilities installed."
-  fi
+install_all_packages() {
+  local all_packages=(
+    # Helper utilities
+    base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync ufw zoxide
+    # ZSH and plugins
+    zsh zsh-autosuggestions zsh-syntax-highlighting
+    # Starship
+    starship
+    # ZRAM
+    zram-generator
+    # Basic graphics
+    mesa
+  )
+  
+  step "Installing all packages"
+  install_packages_quietly "${all_packages[@]}"
 }
 
 configure_pacman() {
-  run_step "Configuring Pacman" sudo sed -i 's/^#Color/Color/; s/^#VerbosePkgLists/VerbosePkgLists/; s/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
-  run_step "Enable ILoveCandy" bash -c "grep -q ILoveCandy /etc/pacman.conf || sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf"
-  run_step "Enabling multilib repo" bash -c '
-    if grep -q "^\[multilib\]" /etc/pacman.conf; then
-      exit 0
-    elif grep -q "^#\[multilib\]" /etc/pacman.conf; then
-      sudo sed -i "/^#\\[multilib\\]/,/^#Include/s/^#//" /etc/pacman.conf
-    else
-      echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
-    fi
-  '
+  # Apply all pacman optimizations at once
+  sudo sed -i \
+    -e 's/^#Color/Color/' \
+    -e 's/^#VerbosePkgLists/VerbosePkgLists/' \
+    -e 's/^#ParallelDownloads.*/ParallelDownloads = 20/' \
+    -e '/^Color/a ILoveCandy' \
+    /etc/pacman.conf
+  
+  # Enable multilib in one command
+  grep -q "^\[multilib\]" /etc/pacman.conf || \
+    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
 }
 
 update_mirrors_and_system() {
-  run_step "Updating mirrorlist" sudo reflector --verbose --protocol https --latest 5 --sort rate --save /etc/pacman.d/mirrorlist
+  # Use only the fastest mirrors
+  run_step "Updating mirrorlist" sudo reflector \
+    --protocol https \
+    --latest 3 \
+    --sort rate \
+    --save /etc/pacman.d/mirrorlist \
+    --fastest 1 \
+    --connection-timeout 1
+  
+  # Update system
   run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
@@ -107,12 +118,23 @@ generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-# Execute all preparation steps
+# Install yay early (needed for AUR packages throughout the installation)
+install_yay_early() {
+  if [ -f "$SCRIPTS_DIR/yay.sh" ]; then
+    chmod +x "$SCRIPTS_DIR/yay.sh"
+    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/yay.sh"
+  else
+    log_warning "yay.sh not found. AUR packages will not be available."
+  fi
+}
+
+# Execute ultra-fast preparation
 check_prerequisites
-install_helper_utils
+install_all_packages
 configure_pacman
 update_mirrors_and_system
 set_sudo_pwfeedback
 install_cpu_microcode
 install_kernel_headers_for_all
-generate_locales 
+generate_locales
+install_yay_early 

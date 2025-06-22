@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
 
 # ======= Colors and Step/Log Helpers =======
 RED='\033[0;31m'
@@ -7,9 +9,11 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
+# Use different variable names to avoid conflicts
+PLYMOUTH_INSTALLED=()
+PLYMOUTH_ERRORS=()
+
 CURRENT_STEP=1
-ERRORS=()
-INSTALLED_PKGS=()
 
 step() {
   echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
@@ -18,7 +22,7 @@ step() {
 
 log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PLYMOUTH_ERRORS+=("$1"); }
 
 run_step() {
   local description="$1"
@@ -45,7 +49,7 @@ install_pacman_quietly() {
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg")
+      PLYMOUTH_INSTALLED+=("$pkg")
     else
       echo -e "${RED}[FAIL]${RESET}"
       log_error "Failed to install $pkg"
@@ -99,14 +103,14 @@ add_kernel_parameters() {
 
 print_summary() {
   echo -e "\n${CYAN}========= PLYMOUTH SUMMARY =========${RESET}"
-  if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PKGS[*]}"
+  if [ ${#PLYMOUTH_INSTALLED[@]} -gt 0 ]; then
+    echo -e "${GREEN}Installed:${RESET} ${PLYMOUTH_INSTALLED[*]}"
   fi
-  if [ ${#ERRORS[@]} -eq 0 ]; then
+  if [ ${#PLYMOUTH_ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Plymouth installed and configured successfully!${RESET}"
   else
     echo -e "${RED}Some steps failed:${RESET}"
-    for err in "${ERRORS[@]}"; do
+    for err in "${PLYMOUTH_ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
   fi

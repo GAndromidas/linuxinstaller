@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
 
 # ======= Colors and Step/Log Helpers =======
 RED='\033[0;31m'
@@ -8,7 +10,7 @@ CYAN='\033[0;36m'
 RESET='\033[0m'
 
 CURRENT_STEP=1
-ERRORS=()
+FAIL2BAN_ERRORS=()
 INSTALLED=()
 ENABLED=()
 CONFIGURED=()
@@ -20,7 +22,7 @@ step() {
 
 log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; FAIL2BAN_ERRORS+=("$1"); }
 
 run_step() {
   local description="$1"
@@ -103,11 +105,11 @@ print_summary() {
   if [ ${#CONFIGURED[@]} -gt 0 ]; then
     echo -e "${GREEN}Configured:${RESET} ${CONFIGURED[*]}"
   fi
-  if [ ${#ERRORS[@]} -eq 0 ]; then
+  if [ ${#FAIL2BAN_ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Fail2ban installed and configured successfully!${RESET}"
   else
     echo -e "${RED}Some steps failed:${RESET}"
-    for err in "${ERRORS[@]}"; do
+    for err in "${FAIL2BAN_ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
   fi

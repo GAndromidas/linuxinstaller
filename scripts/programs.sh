@@ -1,4 +1,6 @@
 #!/bin/bash
+set -uo pipefail
+source "$(dirname "$0")/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
 
@@ -11,15 +13,15 @@ RESET='\033[0m'
 
 # ===== Globals =====
 CURRENT_STEP=1
-ERRORS=()
-INSTALLED_PKGS=()
-REMOVED_PKGS=()
+PROGRAMS_ERRORS=()
+PROGRAMS_INSTALLED=()
+PROGRAMS_REMOVED=()
 
 # ===== Output Functions =====
 step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
 log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; ERRORS+=("$1"); }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
 # ===== Program Lists =====
 pacman_programs_default=(android-tools bat bleachbit btop cmatrix dosfstools expac firefox fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud mangohud net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs ttf-hack-nerd ttf-liberation unrar xdg-desktop-portal-gtk)
@@ -41,12 +43,18 @@ is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/nu
 
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
-check_yay() { if ! command -v yay &>/dev/null; then log_error "yay (AUR helper) is not installed. Please install yay and rerun."; exit 1; fi; }
+check_yay() { 
+  if ! command -v yay &>/dev/null; then 
+    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped."; 
+    return 1; 
+  fi; 
+  return 0;
+}
 
 check_flatpak() {
   if ! command -v flatpak &>/dev/null; then
-    log_error "flatpak is not installed. Please install flatpak and rerun."
-    exit 1
+    log_warning "flatpak is not installed. Flatpak packages will be skipped."
+    return 1
   fi
   if ! flatpak remote-list | grep -q flathub; then
     step "Adding Flathub remote"
@@ -55,6 +63,7 @@ check_flatpak() {
   fi
   step "Updating Flatpak remotes"
   flatpak update -y
+  return 0
 }
 
 # ===== Unified Quiet Install Functions =====
@@ -69,10 +78,11 @@ install_pacman_quietly() {
     echo -ne "${CYAN}Installing: $pkg ...${RESET} "
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg")
+      PROGRAMS_INSTALLED+=("$pkg")
     else
       echo -e "${RED}[FAIL]${RESET}"
       log_error "Failed to install $pkg"
+      PROGRAMS_ERRORS+=("Failed to install $pkg")
     fi
   done
 }
@@ -87,10 +97,11 @@ install_flatpak_quietly() {
     echo -ne "${CYAN}Flatpak: $pkg ...${RESET} "
     if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg (flatpak)")
+      PROGRAMS_INSTALLED+=("$pkg (flatpak)")
     else
       echo -e "${RED}[FAIL]${RESET}"
       log_error "Failed to install Flatpak $pkg"
+      PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
     fi
   done
 }
@@ -105,10 +116,11 @@ install_aur_quietly() {
     echo -ne "${CYAN}AUR: $pkg ...${RESET} "
     if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       echo -e "${GREEN}[OK]${RESET}"
-      INSTALLED_PKGS+=("$pkg (AUR)")
+      PROGRAMS_INSTALLED+=("$pkg (AUR)")
     else
       echo -e "${RED}[FAIL]${RESET}"
       log_error "Failed to install AUR $pkg"
+      PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
     fi
   done
 }
@@ -160,7 +172,7 @@ remove_programs() {
       sudo pacman -Rns --noconfirm "$program" &>/dev/null
       if handle_error "Failed to remove $program."; then
         log_success "$program removed."
-        REMOVED_PKGS+=("$program")
+        PROGRAMS_REMOVED+=("$program")
       fi
     else
       log_warning "$program not found. Skipping removal."
@@ -187,8 +199,12 @@ install_aur_packages() {
     return
   fi
 
-  echo -e "${CYAN}=== AUR Installing ===${RESET}"
+  if ! check_yay; then
+    log_warning "Skipping AUR package installation due to missing yay."
+    return
+  fi
 
+  echo -e "${CYAN}=== AUR Installing ===${RESET}"
   install_aur_quietly "${yay_programs[@]}"
 }
 
@@ -263,21 +279,21 @@ install_flatpak_minimal_generic() {
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
-print_summary() {
+print_programs_summary() {
   echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
-  if [ ${#INSTALLED_PKGS[@]} -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${INSTALLED_PKGS[*]}"
+  if [ ${#PROGRAMS_INSTALLED[@]} -gt 0 ]; then
+    echo -e "${GREEN}Installed:${RESET} ${PROGRAMS_INSTALLED[*]}"
   else
     echo -e "${YELLOW}No new packages were installed.${RESET}"
   fi
-  if [ ${#REMOVED_PKGS[@]} -gt 0 ]; then
-    echo -e "${RED}Removed:${RESET} ${REMOVED_PKGS[*]}"
+  if [ ${#PROGRAMS_REMOVED[@]} -gt 0 ]; then
+    echo -e "${RED}Removed:${RESET} ${PROGRAMS_REMOVED[*]}"
   else
     echo -e "${GREEN}No packages were removed.${RESET}"
   fi
-  if [ ${#ERRORS[@]} -gt 0 ]; then
+  if [ ${#PROGRAMS_ERRORS[@]} -gt 0 ]; then
     echo -e "${RED}Errors:${RESET}"
-    for err in "${ERRORS[@]}"; do
+    for err in "${PROGRAMS_ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
   else
@@ -299,12 +315,18 @@ elif [[ "$1" == "-m" ]]; then
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 else
-  echo -e "${RED}Error: You must run this script with -d (default) or -m (minimal) flag. Example: ./programs.sh -d${RESET}"
-  exit 1
+  log_error "You must run this script with -d (default) or -m (minimal) flag. Example: ./programs.sh -d"
+  return 1
 fi
 
-check_yay
-check_flatpak
+if ! check_yay; then
+  log_warning "AUR packages will be skipped."
+fi
+
+if ! check_flatpak; then
+  log_warning "Flatpak packages will be skipped."
+fi
+
 detect_desktop_environment
 remove_programs
 install_pacman_programs
@@ -324,4 +346,4 @@ else
 fi
 
 install_aur_packages
-print_summary
+print_programs_summary
