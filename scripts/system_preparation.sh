@@ -32,6 +32,28 @@ configure_pacman() {
     echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
 }
 
+install_reflector_early() {
+  step "Installing reflector for mirror optimization"
+  if command -v reflector >/dev/null; then
+    print_status " [SKIP] Already installed" "$YELLOW"
+    return
+  fi
+  
+  print_progress 1 2 "Installing reflector"
+  if sudo pacman -S --noconfirm --needed pacman-contrib >/dev/null 2>&1; then
+    print_status " [OK]" "$GREEN"
+    INSTALLED_PACKAGES+=("pacman-contrib")
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to install reflector (pacman-contrib)"
+    return 1
+  fi
+  
+  print_progress 2 2 "Reflector installation complete"
+  print_status " [DONE]" "$GREEN"
+  echo ""
+}
+
 update_mirrorlist() {
   # Use only the fastest mirrors
   run_step "Updating mirrorlist" sudo reflector \
@@ -51,7 +73,7 @@ update_system() {
 install_all_packages() {
   local all_packages=(
     # Helper utilities
-    base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync ufw zoxide
+    base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh rsync ufw zoxide
     # ZSH and plugins
     zsh zsh-autosuggestions zsh-syntax-highlighting
     # Starship
@@ -209,6 +231,7 @@ install_yay_early() {
 # Execute ultra-fast preparation
 check_prerequisites
 configure_pacman
+install_reflector_early
 update_mirrorlist
 update_system
 install_all_packages
