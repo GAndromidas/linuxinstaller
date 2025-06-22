@@ -33,7 +33,41 @@ install_all_packages() {
   )
   
   step "Installing all packages"
-  install_packages_quietly "${all_packages[@]}"
+  echo -e "${CYAN}Installing ${#all_packages[@]} packages via Pacman...${RESET}"
+  
+  local total=${#all_packages[@]}
+  local current=0
+  local failed_packages=()
+  
+  for pkg in "${all_packages[@]}"; do
+    ((current++))
+    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
+    
+    # Check if already installed
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}[SKIP] Already installed${RESET}"
+      continue
+    fi
+    
+    # Try to install
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      INSTALLED_PACKAGES+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
+      failed_packages+=("$pkg")
+    fi
+  done
+  
+  echo -e "${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
+  
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
+    log_warning "Some packages failed to install. Continuing with installation..."
+  fi
+  
+  echo ""
 }
 
 configure_pacman() {

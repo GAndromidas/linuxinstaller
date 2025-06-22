@@ -25,14 +25,34 @@ exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
 
 echo -e "\n${GREEN}Starting Arch Linux installation...${RESET}\n"
 
-# Run all installation steps with error handling
+# Run all installation steps with error handling and debugging
+echo -e "${CYAN}Step 1: System Preparation${RESET}"
 step "System Preparation" && source "$SCRIPTS_DIR/system_preparation.sh" || log_error "System preparation failed"
+echo -e "${CYAN}Step 1 completed${RESET}"
+
+echo -e "${CYAN}Step 2: Shell Setup${RESET}"
 step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
+echo -e "${CYAN}Step 2 completed${RESET}"
+
+echo -e "${CYAN}Step 3: User Programs${RESET}"
 step "User Programs" && source "$SCRIPTS_DIR/user_programs.sh" || log_error "User programs failed"
+echo -e "${CYAN}Step 3 completed${RESET}"
+
+echo -e "${CYAN}Step 4: System Services${RESET}"
 step "System Services" && source "$SCRIPTS_DIR/system_services.sh" || log_error "System services failed"
+echo -e "${CYAN}Step 4 completed${RESET}"
+
+echo -e "${CYAN}Step 5: System Boot Configuration${RESET}"
 step "System Boot Configuration" && source "$SCRIPTS_DIR/system_boot_config.sh" || log_error "System boot configuration failed"
+echo -e "${CYAN}Step 5 completed${RESET}"
+
+echo -e "${CYAN}Step 6: Maintenance${RESET}"
 step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Maintenance failed"
+echo -e "${CYAN}Step 6 completed${RESET}"
+
+echo -e "${CYAN}Step 7: Cleanup${RESET}"
 step "Cleanup" && source "$SCRIPTS_DIR/cleanup.sh" || log_error "Cleanup failed"
+echo -e "${CYAN}Step 7 completed${RESET}"
 
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
 print_summary
