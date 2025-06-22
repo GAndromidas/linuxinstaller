@@ -304,18 +304,17 @@ print_programs_summary() {
 
 # ===== MAIN LOGIC =====
 
-if [[ "$1" == "-d" ]]; then
-  INSTALL_MODE="default"
+# Use INSTALL_MODE from menu instead of command-line flags
+if [[ "$INSTALL_MODE" == "default" ]]; then
   pacman_programs=("${pacman_programs_default[@]}")
   essential_programs=("${essential_programs_default[@]}")
   yay_programs=("${yay_programs_default[@]}")
-elif [[ "$1" == "-m" ]]; then
-  INSTALL_MODE="minimal"
+elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   pacman_programs=("${pacman_programs_minimal[@]}")
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 else
-  log_error "You must run this script with -d (default) or -m (minimal) flag. Example: ./programs.sh -d"
+  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
   return 1
 fi
 
