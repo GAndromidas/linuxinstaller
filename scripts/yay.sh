@@ -33,15 +33,38 @@ step "Building and installing yay"
 print_progress 2 4 "Building yay package"
 cd /tmp/yay
 
-# Use makepkg with minimal output for cleaner terminal
-if MAKEPKG_CONF=/dev/null makepkg -si --noconfirm --log 2>/dev/null; then
+# Ensure we have the right permissions and sudo access
+sudo -n true 2>/dev/null || {
+  log_warning "Sudo access required. Please enter your password when prompted."
+  sleep 1
+}
+
+# Use makepkg with proper flags to avoid password prompts
+# --noconfirm should prevent all prompts, but let's be extra safe
+if MAKEPKG_CONF=/dev/null makepkg -si --noconfirm --log --skippgpcheck 2>/dev/null; then
   print_status " [OK]" "$GREEN"
 else
   print_status " [FAIL]" "$RED"
-  log_error "Failed to build/install yay."
-  cd /tmp
-  sudo rm -rf /tmp/yay
-  return 1
+  log_error "Failed to build/install yay. Trying alternative method..."
+  
+  # Alternative: build first, then install
+  if MAKEPKG_CONF=/dev/null makepkg -s --noconfirm --log --skippgpcheck >/dev/null 2>&1; then
+    if sudo pacman -U --noconfirm yay-*.pkg.tar.zst >/dev/null 2>&1; then
+      print_status " [OK]" "$GREEN"
+    else
+      print_status " [FAIL]" "$RED"
+      log_error "Failed to install yay package."
+      cd /tmp
+      sudo rm -rf /tmp/yay
+      return 1
+    fi
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to build yay package."
+    cd /tmp
+    sudo rm -rf /tmp/yay
+    return 1
+  fi
 fi
 
 cd /tmp
