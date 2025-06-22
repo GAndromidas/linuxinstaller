@@ -7,6 +7,10 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
+# Terminal formatting helpers
+TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+TERM_HEIGHT=$(tput lines 2>/dev/null || echo 24)
+
 # Global arrays and variables
 ERRORS=()                # Collects error messages for summary
 CURRENT_STEP=1           # Tracks current step for progress display
@@ -29,6 +33,32 @@ START_TIME=$(date +%s)
 : "${USER:=$(whoami)}"
 : "${XDG_CURRENT_DESKTOP:=}"
 : "${INSTALL_MODE:=default}"
+
+# Improved terminal output functions
+clear_line() {
+  echo -ne "\r\033[K"
+}
+
+print_progress() {
+  local current="$1"
+  local total="$2"
+  local description="$3"
+  local max_width=$((TERM_WIDTH - 20))  # Leave space for progress indicator
+  
+  # Truncate description if too long
+  if [ ${#description} -gt $max_width ]; then
+    description="${description:0:$((max_width-3))}..."
+  fi
+  
+  clear_line
+  printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+}
+
+print_status() {
+  local status="$1"
+  local color="$2"
+  echo -e "$color$status${RESET}"
+}
 
 # Utility/Helper Functions
 figlet_banner() {
@@ -118,7 +148,7 @@ run_step() {
   fi
 }
 
-# Enhanced package installation with progress indicators
+# Enhanced package installation with better terminal formatting
 install_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
@@ -134,20 +164,22 @@ install_packages_quietly() {
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
+    
+    print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
+      print_status " [OK]" "$GREEN"
       INSTALLED_PACKAGES+=("$pkg")
     else
-      echo -e "${RED}[FAIL]${RESET}"
+      print_status " [FAIL]" "$RED"
       log_error "Failed to install $pkg"
     fi
   done
   
-  echo -e "${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 # Batch install helper for multiple package groups

@@ -71,26 +71,27 @@ install_all_packages() {
   
   for pkg in "${all_packages[@]}"; do
     ((current++))
-    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
     
     # Check if already installed
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}[SKIP] Already installed${RESET}"
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
     
     # Try to install
+    print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
+      print_status " [OK]" "$GREEN"
       INSTALLED_PACKAGES+=("$pkg")
     else
-      echo -e "${RED}[FAIL]${RESET}"
+      print_status " [FAIL]" "$RED"
       log_error "Failed to install $pkg"
       failed_packages+=("$pkg")
     fi
   done
   
-  echo -e "${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
+  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
   
   if [ ${#failed_packages[@]} -gt 0 ]; then
     echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
@@ -112,33 +113,36 @@ install_cpu_microcode() {
   step "Detecting CPU and installing appropriate microcode"
   local pkg=""
   
-  echo -ne "${CYAN}Detecting CPU type...${RESET} "
+  print_progress 1 3 "Detecting CPU type"
   
   if grep -q "Intel" /proc/cpuinfo; then
-    echo -e "${GREEN}Intel CPU detected${RESET}"
+    print_status " [Intel CPU detected]" "$GREEN"
     pkg="intel-ucode"
   elif grep -q "AMD" /proc/cpuinfo; then
-    echo -e "${GREEN}AMD CPU detected${RESET}"
+    print_status " [AMD CPU detected]" "$GREEN"
     pkg="amd-ucode"
   else
-    echo -e "${YELLOW}Unable to determine CPU type${RESET}"
+    print_status " [Unable to determine CPU type]" "$YELLOW"
     log_warning "Unable to determine CPU type. No microcode package will be installed."
   fi
 
   if [ -n "$pkg" ]; then
-    echo -ne "${CYAN}Installing $pkg...${RESET} "
+    print_progress 2 3 "Installing $pkg"
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}[SKIP] Already installed${RESET}"
+      print_status " [SKIP] Already installed" "$YELLOW"
     else
       if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}"
+        print_status " [OK]" "$GREEN"
         INSTALLED_PACKAGES+=("$pkg")
       else
-        echo -e "${RED}[FAIL]${RESET}"
+        print_status " [FAIL]" "$RED"
         log_error "Failed to install $pkg"
       fi
     fi
   fi
+  
+  print_progress 3 3 "CPU microcode installation complete"
+  print_status " [DONE]" "$GREEN"
   echo ""
 }
 
@@ -169,22 +173,23 @@ install_kernel_headers_for_all() {
   for kernel in "${kernel_types[@]}"; do
     ((current++))
     local headers_package="${kernel}-headers"
-    echo -ne "${CYAN}[${current}/${total}] Installing headers for $kernel ...${RESET} "
+    
+    print_progress "$current" "$total" "$headers_package"
     
     if pacman -Q "$headers_package" &>/dev/null; then
-      echo -e "${YELLOW}[SKIP] Already installed${RESET}"
+      print_status " [SKIP] Already installed" "$YELLOW"
     else
       if sudo pacman -S --noconfirm --needed "$headers_package" >/dev/null 2>&1; then
-        echo -e "${GREEN}[OK]${RESET}"
+        print_status " [OK]" "$GREEN"
         INSTALLED_PACKAGES+=("$headers_package")
       else
-        echo -e "${RED}[FAIL]${RESET}"
+        print_status " [FAIL]" "$RED"
         log_error "Failed to install $headers_package"
       fi
     fi
   done
   
-  echo -e "${GREEN}✓ Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
+  echo -e "\n${GREEN}✓ Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
 }
 
 generate_locales() {

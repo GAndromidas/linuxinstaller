@@ -69,33 +69,40 @@ check_flatpak() {
   return 0
 }
 
-# ===== Unified Quiet Install Functions =====
+# ===== Improved Quiet Install Functions =====
 
 install_pacman_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
   
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No Pacman packages to install${RESET}"
+    return
+  fi
+  
   echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
   
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    echo -ne "${CYAN}[${current}/${total}] Installing: $pkg ...${RESET} "
+    
+    print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
+      print_status " [OK]" "$GREEN"
       PROGRAMS_INSTALLED+=("$pkg")
     else
-      echo -e "${RED}[FAIL]${RESET}"
+      print_status " [FAIL]" "$RED"
       log_error "Failed to install $pkg"
       PROGRAMS_ERRORS+=("Failed to install $pkg")
     fi
   done
   
-  echo -e "${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "\n${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 install_flatpak_quietly() {
@@ -113,21 +120,23 @@ install_flatpak_quietly() {
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if flatpak list --app | grep -qw "$pkg"; then
-      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    echo -ne "${CYAN}[${current}/${total}] Flatpak: $pkg ...${RESET} "
+    
+    print_progress "$current" "$total" "$pkg"
     if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
+      print_status " [OK]" "$GREEN"
       PROGRAMS_INSTALLED+=("$pkg (flatpak)")
     else
-      echo -e "${RED}[FAIL]${RESET}"
+      print_status " [FAIL]" "$RED"
       log_error "Failed to install Flatpak $pkg"
       PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
     fi
   done
   
-  echo -e "${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "\n${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 install_aur_quietly() {
@@ -145,21 +154,23 @@ install_aur_quietly() {
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}[${current}/${total}] $pkg ... [SKIP] Already installed${RESET}"
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    echo -ne "${CYAN}[${current}/${total}] AUR: $pkg ...${RESET} "
+    
+    print_progress "$current" "$total" "$pkg"
     if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
+      print_status " [OK]" "$GREEN"
       PROGRAMS_INSTALLED+=("$pkg (AUR)")
     else
-      echo -e "${RED}[FAIL]${RESET}"
+      print_status " [FAIL]" "$RED"
       log_error "Failed to install AUR $pkg"
       PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
     fi
   done
   
-  echo -e "${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "\n${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
 detect_desktop_environment() {
@@ -204,17 +215,30 @@ remove_programs() {
     log_success "No specific programs to remove."
     return
   fi
+  
+  local total=${#specific_remove_programs[@]}
+  local current=0
+  
+  echo -e "${CYAN}Removing ${total} DE-specific programs...${RESET}"
+  
   for program in "${specific_remove_programs[@]}"; do
+    ((current++))
+    print_progress "$current" "$total" "$program"
+    
     if is_package_installed "$program"; then
-      sudo pacman -Rns --noconfirm "$program" &>/dev/null
-      if handle_error "Failed to remove $program."; then
-        log_success "$program removed."
+      if sudo pacman -Rns --noconfirm "$program" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
         PROGRAMS_REMOVED+=("$program")
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to remove $program"
       fi
     else
-      log_warning "$program not found. Skipping removal."
+      print_status " [SKIP] Not installed" "$YELLOW"
     fi
   done
+  
+  echo -e "\n${GREEN}✓ Program removal completed (${current}/${total} programs processed)${RESET}\n"
 }
 
 install_pacman_programs() {
