@@ -18,6 +18,36 @@ check_prerequisites() {
   log_success "Prerequisites OK."
 }
 
+configure_pacman() {
+  # Apply all pacman optimizations at once
+  sudo sed -i \
+    -e 's/^#Color/Color/' \
+    -e 's/^#VerbosePkgLists/VerbosePkgLists/' \
+    -e 's/^#ParallelDownloads.*/ParallelDownloads = 20/' \
+    -e '/^Color/a ILoveCandy' \
+    /etc/pacman.conf
+  
+  # Enable multilib in one command
+  grep -q "^\[multilib\]" /etc/pacman.conf || \
+    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+}
+
+update_mirrorlist() {
+  # Use only the fastest mirrors
+  run_step "Updating mirrorlist" sudo reflector \
+    --protocol https \
+    --latest 3 \
+    --sort rate \
+    --save /etc/pacman.d/mirrorlist \
+    --fastest 1 \
+    --connection-timeout 1
+}
+
+update_system() {
+  # Update system
+  run_step "System update" sudo pacman -Syyu --noconfirm
+}
+
 install_all_packages() {
   local all_packages=(
     # Helper utilities
@@ -68,34 +98,6 @@ install_all_packages() {
   fi
   
   echo ""
-}
-
-configure_pacman() {
-  # Apply all pacman optimizations at once
-  sudo sed -i \
-    -e 's/^#Color/Color/' \
-    -e 's/^#VerbosePkgLists/VerbosePkgLists/' \
-    -e 's/^#ParallelDownloads.*/ParallelDownloads = 20/' \
-    -e '/^Color/a ILoveCandy' \
-    /etc/pacman.conf
-  
-  # Enable multilib in one command
-  grep -q "^\[multilib\]" /etc/pacman.conf || \
-    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
-}
-
-update_mirrors_and_system() {
-  # Use only the fastest mirrors
-  run_step "Updating mirrorlist" sudo reflector \
-    --protocol https \
-    --latest 3 \
-    --sort rate \
-    --save /etc/pacman.d/mirrorlist \
-    --fastest 1 \
-    --connection-timeout 1
-  
-  # Update system
-  run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
 set_sudo_pwfeedback() {
@@ -201,9 +203,10 @@ install_yay_early() {
 
 # Execute ultra-fast preparation
 check_prerequisites
-install_all_packages
 configure_pacman
-update_mirrors_and_system
+update_mirrorlist
+update_system
+install_all_packages
 set_sudo_pwfeedback
 install_cpu_microcode
 install_kernel_headers_for_all
