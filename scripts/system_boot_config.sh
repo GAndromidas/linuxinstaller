@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
-source "$(dirname "$0")/common.sh"
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 # Apply all boot configurations at once
 configure_boot() {
