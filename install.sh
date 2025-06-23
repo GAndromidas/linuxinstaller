@@ -47,25 +47,29 @@ echo -e "${CYAN}Step 5: Programs Installation${RESET}"
 step "Programs Installation" && source "$SCRIPTS_DIR/programs.sh" || log_error "Programs installation failed"
 echo -e "${CYAN}Step 5 completed${RESET}"
 
-echo -e "${CYAN}Step 6: Fail2ban Setup${RESET}"
-step "Fail2ban Setup" && source "$SCRIPTS_DIR/fail2ban.sh" || log_error "Fail2ban setup failed"
+echo -e "${CYAN}Step 6: GameMode Installation${RESET}"
+step "GameMode Installation" && source "$SCRIPTS_DIR/gamemode.sh" install || log_error "GameMode installation failed"
 echo -e "${CYAN}Step 6 completed${RESET}"
 
-echo -e "${CYAN}Step 7: System Services${RESET}"
-step "System Services" && source "$SCRIPTS_DIR/system_services.sh" || log_error "System services failed"
+echo -e "${CYAN}Step 7: Fail2ban Setup${RESET}"
+step "Fail2ban Setup" && source "$SCRIPTS_DIR/fail2ban.sh" || log_error "Fail2ban setup failed"
 echo -e "${CYAN}Step 7 completed${RESET}"
 
-echo -e "${CYAN}Step 8: System Boot Configuration${RESET}"
-step "System Boot Configuration" && source "$SCRIPTS_DIR/system_boot_config.sh" || log_error "System boot configuration failed"
+echo -e "${CYAN}Step 8: System Services${RESET}"
+step "System Services" && source "$SCRIPTS_DIR/system_services.sh" || log_error "System services failed"
 echo -e "${CYAN}Step 8 completed${RESET}"
 
-echo -e "${CYAN}Step 9: Maintenance${RESET}"
-step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Maintenance failed"
+echo -e "${CYAN}Step 9: System Boot Configuration${RESET}"
+step "System Boot Configuration" && source "$SCRIPTS_DIR/system_boot_config.sh" || log_error "System boot configuration failed"
 echo -e "${CYAN}Step 9 completed${RESET}"
 
-echo -e "${CYAN}Step 10: Cleanup${RESET}"
-step "Cleanup" && source "$SCRIPTS_DIR/cleanup.sh" || log_error "Cleanup failed"
+echo -e "${CYAN}Step 10: Maintenance${RESET}"
+step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Maintenance failed"
 echo -e "${CYAN}Step 10 completed${RESET}"
+
+echo -e "${CYAN}Step 11: Cleanup${RESET}"
+step "Cleanup" && source "$SCRIPTS_DIR/cleanup.sh" || log_error "Cleanup failed"
+echo -e "${CYAN}Step 11 completed${RESET}"
 
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
 print_summary
