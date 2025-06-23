@@ -4,7 +4,21 @@ source "$(dirname "$0")/common.sh"
 
 step "Installing yay (AUR helper)"
 
-# Step 1: Cleanup previous yay installation
+# Step 1: Ensure required dependencies are installed
+step "Checking dependencies"
+print_progress 1 5 "Checking build dependencies"
+if ! pacman -Q base-devel git >/dev/null 2>&1; then
+  log_warning "Installing required build dependencies..."
+  sudo pacman -S --noconfirm base-devel git >/dev/null 2>&1 || {
+    log_error "Failed to install build dependencies"
+    return 1
+  }
+fi
+print_status " [OK]" "$GREEN"
+
+# Step 2: Cleanup previous yay installation
+step "Cleaning up previous installation"
+print_progress 2 5 "Removing existing yay installation"
 if command -v yay >/dev/null; then
   log_warning "yay is already installed. Removing it before reinstalling."
   sudo pacman -Rns --noconfirm yay >/dev/null 2>&1 || true
@@ -16,10 +30,11 @@ if [ -d /tmp/yay ]; then
   log_warning "Removing existing /tmp/yay folder."
   sudo rm -rf /tmp/yay
 fi
+print_status " [OK]" "$GREEN"
 
-# Step 2: Clone yay repo
+# Step 3: Clone yay repo
 step "Cloning yay repository"
-print_progress 1 4 "Cloning yay repository"
+print_progress 3 5 "Cloning yay repository"
 if git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
   print_status " [OK]" "$GREEN"
 else
@@ -28,9 +43,9 @@ else
   return 1
 fi
 
-# Step 3: Build and install yay
+# Step 4: Build and install yay
 step "Building and installing yay"
-print_progress 2 4 "Building yay package"
+print_progress 4 5 "Building yay package"
 cd /tmp/yay
 
 # Ensure we have the right permissions and sudo access
@@ -39,21 +54,30 @@ sudo -n true 2>/dev/null || {
   sleep 1
 }
 
-# Use makepkg with proper flags to avoid password prompts
-# --noconfirm should prevent all prompts, but let's be extra safe
-if MAKEPKG_CONF=/dev/null makepkg -si --noconfirm --log --skippgpcheck 2>/dev/null; then
+# Method 1: Try direct build and install
+if MAKEPKG_CONF=/dev/null makepkg -si --noconfirm --log --skippgpcheck >/dev/null 2>&1; then
   print_status " [OK]" "$GREEN"
 else
   print_status " [FAIL]" "$RED"
-  log_error "Failed to build/install yay. Trying alternative method..."
+  log_warning "Direct build failed. Trying alternative method..."
   
-  # Alternative: build first, then install
+  # Method 2: Build first, then install
   if MAKEPKG_CONF=/dev/null makepkg -s --noconfirm --log --skippgpcheck >/dev/null 2>&1; then
-    if sudo pacman -U --noconfirm yay-*.pkg.tar.zst >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
+    # Find the built package
+    PKG_FILE=$(find . -name "yay-*.pkg.tar.zst" -type f | head -1)
+    if [ -n "$PKG_FILE" ] && [ -f "$PKG_FILE" ]; then
+      if sudo pacman -U --noconfirm "$PKG_FILE" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to install yay package: $PKG_FILE"
+        cd /tmp
+        sudo rm -rf /tmp/yay
+        return 1
+      fi
     else
       print_status " [FAIL]" "$RED"
-      log_error "Failed to install yay package."
+      log_error "Built package not found"
       cd /tmp
       sudo rm -rf /tmp/yay
       return 1
@@ -70,9 +94,9 @@ fi
 cd /tmp
 sudo rm -rf /tmp/yay
 
-# Step 4: Final check
+# Step 5: Final check
 step "Final check"
-print_progress 3 4 "Verifying yay installation"
+print_progress 5 5 "Verifying yay installation"
 if command -v yay >/dev/null; then
   print_status " [OK]" "$GREEN"
   log_success "yay installed successfully!"
@@ -82,5 +106,4 @@ else
   return 1
 fi
 
-print_progress 4 4 "yay installation complete"
 print_status " [DONE]" "$GREEN"
