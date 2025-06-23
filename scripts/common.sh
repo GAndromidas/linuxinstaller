@@ -86,8 +86,8 @@ EOF
 show_menu() {
   echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
   echo "Please select your installation mode:"
-  echo "  1) Default (Full setup)"
-  echo "  2) Minimal (Core utilities only)"
+  echo "  1) Default"
+  echo "  2) Minimal"
   echo "  3) Exit"
 
   while true; do
