@@ -23,7 +23,7 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts dir
 
 HELPER_UTILS=(base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync ufw zoxide)  # Helper utilities to install
 
-INSTALL_MODE=""  # <-- Ensure this is always defined
+# : "${INSTALL_MODE:=default}"
 
 # Performance tracking
 START_TIME=$(date +%s)
@@ -32,7 +32,6 @@ START_TIME=$(date +%s)
 : "${HOME:=/home/$USER}"
 : "${USER:=$(whoami)}"
 : "${XDG_CURRENT_DESKTOP:=}"
-: "${INSTALL_MODE:=default}"
 
 # Improved terminal output functions
 clear_line() {
