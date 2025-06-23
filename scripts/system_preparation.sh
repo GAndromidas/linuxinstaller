@@ -75,8 +75,6 @@ install_all_packages() {
     starship
     # ZRAM
     zram-generator
-    # Basic graphics
-    mesa
   )
   
   step "Installing all packages"
