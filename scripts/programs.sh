@@ -209,6 +209,43 @@ detect_desktop_environment() {
   esac
 }
 
+print_total_packages() {
+  step "Calculating total packages to install"
+  
+  # Calculate Pacman packages
+  local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
+  
+  # Calculate AUR packages
+  local aur_total=${#yay_programs[@]}
+  
+  # Calculate Flatpak packages (approximate based on DE)
+  local flatpak_total=0
+  if [[ "$INSTALL_MODE" == "default" ]]; then
+    case "$XDG_CURRENT_DESKTOP" in
+      KDE) flatpak_total=3 ;;
+      GNOME) flatpak_total=4 ;;
+      COSMIC) flatpak_total=4 ;;
+      *) flatpak_total=1 ;;
+    esac
+  else
+    case "$XDG_CURRENT_DESKTOP" in
+      KDE) flatpak_total=1 ;;
+      GNOME) flatpak_total=2 ;;
+      COSMIC) flatpak_total=2 ;;
+      *) flatpak_total=1 ;;
+    esac
+  fi
+  
+  # Calculate total
+  local total_packages=$((pacman_total + aur_total + flatpak_total))
+  
+  echo -e "${CYAN}Total packages to install: ${total_packages}${RESET}"
+  echo -e "  ${GREEN}Pacman: ${pacman_total}${RESET}"
+  echo -e "  ${YELLOW}AUR: ${aur_total}${RESET}"
+  echo -e "  ${BLUE}Flatpak: ${flatpak_total}${RESET}"
+  echo ""
+}
+
 remove_programs() {
   step "Removing DE-specific programs"
   if [ ${#specific_remove_programs[@]} -eq 0 ]; then
@@ -388,6 +425,7 @@ if ! check_flatpak; then
 fi
 
 detect_desktop_environment
+print_total_packages
 remove_programs
 install_pacman_programs
 
