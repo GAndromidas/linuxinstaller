@@ -125,6 +125,29 @@ EOF
 detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
 
+  # VM detection function (from gamemode.sh)
+  is_vm() {
+    if grep -q -i 'hypervisor' /proc/cpuinfo; then
+      return 0
+    fi
+    if systemd-detect-virt --quiet; then
+      return 0
+    fi
+    if [ -d /proc/xen ]; then
+      return 0
+    fi
+    return 1
+  }
+
+  if is_vm; then
+    echo -e "${YELLOW}Virtual machine detected. Installing VM guest utilities and skipping physical GPU drivers.${RESET}"
+    install_packages_quietly qemu-guest-agent spice-vdagent xf86-video-qxl
+    # Optionally install virt-manager and qemu tools for host VMs
+    install_packages_quietly virt-manager qemu-full dnsmasq vde2 bridge-utils openbsd-netcat libvirt edk2-ovmf
+    log_success "VM guest and management utilities installed."
+    return
+  fi
+
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
     echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
@@ -135,37 +158,93 @@ detect_and_install_gpu_drivers() {
     log_success "Intel drivers and Vulkan support installed."
   elif lspci | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
-    echo "Please select the NVIDIA driver to install:"
-    echo "  1) nvidia-open (open kernel modules, newer cards only)"
-    echo "  2) nouveau (open source, basic support)"
-    echo "  3) proprietary (nvidia, closed source)"
-    local nvidia_choice
-    while true; do
-      read -r -p "Enter your choice [1-3]: " nvidia_choice
-      case "$nvidia_choice" in
-        1)
-          echo -e "${CYAN}Installing nvidia-open drivers...${RESET}"
-          install_packages_quietly nvidia-open-dkms nvidia-utils lib32-nvidia-utils
-          log_success "nvidia-open drivers installed."
-          break
-          ;;
-        2)
-          echo -e "${CYAN}Installing nouveau drivers...${RESET}"
-          install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-          log_success "nouveau drivers installed."
-          break
-          ;;
-        3)
-          echo -e "${CYAN}Installing proprietary NVIDIA drivers...${RESET}"
-          install_packages_quietly nvidia nvidia-utils lib32-nvidia-utils
-          log_success "Proprietary NVIDIA drivers installed."
-          break
-          ;;
-        *)
-          echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}"
-          ;;
-      esac
-    done
+
+    # Get PCI ID and map to family
+    nvidia_pciid=$(lspci -n -d ::0300 | grep -i nvidia | awk '{print $3}' | head -n1)
+    nvidia_family=""
+    nvidia_pkg=""
+    nvidia_note=""
+
+    # Map PCI ID to family (simplified, for full mapping see ArchWiki and Nouveau code names)
+    if lspci | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
+      nvidia_family="Turing or newer"
+      nvidia_pkg="nvidia-open-dkms nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(open kernel modules, recommended for Turing/Ampere/Lovelace)"
+    elif lspci | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
+      nvidia_family="Maxwell or newer"
+      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
+    elif lspci | grep -Eiq 'GK|Kepler'; then
+      nvidia_family="Kepler"
+      nvidia_pkg="nvidia-470xx-dkms"
+      nvidia_note="(legacy, AUR, unsupported)"
+    elif lspci | grep -Eiq 'GF|Fermi'; then
+      nvidia_family="Fermi"
+      nvidia_pkg="nvidia-390xx-dkms"
+      nvidia_note="(legacy, AUR, unsupported)"
+    elif lspci | grep -Eiq 'G8|Tesla'; then
+      nvidia_family="Tesla"
+      nvidia_pkg="nvidia-340xx-dkms"
+      nvidia_note="(legacy, AUR, unsupported)"
+    else
+      nvidia_family="Unknown"
+      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(defaulting to latest proprietary driver)"
+    fi
+
+    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
+    echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
+
+    if [[ "$nvidia_family" == "Kepler" || "$nvidia_family" == "Fermi" || "$nvidia_family" == "Tesla" ]]; then
+      echo -e "${YELLOW}Your NVIDIA GPU is legacy and may not be well supported by the proprietary driver, especially on Wayland.${RESET}"
+      echo "For best Wayland support, it is recommended to use the open-source Nouveau driver."
+      echo "Choose driver to install:"
+      echo "  1) Nouveau (open source, best for Wayland, basic 3D support)"
+      echo "  2) Proprietary legacy NVIDIA driver (AUR, may not work with Wayland, unsupported)"
+      local legacy_choice
+      while true; do
+        read -r -p "Enter your choice [1-2]: " legacy_choice
+        case "$legacy_choice" in
+          1)
+            echo -e "${CYAN}Installing Nouveau drivers...${RESET}"
+            install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
+            log_success "Nouveau drivers installed."
+            break
+            ;;
+          2)
+            echo -e "${CYAN}Installing legacy proprietary NVIDIA drivers...${RESET}"
+            if [[ "$nvidia_family" == "Kepler" ]]; then
+              yay -S --noconfirm --needed nvidia-470xx-dkms
+            elif [[ "$nvidia_family" == "Fermi" ]]; then
+              yay -S --noconfirm --needed nvidia-390xx-dkms
+            elif [[ "$nvidia_family" == "Tesla" ]]; then
+              yay -S --noconfirm --needed nvidia-340xx-dkms
+            fi
+            log_success "Legacy proprietary NVIDIA drivers installed."
+            break
+            ;;
+          *)
+            echo -e "${RED}Invalid choice! Please enter 1 or 2.${RESET}"
+            ;;
+        esac
+      done
+      return
+    fi
+
+    # If AUR package, warn user
+    if [[ "$nvidia_pkg" == *"dkms"* && "$nvidia_pkg" != *"nvidia-open-dkms"* ]]; then
+      log_warning "This is a legacy/unsupported NVIDIA card. The driver will be installed from the AUR if yay is available."
+      if ! command -v yay &>/dev/null; then
+        log_error "yay (AUR helper) is not installed. Cannot install legacy NVIDIA driver."
+        return 1
+      fi
+      yay -S --noconfirm --needed $nvidia_pkg
+    else
+      install_packages_quietly $nvidia_pkg
+    fi
+
+    log_success "NVIDIA drivers installed."
+    return
   else
     echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
     install_packages_quietly mesa
