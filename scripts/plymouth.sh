@@ -81,12 +81,51 @@ rebuild_initramfs() {
 
 set_plymouth_theme() {
   local theme="bgrt"
+  
+  # Fix the double slash issue in bgrt theme if it exists
+  local bgrt_config="/usr/share/plymouth/themes/bgrt/bgrt.plymouth"
+  if [ -f "$bgrt_config" ]; then
+    # Fix the double slash in ImageDir path
+    if grep -q "ImageDir=/usr/share/plymouth/themes//spinner" "$bgrt_config"; then
+      sudo sed -i 's|ImageDir=/usr/share/plymouth/themes//spinner|ImageDir=/usr/share/plymouth/themes/spinner|g' "$bgrt_config"
+      log_success "Fixed double slash in bgrt theme configuration"
+    fi
+  fi
+  
+  # Try to set the bgrt theme
   if plymouth-set-default-theme -l | grep -qw "$theme"; then
-    sudo plymouth-set-default-theme -R "$theme"
-    log_success "Set plymouth theme to '$theme'."
+    if sudo plymouth-set-default-theme -R "$theme" 2>/dev/null; then
+      log_success "Set plymouth theme to '$theme'."
+      return 0
+    else
+      log_warning "Failed to set '$theme' theme. Trying fallback themes..."
+    fi
   else
-    log_warning "Theme '$theme' not found. Using default theme."
-    sudo plymouth-set-default-theme -R $(plymouth-set-default-theme)
+    log_warning "Theme '$theme' not found in available themes."
+  fi
+  
+  # Fallback to spinner theme (which bgrt depends on anyway)
+  local fallback_theme="spinner"
+  if plymouth-set-default-theme -l | grep -qw "$fallback_theme"; then
+    if sudo plymouth-set-default-theme -R "$fallback_theme" 2>/dev/null; then
+      log_success "Set plymouth theme to fallback '$fallback_theme'."
+      return 0
+    fi
+  fi
+  
+  # Last resort: use the first available theme
+  local first_theme
+  first_theme=$(plymouth-set-default-theme -l | head -n1)
+  if [ -n "$first_theme" ]; then
+    if sudo plymouth-set-default-theme -R "$first_theme" 2>/dev/null; then
+      log_success "Set plymouth theme to first available theme: '$first_theme'."
+    else
+      log_error "Failed to set any plymouth theme"
+      return 1
+    fi
+  else
+    log_error "No plymouth themes available"
+    return 1
   fi
 }
 

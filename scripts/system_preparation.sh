@@ -229,16 +229,6 @@ generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-# Install yay early (needed for AUR packages throughout the installation)
-install_yay_early() {
-  if [ -f "$SCRIPTS_DIR/yay.sh" ]; then
-    chmod +x "$SCRIPTS_DIR/yay.sh"
-    run_step "Installing yay (AUR helper)" "$SCRIPTS_DIR/yay.sh"
-  else
-    log_warning "yay.sh not found. AUR packages will not be available."
-  fi
-}
-
 # Execute ultra-fast preparation
 check_prerequisites
 configure_pacman
@@ -248,5 +238,4 @@ update_system
 set_sudo_pwfeedback
 install_cpu_microcode
 install_kernel_headers_for_all
-generate_locales
-install_yay_early 
+generate_locales 
