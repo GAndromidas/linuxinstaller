@@ -74,13 +74,36 @@ echo -e "${CYAN}Step 11 completed${RESET}"
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
 print_summary
 
-# Delete installer directory if no errors occurred
-if [ ${#ERRORS[@]} -eq 0 ]; then
-  echo -e "\n${GREEN}All steps completed successfully. Deleting installer directory before reboot...${RESET}"
-  cd "$SCRIPT_DIR/.."
-  rm -rf "$(basename "$SCRIPT_DIR")"
-else
-  echo -e "\n${YELLOW}Some errors occurred. Installer directory will NOT be deleted.${RESET}"
-fi
+prompt_reboot() {
+  figlet_banner "Reboot System"
+  echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
+  echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
+  while true; do
+    read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+    reboot_ans=${reboot_ans,,}
+    case "$reboot_ans" in
+      ""|y|yes)
+        echo -e "\n${CYAN}Rebooting...${RESET}\n"
+        # Delete installer directory if no errors occurred, just before reboot
+        if [ ${#ERRORS[@]} -eq 0 ]; then
+          echo -e "\n${GREEN}All steps completed successfully. Deleting installer directory before reboot...${RESET}"
+          cd "$SCRIPT_DIR/.."
+          rm -rf "$(basename "$SCRIPT_DIR")"
+        else
+          echo -e "\n${YELLOW}Some errors occurred. Installer directory will NOT be deleted.${RESET}"
+        fi
+        sudo reboot
+        break
+        ;;
+      n|no)
+        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}\n"
+        break
+        ;;
+      *)
+        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+        ;;
+    esac
+  done
+}
 
 prompt_reboot
