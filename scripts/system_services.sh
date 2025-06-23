@@ -89,18 +89,22 @@ configure_ufw() {
 }
 
 enable_services() {
-  # Enable all services at once without checking
-  sudo systemctl enable --now \
-    bluetooth.service \
-    cronie.service \
-    fstrim.timer \
-    paccache.timer \
-    power-profiles-daemon.service \
-    reflector.service \
-    reflector.timer \
-    sshd.service \
-    ufw.service \
-    2>/dev/null || true
+  local services=(
+    bluetooth.service
+    cronie.service
+    fstrim.timer
+    paccache.timer
+    power-profiles-daemon.service
+    reflector.service
+    reflector.timer
+    sshd.service
+    ufw.service
+  )
+  step "Enabling the following system services:"
+  for svc in "${services[@]}"; do
+    echo -e "  - $svc"
+  done
+  sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
 }
 
 setup_zram_swap() {
@@ -118,73 +122,57 @@ EOF
   sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
 }
 
-cleanup_helpers() {
-  run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
-}
-
 detect_and_install_gpu_drivers() {
-  step "Installing basic graphics drivers"
-  
-  # Just install basic mesa - let user handle specific drivers
-  install_packages_quietly mesa
-  
-  # Only do NVIDIA if explicitly detected
-  if lspci | grep -qi nvidia; then
-    echo -e "${YELLOW}NVIDIA GPU detected. Install drivers manually if needed.${RESET}"
-  fi
-}
+  step "Detecting and installing graphics drivers"
 
-remove_orphans() {
-  orphans=$(pacman -Qtdq 2>/dev/null || true)
-  if [[ -n "$orphans" ]]; then
-    sudo pacman -Rns --noconfirm $orphans
+  if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
+    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
+    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
+    log_success "AMD drivers and Vulkan support installed."
+  elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
+    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
+    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
+    log_success "Intel drivers and Vulkan support installed."
+  elif lspci | grep -qi nvidia; then
+    echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
+    echo "Please select the NVIDIA driver to install:"
+    echo "  1) nvidia-open (open kernel modules, newer cards only)"
+    echo "  2) nouveau (open source, basic support)"
+    echo "  3) proprietary (nvidia, closed source)"
+    local nvidia_choice
+    while true; do
+      read -r -p "Enter your choice [1-3]: " nvidia_choice
+      case "$nvidia_choice" in
+        1)
+          echo -e "${CYAN}Installing nvidia-open drivers...${RESET}"
+          install_packages_quietly nvidia-open-dkms nvidia-utils lib32-nvidia-utils
+          log_success "nvidia-open drivers installed."
+          break
+          ;;
+        2)
+          echo -e "${CYAN}Installing nouveau drivers...${RESET}"
+          install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
+          log_success "nouveau drivers installed."
+          break
+          ;;
+        3)
+          echo -e "${CYAN}Installing proprietary NVIDIA drivers...${RESET}"
+          install_packages_quietly nvidia nvidia-utils lib32-nvidia-utils
+          log_success "Proprietary NVIDIA drivers installed."
+          break
+          ;;
+        *)
+          echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}"
+          ;;
+      esac
+    done
   else
-    echo "No orphaned packages to remove."
+    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
+    install_packages_quietly mesa
   fi
-}
-
-setup_maintenance() {
-  # All maintenance in one command
-  {
-    sudo paccache -r 2>/dev/null || true
-    sudo pacman -Rns $(pacman -Qtdq 2>/dev/null) --noconfirm 2>/dev/null || true
-    sudo pacman -Syu --noconfirm
-    yay -Syu --noconfirm 2>/dev/null || true
-  } >/dev/null 2>&1
-}
-
-cleanup_and_optimize() {
-  step "Performing final cleanup and optimizations"
-  
-  # Check if lsblk is available for SSD detection
-  if command_exists lsblk; then
-    if lsblk -d -o rota | grep -q '^0$'; then
-      run_step "Running fstrim on SSDs" sudo fstrim -v /
-    fi
-  else
-    log_warning "lsblk not available. Skipping SSD optimization."
-  fi
-  
-  run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
-
-  if [[ -d "$SCRIPT_DIR" ]]; then
-    if [ "${#ERRORS[@]}" -eq 0 ]; then
-      cd "$HOME"
-      run_step "Deleting installer directory" rm -rf "$SCRIPT_DIR"
-    else
-      echo -e "\n${YELLOW}Issues detected during installation. The installer folder and install.log will NOT be deleted.${RESET}\n"
-      echo -e "${RED}ERROR: One or more steps failed. Please check the log for details:${RESET}"
-      echo -e "${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
-    fi
-  fi
-
-  run_step "Syncing disk writes" sync
 }
 
 # Execute all service and maintenance steps
 setup_firewall_and_services
 setup_zram_swap
-cleanup_helpers
-detect_and_install_gpu_drivers
-setup_maintenance
-cleanup_and_optimize 
+detect_and_install_gpu_drivers 
