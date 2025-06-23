@@ -58,24 +58,24 @@ EOF
         log_success "Minimal GameMode config written to $CONFIG_FILE (VM detected)"
         return 0
     fi
-    # Detect session type (Wayland or X11)
-    SESSION_TYPE=${XDG_SESSION_TYPE:-$(loginctl show-session "$(loginctl | grep "$(whoami)" | awk '{print $1}')" -p Type | cut -d= -f2)}
+# Detect session type (Wayland or X11)
+SESSION_TYPE=${XDG_SESSION_TYPE:-$(loginctl show-session "$(loginctl | grep "$(whoami)" | awk '{print $1}')" -p Type | cut -d= -f2)}
     log_info "Detected session type: $SESSION_TYPE"
-    # Detect GPU
-    GPU_VENDOR=$(lspci | grep -E "VGA|3D" | grep -iE "nvidia|amd|ati" | awk '{print tolower($0)}')
-    if echo "$GPU_VENDOR" | grep -q "nvidia"; then
-        GPU="nvidia"
-    elif echo "$GPU_VENDOR" | grep -qE "amd|ati"; then
-        GPU="amd"
-    else
-        GPU="unknown"
-    fi
+# Detect GPU
+GPU_VENDOR=$(lspci | grep -E "VGA|3D" | grep -iE "nvidia|amd|ati" | awk '{print tolower($0)}')
+if echo "$GPU_VENDOR" | grep -q "nvidia"; then
+    GPU="nvidia"
+elif echo "$GPU_VENDOR" | grep -qE "amd|ati"; then
+    GPU="amd"
+else
+    GPU="unknown"
+fi
     log_info "Detected GPU: $GPU"
-    # GameMode config
-    CONFIG_DIR="$HOME/.config"
-    CONFIG_FILE="$CONFIG_DIR/gamemode.ini"
-    mkdir -p "$CONFIG_DIR"
-    cat > "$CONFIG_FILE" <<EOF
+# GameMode config
+CONFIG_DIR="$HOME/.config"
+CONFIG_FILE="$CONFIG_DIR/gamemode.ini"
+mkdir -p "$CONFIG_DIR"
+cat > "$CONFIG_FILE" <<EOF
 [general]
 renice=10
 softrealtime=true
@@ -88,11 +88,11 @@ governor=performance
 start_script=/usr/local/bin/gamemode_start
 end_script=/usr/local/bin/gamemode_end
 EOF
-    chmod 644 "$CONFIG_FILE"
+chmod 644 "$CONFIG_FILE"
     log_success "GameMode config written to $CONFIG_FILE"
-    # GameMode Start Script
-    START_SCRIPT="/usr/local/bin/gamemode_start"
-    sudo tee "$START_SCRIPT" > /dev/null <<EOF
+# GameMode Start Script
+START_SCRIPT="/usr/local/bin/gamemode_start"
+sudo tee "$START_SCRIPT" > /dev/null <<EOF
 #!/bin/bash
 # Set performance governor
 if command -v cpupower &>/dev/null; then
@@ -121,9 +121,9 @@ if [ "$SESSION_TYPE" = "x11" ]; then
     fi
 fi
 EOF
-    # GameMode End Script
-    END_SCRIPT="/usr/local/bin/gamemode_end"
-    sudo tee "$END_SCRIPT" > /dev/null <<EOF
+# GameMode End Script
+END_SCRIPT="/usr/local/bin/gamemode_end"
+sudo tee "$END_SCRIPT" > /dev/null <<EOF
 #!/bin/bash
 # AMD: revert to auto
 if [ "$GPU" = "amd" ]; then
@@ -146,7 +146,7 @@ if [ "$SESSION_TYPE" = "x11" ]; then
     fi
 fi
 EOF
-    sudo chmod +x "$START_SCRIPT" "$END_SCRIPT"
+sudo chmod +x "$START_SCRIPT" "$END_SCRIPT"
     log_success "GameMode start/end scripts installed."
     log_success "GameMode with safe system optimizations configured successfully."
 }

@@ -95,9 +95,9 @@ set_plymouth_theme() {
   # Try to set the bgrt theme
   if plymouth-set-default-theme -l | grep -qw "$theme"; then
     if sudo plymouth-set-default-theme -R "$theme" 2>/dev/null; then
-      log_success "Set plymouth theme to '$theme'."
+    log_success "Set plymouth theme to '$theme'."
       return 0
-    else
+  else
       log_warning "Failed to set '$theme' theme. Trying fallback themes..."
     fi
   else

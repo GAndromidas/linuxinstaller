@@ -3,6 +3,7 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 source "$SCRIPT_DIR/common.sh"
 
 # Apply all boot configurations at once
