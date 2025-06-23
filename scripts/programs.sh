@@ -442,6 +442,3 @@ fi
 
 install_aur_packages
 print_programs_summary
-
-show_menu
-export INSTALL_MODE
