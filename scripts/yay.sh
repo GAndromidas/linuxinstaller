@@ -28,6 +28,7 @@ step "Cleanup previous yay installation"
 print_progress 1 4 "Removing existing yay installation"
 if command -v yay >/dev/null; then
   log_warning "yay is already installed. Removing it before reinstalling."
+  echo -e "\n${YELLOW}Please enter your password to remove existing yay installation:${RESET}"
   sudo pacman -Rns --noconfirm yay >/dev/null 2>&1 || true
   if [ -f /usr/bin/yay ]; then
     sudo rm -f /usr/bin/yay
@@ -61,6 +62,7 @@ cd /tmp/yay || {
 }
 
 # Build and install yay
+echo -e "\n${YELLOW}Please enter your password to build and install yay:${RESET}"
 if makepkg -si --noconfirm >/dev/null 2>&1; then
   print_status " [OK]" "$GREEN"
   log_success "yay built and installed."
