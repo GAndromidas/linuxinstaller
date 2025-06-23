@@ -46,6 +46,78 @@ is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/nu
 
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
+install_yay() {
+  step "Installing yay (AUR helper)"
+  
+  # Check if yay is already installed
+  if command -v yay >/dev/null 2>&1; then
+    log_success "yay is already installed"
+    return 0
+  fi
+
+  # Cleanup previous yay installation
+  print_progress 1 4 "Removing existing yay installation"
+  if command -v yay >/dev/null; then
+    log_warning "yay is already installed. Removing it before reinstalling."
+    sudo pacman -Rns --noconfirm yay >/dev/null 2>&1 || true
+    if [ -f /usr/bin/yay ]; then
+      sudo rm -f /usr/bin/yay
+    fi
+  fi
+  if [ -d /tmp/yay ]; then
+    log_warning "Removing existing /tmp/yay folder."
+    sudo rm -rf /tmp/yay
+  fi
+  print_status " [OK]" "$GREEN"
+
+  # Clone yay repo
+  print_progress 2 4 "Cloning yay repository"
+  if git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
+    print_status " [OK]" "$GREEN"
+    log_success "yay repository cloned."
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to clone yay repository."
+    return 1
+  fi
+
+  # Build and install yay
+  print_progress 3 4 "Building and installing yay"
+  cd /tmp/yay || {
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to change to yay directory"
+    return 1
+  }
+
+  if makepkg -si --noconfirm >/dev/null 2>&1; then
+    print_status " [OK]" "$GREEN"
+    log_success "yay built and installed."
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to build/install yay."
+    cd /tmp
+    sudo rm -rf /tmp/yay
+    return 1
+  fi
+
+  cd /tmp
+  sudo rm -rf /tmp/yay
+
+  # Final check
+  print_progress 4 4 "Verifying yay installation"
+  if command -v yay >/dev/null 2>&1; then
+    print_status " [OK]" "$GREEN"
+    log_success "yay installed successfully!"
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "yay installation failed."
+    return 1
+  fi
+
+  print_status " [DONE]" "$GREEN"
+  echo ""
+}
+
 check_yay() { 
   if ! command -v yay &>/dev/null; then 
     log_warning "yay (AUR helper) is not installed. AUR packages will be skipped."; 
@@ -414,6 +486,11 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
 else
   log_error "INSTALL_MODE not set. Please run the installer from the main menu."
   return 1
+fi
+
+# Install yay first if we have AUR packages to install
+if [ ${#yay_programs[@]} -gt 0 ]; then
+  install_yay
 fi
 
 if ! check_yay; then
