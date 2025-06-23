@@ -21,10 +21,41 @@ install_gamemode() {
     fi
 }
 
+# Detect if running inside a virtual machine
+is_vm() {
+    # Check for common VM indicators
+    if grep -q -i 'hypervisor' /proc/cpuinfo; then
+        return 0
+    fi
+    if systemd-detect-virt --quiet; then
+        return 0
+    fi
+    if [ -d /proc/xen ]; then
+        return 0
+    fi
+    return 1
+}
+
 configure_gamemode() {
     step "Configuring GameMode system optimizations"
     if ! command -v gamemoded &>/dev/null; then
         log_warning "GameMode is not installed. Skipping configuration."
+        return 0
+    fi
+    # Detect if running in a VM
+    if is_vm; then
+        log_info "Detected virtual machine environment. Creating minimal GameMode config."
+        CONFIG_DIR="$HOME/.config"
+        CONFIG_FILE="$CONFIG_DIR/gamemode.ini"
+        mkdir -p "$CONFIG_DIR"
+        cat > "$CONFIG_FILE" <<EOF
+[general]
+renice=10
+softrealtime=true
+softrealtime_limit=95
+EOF
+        chmod 644 "$CONFIG_FILE"
+        log_success "Minimal GameMode config written to $CONFIG_FILE (VM detected)"
         return 0
     fi
     # Detect session type (Wayland or X11)
