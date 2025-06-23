@@ -73,4 +73,14 @@ echo -e "${CYAN}Step 11 completed${RESET}"
 
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
 print_summary
+
+# Delete installer directory if no errors occurred
+if [ ${#ERRORS[@]} -eq 0 ]; then
+  echo -e "\n${GREEN}All steps completed successfully. Deleting installer directory before reboot...${RESET}"
+  cd "$SCRIPT_DIR/.."
+  rm -rf "$(basename "$SCRIPT_DIR")"
+else
+  echo -e "\n${YELLOW}Some errors occurred. Installer directory will NOT be deleted.${RESET}"
+fi
+
 prompt_reboot
