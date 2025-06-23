@@ -1,8 +1,8 @@
 #!/bin/bash
 set -uo pipefail
+source "$(dirname "$0")/common.sh"
 
-# Simple yay installation script that works independently
-echo "Installing yay (AUR helper)..."
+step "Installing yay (AUR helper)"
 
 # Colors for output
 RED='\033[0;31m'
@@ -20,85 +20,71 @@ log_error() { echo -e "${RED}[FAIL] $1${RESET}"; }
 # Check if yay is already installed
 if command -v yay >/dev/null 2>&1; then
   log_success "yay is already installed"
-  exit 0
+  return 0
 fi
 
-# Store original directory
-ORIGINAL_DIR=$(pwd)
-
-# Step 1: Install required dependencies
-log_info "Installing build dependencies..."
-if ! pacman -Q base-devel git >/dev/null 2>&1; then
-  sudo pacman -S --noconfirm base-devel git >/dev/null 2>&1 || {
-    log_error "Failed to install build dependencies"
-    exit 1
-  }
+# Step 1: Cleanup previous yay installation
+step "Cleanup previous yay installation"
+print_progress 1 4 "Removing existing yay installation"
+if command -v yay >/dev/null; then
+  log_warning "yay is already installed. Removing it before reinstalling."
+  sudo pacman -Rns --noconfirm yay >/dev/null 2>&1 || true
+  if [ -f /usr/bin/yay ]; then
+    sudo rm -f /usr/bin/yay
+  fi
 fi
-
-# Step 2: Cleanup any existing yay installation
 if [ -d /tmp/yay ]; then
-  log_warning "Removing existing /tmp/yay folder"
+  log_warning "Removing existing /tmp/yay folder."
   sudo rm -rf /tmp/yay
 fi
+print_status " [OK]" "$GREEN"
 
-# Step 3: Clone yay repository
-log_info "Cloning yay repository..."
-if ! git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
-  log_error "Failed to clone yay repository"
-  exit 1
+# Step 2: Clone yay repo
+step "Cloning yay repository"
+print_progress 2 4 "Cloning yay repository"
+if git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
+  print_status " [OK]" "$GREEN"
+  log_success "yay repository cloned."
+else
+  print_status " [FAIL]" "$RED"
+  log_error "Failed to clone yay repository."
+  return 1
 fi
 
-# Step 4: Build and install yay
-log_info "Building and installing yay..."
-
-# Change to yay directory
+# Step 3: Build and install yay
+step "Building and installing yay"
+print_progress 3 4 "Building and installing yay"
 cd /tmp/yay || {
+  print_status " [FAIL]" "$RED"
   log_error "Failed to change to yay directory"
-  exit 1
+  return 1
 }
 
 # Build and install yay
-if MAKEPKG_CONF=/dev/null makepkg -si --noconfirm --log --skippgpcheck >/dev/null 2>&1; then
-  log_success "yay installed successfully"
+if makepkg -si --noconfirm >/dev/null 2>&1; then
+  print_status " [OK]" "$GREEN"
+  log_success "yay built and installed."
 else
-  log_warning "Direct build failed, trying alternative method..."
-  
-  # Alternative: Build first, then install
-  if MAKEPKG_CONF=/dev/null makepkg -s --noconfirm --log --skippgpcheck >/dev/null 2>&1; then
-    # Find the built package
-    PKG_FILE=$(find . -name "yay-*.pkg.tar.zst" -type f | head -1)
-    if [ -n "$PKG_FILE" ] && [ -f "$PKG_FILE" ]; then
-      if sudo pacman -U --noconfirm "$PKG_FILE" >/dev/null 2>&1; then
-        log_success "yay installed successfully"
-      else
-        log_error "Failed to install yay package"
-        cd "$ORIGINAL_DIR"
-        sudo rm -rf /tmp/yay
-        exit 1
-      fi
-    else
-      log_error "Built package not found"
-      cd "$ORIGINAL_DIR"
-      sudo rm -rf /tmp/yay
-      exit 1
-    fi
-  else
-    log_error "Failed to build yay package"
-    cd "$ORIGINAL_DIR"
-    sudo rm -rf /tmp/yay
-    exit 1
-  fi
+  print_status " [FAIL]" "$RED"
+  log_error "Failed to build/install yay."
+  cd /tmp
+  sudo rm -rf /tmp/yay
+  return 1
 fi
 
-# Return to original directory and cleanup
-cd "$ORIGINAL_DIR"
+cd /tmp
 sudo rm -rf /tmp/yay
 
-# Final verification
+# Step 4: Final check
+step "Final check"
+print_progress 4 4 "Verifying yay installation"
 if command -v yay >/dev/null 2>&1; then
-  log_success "yay installation completed successfully"
-  exit 0
+  print_status " [OK]" "$GREEN"
+  log_success "yay installed successfully!"
 else
-  log_error "yay installation failed"
-  exit 1
+  print_status " [FAIL]" "$RED"
+  log_error "yay installation failed."
+  return 1
 fi
+
+print_status " [DONE]" "$GREEN"
