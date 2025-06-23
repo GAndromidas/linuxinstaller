@@ -6,6 +6,7 @@ step "Installing yay (AUR helper)"
 
 # Store original directory
 ORIGINAL_DIR=$(pwd)
+YAY_ERROR=false
 
 # Step 1: Ensure required dependencies are installed
 step "Checking dependencies"
@@ -14,8 +15,12 @@ if ! pacman -Q base-devel git >/dev/null 2>&1; then
   log_warning "Installing required build dependencies..."
   sudo pacman -S --noconfirm base-devel git >/dev/null 2>&1 || {
     log_error "Failed to install build dependencies"
-    return 1
+    YAY_ERROR=true
   }
+fi
+if [ "$YAY_ERROR" = true ]; then
+  print_status " [FAIL]" "$RED"
+  return 1
 fi
 print_status " [OK]" "$GREEN"
 
@@ -43,6 +48,9 @@ if git clone https://aur.archlinux.org/yay.git /tmp/yay >/dev/null 2>&1; then
 else
   print_status " [FAIL]" "$RED"
   log_error "Failed to clone yay repository."
+  YAY_ERROR=true
+fi
+if [ "$YAY_ERROR" = true ]; then
   return 1
 fi
 
@@ -54,6 +62,9 @@ print_progress 4 5 "Building yay package"
 if ! cd /tmp/yay; then
   print_status " [FAIL]" "$RED"
   log_error "Failed to change to yay directory"
+  YAY_ERROR=true
+fi
+if [ "$YAY_ERROR" = true ]; then
   return 1
 fi
 
@@ -82,27 +93,31 @@ else
         log_error "Failed to install yay package: $PKG_FILE"
         cd "$ORIGINAL_DIR"
         sudo rm -rf /tmp/yay
-        return 1
+        YAY_ERROR=true
       fi
     else
       print_status " [FAIL]" "$RED"
       log_error "Built package not found"
       cd "$ORIGINAL_DIR"
       sudo rm -rf /tmp/yay
-      return 1
+      YAY_ERROR=true
     fi
   else
     print_status " [FAIL]" "$RED"
     log_error "Failed to build yay package."
     cd "$ORIGINAL_DIR"
     sudo rm -rf /tmp/yay
-    return 1
+    YAY_ERROR=true
   fi
 fi
 
 # Return to original directory and cleanup
 cd "$ORIGINAL_DIR"
 sudo rm -rf /tmp/yay
+
+if [ "$YAY_ERROR" = true ]; then
+  return 1
+fi
 
 # Step 5: Final check
 step "Final check"
@@ -113,6 +128,10 @@ if command -v yay >/dev/null; then
 else
   print_status " [FAIL]" "$RED"
   log_error "yay installation failed."
+  YAY_ERROR=true
+fi
+
+if [ "$YAY_ERROR" = true ]; then
   return 1
 fi
 
