@@ -14,7 +14,7 @@ arch_ascii
 show_menu
 export INSTALL_MODE
 
-echo -e "\n${YELLOW}Please enter your sudo password to begin the installation (it will not be echoed):${RESET}"
+echo -e "${YELLOW}Please enter your sudo password to begin the installation:${RESET}"
 sudo -v || { echo -e "${RED}Sudo required. Exiting.${RESET}"; exit 1; }
 
 # Keep sudo alive

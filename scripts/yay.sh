@@ -37,6 +37,8 @@ install_yay() {
   fi
   
   # Build yay
+  echo -e "\n${YELLOW}Please enter your sudo password to build and install yay:${RESET}"
+  sudo -v
   print_progress 2 4 "Building yay"
   if makepkg -si --noconfirm --needed >/dev/null 2>&1; then
     print_status " [OK]" "$GREEN"
