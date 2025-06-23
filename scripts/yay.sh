@@ -4,6 +4,9 @@ source "$(dirname "$0")/common.sh"
 
 step "Installing yay (AUR helper)"
 
+# Store original directory
+ORIGINAL_DIR=$(pwd)
+
 # Step 1: Ensure required dependencies are installed
 step "Checking dependencies"
 print_progress 1 5 "Checking build dependencies"
@@ -46,7 +49,13 @@ fi
 # Step 4: Build and install yay
 step "Building and installing yay"
 print_progress 4 5 "Building yay package"
-cd /tmp/yay
+
+# Change to yay directory
+if ! cd /tmp/yay; then
+  print_status " [FAIL]" "$RED"
+  log_error "Failed to change to yay directory"
+  return 1
+fi
 
 # Ensure we have the right permissions and sudo access
 sudo -n true 2>/dev/null || {
@@ -71,27 +80,28 @@ else
       else
         print_status " [FAIL]" "$RED"
         log_error "Failed to install yay package: $PKG_FILE"
-        cd /tmp
+        cd "$ORIGINAL_DIR"
         sudo rm -rf /tmp/yay
         return 1
       fi
     else
       print_status " [FAIL]" "$RED"
       log_error "Built package not found"
-      cd /tmp
+      cd "$ORIGINAL_DIR"
       sudo rm -rf /tmp/yay
       return 1
     fi
   else
     print_status " [FAIL]" "$RED"
     log_error "Failed to build yay package."
-    cd /tmp
+    cd "$ORIGINAL_DIR"
     sudo rm -rf /tmp/yay
     return 1
   fi
 fi
 
-cd /tmp
+# Return to original directory and cleanup
+cd "$ORIGINAL_DIR"
 sudo rm -rf /tmp/yay
 
 # Step 5: Final check
