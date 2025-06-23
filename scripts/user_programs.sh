@@ -12,7 +12,7 @@ for script in "plymouth.sh" "yay.sh" "programs.sh" "fail2ban.sh"; do
   if [ -f "$(dirname "$0")/$script" ]; then
     chmod +x "$(dirname "$0")/$script"
     if [[ "$script" == "programs.sh" ]]; then
-      "$(dirname "$0")/$script" "$INSTALL_MODE" &
+      source "$(dirname "$0")/$script" &
     else
       "$(dirname "$0")/$script" &
     fi
