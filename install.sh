@@ -68,6 +68,7 @@ step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Mainten
 echo -e "${CYAN}Step 10 completed${RESET}"
 
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
+print_programs_summary
 print_summary
 
 # Delete installer directory if no errors occurred, just before reboot

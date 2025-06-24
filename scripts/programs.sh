@@ -441,4 +441,3 @@ else
 fi
 
 install_aur_packages
-print_programs_summary
