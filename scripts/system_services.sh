@@ -142,9 +142,7 @@ detect_and_install_gpu_drivers() {
   if is_vm; then
     echo -e "${YELLOW}Virtual machine detected. Installing VM guest utilities and skipping physical GPU drivers.${RESET}"
     install_packages_quietly qemu-guest-agent spice-vdagent xf86-video-qxl
-    # Optionally install virt-manager and qemu tools for host VMs
-    install_packages_quietly virt-manager qemu-full dnsmasq vde2 bridge-utils openbsd-netcat libvirt edk2-ovmf
-    log_success "VM guest and management utilities installed."
+    log_success "VM guest utilities installed."
     return
   fi
 
