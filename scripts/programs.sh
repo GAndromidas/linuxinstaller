@@ -30,7 +30,7 @@ CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
-DIALOG_INSTALLED_BY_SCRIPT=false
+WHIPTAIL_INSTALLED_BY_SCRIPT=false
 
 # ===== Output Functions =====
 step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
@@ -80,19 +80,19 @@ readarray -t yay_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/yay_mi
 
 # ===== Custom Selection Functions =====
 
-# Helper: Show dialog checklist for a package list
-show_dialog_checklist() {
+# Helper: Show whiptail checklist for a package list
+show_checklist() {
   local title="$1"
   shift
   local choices=("$@")
   echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
   local selected
-  selected=$(dialog --separate-output --checklist "$title" 22 76 16 \
+  selected=$(whiptail --separate-output --checklist "$title" 22 76 16 \
     "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
   local status=$?
   if [[ $status -ne 0 ]]; then
     echo -e "${RED}Selection cancelled. Exiting.${RESET}"
-    [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm dialog
+    [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm newt
     exit 1
   fi
   echo "$selected"
@@ -111,7 +111,7 @@ custom_package_selection() {
     fi
   done
   local selected
-  selected=$(show_dialog_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  selected=$(show_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   pacman_programs=()
   for pkg in $selected; do
     pkg="${pkg%\"}"; pkg="${pkg#\"}"
@@ -128,7 +128,7 @@ custom_package_selection() {
       choices+=("$pkg" "$pkg" "off")
     fi
   done
-  selected=$(show_dialog_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   essential_programs=()
   for pkg in $selected; do
     pkg="${pkg%\"}"; pkg="${pkg#\"}"
@@ -148,7 +148,7 @@ custom_aur_selection() {
     fi
   done
   local selected
-  selected=$(show_dialog_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   yay_programs=()
   for pkg in $selected; do
     pkg="${pkg%\"}"; pkg="${pkg#\"}"
@@ -183,7 +183,7 @@ custom_flatpak_selection() {
     fi
   done
   local selected
-  selected=$(show_dialog_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   flatpak_programs=()
   for pkg in $selected; do
     pkg="${pkg%\"}"; pkg="${pkg#\"}"
@@ -563,10 +563,10 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  if ! command -v dialog &>/dev/null; then
-    echo -e "${YELLOW}The 'dialog' package is required for custom selection. Installing...${RESET}"
-    sudo pacman -S --noconfirm dialog
-    DIALOG_INSTALLED_BY_SCRIPT=true
+  if ! command -v whiptail &>/dev/null; then
+    echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"
+    sudo pacman -S --noconfirm newt
+    WHIPTAIL_INSTALLED_BY_SCRIPT=true
   fi
   custom_package_selection
   custom_aur_selection
@@ -601,7 +601,7 @@ fi
 
 install_aur_packages
 
-if [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]]; then
-  echo -e "${YELLOW}Removing 'dialog' package as it is no longer needed...${RESET}"
-  sudo pacman -Rns --noconfirm dialog
+if [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]]; then
+  echo -e "${YELLOW}Removing 'whiptail' (newt) package as it is no longer needed...${RESET}"
+  sudo pacman -Rns --noconfirm newt
 fi
