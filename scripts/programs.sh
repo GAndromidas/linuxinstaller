@@ -33,6 +33,11 @@ log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
 
+echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR"
+echo "DEBUG: ARCHINSTALLER_ROOT=$ARCHINSTALLER_ROOT"
+echo "DEBUG: PROGRAM_LISTS_DIR=$PROGRAM_LISTS_DIR"
+ls -l "$PROGRAM_LISTS_DIR"
+
 # Check if program_lists directory exists
 if [[ ! -d "$PROGRAM_LISTS_DIR" ]]; then
   log_error "Program lists directory not found: $PROGRAM_LISTS_DIR"
