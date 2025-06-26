@@ -1,0 +1,7 @@
+adw-gtk-theme
+celluloid
+dconf-editor
+gnome-tweaks
+gufw
+seahorse
+transmission-gtk

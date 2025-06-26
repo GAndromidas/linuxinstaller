@@ -27,19 +27,19 @@ log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
-# ===== Program Lists =====
-pacman_programs_default=(android-tools bat bleachbit btop cmatrix dosfstools expac firefox fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode lib32-mangohud mangohud net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs ttf-hack-nerd ttf-liberation unrar xdg-desktop-portal-gtk)
-essential_programs_default=(discord filezilla gimp kdenlive libreoffice-fresh lutris obs-studio steam timeshift vlc wine)
-pacman_programs_minimal=(android-tools bat bleachbit btop cmatrix dosfstools expac firefox fwupd gamemode gnome-disk-utility hwinfo inxi lib32-gamemode net-tools noto-fonts-extra ntfs-3g samba sl speedtest-cli sshfs ttf-hack-nerd ttf-liberation unrar xdg-desktop-portal-gtk)
-essential_programs_minimal=(libreoffice-fresh timeshift vlc)
-kde_install_programs=(gwenview kdeconnect kwalletmanager kvantum okular power-profiles-daemon python-pyqt5 python-pyqt6 qbittorrent spectacle)
-kde_remove_programs=(htop)
-gnome_install_programs=(adw-gtk-theme celluloid dconf-editor gnome-tweaks gufw seahorse transmission-gtk)
-gnome_remove_programs=(epiphany gnome-contacts gnome-maps gnome-music gnome-tour htop snapshot totem)
-cosmic_install_programs=(power-profiles-daemon transmission-gtk)
-cosmic_remove_programs=(htop)
-yay_programs_default=(heroic-games-launcher-bin megasync-bin spotify stremio via-bin)
-yay_programs_minimal=(stremio)
+# ===== Program Lists (Loaded from program_lists) =====
+readarray -t pacman_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/pacman_default.txt" | grep -v '^\s*$')
+readarray -t essential_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/essential_default.txt" | grep -v '^\s*$')
+readarray -t pacman_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/pacman_minimal.txt" | grep -v '^\s*$')
+readarray -t essential_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/essential_minimal.txt" | grep -v '^\s*$')
+readarray -t kde_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/kde_install.txt" | grep -v '^\s*$')
+readarray -t kde_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/kde_remove.txt" | grep -v '^\s*$')
+readarray -t gnome_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/gnome_install.txt" | grep -v '^\s*$')
+readarray -t gnome_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/gnome_remove.txt" | grep -v '^\s*$')
+readarray -t cosmic_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/cosmic_install.txt" | grep -v '^\s*$')
+readarray -t cosmic_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/cosmic_remove.txt" | grep -v '^\s*$')
+readarray -t yay_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/yay_default.txt" | grep -v '^\s*$')
+readarray -t yay_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/yay_minimal.txt" | grep -v '^\s*$')
 
 # ===== Helper Functions =====
 

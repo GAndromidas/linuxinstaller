@@ -1,0 +1,5 @@
+heroic-games-launcher-bin
+megasync-bin
+spotify
+stremio
+via-bin

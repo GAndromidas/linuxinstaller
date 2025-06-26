@@ -1,0 +1,8 @@
+epiphany
+gnome-contacts
+gnome-maps
+gnome-music
+gnome-tour
+htop
+snapshot
+totem

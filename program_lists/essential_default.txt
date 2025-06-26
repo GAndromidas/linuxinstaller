@@ -1,0 +1,10 @@
+discord
+filezilla
+gimp
+kdenlive
+libreoffice-fresh
+lutris
+steam
+timeshift
+vlc
+wine

@@ -1,0 +1,10 @@
+gwenview
+kdeconnect
+kwalletmanager
+kvantum
+okular
+power-profiles-daemon
+python-pyqt5
+python-pyqt6
+qbittorrent
+spectacle
