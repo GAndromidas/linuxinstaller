@@ -4,6 +4,7 @@ set -uo pipefail
 # Clear terminal for clean interface
 clear
 
+# Get the directory where this script is located (archinstaller root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"

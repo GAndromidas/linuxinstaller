@@ -29,18 +29,160 @@ log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
 # ===== Program Lists (Loaded from program_lists) =====
-readarray -t pacman_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/pacman_default.txt" | grep -v '^\s*$')
-readarray -t essential_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/essential_default.txt" | grep -v '^\s*$')
-readarray -t pacman_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/pacman_minimal.txt" | grep -v '^\s*$')
-readarray -t essential_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/essential_minimal.txt" | grep -v '^\s*$')
-readarray -t kde_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/kde_install.txt" | grep -v '^\s*$')
-readarray -t kde_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/kde_remove.txt" | grep -v '^\s*$')
-readarray -t gnome_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/gnome_install.txt" | grep -v '^\s*$')
-readarray -t gnome_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/gnome_remove.txt" | grep -v '^\s*$')
-readarray -t cosmic_install_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/cosmic_install.txt" | grep -v '^\s*$')
-readarray -t cosmic_remove_programs < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/cosmic_remove.txt" | grep -v '^\s*$')
-readarray -t yay_programs_default < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/yay_default.txt" | grep -v '^\s*$')
-readarray -t yay_programs_minimal < <(grep -v '^\s*#' "$SCRIPT_DIR/../program_lists/yay_minimal.txt" | grep -v '^\s*$')
+# Get the archinstaller root directory (parent of scripts directory)
+ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
+
+# Check if program_lists directory exists
+if [[ ! -d "$PROGRAM_LISTS_DIR" ]]; then
+  log_error "Program lists directory not found: $PROGRAM_LISTS_DIR"
+  log_error "Please ensure you have the complete archinstaller repository with program_lists folder."
+  return 1
+fi
+
+# Check if required files exist
+required_files=(
+  "pacman_default.txt"
+  "essential_default.txt"
+  "pacman_minimal.txt"
+  "essential_minimal.txt"
+  "yay_default.txt"
+  "yay_minimal.txt"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ ! -f "$PROGRAM_LISTS_DIR/$file" ]]; then
+    log_error "Required file not found: $PROGRAM_LISTS_DIR/$file"
+    log_error "Please ensure you have the complete archinstaller repository."
+    return 1
+  fi
+done
+
+readarray -t pacman_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/pacman_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t essential_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/essential_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t pacman_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/pacman_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t essential_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/essential_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t kde_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t kde_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t gnome_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t gnome_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t cosmic_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t cosmic_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t yay_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/yay_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+readarray -t yay_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/yay_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+
+# ===== Custom Selection Functions =====
+
+# Helper: Show dialog checklist for a package list
+show_dialog_checklist() {
+  local title="$1"
+  shift
+  local choices=("$@")
+  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
+  local selected
+  selected=$(dialog --separate-output --checklist "$title" 22 76 16 \
+    "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
+  local status=$?
+  if [[ $status -ne 0 ]]; then
+    echo -e "${RED}Selection cancelled. Exiting.${RESET}"
+    [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm dialog
+    exit 1
+  fi
+  echo "$selected"
+}
+
+# Custom selection for Pacman/Essential
+custom_package_selection() {
+  # Combine and deduplicate
+  local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
+  local choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  pacman_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    pacman_programs+=("$pkg")
+  done
+
+  # Essential packages
+  all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
+  choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  selected=$(show_dialog_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  essential_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    essential_programs+=("$pkg")
+  done
+}
+
+# Custom selection for AUR
+custom_aur_selection() {
+  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
+  local choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  yay_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    yay_programs+=("$pkg")
+  done
+}
+
+# Custom selection for Flatpaks
+custom_flatpak_selection() {
+  # You should load all possible flatpak lists into arrays at the top of your script, or from files
+  local all_flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    net.davidotek.pupgui2
+    com.mattjakeman.ExtensionManager
+    com.vysp3r.ProtonPlus
+    dev.edfloreshz.CosmicTweaks
+  )
+  local minimal_flatpaks=(
+    it.mijorus.gearlever
+    com.mattjakeman.ExtensionManager
+    dev.edfloreshz.CosmicTweaks
+  )
+  # Deduplicate
+  local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
+  local choices=()
+  for pkg in "${unique_flatpaks[@]}"; do
+    if [[ " ${minimal_flatpaks[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  flatpak_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    flatpak_programs+=("$pkg")
+  done
+}
 
 # ===== Helper Functions =====
 
@@ -451,117 +593,6 @@ else
 fi
 
 install_aur_packages
-
-# Helper: Show dialog checklist for a package list
-show_dialog_checklist() {
-  local title="$1"
-  shift
-  local choices=("$@")
-  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
-  local selected
-  selected=$(dialog --separate-output --checklist "$title" 22 76 16 \
-    "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
-  local status=$?
-  if [[ $status -ne 0 ]]; then
-    echo -e "${RED}Selection cancelled. Exiting.${RESET}"
-    [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm dialog
-    exit 1
-  fi
-  echo "$selected"
-}
-
-# Custom selection for Pacman/Essential
-custom_package_selection() {
-  # Combine and deduplicate
-  local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
-  local choices=()
-  for pkg in "${all_pkgs[@]}"; do
-    if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
-  done
-  local selected
-  selected=$(show_dialog_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  pacman_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
-    pacman_programs+=("$pkg")
-  done
-
-  # Essential packages
-  all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
-  choices=()
-  for pkg in "${all_pkgs[@]}"; do
-    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
-  done
-  selected=$(show_dialog_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  essential_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
-    essential_programs+=("$pkg")
-  done
-}
-
-# Custom selection for AUR
-custom_aur_selection() {
-  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
-  local choices=()
-  for pkg in "${all_pkgs[@]}"; do
-    if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
-  done
-  local selected
-  selected=$(show_dialog_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  yay_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
-    yay_programs+=("$pkg")
-  done
-}
-
-# Custom selection for Flatpaks
-custom_flatpak_selection() {
-  # You should load all possible flatpak lists into arrays at the top of your script, or from files
-  local all_flatpaks=(
-    io.github.shiftey.Desktop
-    it.mijorus.gearlever
-    net.davidotek.pupgui2
-    com.mattjakeman.ExtensionManager
-    com.vysp3r.ProtonPlus
-    dev.edfloreshz.CosmicTweaks
-  )
-  local minimal_flatpaks=(
-    it.mijorus.gearlever
-    com.mattjakeman.ExtensionManager
-    dev.edfloreshz.CosmicTweaks
-  )
-  # Deduplicate
-  local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
-  local choices=()
-  for pkg in "${unique_flatpaks[@]}"; do
-    if [[ " ${minimal_flatpaks[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
-  done
-  local selected
-  selected=$(show_dialog_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  flatpak_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
-    flatpak_programs+=("$pkg")
-  done
-}
 
 if [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]]; then
   echo -e "${YELLOW}Removing 'dialog' package as it is no longer needed...${RESET}"
