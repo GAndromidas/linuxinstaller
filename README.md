@@ -6,7 +6,7 @@
 
 ---
 
-## 🎬 Demo Video
+## 🎬 Demo
 
 [![YouTube Video](https://img.shields.io/badge/YouTube-Video-red)](https://www.youtube.com/watch?v=lWoKlybEjeU)
 
@@ -14,60 +14,17 @@
 
 ---
 
-## 🚀 Overview
+## Overview
 
-**archinstaller** is a comprehensive post-installation script for Arch Linux that automates system configuration, package installation, and desktop environment setup. It provides two installation modes: Default (full-featured) and Minimal (core utilities only), with automatic desktop environment detection and customization.
+**Archinstaller** automates your Arch Linux post-install setup. It configures your system, installs essential and optional packages, and customizes your desktop environment—all with minimal user input.
 
----
-
-## 📚 Table of Contents
-
-1. [Features](#features)
-2. [Quick Start](#quick-start)
-3. [Usage Details](#usage-details)
-4. [Script Details](#script-details)
-5. [FAQ & Troubleshooting](#faq--troubleshooting)
-6. [Contributing](#contributing)
-7. [License](#license)
-8. [Acknowledgments](#acknowledgments)
+- **Two modes:** Default (full setup) or Minimal (core utilities)
+- **Automatic DE detection:** KDE, GNOME, Cosmic, or fallback
+- **Idempotent:** Safe to run multiple times
 
 ---
 
-## ✨ Features
-
-### System Configuration
-- Enhanced Pacman configuration (color, parallel downloads, ILoveCandy)
-- Mirrorlist optimization via reflector
-- CPU microcode installation (Intel/AMD)
-- Kernel headers installation for all installed kernels
-- Locale and timezone setup
-- Sudo password feedback configuration
-- UFW firewall setup and configuration
-
-### Desktop Environment Support
-- Automatic detection of KDE, GNOME, and Cosmic DEs
-- DE-specific package installation and removal
-- Customized Flatpak application sets for each DE
-- Fallback to minimal set for unsupported DEs/WMs
-
-### Package Management
-- YAY AUR helper installation
-- Flatpak integration with Flathub
-- Comprehensive package sets:
-  - Default mode: Full suite of applications
-  - Minimal mode: Essential utilities only
-- Automatic handling of Pacman, AUR, and Flatpak packages
-
-### User Experience
-- Color-coded, step-wise installation process
-- Progress tracking and error reporting
-- Idempotent operations (safe to run multiple times)
-- No password reprompting during installation
-- Automatic service enablement (Bluetooth, cron, ufw, etc.)
-
----
-
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
 git clone https://github.com/gandromidas/archinstaller && cd archinstaller
@@ -75,83 +32,55 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Follow the interactive menu to select:
-- Default Installation (full-featured setup)
-- Minimal Installation (core utilities only)
-- Exit
+- Run as a regular user with sudo privileges.
+- Follow the interactive menu.
 
 ---
 
-## 📒 Usage Details
+## Features
 
-- Run as a regular user with sudo privileges (not as root)
-- The script will guide you through all installation choices
-- Installation mode (Default/Minimal) is selected once at the start
-- All sub-scripts are modular and use consistent output formatting
-- Designed to be idempotent—safe to run multiple times
-
----
-
-## 🛠️ Script Details
-
-### Structure
-- **install.sh**: Main orchestrator script
-- **scripts/yay.sh**: YAY AUR helper installation
-- **scripts/programs.sh**: Package installation and DE customization
-- **scripts/fail2ban.sh**: Fail2ban setup (optional)
-- **scripts/plymouth.sh**: Plymouth setup (optional)
-- **configs/**: Configuration templates
-
-### Package Sets
-- **Default Mode**:
-  - Full suite of applications
-  - DE-specific optimizations
-  - Comprehensive AUR packages
-  - Extended Flatpak selection
-- **Minimal Mode**:
-  - Core system utilities
-  - Essential applications only
-  - Basic AUR packages
-  - Minimal Flatpak selection
+- Optimizes Pacman and mirrorlist
+- Installs CPU microcode, kernel headers, and configures locale/timezone
+- Sets up UFW firewall and system services
+- Installs YAY (AUR helper) and Flatpak (with Flathub)
+- Installs packages based on your desktop environment and chosen mode
+- Optional: Fail2ban, Plymouth, and more
 
 ---
 
-## ❓ FAQ & Troubleshooting
+## Structure
 
-**Q:** Do I need to run this as root?  
-**A:** No, run as a regular user with sudo privileges.
-
-**Q:** What if something fails?  
-**A:** Check the error output in the terminal. The script provides detailed error reporting.
-
-**Q:** Can I customize what gets installed?  
-**A:** Yes, you can edit the package lists in `programs.sh` or choose between Default and Minimal modes.
-
-**Q:** Does it work with my desktop environment?  
-**A:** The script automatically detects and optimizes for KDE, GNOME, and Cosmic DEs. Other DEs/WMs will use the minimal package set.
+- `install.sh` — Main script
+- `scripts/` — Modular sub-scripts (YAY, programs, fail2ban, plymouth, etc.)
+- `configs/` — Config templates
 
 ---
 
-## 🤝 Contributing
+## Customization
 
-Contributions are welcome! Please fork this repository and submit a pull request.  
-- Follow the existing code style
-- Add comments for clarity
-- See the [issues](https://github.com/GAndromidas/archinstaller/issues) page for ideas
+- Edit package lists in `scripts/programs.sh` for custom installs.
+- Choose between Default and Minimal modes at launch.
 
 ---
 
-## 📄 License
+## FAQ
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Inspired by various Arch Linux setup guides and scripts
-- Special thanks to the Arch Linux community for their extensive documentation and support
+- **Run as root?** No, use a regular user with sudo.
+- **Something failed?** Check the terminal output for errors.
+- **Supported DEs?** KDE, GNOME, Cosmic. Others get a minimal set.
 
 ---
 
-> _Enjoy your automated Arch Linux setup!_
+## Contributing
+
+Pull requests are welcome! Please follow the code style and add comments where needed.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+_Enjoy your automated Arch Linux setup!_
