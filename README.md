@@ -10,7 +10,7 @@
 
 [![YouTube Video](https://img.shields.io/badge/YouTube-Video-red)](https://www.youtube.com/watch?v=lWoKlybEjeU)
 
-[Screenshot_20250627_023451](https://github.com/user-attachments/assets/75b53013-4eb9-4f66-8d6e-471c347606b7)
+![Screenshot_20250627_023451](https://github.com/user-attachments/assets/75b53013-4eb9-4f66-8d6e-471c347606b7)
 
 ---
 
