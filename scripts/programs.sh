@@ -32,6 +32,46 @@ log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
+# ===== Helper Functions for Package Lists =====
+
+# Function to extract package name from "package|description" format
+get_package_name() {
+  local line="$1"
+  echo "$line" | cut -d'|' -f1
+}
+
+# Function to extract description from "package|description" format
+get_package_description() {
+  local line="$1"
+  echo "$line" | cut -d'|' -f2-
+}
+
+# Function to read package lists with descriptions
+read_package_list() {
+  local file="$1"
+  local -n packages_array="$2"
+  local -n descriptions_array="$3"
+  
+  packages_array=()
+  descriptions_array=()
+  
+  while IFS= read -r line; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+    
+    # Check if line contains description (has |)
+    if [[ "$line" == *"|"* ]]; then
+      packages_array+=("$(get_package_name "$line")")
+      descriptions_array+=("$(get_package_description "$line")")
+    else
+      # Fallback for old format without descriptions
+      packages_array+=("$line")
+      descriptions_array+=("$line")
+    fi
+  done < "$file"
+}
+
 # ===== Program Lists (Loaded from program_lists) =====
 
 # Check if program_lists directory exists
@@ -59,18 +99,21 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-readarray -t pacman_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/pacman_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t essential_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/essential_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t pacman_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/pacman_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t essential_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/essential_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+# Read package lists with descriptions
+read_package_list "$PROGRAM_LISTS_DIR/pacman_default.txt" pacman_programs_default pacman_descriptions_default
+read_package_list "$PROGRAM_LISTS_DIR/essential_default.txt" essential_programs_default essential_descriptions_default
+read_package_list "$PROGRAM_LISTS_DIR/pacman_minimal.txt" pacman_programs_minimal pacman_descriptions_minimal
+read_package_list "$PROGRAM_LISTS_DIR/essential_minimal.txt" essential_programs_minimal essential_descriptions_minimal
+read_package_list "$PROGRAM_LISTS_DIR/yay_default.txt" yay_programs_default yay_descriptions_default
+read_package_list "$PROGRAM_LISTS_DIR/yay_minimal.txt" yay_programs_minimal yay_descriptions_minimal
+
+# Read other package lists (keeping old format for now)
 readarray -t kde_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 readarray -t kde_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 readarray -t gnome_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 readarray -t gnome_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 readarray -t cosmic_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 readarray -t cosmic_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t yay_programs_default < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/yay_default.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t yay_programs_minimal < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/yay_minimal.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
 
 # ===== Custom Selection Functions =====
 
@@ -95,17 +138,38 @@ show_checklist() {
 
 # Custom selection for Pacman/Essential
 custom_package_selection() {
-  # Combine and deduplicate
+  # Combine and deduplicate pacman packages
   local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
   local choices=()
+  
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
+    
+    # Find description for this package
+    local description="$pkg"
+    for i in "${!pacman_programs_default[@]}"; do
+      if [[ "${pacman_programs_default[$i]}" == "$pkg" ]]; then
+        description="${pacman_descriptions_default[$i]}"
+        break
+      fi
+    done
+    for i in "${!pacman_programs_minimal[@]}"; do
+      if [[ "${pacman_programs_minimal[$i]}" == "$pkg" ]]; then
+        description="${pacman_descriptions_minimal[$i]}"
+        break
+      fi
+    done
+    
+    # Create display text: "package_name - description"
+    local display_text="$pkg - $description"
+    
     if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
+      choices+=("$pkg" "$display_text" "on")
     else
-      choices+=("$pkg" "$pkg" "off")
+      choices+=("$pkg" "$display_text" "off")
     fi
   done
+  
   local selected
   selected=$(show_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   pacman_programs=()
@@ -117,14 +181,35 @@ custom_package_selection() {
   # Essential packages
   all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
   choices=()
+  
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
+    
+    # Find description for this package
+    local description="$pkg"
+    for i in "${!essential_programs_default[@]}"; do
+      if [[ "${essential_programs_default[$i]}" == "$pkg" ]]; then
+        description="${essential_descriptions_default[$i]}"
+        break
+      fi
+    done
+    for i in "${!essential_programs_minimal[@]}"; do
+      if [[ "${essential_programs_minimal[$i]}" == "$pkg" ]]; then
+        description="${essential_descriptions_minimal[$i]}"
+        break
+      fi
+    done
+    
+    # Create display text: "package_name - description"
+    local display_text="$pkg - $description"
+    
     if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
+      choices+=("$pkg" "$display_text" "on")
     else
-      choices+=("$pkg" "$pkg" "off")
+      choices+=("$pkg" "$display_text" "off")
     fi
   done
+  
   selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   essential_programs=()
   while IFS= read -r pkg; do
@@ -137,11 +222,32 @@ custom_package_selection() {
 custom_aur_selection() {
   local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
   local choices=()
+  
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
+    
+    # Find description for this package
+    local description="$pkg"
+    for i in "${!yay_programs_default[@]}"; do
+      if [[ "${yay_programs_default[$i]}" == "$pkg" ]]; then
+        description="${yay_descriptions_default[$i]}"
+        break
+      fi
+    done
+    for i in "${!yay_programs_minimal[@]}"; do
+      if [[ "${yay_programs_minimal[$i]}" == "$pkg" ]]; then
+        description="${yay_descriptions_minimal[$i]}"
+        break
+      fi
+    done
+    
+    # Create display text: "package_name - description"
+    local display_text="$pkg - $description"
+    
     # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$pkg" "off")
+    choices+=("$pkg" "$display_text" "off")
   done
+  
   local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   yay_programs=()
@@ -153,21 +259,31 @@ custom_aur_selection() {
 
 # Custom selection for Flatpaks
 custom_flatpak_selection() {
-  local all_flatpaks=(
-    io.github.shiftey.Desktop
-    it.mijorus.gearlever
-    net.davidotek.pupgui2
-    com.mattjakeman.ExtensionManager
-    com.vysp3r.ProtonPlus
-    dev.edfloreshz.CosmicTweaks
+  # Flatpak applications with descriptions
+  local flatpak_data=(
+    "io.github.shiftey.Desktop|Desktop environment"
+    "it.mijorus.gearlever|System tray application launcher"
+    "net.davidotek.pupgui2|ProtonUp-Qt - Wine and Proton manager"
+    "com.mattjakeman.ExtensionManager|GNOME Extension Manager"
+    "com.vysp3r.ProtonPlus|Proton and Wine manager"
+    "dev.edfloreshz.CosmicTweaks|System settings and tweaks"
   )
-  local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
+  
   local choices=()
-  for pkg in "${unique_flatpaks[@]}"; do
-    [[ -z "$pkg" ]] && continue
+  for flatpak_entry in "${flatpak_data[@]}"; do
+    [[ -z "$flatpak_entry" ]] && continue
+    
+    # Extract package name and description
+    local pkg=$(echo "$flatpak_entry" | cut -d'|' -f1)
+    local description=$(echo "$flatpak_entry" | cut -d'|' -f2-)
+    
+    # Create display text: "package_name - description"
+    local display_text="$pkg - $description"
+    
     # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$pkg" "off")
+    choices+=("$pkg" "$display_text" "off")
   done
+  
   local selected
   selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   flatpak_programs=()

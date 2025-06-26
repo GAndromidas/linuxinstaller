@@ -1,10 +1,12 @@
-discord
-filezilla
-gimp
-kdenlive
-libreoffice-fresh
-lutris
-steam
-timeshift
-vlc
-wine
+# Essential Packages with Descriptions
+# Format: package_name|description
+discord|Communication platform for gamers
+filezilla|FTP client for file transfers
+gimp|Image editing software
+kdenlive|Video editing software
+libreoffice-fresh|Office productivity suite
+lutris|Game manager and launcher
+steam|Gaming platform and store
+timeshift|System restore and backup tool
+vlc|Media player
+wine|Windows compatibility layer

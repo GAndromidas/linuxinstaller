@@ -1,3 +1,5 @@
-libreoffice-fresh
-timeshift
-vlc
+# Essential Minimal Packages with Descriptions
+# Format: package_name|description
+libreoffice-fresh|Office productivity suite
+timeshift|System restore and backup tool
+vlc|Media player

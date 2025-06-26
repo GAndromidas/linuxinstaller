@@ -1,5 +1,7 @@
-heroic-games-launcher-bin
-megasync-bin
-spotify
-stremio
-via-bin
+# AUR Packages with Descriptions
+# Format: package_name|description
+heroic-games-launcher-bin|Epic Games Store and GOG game launcher
+megasync-bin|Mega cloud storage sync client
+spotify|Music streaming service
+stremio|Media streaming platform
+via-bin|VIA keyboard configuration tool

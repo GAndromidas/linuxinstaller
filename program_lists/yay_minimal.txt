@@ -1,1 +1,3 @@
-stremio
+# AUR Minimal Packages with Descriptions
+# Format: package_name|description
+stremio|Media streaming platform
