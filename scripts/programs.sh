@@ -105,7 +105,6 @@ custom_package_selection() {
   local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
   local choices=()
   for pkg in "${all_pkgs[@]}"; do
-    # Only add actual package names
     [[ -z "$pkg" ]] && continue
     if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$pkg" "on")
@@ -116,10 +115,10 @@ custom_package_selection() {
   local selected
   selected=$(show_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   pacman_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
     pacman_programs+=("$pkg")
-  done
+  done <<< "$selected"
 
   # Essential packages
   all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
@@ -134,10 +133,10 @@ custom_package_selection() {
   done
   selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   essential_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
     essential_programs+=("$pkg")
-  done
+  done <<< "$selected"
 }
 
 # Custom selection for AUR
@@ -155,10 +154,10 @@ custom_aur_selection() {
   local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   yay_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
     yay_programs+=("$pkg")
-  done
+  done <<< "$selected"
 }
 
 # Custom selection for Flatpaks
@@ -189,10 +188,10 @@ custom_flatpak_selection() {
   local selected
   selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   flatpak_programs=()
-  for pkg in $selected; do
-    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
     flatpak_programs+=("$pkg")
-  done
+  done <<< "$selected"
 }
 
 # ===== Helper Functions =====
