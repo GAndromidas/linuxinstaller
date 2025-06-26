@@ -1,4 +1,4 @@
-# Archinstaller: Arch Linux Post-Installation Script
+# Archinstaller: Comprehensive Arch Linux Post-Installation Script
 
 [![Latest Release](https://img.shields.io/github/v/release/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
 [![Total Downloads](https://img.shields.io/github/downloads/GAndromidas/archinstaller/total.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
@@ -14,73 +14,350 @@
 
 ---
 
-## Overview
+## 🚀 Overview
 
-**Archinstaller** automates your Arch Linux post-install setup. It configures your system, installs essential and optional packages, and customizes your desktop environment—all with minimal user input.
+**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, gaming optimizations, and security hardening.
 
-- **Two modes:** Default (full setup) or Minimal (core utilities)
-- **Automatic DE detection:** KDE, GNOME, Cosmic, or fallback
-- **Idempotent:** Safe to run multiple times
+### ✨ Key Features
+
+- **🔧 Three Installation Modes**: Default (full setup), Minimal (core utilities), Custom (interactive selection)
+- **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
+- **🎮 Gaming Optimizations**: GameMode integration with GPU-specific optimizations
+- **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and system service configuration
+- **⚡ Performance Tuning**: ZRAM, Plymouth boot screen, and system optimizations
+- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration
+- **🎨 Beautiful UI**: Custom terminal interface with progress tracking and error handling
 
 ---
 
-## Quick Start
+## 🛠️ Installation Modes
+
+### 1. **Default Mode** 🎯
+Complete setup with all recommended packages and optimizations:
+- Full package suite (30+ Pacman packages, 8+ AUR packages)
+- Desktop environment-specific optimizations
+- Gaming tools and optimizations
+- Security hardening
+- Performance tuning
+
+### 2. **Minimal Mode** ⚡
+Lightweight setup with essential utilities:
+- Core system utilities (28 Pacman packages, 4 AUR packages)
+- Basic desktop environment support
+- Essential security features
+- Minimal performance optimizations
+
+### 3. **Custom Mode** 🎛️
+Interactive package selection with descriptions:
+- Whiptail-based GUI for package selection
+- Detailed package descriptions
+- Granular control over installations
+- Preview of total packages before installation
+
+---
+
+## 🖥️ Desktop Environment Support
+
+### **KDE Plasma** 🟦
+- **Install**: KDE-specific utilities and optimizations
+- **Remove**: Conflicting packages
+- **Flatpaks**: Desktop environment, GearLever, ProtonUp-Qt
+
+### **GNOME** 🟪
+- **Install**: GNOME-specific utilities and extensions
+- **Remove**: Conflicting packages  
+- **Flatpaks**: Extension Manager, Desktop environment, GearLever, ProtonPlus
+
+### **Cosmic** 🟨
+- **Install**: Cosmic-specific utilities and tweaks
+- **Remove**: Conflicting packages
+- **Flatpaks**: Desktop environment, GearLever, ProtonPlus, CosmicTweaks
+
+### **Other DEs/WMs** 🔧
+- Falls back to minimal package set
+- Generic optimizations
+- Basic Flatpak support
+
+---
+
+## 📦 Package Categories
+
+### **Pacman Packages (Default Mode)**
+- **Development**: `android-tools`, `git`, `base-devel`
+- **System Tools**: `btop`, `hwinfo`, `inxi`, `gnome-disk-utility`
+- **Utilities**: `bat`, `eza`, `fzf`, `zoxide`, `fastfetch`
+- **Gaming**: `gamemode`, `mangohud`, `lib32-gamemode`, `lib32-mangohud`
+- **Media**: `vlc`, `firefox`, `ttf-hack-nerd`, `ttf-liberation`
+- **System**: `ufw`, `fail2ban`, `reflector`, `zram-generator`
+- **Networking**: `openssh`, `sshfs`, `net-tools`, `samba`
+
+### **Essential Packages (Default Mode)**
+- **Productivity**: `libreoffice-fresh`, `gimp`, `kdenlive`
+- **Gaming**: `steam`, `lutris`, `discord`
+- **Media**: `vlc`, `timeshift`
+- **Utilities**: `filezilla`, `wine`
+
+### **AUR Packages (Default Mode)**
+- **Gaming**: `heroic-games-launcher-bin`
+- **Cloud**: `megasync-bin`
+- **Media**: `spotify`, `stremio`
+- **Hardware**: `via-bin`
+
+### **Flatpak Applications**
+- **Desktop Integration**: `io.github.shiftey.Desktop`
+- **System Tools**: `it.mijorus.gearlever`, `dev.edfloreshz.CosmicTweaks`
+- **Gaming**: `net.davidotek.pupgui2`, `com.vysp3r.ProtonPlus`
+- **Extensions**: `com.mattjakeman.ExtensionManager`
+
+---
+
+## 🔧 System Optimizations
+
+### **Performance Enhancements**
+- **ZRAM**: 50% RAM compression with zstd algorithm
+- **Pacman Optimization**: Parallel downloads, color output, ILoveCandy
+- **Mirror Optimization**: Fastest mirror selection via reflector
+- **CPU Microcode**: Automatic Intel/AMD microcode installation
+- **Kernel Headers**: Automatic installation for all installed kernels
+
+### **Gaming Optimizations (GameMode)**
+- **CPU Governor**: Performance mode during gaming
+- **GPU Optimizations**: 
+  - NVIDIA: PowerMizer performance mode
+  - AMD: Performance DPM level
+- **System Tweaks**: Lower swappiness, real-time priority
+- **Desktop Integration**: KDE compositor suspension
+- **VM Detection**: Minimal config for virtual machines
+
+### **Security Hardening**
+- **Fail2ban**: SSH protection with 30-minute bans, 3 retry limit
+- **Firewall**: UFW or Firewalld with SSH and KDE Connect support
+- **System Services**: Automatic service enablement and configuration
+
+---
+
+## 🎨 User Experience
+
+### **Shell Configuration**
+- **ZSH**: Default shell with autosuggestions and syntax highlighting
+- **Starship**: Beautiful, fast prompt with system information
+- **Zoxide**: Smart directory navigation
+- **Fastfetch**: System information display with custom configuration
+
+### **Boot Experience**
+- **Plymouth**: Beautiful boot screen with BGRT theme
+- **Splash Parameters**: Automatic kernel parameter configuration
+- **Initramfs**: Automatic rebuild with Plymouth hooks
+
+### **Terminal Interface**
+- **Progress Tracking**: Real-time installation progress
+- **Error Handling**: Comprehensive error collection and reporting
+- **Color Coding**: Intuitive color-coded status messages
+- **ASCII Art**: Beautiful Arch Linux branding
+
+---
+
+## 🚀 Quick Start
 
 ```bash
+# Clone the repository
 git clone https://github.com/gandromidas/archinstaller && cd archinstaller
+
+# Make executable and run
 chmod +x install.sh
 ./install.sh
 ```
 
-- Run as a regular user with sudo privileges.
-- Follow the interactive menu.
+### **Requirements**
+- ✅ Fresh Arch Linux installation
+- ✅ Regular user with sudo privileges (NOT root)
+- ✅ Internet connection
+- ✅ At least 2GB free disk space
+
+### **Installation Process**
+1. **System Preparation**: Pacman optimization, mirror updates, microcode installation
+2. **Shell Setup**: ZSH, Starship, and shell utilities
+3. **Plymouth Setup**: Boot screen configuration
+4. **YAY Installation**: AUR helper setup
+5. **Programs Installation**: Package installation based on mode and DE
+6. **GameMode Setup**: Gaming optimizations
+7. **Boot Configuration**: Kernel parameters and systemd configuration
+8. **Fail2ban Setup**: Security hardening
+9. **System Services**: Service enablement and configuration
+10. **Maintenance**: System cleanup and optimization
 
 ---
 
-## Features
+## ⚙️ Configuration Files
 
-- Optimizes Pacman and mirrorlist
-- Installs CPU microcode, kernel headers, and configures locale/timezone
-- Sets up UFW firewall and system services
-- Installs YAY (AUR helper) and Flatpak (with Flathub)
-- Installs packages based on your desktop environment and chosen mode
-- Optional: Fail2ban, Plymouth, and more
+### **Fastfetch Configuration** (`configs/config.jsonc`)
+- Custom system information display
+- Hardware detection and display
+- Beautiful terminal output formatting
 
----
+### **Starship Configuration** (`configs/starship.toml`)
+- Nord color scheme integration
+- Git status and branch display
+- Programming language indicators
+- Docker context support
 
-## Structure
-
-- `install.sh` — Main script
-- `scripts/` — Modular sub-scripts (YAY, programs, fail2ban, plymouth, etc.)
-- `configs/` — Config templates
-
----
-
-## Customization
-
-- Edit package lists in `scripts/programs.sh` for custom installs.
-- Choose between Default and Minimal modes at launch.
+### **Package Lists** (`program_lists/`)
+- Organized by installation mode and package manager
+- Detailed descriptions for each package
+- Desktop environment-specific configurations
 
 ---
 
-## FAQ
+## 🔍 Advanced Features
 
-- **Run as root?** No, use a regular user with sudo.
-- **Something failed?** Check the terminal output for errors.
-- **Supported DEs?** KDE, GNOME, Cosmic. Others get a minimal set.
+### **Error Handling**
+- Comprehensive error collection and reporting
+- Graceful failure handling
+- Detailed error summaries
+- Automatic cleanup on success
+
+### **Performance Tracking**
+- Installation time tracking
+- Package installation statistics
+- Progress indicators for long operations
+- Memory and resource monitoring
+
+### **VM Detection**
+- Automatic virtual machine detection
+- VM-specific optimizations
+- Guest utilities installation
+- Reduced resource usage
+
+### **GPU Detection**
+- Automatic NVIDIA/AMD/Intel detection
+- Driver-specific optimizations
+- Legacy GPU support
+- Vulkan and OpenGL configuration
 
 ---
 
-## Contributing
+## 🛡️ Security Features
 
-Pull requests are welcome! Please follow the code style and add comments where needed.
+### **Network Security**
+- **UFW/Firewalld**: Default deny incoming, allow outgoing
+- **SSH Protection**: Automatic SSH service configuration
+- **KDE Connect**: Port range configuration for mobile integration
+- **Fail2ban**: Intelligent intrusion prevention
+
+### **System Security**
+- **Service Hardening**: Secure default configurations
+- **User Privileges**: Proper sudo configuration
+- **Package Verification**: Secure package installation
+- **System Updates**: Automatic security updates
 
 ---
 
-## License
+## 📊 Installation Statistics
 
-MIT — see [LICENSE](LICENSE).
+### **Default Mode**
+- **Pacman Packages**: 30+ packages
+- **AUR Packages**: 8+ packages  
+- **Flatpak Apps**: 3-4 apps (DE-dependent)
+- **System Services**: 9+ services
+- **Configuration Files**: 3+ files
+
+### **Minimal Mode**
+- **Pacman Packages**: 28 packages
+- **AUR Packages**: 4 packages
+- **Flatpak Apps**: 1-2 apps (DE-dependent)
+- **System Services**: 6+ services
+- **Configuration Files**: 2+ files
 
 ---
 
-_Enjoy your automated Arch Linux setup!_
+## 🔧 Customization
+
+### **Package Customization**
+- Edit package lists in `program_lists/` directory
+- Add/remove packages for each installation mode
+- Modify desktop environment-specific packages
+- Customize Flatpak application selections
+
+### **Configuration Customization**
+- Modify `configs/config.jsonc` for Fastfetch
+- Edit `configs/starship.toml` for shell prompt
+- Customize GameMode configuration
+- Adjust Fail2ban settings
+
+### **Script Customization**
+- Modify individual scripts in `scripts/` directory
+- Add new installation steps
+- Customize error handling
+- Extend desktop environment support
+
+---
+
+## 🐛 Troubleshooting
+
+### **Common Issues**
+- **Permission Errors**: Ensure you're not running as root
+- **Network Issues**: Check internet connection and mirrors
+- **Package Failures**: Check package availability and dependencies
+- **Service Errors**: Verify systemd compatibility
+
+### **Error Recovery**
+- Check terminal output for specific error messages
+- Review error summary at end of installation
+- Re-run specific scripts if needed
+- Check system logs for additional information
+
+### **Support**
+- Check the [Issues](https://github.com/GAndromidas/archinstaller/issues) page
+- Review installation logs
+- Verify system requirements
+- Test with minimal mode first
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please:
+
+1. **Fork** the repository
+2. **Create** a feature branch
+3. **Make** your changes with proper error handling
+4. **Test** thoroughly on a fresh Arch installation
+5. **Submit** a pull request with detailed description
+
+### **Development Guidelines**
+- Follow existing code style and structure
+- Add comprehensive error handling
+- Include progress indicators for long operations
+- Test on multiple desktop environments
+- Update documentation for new features
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Arch Linux Community**: For the excellent documentation and packages
+- **AUR Maintainers**: For maintaining the packages used in this script
+- **Desktop Environment Teams**: For KDE, GNOME, and Cosmic
+- **Open Source Contributors**: For the tools and utilities that make this possible
+
+---
+
+## 📈 Version History
+
+### **Latest Features**
+- ✨ Custom installation mode with interactive package selection
+- 🎮 Enhanced GameMode with GPU-specific optimizations
+- 🔒 Improved security with Fail2ban and firewall configuration
+- 🖥️ Better desktop environment detection and optimization
+- ⚡ Performance improvements with ZRAM and system tuning
+- 🎨 Beautiful terminal interface with progress tracking
+
+---
+
+*Transform your Arch Linux installation into a powerful, optimized, and beautiful system with Archinstaller! 🚀*
