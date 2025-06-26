@@ -23,8 +23,6 @@ while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 SUDO_KEEPALIVE_PID=$!
 trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null' EXIT
 
-exec > >(tee -a "$SCRIPT_DIR/install.log") 2>&1
-
 echo -e "\n${GREEN}Starting Arch Linux installation...${RESET}\n"
 
 # Run all installation steps with error handling and debugging
@@ -80,29 +78,5 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
 else
   echo -e "\n${YELLOW}Some errors occurred. Installer directory will NOT be deleted.${RESET}"
 fi
-
-prompt_reboot() {
-  figlet_banner "Reboot System"
-  echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
-  echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
-  while true; do
-    read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
-    reboot_ans=${reboot_ans,,}
-    case "$reboot_ans" in
-      ""|y|yes)
-        echo -e "\n${CYAN}Rebooting...${RESET}\n"
-        sudo reboot
-        break
-        ;;
-      n|no)
-        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}\n"
-        break
-        ;;
-      *)
-        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
-        ;;
-    esac
-  done
-}
 
 prompt_reboot

@@ -208,8 +208,7 @@ print_summary() {
 
 prompt_reboot() {
   figlet_banner "Reboot System"
-  echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now."
-  echo -e "If you encounter issues, review the install log: ${CYAN}$SCRIPT_DIR/install.log${RESET}\n"
+  echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now.\n"
   while true; do
     read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
     reboot_ans=${reboot_ans,,}
