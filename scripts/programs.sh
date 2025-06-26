@@ -4,6 +4,15 @@ set -uo pipefail
 # Get the directory where this script is located, resolving symlinks
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
+
+echo "DEBUG: SCRIPT_PATH=$SCRIPT_PATH"
+echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR"
+echo "DEBUG: ARCHINSTALLER_ROOT=$ARCHINSTALLER_ROOT"
+echo "DEBUG: PROGRAM_LISTS_DIR=$PROGRAM_LISTS_DIR"
+ls -l "$PROGRAM_LISTS_DIR"
+
 source "$SCRIPT_DIR/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
@@ -30,15 +39,6 @@ log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
 # ===== Program Lists (Loaded from program_lists) =====
-# Get the archinstaller root directory (parent of scripts directory)
-ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
-
-echo "DEBUG: SCRIPT_PATH=$SCRIPT_PATH"
-echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR"
-echo "DEBUG: ARCHINSTALLER_ROOT=$ARCHINSTALLER_ROOT"
-echo "DEBUG: PROGRAM_LISTS_DIR=$PROGRAM_LISTS_DIR"
-ls -l "$PROGRAM_LISTS_DIR"
 
 # Check if program_lists directory exists
 if [[ ! -d "$PROGRAM_LISTS_DIR" ]]; then
