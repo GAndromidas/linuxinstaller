@@ -139,11 +139,8 @@ custom_aur_selection() {
   local choices=()
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
-    if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
+    # Set all packages to "off" by default - no pre-selection
+    choices+=("$pkg" "$pkg" "off")
   done
   local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
@@ -164,20 +161,12 @@ custom_flatpak_selection() {
     com.vysp3r.ProtonPlus
     dev.edfloreshz.CosmicTweaks
   )
-  local minimal_flatpaks=(
-    it.mijorus.gearlever
-    com.mattjakeman.ExtensionManager
-    dev.edfloreshz.CosmicTweaks
-  )
   local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
   local choices=()
   for pkg in "${unique_flatpaks[@]}"; do
     [[ -z "$pkg" ]] && continue
-    if [[ " ${minimal_flatpaks[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$pkg" "on")
-    else
-      choices+=("$pkg" "$pkg" "off")
-    fi
+    # Set all packages to "off" by default - no pre-selection
+    choices+=("$pkg" "$pkg" "off")
   done
   local selected
   selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
