@@ -20,6 +20,7 @@ CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
+DIALOG_INSTALLED_BY_SCRIPT=false
 
 # ===== Output Functions =====
 step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
@@ -412,6 +413,15 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   pacman_programs=("${pacman_programs_minimal[@]}")
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
+elif [[ "$INSTALL_MODE" == "custom" ]]; then
+  if ! command -v dialog &>/dev/null; then
+    echo -e "${YELLOW}The 'dialog' package is required for custom selection. Installing...${RESET}"
+    sudo pacman -S --noconfirm dialog
+    DIALOG_INSTALLED_BY_SCRIPT=true
+  fi
+  custom_package_selection
+  custom_aur_selection
+  custom_flatpak_selection
 else
   log_error "INSTALL_MODE not set. Please run the installer from the main menu."
   return 1
@@ -441,3 +451,119 @@ else
 fi
 
 install_aur_packages
+
+# Helper: Show dialog checklist for a package list
+show_dialog_checklist() {
+  local title="$1"
+  shift
+  local choices=("$@")
+  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
+  local selected
+  selected=$(dialog --separate-output --checklist "$title" 22 76 16 \
+    "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
+  local status=$?
+  if [[ $status -ne 0 ]]; then
+    echo -e "${RED}Selection cancelled. Exiting.${RESET}"
+    [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm dialog
+    exit 1
+  fi
+  echo "$selected"
+}
+
+# Custom selection for Pacman/Essential
+custom_package_selection() {
+  # Combine and deduplicate
+  local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
+  local choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  pacman_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    pacman_programs+=("$pkg")
+  done
+
+  # Essential packages
+  all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
+  choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  selected=$(show_dialog_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  essential_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    essential_programs+=("$pkg")
+  done
+}
+
+# Custom selection for AUR
+custom_aur_selection() {
+  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
+  local choices=()
+  for pkg in "${all_pkgs[@]}"; do
+    if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  yay_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    yay_programs+=("$pkg")
+  done
+}
+
+# Custom selection for Flatpaks
+custom_flatpak_selection() {
+  # You should load all possible flatpak lists into arrays at the top of your script, or from files
+  local all_flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    net.davidotek.pupgui2
+    com.mattjakeman.ExtensionManager
+    com.vysp3r.ProtonPlus
+    dev.edfloreshz.CosmicTweaks
+  )
+  local minimal_flatpaks=(
+    it.mijorus.gearlever
+    com.mattjakeman.ExtensionManager
+    dev.edfloreshz.CosmicTweaks
+  )
+  # Deduplicate
+  local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
+  local choices=()
+  for pkg in "${unique_flatpaks[@]}"; do
+    if [[ " ${minimal_flatpaks[*]} " == *" $pkg "* ]]; then
+      choices+=("$pkg" "$pkg" "on")
+    else
+      choices+=("$pkg" "$pkg" "off")
+    fi
+  done
+  local selected
+  selected=$(show_dialog_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  flatpak_programs=()
+  for pkg in $selected; do
+    pkg="${pkg%\"}"; pkg="${pkg#\"}"
+    flatpak_programs+=("$pkg")
+  done
+}
+
+if [[ "$DIALOG_INSTALLED_BY_SCRIPT" == "true" ]]; then
+  echo -e "${YELLOW}Removing 'dialog' package as it is no longer needed...${RESET}"
+  sudo pacman -Rns --noconfirm dialog
+fi

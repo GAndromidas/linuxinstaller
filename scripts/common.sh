@@ -88,28 +88,17 @@ show_menu() {
   echo "Please select your installation mode:"
   echo "  1) Default"
   echo "  2) Minimal"
-  echo "  3) Exit"
+  echo "  3) Custom"
+  echo "  4) Exit"
 
   while true; do
-    read -r -p "Enter your choice [1-3]: " menu_choice
+    read -r -p "Enter your choice [1-4]: " menu_choice
     case "$menu_choice" in
-      1) 
-        INSTALL_MODE="default"
-        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
-        break 
-        ;;
-      2) 
-        INSTALL_MODE="minimal"
-        echo -e "${CYAN}Selected mode: $INSTALL_MODE${RESET}"
-        break 
-        ;;
-      3) 
-        echo -e "${CYAN}Exiting the installer. Goodbye!${RESET}"
-        exit 0 
-        ;;
-      *) 
-        echo -e "${RED}Invalid choice! Please enter 1, 2, or 3.${RESET}" 
-        ;;
+      1) INSTALL_MODE="default"; break ;;
+      2) INSTALL_MODE="minimal"; break ;;
+      3) INSTALL_MODE="custom"; break ;;
+      4) exit 0 ;;
+      *) echo "Invalid choice!";;
     esac
   done
 }
