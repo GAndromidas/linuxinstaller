@@ -10,9 +10,7 @@
 
 [![YouTube Video](https://img.shields.io/badge/YouTube-Video-red)](https://www.youtube.com/watch?v=lWoKlybEjeU)
 
-![archinstaller]![Screenshot_20250627_023451](https://github.com/user-attachments/assets/75b53013-4eb9-4f66-8d6e-471c347606b7)
-
-![archinstaller](https://github.com/user-attachments/assets/72ff3e94-dd8d-4e18-8c13-30f8b6ba4ef6)
+[Screenshot_20250627_023451](https://github.com/user-attachments/assets/75b53013-4eb9-4f66-8d6e-471c347606b7)
 
 ---
 
