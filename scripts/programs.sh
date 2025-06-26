@@ -7,12 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
 
-echo "DEBUG: SCRIPT_PATH=$SCRIPT_PATH"
-echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR"
-echo "DEBUG: ARCHINSTALLER_ROOT=$ARCHINSTALLER_ROOT"
-echo "DEBUG: PROGRAM_LISTS_DIR=$PROGRAM_LISTS_DIR"
-ls -l "$PROGRAM_LISTS_DIR"
-
 source "$SCRIPT_DIR/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
@@ -85,14 +79,14 @@ show_checklist() {
   local title="$1"
   shift
   local choices=("$@")
-  # Only echo the instruction, do NOT add it to choices
-  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
+  # Echo the instruction to stderr so it doesn't interfere with the output
+  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}" >&2
   local selected
   selected=$(whiptail --separate-output --checklist "$title" 22 76 16 \
     "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
   local status=$?
   if [[ $status -ne 0 ]]; then
-    echo -e "${RED}Selection cancelled. Exiting.${RESET}"
+    echo -e "${RED}Selection cancelled. Exiting.${RESET}" >&2
     [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm newt
     exit 1
   fi
