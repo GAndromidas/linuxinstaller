@@ -85,6 +85,7 @@ show_checklist() {
   local title="$1"
   shift
   local choices=("$@")
+  # Only echo the instruction, do NOT add it to choices
   echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}"
   local selected
   selected=$(whiptail --separate-output --checklist "$title" 22 76 16 \
@@ -104,6 +105,8 @@ custom_package_selection() {
   local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
   local choices=()
   for pkg in "${all_pkgs[@]}"; do
+    # Only add actual package names
+    [[ -z "$pkg" ]] && continue
     if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$pkg" "on")
     else
@@ -122,6 +125,7 @@ custom_package_selection() {
   all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
   choices=()
   for pkg in "${all_pkgs[@]}"; do
+    [[ -z "$pkg" ]] && continue
     if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$pkg" "on")
     else
@@ -141,6 +145,7 @@ custom_aur_selection() {
   local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
   local choices=()
   for pkg in "${all_pkgs[@]}"; do
+    [[ -z "$pkg" ]] && continue
     if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$pkg" "on")
     else
@@ -158,7 +163,6 @@ custom_aur_selection() {
 
 # Custom selection for Flatpaks
 custom_flatpak_selection() {
-  # You should load all possible flatpak lists into arrays at the top of your script, or from files
   local all_flatpaks=(
     io.github.shiftey.Desktop
     it.mijorus.gearlever
@@ -172,10 +176,10 @@ custom_flatpak_selection() {
     com.mattjakeman.ExtensionManager
     dev.edfloreshz.CosmicTweaks
   )
-  # Deduplicate
   local unique_flatpaks=($(printf "%s\n" "${all_flatpaks[@]}" | sort -u))
   local choices=()
   for pkg in "${unique_flatpaks[@]}"; do
+    [[ -z "$pkg" ]] && continue
     if [[ " ${minimal_flatpaks[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$pkg" "on")
     else
