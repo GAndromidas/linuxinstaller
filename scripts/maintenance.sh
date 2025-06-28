@@ -20,29 +20,17 @@ cleanup_and_optimize() {
 }
 
 setup_maintenance() {
-  # All maintenance in one command
-  {
-    sudo paccache -r 2>/dev/null || true
-    sudo pacman -Rns $(pacman -Qtdq 2>/dev/null) --noconfirm 2>/dev/null || true
-    sudo pacman -Syu --noconfirm
-    yay -Syu --noconfirm 2>/dev/null || true
-  } >/dev/null 2>&1
+  step "Performing comprehensive system cleanup"
+  run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
+  run_step "Cleaning yay cache" yay -Sc --noconfirm
+  run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused
+  run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq)
 }
 
 cleanup_helpers() {
   run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
-remove_orphans() {
-  orphans=$(pacman -Qtdq 2>/dev/null || true)
-  if [[ -n "$orphans" ]]; then
-    sudo pacman -Rns --noconfirm $orphans
-  else
-    echo "No orphaned packages to remove."
-  fi
-}
-
 cleanup_and_optimize
 setup_maintenance
-cleanup_helpers
-remove_orphans 
+cleanup_helpers 

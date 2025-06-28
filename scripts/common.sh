@@ -217,6 +217,8 @@ prompt_reboot() {
     case "$reboot_ans" in
       ""|y|yes)
         echo -e "\n${CYAN}Rebooting...${RESET}\n"
+        # Silently uninstall figlet before reboot
+        sudo pacman -R figlet --noconfirm >/dev/null 2>&1
         sudo reboot
         break
         ;;
