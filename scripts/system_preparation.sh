@@ -67,8 +67,8 @@ configure_pacman() {
 
 install_all_packages() {
   local all_packages=(
-    # Helper utilities
-    base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync ufw zoxide
+    # Helper utilities from HELPER_UTILS array
+    "${HELPER_UTILS[@]}"
     # ZSH and plugins
     zsh zsh-autosuggestions zsh-syntax-highlighting
     # Starship
@@ -78,7 +78,7 @@ install_all_packages() {
   )
   
   step "Installing all packages"
-  echo -e "${CYAN}Installing ${#all_packages[@]} packages via Pacman...${RESET}"
+  echo -e "${CYAN}Installing ${#HELPER_UTILS[@]} helper utilities + ${#all_packages[@]} total packages via Pacman...${RESET}"
   
   local total=${#all_packages[@]}
   local current=0
