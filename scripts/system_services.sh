@@ -125,8 +125,10 @@ get_zram_multiplier() {
     8) echo "0.75" ;;     # 8GB RAM -> 75% ZRAM (6GB)
     10) echo "0.6" ;;     # 10GB RAM -> 60% ZRAM (6GB)
     12) echo "0.5" ;;     # 12GB RAM -> 50% ZRAM (6GB)
+    15) echo "0.5" ;;     # 15GB RAM -> 50% ZRAM (8GB) - treat as 16GB
     16) echo "0.5" ;;     # 16GB RAM -> 50% ZRAM (8GB)
     24) echo "0.33" ;;    # 24GB RAM -> 33% ZRAM (8GB)
+    31) echo "0.25" ;;    # 31GB RAM -> 25% ZRAM (8GB) - treat as 32GB
     32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
     48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
     64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
