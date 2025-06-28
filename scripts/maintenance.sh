@@ -23,8 +23,8 @@ setup_maintenance() {
   step "Performing comprehensive system cleanup"
   run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
   run_step "Cleaning yay cache" yay -Sc --noconfirm
-  run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused
-  run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq)
+  run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused --noninteractive --yes
+  run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
 }
 
 cleanup_helpers() {
