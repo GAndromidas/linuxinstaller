@@ -11,26 +11,12 @@ source "$SCRIPT_DIR/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
 
-# ===== Colors for output =====
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BLUE='\033[0;34m'
-RESET='\033[0m'
-
 # ===== Globals =====
 CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
 WHIPTAIL_INSTALLED_BY_SCRIPT=false
-
-# ===== Output Functions =====
-step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
-log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
-log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
 # ===== YAML Parsing Functions =====
 

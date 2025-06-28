@@ -5,41 +5,9 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# ======= Colors and Step/Log Helpers =======
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-RESET='\033[0m'
-
 # Use different variable names to avoid conflicts
 PLYMOUTH_INSTALLED=()
 PLYMOUTH_ERRORS=()
-
-CURRENT_STEP=1
-
-step() {
-  echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
-  ((CURRENT_STEP++))
-}
-
-log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
-log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PLYMOUTH_ERRORS+=("$1"); }
-
-run_step() {
-  local description="$1"
-  shift
-  step "$description"
-  "$@"
-  local status=$?
-  if [ $status -eq 0 ]; then
-    log_success "$description"
-  else
-    log_error "$description"
-  fi
-  return $status
-}
 
 # ======= Pacman Quiet Install Function =======
 install_pacman_quietly() {

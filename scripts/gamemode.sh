@@ -6,9 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR"
 source "$SCRIPTS_DIR/common.sh"
 
-# Add log_info function since it's not in common.sh
-log_info() { echo -e "${CYAN}ℹ $1${RESET}"; }
-
 install_gamemode() {
     step "Installing GameMode (Arch)"
     if pacman -Q gamemode &>/dev/null; then

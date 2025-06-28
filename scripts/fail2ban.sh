@@ -5,41 +5,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# ======= Colors and Step/Log Helpers =======
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-RESET='\033[0m'
-
-CURRENT_STEP=1
-FAIL2BAN_ERRORS=()
+# Use different variable names to avoid conflicts
 INSTALLED=()
 ENABLED=()
 CONFIGURED=()
-
-step() {
-  echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
-  ((CURRENT_STEP++))
-}
-
-log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
-log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
-log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; FAIL2BAN_ERRORS+=("$1"); }
-
-run_step() {
-  local description="$1"
-  shift
-  step "$description"
-  "$@"
-  local status=$?
-  if [ $status -eq 0 ]; then
-    log_success "$description"
-  else
-    log_error "$description"
-  fi
-  return $status
-}
 
 # ======= Fail2ban Setup Steps =======
 install_fail2ban() {
