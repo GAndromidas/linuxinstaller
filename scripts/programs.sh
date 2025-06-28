@@ -266,7 +266,7 @@ custom_flatpak_selection() {
   
   echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
   
-  # Read flatpak packages from YAML
+  # Read flatpak packages from YAML - use 'default' section to show available options
   local yq_output
   yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
   
