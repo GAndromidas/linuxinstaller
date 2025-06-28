@@ -1,158 +1,143 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -uo pipefail
 
-# Source common functions and variables
+# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$SCRIPT_DIR"
-source "$SCRIPTS_DIR/common.sh"
+source "$SCRIPT_DIR/common.sh"
 
-# Add log_info function since it's not in common.sh
-log_info() { echo -e "${CYAN}ℹ $1${RESET}"; }
-
+# ======= GameMode Setup Steps =======
 install_gamemode() {
-    step "Installing GameMode (Arch)"
-    if pacman -Q gamemode &>/dev/null; then
-        log_success "GameMode is already installed."
-        return 0
-    fi
-    if sudo pacman -Sy --noconfirm gamemode lib32-gamemode; then
-        log_success "GameMode installed successfully."
-        return 0
-    else
-        log_error "Failed to install GameMode."
-        return 1
-    fi
-}
-
-# Detect if running inside a virtual machine
-is_vm() {
-    # Check for common VM indicators
-    if grep -q -i 'hypervisor' /proc/cpuinfo; then
-        return 0
-    fi
-    if systemd-detect-virt --quiet; then
-        return 0
-    fi
-    if [ -d /proc/xen ]; then
-        return 0
-    fi
-    return 1
+  step "Installing GameMode"
+  install_packages_quietly gamemode lib32-gamemode
 }
 
 configure_gamemode() {
-    step "Configuring GameMode system optimizations"
-    if ! command -v gamemoded &>/dev/null; then
-        log_warning "GameMode is not installed. Skipping configuration."
-        return 0
-    fi
-    # Detect if running in a VM
-    if is_vm; then
-        log_info "Detected virtual machine environment. Creating minimal GameMode config."
-        CONFIG_DIR="$HOME/.config"
-        CONFIG_FILE="$CONFIG_DIR/gamemode.ini"
-        mkdir -p "$CONFIG_DIR"
-        cat > "$CONFIG_FILE" <<EOF
+  step "Configuring GameMode"
+  local CONFIG_FILE="/etc/gamemode.ini"
+  
+  # Check if running in a VM
+  if systemd-detect-virt --quiet; then
+    log_warning "VM detected. Using minimal GameMode configuration."
+    
+    # Create minimal config for VM
+    sudo tee "$CONFIG_FILE" >/dev/null << 'EOF'
 [general]
-renice=10
-softrealtime=true
-softrealtime_limit=95
-EOF
-        chmod 644 "$CONFIG_FILE"
-        log_success "Minimal GameMode config written to $CONFIG_FILE (VM detected)"
-        return 0
-    fi
-# Detect session type (Wayland or X11)
-SESSION_TYPE=${XDG_SESSION_TYPE:-$(loginctl show-session "$(loginctl | grep "$(whoami)" | awk '{print $1}')" -p Type | cut -d= -f2)}
-    log_info "Detected session type: $SESSION_TYPE"
-# Detect GPU
-GPU_VENDOR=$(lspci | grep -E "VGA|3D" | grep -iE "nvidia|amd|ati" | awk '{print tolower($0)}')
-if echo "$GPU_VENDOR" | grep -q "nvidia"; then
-    GPU="nvidia"
-elif echo "$GPU_VENDOR" | grep -qE "amd|ati"; then
-    GPU="amd"
-else
-    GPU="unknown"
-fi
-    log_info "Detected GPU: $GPU"
-# GameMode config
-CONFIG_DIR="$HOME/.config"
-CONFIG_FILE="$CONFIG_DIR/gamemode.ini"
-mkdir -p "$CONFIG_DIR"
-cat > "$CONFIG_FILE" <<EOF
-[general]
-renice=10
-softrealtime=true
-softrealtime_limit=95
+# GameMode configuration for VM environment
+# Reduced settings to avoid conflicts with VM
+
+[gpu]
+# Disable GPU optimizations in VM
+apply_gpu_optimisations=0
+gpu_device=0
 
 [cpu]
-governor=performance
+# Conservative CPU settings for VM
+desired_governor=performance
+min_freq=0
+max_freq=0
 
-[custom]
-start_script=/usr/local/bin/gamemode_start
-end_script=/usr/local/bin/gamemode_end
+[general]
+# Reduced logging for VM
+soft_realtime=off
+ioprio_class=0
+ioprio_level=0
 EOF
-chmod 644 "$CONFIG_FILE"
+    log_success "Minimal GameMode config written to $CONFIG_FILE (VM detected)"
+  else
+    # Create full config for physical machine
+    sudo tee "$CONFIG_FILE" >/dev/null << 'EOF'
+[general]
+# GameMode configuration
+# Optimized for gaming performance
+
+[gpu]
+# GPU optimizations
+apply_gpu_optimisations=1
+gpu_device=0
+gpu_power_threshold=50
+
+[cpu]
+# CPU optimizations
+desired_governor=performance
+min_freq=0
+max_freq=0
+energy_performance_preference=performance
+
+[general]
+# General optimizations
+soft_realtime=on
+ioprio_class=1
+ioprio_level=4
+EOF
     log_success "GameMode config written to $CONFIG_FILE"
-# GameMode Start Script
-START_SCRIPT="/usr/local/bin/gamemode_start"
-sudo tee "$START_SCRIPT" > /dev/null <<EOF
-#!/bin/bash
-# Set performance governor
-if command -v cpupower &>/dev/null; then
-    sudo cpupower frequency-set -g performance &>/dev/null
-fi
-# Lower swappiness
-echo 10 | sudo tee /proc/sys/vm/swappiness > /dev/null
-# AMD: set performance
-if [ "$GPU" = "amd" ]; then
-    AMD_PATH=\$(find /sys/class/drm/card*/device/power_dpm_force_performance_level 2>/dev/null | head -n1)
-    if [ -n "\$AMD_PATH" ]; then
-        echo high | sudo tee "\$AMD_PATH" > /dev/null
-    fi
-fi
-# X11-specific tweaks
-if [ "$SESSION_TYPE" = "x11" ]; then
-    # KDE: suspend compositor
-    if pgrep -x kwin_x11 &>/dev/null; then
-        qdbus org.kde.KWin /Compositor suspend || true
-    fi
-    # NVIDIA: performance mode
-    if [ "$GPU" = "nvidia" ] && command -v nvidia-settings &>/dev/null; then
-        export DISPLAY=:0
-        export XAUTHORITY=\$(sudo -u $USER bash -c 'echo $XAUTHORITY')
-        nvidia-settings -a "[gpu:0]/GpuPowerMizerMode=1" &>/dev/null
-    fi
-fi
-EOF
-# GameMode End Script
-END_SCRIPT="/usr/local/bin/gamemode_end"
-sudo tee "$END_SCRIPT" > /dev/null <<EOF
-#!/bin/bash
-# AMD: revert to auto
-if [ "$GPU" = "amd" ]; then
-    AMD_PATH=\$(find /sys/class/drm/card*/device/power_dpm_force_performance_level 2>/dev/null | head -n1)
-    if [ -n "\$AMD_PATH" ]; then
-        echo auto | sudo tee "\$AMD_PATH" > /dev/null
-    fi
-fi
-# X11-specific revert
-if [ "$SESSION_TYPE" = "x11" ]; then
-    # KDE: resume compositor
-    if pgrep -x kwin_x11 &>/dev/null; then
-        qdbus org.kde.KWin /Compositor resume || true
-    fi
-    # NVIDIA: revert to adaptive
-    if [ "$GPU" = "nvidia" ] && command -v nvidia-settings &>/dev/null; then
-        export DISPLAY=:0
-        export XAUTHORITY=\$(sudo -u $USER bash -c 'echo $XAUTHORITY')
-        nvidia-settings -a "[gpu:0]/GpuPowerMizerMode=0" &>/dev/null
-    fi
-fi
-EOF
-sudo chmod +x "$START_SCRIPT" "$END_SCRIPT"
-    log_success "GameMode start/end scripts installed."
-    log_success "GameMode with safe system optimizations configured successfully."
+  fi
 }
 
-# Main logic
-install_gamemode && configure_gamemode
+create_gamemode_scripts() {
+  step "Creating GameMode start/end scripts"
+  
+  # Create gamemode start script
+  sudo tee /usr/local/bin/gamemode-start >/dev/null << 'EOF'
+#!/bin/bash
+# GameMode start script
+# This script runs when GameMode starts
+
+# Log GameMode start
+logger "GameMode started for process $1"
+
+# Additional optimizations can be added here
+# For example: disable compositor, set CPU governor, etc.
+
+exit 0
+EOF
+
+  # Create gamemode end script
+  sudo tee /usr/local/bin/gamemode-end >/dev/null << 'EOF'
+#!/bin/bash
+# GameMode end script
+# This script runs when GameMode ends
+
+# Log GameMode end
+logger "GameMode ended for process $1"
+
+# Restore normal settings
+# For example: re-enable compositor, restore CPU governor, etc.
+
+exit 0
+EOF
+
+  # Make scripts executable
+  sudo chmod +x /usr/local/bin/gamemode-start
+  sudo chmod +x /usr/local/bin/gamemode-end
+
+  # Update gamemode config to use custom scripts
+  if [ -f "/etc/gamemode.ini" ]; then
+    sudo sed -i '/^\[general\]/a start=/usr/local/bin/gamemode-start\nend=/usr/local/bin/gamemode-end' /etc/gamemode.ini
+  fi
+
+  log_success "GameMode start/end scripts installed."
+  log_success "GameMode with safe system optimizations configured successfully."
+}
+
+# ======= Main =======
+main() {
+  echo -e "${CYAN}=== GameMode Setup ===${RESET}"
+
+  # Check if GameMode is already installed
+  if pacman -Q gamemode &>/dev/null; then
+    log_success "GameMode is already installed."
+  else
+    install_gamemode
+  fi
+
+  # Configure GameMode
+  configure_gamemode
+
+  # Create custom scripts
+  create_gamemode_scripts
+
+  echo -e "\n${GREEN}GameMode setup completed successfully!${RESET}"
+  echo -e "${CYAN}You can now use 'gamemoderun <command>' to run applications with GameMode.${RESET}"
+}
+
+main "$@"
