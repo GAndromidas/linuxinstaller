@@ -5,44 +5,44 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# ======= Maintenance Steps =======
-optimize_ssd() {
-  step "Optimizing SSD (if detected)"
-  if command -v lsblk >/dev/null; then
-    # Check if root filesystem is on SSD
-    local root_device=$(lsblk -no MOUNTPOINT,ROTA / | grep " /$" | awk '{print $2}')
-    if [ "$root_device" = "0" ]; then
-      # SSD detected, apply optimizations
-      echo "noatime" | sudo tee -a /etc/fstab >/dev/null
-      log_success "SSD optimizations applied"
-    else
-      log_warning "No SSD detected, skipping SSD optimizations"
+cleanup_and_optimize() {
+  step "Performing final cleanup and optimizations"
+  # Check if lsblk is available for SSD detection
+  if command_exists lsblk; then
+    if lsblk -d -o rota | grep -q '^0$'; then
+      run_step "Running fstrim on SSDs" sudo fstrim -v /
     fi
   else
     log_warning "lsblk not available. Skipping SSD optimization."
   fi
+  run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
+  run_step "Syncing disk writes" sync
 }
 
-update_system() {
-  step "Updating system packages"
-  fast_system_update
+setup_maintenance() {
+  # All maintenance in one command
+  {
+    sudo paccache -r 2>/dev/null || true
+    sudo pacman -Rns $(pacman -Qtdq 2>/dev/null) --noconfirm 2>/dev/null || true
+    sudo pacman -Syu --noconfirm
+    yay -Syu --noconfirm 2>/dev/null || true
+  } >/dev/null 2>&1
 }
 
-clean_package_cache() {
-  step "Cleaning package cache"
-  sudo pacman -Sc --noconfirm
-  log_success "Package cache cleaned"
+cleanup_helpers() {
+  run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
 }
 
-# ======= Main =======
-main() {
-  echo -e "${CYAN}=== System Maintenance ===${RESET}"
-
-  optimize_ssd
-  update_system
-  clean_package_cache
-
-  echo -e "\n${GREEN}System maintenance completed successfully!${RESET}"
+remove_orphans() {
+  orphans=$(pacman -Qtdq 2>/dev/null || true)
+  if [[ -n "$orphans" ]]; then
+    sudo pacman -Rns --noconfirm $orphans
+  else
+    echo "No orphaned packages to remove."
+  fi
 }
 
-main "$@" 
+cleanup_and_optimize
+setup_maintenance
+cleanup_helpers
+remove_orphans 

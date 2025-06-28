@@ -23,6 +23,8 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts dir
 
 HELPER_UTILS=(base-devel bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib reflector rsync ufw zoxide)  # Helper utilities to install
 
+# : "${INSTALL_MODE:=default}"
+
 # Performance tracking
 START_TIME=$(date +%s)
 
@@ -110,18 +112,14 @@ log_success() { echo -e "${GREEN}✓ $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}! $1${RESET}"; }
 log_error()   { echo -e "${RED}✗ $1${RESET}"; ERRORS+=("$1"); }
 
-# Optimized step execution
 run_step() {
   local description="$1"
   shift
-  
   step "$description"
   "$@"
   local status=$?
-  
   if [ $status -eq 0 ]; then
     log_success "$description"
-    
     if [[ "$description" == "Installing helper utilities" ]]; then
       INSTALLED_PACKAGES+=("${HELPER_UTILS[@]}")
     elif [[ "$description" == "Installing UFW firewall" ]]; then
@@ -138,70 +136,41 @@ run_step() {
   fi
 }
 
-# Enhanced package installation with parallel processing support
+# Enhanced package installation with better terminal formatting
 install_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
-  local max_parallel=4
-  local failed_packages=()
   
   if [ $total -eq 0 ]; then
     echo -e "${YELLOW}No packages to install${RESET}"
     return
   fi
   
-  echo -e "${CYAN}Installing ${total} packages via Pacman (parallel processing)...${RESET}"
+  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
   
-  # Function to install a single package
-  install_single_package() {
-    local pkg="$1"
-    local pkg_num="$2"
-    
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
-      print_progress "$pkg_num" "$total" "$pkg"
+      print_progress "$current" "$total" "$pkg"
       print_status " [SKIP] Already installed" "$YELLOW"
-      return 0
+      continue
     fi
     
-    print_progress "$pkg_num" "$total" "$pkg"
+    print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       print_status " [OK]" "$GREEN"
       INSTALLED_PACKAGES+=("$pkg")
-      return 0
     else
       print_status " [FAIL]" "$RED"
-      failed_packages+=("$pkg")
-      return 1
+      log_error "Failed to install $pkg"
     fi
-  }
-  
-  # Install packages with controlled parallelism
-  for pkg in "${pkgs[@]}"; do
-    ((current++))
-    
-    # Wait if we've reached max concurrent jobs
-    while [ $(jobs -r | wc -l) -ge $max_parallel ]; do
-      sleep 0.1
-    done
-    
-    # Install package in background
-    install_single_package "$pkg" "$current" &
   done
   
-  # Wait for all background jobs to complete
-  wait
-  
-  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
-  
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
-  fi
-  
-  echo ""
+  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
-# Batch install helper for multiple package groups with optimization
+# Batch install helper for multiple package groups
 install_package_groups() {
   local groups=("$@")
   local all_packages=()
@@ -229,37 +198,6 @@ install_package_groups() {
   fi
 }
 
-# Optimized system update function
-fast_system_update() {
-  step "Performing optimized system update"
-  
-  # Update package database and system in parallel
-  (sudo pacman -Sy --noconfirm >/dev/null 2>&1) &
-  local pacman_pid=$!
-  
-  # Update AUR packages if yay is available
-  if command -v yay >/dev/null; then
-    (yay -Sy --noconfirm >/dev/null 2>&1) &
-    local yay_pid=$!
-  fi
-  
-  # Wait for package database updates
-  wait $pacman_pid
-  
-  # Perform system update
-  if sudo pacman -Syu --noconfirm --overwrite="*" >/dev/null 2>&1; then
-    log_success "System update completed"
-  else
-    log_error "System update failed"
-  fi
-  
-  # Wait for AUR update if it was started
-  if [ -n "${yay_pid:-}" ]; then
-    wait $yay_pid 2>/dev/null || true
-  fi
-}
-
-# Enhanced summary
 print_summary() {
   echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
   [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
@@ -294,17 +232,41 @@ prompt_reboot() {
 # Pre-download package lists for faster installation
 preload_package_lists() {
   step "Preloading package lists for faster installation"
-  (sudo pacman -Sy --noconfirm >/dev/null 2>&1) &
-  local pacman_pid=$!
-  
+  sudo pacman -Sy --noconfirm >/dev/null 2>&1
   if command -v yay >/dev/null; then
-    (yay -Sy --noconfirm >/dev/null 2>&1) &
-    local yay_pid=$!
+    yay -Sy --noconfirm >/dev/null 2>&1
+  else
+    log_warning "yay not available for AUR package list update"
   fi
-  
-  wait $pacman_pid
-  [ -n "${yay_pid:-}" ] && wait $yay_pid 2>/dev/null || true
-  log_success "Package lists preloaded"
+}
+
+# Optimized system update
+fast_system_update() {
+  step "Performing optimized system update"
+  sudo pacman -Syu --noconfirm --overwrite="*"
+  if command -v yay >/dev/null; then
+    yay -Syu --noconfirm
+  else
+    log_warning "yay not available for AUR update"
+  fi
+}
+
+# Performance tracking
+log_performance() {
+  local step_name="$1"
+  local current_time=$(date +%s)
+  local elapsed=$((current_time - START_TIME))
+  echo -e "${CYAN}[PERF] $step_name completed in ${elapsed}s${RESET}"
+}
+
+# Function to collect errors from custom scripts
+collect_custom_script_errors() {
+  local script_name="$1"
+  local script_errors=("$@")
+  shift
+  for error in "${script_errors[@]}"; do
+    ERRORS+=("$script_name: $error")
+  done
 }
 
 # Check if command exists
@@ -337,53 +299,4 @@ validate_file_operation() {
   fi
   
   return 0
-}
-
-# Optimized package dependency resolution
-resolve_dependencies() {
-  local packages=("$@")
-  local resolved_packages=()
-  
-  for pkg in "${packages[@]}"; do
-    # Check if package exists in repositories
-    if pacman -Ss "^$pkg$" >/dev/null 2>&1; then
-      resolved_packages+=("$pkg")
-    else
-      log_warning "Package $pkg not found in repositories"
-    fi
-  done
-  
-  echo "${resolved_packages[@]}"
-}
-
-# Parallel file operations
-parallel_copy() {
-  local source_dir="$1"
-  local dest_dir="$2"
-  local max_jobs=4
-  
-  if [ ! -d "$source_dir" ]; then
-    log_error "Source directory $source_dir does not exist"
-    return 1
-  fi
-  
-  mkdir -p "$dest_dir"
-  
-  find "$source_dir" -type f | while read -r file; do
-    # Wait if we've reached max concurrent jobs
-    while [ $(jobs -r | wc -l) -ge $max_jobs ]; do
-      sleep 0.1
-    done
-    
-    # Copy file in background
-    (
-      local rel_path="${file#$source_dir/}"
-      local dest_file="$dest_dir/$rel_path"
-      mkdir -p "$(dirname "$dest_file")"
-      cp "$file" "$dest_file" 2>/dev/null && echo "Copied: $rel_path" || echo "Failed: $rel_path"
-    ) &
-  done
-  
-  wait
-  log_success "Parallel copy completed"
 } 

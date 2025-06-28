@@ -11,11 +11,26 @@ source "$SCRIPT_DIR/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
 
+# ===== Colors for output =====
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BLUE='\033[0;34m'
+RESET='\033[0m'
+
 # ===== Globals =====
+CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
 WHIPTAIL_INSTALLED_BY_SCRIPT=false
+
+# ===== Output Functions =====
+step()   { echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"; ((CURRENT_STEP++)); }
+log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
 # ===== Helper Functions for Package Lists =====
 
@@ -201,10 +216,12 @@ custom_package_selection() {
     [[ -z "$pkg" ]] && continue
     essential_programs+=("$pkg")
   done <<< "$selected"
+}
 
-  # AUR packages
-  all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
-  choices=()
+# Custom selection for AUR
+custom_aur_selection() {
+  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
+  local choices=()
   
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
@@ -227,13 +244,11 @@ custom_package_selection() {
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
     
-    if [[ " ${yay_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$display_text" "on")
-    else
-      choices+=("$pkg" "$display_text" "off")
-    fi
+    # Set all packages to "off" by default - no pre-selection
+    choices+=("$pkg" "$display_text" "off")
   done
   
+  local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   yay_programs=()
   while IFS= read -r pkg; do
@@ -242,221 +257,453 @@ custom_package_selection() {
   done <<< "$selected"
 }
 
-# ===== Package Installation Functions =====
-
-# Install packages via pacman
-install_pacman_packages() {
-  step "Installing Pacman packages"
-  if [ ${#pacman_programs[@]} -gt 0 ]; then
-    install_packages_quietly "${pacman_programs[@]}"
-  else
-    log_warning "No Pacman packages selected for installation"
-  fi
+# Custom selection for Flatpaks
+custom_flatpak_selection() {
+  # Flatpak applications with descriptions
+  local flatpak_data=(
+    "io.github.shiftey.Desktop|Desktop environment"
+    "it.mijorus.gearlever|System tray application launcher"
+    "net.davidotek.pupgui2|ProtonUp-Qt - Wine and Proton manager"
+    "com.mattjakeman.ExtensionManager|GNOME Extension Manager"
+    "com.vysp3r.ProtonPlus|Proton and Wine manager"
+    "dev.edfloreshz.CosmicTweaks|System settings and tweaks"
+  )
+  
+  local choices=()
+  for flatpak_entry in "${flatpak_data[@]}"; do
+    [[ -z "$flatpak_entry" ]] && continue
+    
+    # Extract package name and description
+    local pkg=$(echo "$flatpak_entry" | cut -d'|' -f1)
+    local description=$(echo "$flatpak_entry" | cut -d'|' -f2-)
+    
+    # Create display text: "package_name - description"
+    local display_text="$pkg - $description"
+    
+    # Set all packages to "off" by default - no pre-selection
+    choices+=("$pkg" "$display_text" "off")
+  done
+  
+  local selected
+  selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  flatpak_programs=()
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    flatpak_programs+=("$pkg")
+  done <<< "$selected"
 }
 
-# Install essential packages
-install_essential_packages() {
-  step "Installing Essential packages"
-  if [ ${#essential_programs[@]} -gt 0 ]; then
-    install_packages_quietly "${essential_programs[@]}"
-  else
-    log_warning "No Essential packages selected for installation"
-  fi
+# ===== Helper Functions =====
+
+is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
+
+handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
+
+check_yay() { 
+  if ! command -v yay &>/dev/null; then 
+    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped."; 
+    return 1; 
+  fi; 
+  return 0;
 }
 
-# Install AUR packages via yay
-install_aur_packages() {
-  step "Installing AUR packages"
-  if [ ${#yay_programs[@]} -gt 0 ]; then
-    if command -v yay >/dev/null; then
-      for pkg in "${yay_programs[@]}"; do
-        if yay -Q "$pkg" &>/dev/null; then
-          echo -e "${YELLOW}[SKIP] $pkg (already installed)${RESET}"
-          continue
-        fi
-        echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-        if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-          echo -e "${GREEN}[OK]${RESET}"
-          PROGRAMS_INSTALLED+=("$pkg")
-        else
-          echo -e "${RED}[FAIL]${RESET}"
-          log_error "Failed to install $pkg"
-        fi
-      done
-    else
-      log_error "yay (AUR helper) is not installed. Cannot install AUR packages."
+check_flatpak() {
+  if ! command -v flatpak &>/dev/null; then
+    log_warning "flatpak is not installed. Flatpak packages will be skipped."
+    return 1
+  fi
+  if ! flatpak remote-list | grep -q flathub; then
+    step "Adding Flathub remote"
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    handle_error "Failed to add Flathub remote."
+  fi
+  step "Updating Flatpak remotes"
+  flatpak update -y
+  return 0
+}
+
+# ===== Improved Quiet Install Functions =====
+
+install_pacman_quietly() {
+  local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No Pacman packages to install${RESET}"
+    return
+  fi
+  
+  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
+  
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
+    if pacman -Q "$pkg" &>/dev/null; then
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
+      continue
     fi
-  else
-    log_warning "No AUR packages selected for installation"
-  fi
+    
+    print_progress "$current" "$total" "$pkg"
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      print_status " [OK]" "$GREEN"
+      PROGRAMS_INSTALLED+=("$pkg")
+    else
+      print_status " [FAIL]" "$RED"
+      log_error "Failed to install $pkg"
+      PROGRAMS_ERRORS+=("Failed to install $pkg")
+    fi
+  done
+  
+  echo -e "\n${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
-# ===== Desktop Environment Functions =====
-
-# Install KDE packages
-install_kde_packages() {
-  step "Installing KDE packages"
-  if [ ${#kde_install_programs[@]} -gt 0 ]; then
-    install_packages_quietly "${kde_install_programs[@]}"
+install_flatpak_quietly() {
+  local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No Flatpak packages to install${RESET}"
+    return
   fi
+  
+  echo -e "${CYAN}Installing ${total} packages via Flatpak...${RESET}"
+  
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
+    if flatpak list --app | grep -qw "$pkg"; then
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
+      continue
+    fi
+    
+    print_progress "$current" "$total" "$pkg"
+    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+      print_status " [OK]" "$GREEN"
+      PROGRAMS_INSTALLED+=("$pkg (flatpak)")
+    else
+      print_status " [FAIL]" "$RED"
+      log_error "Failed to install Flatpak $pkg"
+      PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
+    fi
+  done
+  
+  echo -e "\n${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
-# Remove KDE packages
-remove_kde_packages() {
-  step "Removing KDE packages"
-  if [ ${#kde_remove_programs[@]} -gt 0 ]; then
-    for pkg in "${kde_remove_programs[@]}"; do
-      if pacman -Q "$pkg" &>/dev/null; then
-        echo -ne "${CYAN}Removing: $pkg ...${RESET} "
-        if sudo pacman -Rns --noconfirm "$pkg" >/dev/null 2>&1; then
-          echo -e "${GREEN}[OK]${RESET}"
-          PROGRAMS_REMOVED+=("$pkg")
-        else
-          echo -e "${RED}[FAIL]${RESET}"
-          log_error "Failed to remove $pkg"
-        fi
-      else
-        echo -e "${YELLOW}[SKIP] $pkg (not installed)${RESET}"
-      fi
-    done
+install_aur_quietly() {
+  local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  
+  if [ $total -eq 0 ]; then
+    echo -e "${YELLOW}No AUR packages to install${RESET}"
+    return
   fi
+  
+  echo -e "${CYAN}Installing ${total} packages via AUR (yay)...${RESET}"
+  
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
+    if pacman -Q "$pkg" &>/dev/null; then
+      print_progress "$current" "$total" "$pkg"
+      print_status " [SKIP] Already installed" "$YELLOW"
+      continue
+    fi
+    
+    print_progress "$current" "$total" "$pkg"
+    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      print_status " [OK]" "$GREEN"
+      PROGRAMS_INSTALLED+=("$pkg (AUR)")
+    else
+      print_status " [FAIL]" "$RED"
+      log_error "Failed to install AUR $pkg"
+      PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
+    fi
+  done
+  
+  echo -e "\n${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
-# Install GNOME packages
-install_gnome_packages() {
-  step "Installing GNOME packages"
-  if [ ${#gnome_install_programs[@]} -gt 0 ]; then
-    install_packages_quietly "${gnome_install_programs[@]}"
-  fi
-}
-
-# Remove GNOME packages
-remove_gnome_packages() {
-  step "Removing GNOME packages"
-  if [ ${#gnome_remove_programs[@]} -gt 0 ]; then
-    for pkg in "${gnome_remove_programs[@]}"; do
-      if pacman -Q "$pkg" &>/dev/null; then
-        echo -ne "${CYAN}Removing: $pkg ...${RESET} "
-        if sudo pacman -Rns --noconfirm "$pkg" >/dev/null 2>&1; then
-          echo -e "${GREEN}[OK]${RESET}"
-          PROGRAMS_REMOVED+=("$pkg")
-        else
-          echo -e "${RED}[FAIL]${RESET}"
-          log_error "Failed to remove $pkg"
-        fi
-      else
-        echo -e "${YELLOW}[SKIP] $pkg (not installed)${RESET}"
-      fi
-    done
-  fi
-}
-
-# Install COSMIC packages
-install_cosmic_packages() {
-  step "Installing COSMIC packages"
-  if [ ${#cosmic_install_programs[@]} -gt 0 ]; then
-    install_packages_quietly "${cosmic_install_programs[@]}"
-  fi
-}
-
-# Remove COSMIC packages
-remove_cosmic_packages() {
-  step "Removing COSMIC packages"
-  if [ ${#cosmic_remove_programs[@]} -gt 0 ]; then
-    for pkg in "${cosmic_remove_programs[@]}"; do
-      if pacman -Q "$pkg" &>/dev/null; then
-        echo -ne "${CYAN}Removing: $pkg ...${RESET} "
-        if sudo pacman -Rns --noconfirm "$pkg" >/dev/null 2>&1; then
-          echo -e "${GREEN}[OK]${RESET}"
-          PROGRAMS_REMOVED+=("$pkg")
-        else
-          echo -e "${RED}[FAIL]${RESET}"
-          log_error "Failed to remove $pkg"
-        fi
-      else
-        echo -e "${YELLOW}[SKIP] $pkg (not installed)${RESET}"
-      fi
-    done
-  fi
-}
-
-# ===== Main Installation Logic =====
-
-# Set package lists based on installation mode
-set_package_lists() {
-  case "$INSTALL_MODE" in
-    "default")
-      pacman_programs=("${pacman_programs_default[@]}")
-      essential_programs=("${essential_programs_default[@]}")
-      yay_programs=("${yay_programs_default[@]}")
+detect_desktop_environment() {
+  case "$XDG_CURRENT_DESKTOP" in
+    KDE)
+      log_success "KDE detected."
+      specific_install_programs=("${kde_install_programs[@]}")
+      specific_remove_programs=("${kde_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_kde"
+      flatpak_minimal_function="install_flatpak_minimal_kde"
       ;;
-    "minimal")
-      pacman_programs=("${pacman_programs_minimal[@]}")
-      essential_programs=("${essential_programs_minimal[@]}")
-      yay_programs=("${yay_programs_minimal[@]}")
+    GNOME)
+      log_success "GNOME detected."
+      specific_install_programs=("${gnome_install_programs[@]}")
+      specific_remove_programs=("${gnome_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_gnome"
+      flatpak_minimal_function="install_flatpak_minimal_gnome"
       ;;
-    "custom")
-      custom_package_selection
+    COSMIC)
+      log_success "Cosmic DE detected."
+      specific_install_programs=("${cosmic_install_programs[@]}")
+      specific_remove_programs=("${cosmic_remove_programs[@]}")
+      flatpak_install_function="install_flatpak_programs_cosmic"
+      flatpak_minimal_function="install_flatpak_minimal_cosmic"
       ;;
     *)
-      log_error "Invalid installation mode: $INSTALL_MODE"
-      return 1
+      log_warning "No KDE, GNOME, or Cosmic detected."
+      specific_install_programs=()
+      specific_remove_programs=()
+      log_warning "Falling back to minimal set for unsupported DE/WM."
+      pacman_programs=("${pacman_programs_minimal[@]}")
+      essential_programs=("${essential_programs_minimal[@]}")
+      flatpak_install_function="install_flatpak_minimal_generic"
+      flatpak_minimal_function="install_flatpak_minimal_generic"
       ;;
   esac
 }
 
-# Install whiptail for custom selection
-install_whiptail() {
-  if [ "$INSTALL_MODE" = "custom" ]; then
-    if ! command -v whiptail >/dev/null; then
-      step "Installing whiptail for package selection"
-      sudo pacman -S --noconfirm newt
-      WHIPTAIL_INSTALLED_BY_SCRIPT=true
-    fi
+print_total_packages() {
+  step "Calculating total packages to install"
+  
+  # Calculate Pacman packages
+  local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
+  
+  # Calculate AUR packages
+  local aur_total=${#yay_programs[@]}
+  
+  # Calculate Flatpak packages (approximate based on DE)
+  local flatpak_total=0
+  if [[ "$INSTALL_MODE" == "default" ]]; then
+    case "$XDG_CURRENT_DESKTOP" in
+      KDE) flatpak_total=3 ;;
+      GNOME) flatpak_total=4 ;;
+      COSMIC) flatpak_total=4 ;;
+      *) flatpak_total=1 ;;
+    esac
+  else
+    case "$XDG_CURRENT_DESKTOP" in
+      KDE) flatpak_total=1 ;;
+      GNOME) flatpak_total=2 ;;
+      COSMIC) flatpak_total=2 ;;
+      *) flatpak_total=1 ;;
+    esac
   fi
+  
+  # Calculate total
+  local total_packages=$((pacman_total + aur_total + flatpak_total))
+  
+  echo -e "${CYAN}Total packages to install: ${total_packages}${RESET}"
+  echo -e "  ${GREEN}Pacman: ${pacman_total}${RESET}"
+  echo -e "  ${YELLOW}AUR: ${aur_total}${RESET}"
+  echo -e "  ${BLUE}Flatpak: ${flatpak_total}${RESET}"
+  echo ""
 }
 
-# Main installation function
-main() {
-  echo -e "${CYAN}=== Programs Installation ===${RESET}"
-  
-  install_whiptail
-  set_package_lists
-  
-  install_pacman_packages
-  install_essential_packages
-  install_aur_packages
-  
-  # Desktop environment packages (if any)
-  install_kde_packages
-  remove_kde_packages
-  install_gnome_packages
-  remove_gnome_packages
-  install_cosmic_packages
-  remove_cosmic_packages
-  
-  # Clean up whiptail if installed by script
-  if [ "$WHIPTAIL_INSTALLED_BY_SCRIPT" = "true" ]; then
-    sudo pacman -Rns --noconfirm newt
+remove_programs() {
+  step "Removing DE-specific programs"
+  if [ ${#specific_remove_programs[@]} -eq 0 ]; then
+    log_success "No specific programs to remove."
+    return
   fi
   
-  # Print summary
-  echo -e "\n${CYAN}=== PROGRAMS SUMMARY ===${RESET}"
+  local total=${#specific_remove_programs[@]}
+  local current=0
+  
+  echo -e "${CYAN}Removing ${total} DE-specific programs...${RESET}"
+  
+  for program in "${specific_remove_programs[@]}"; do
+    ((current++))
+    print_progress "$current" "$total" "$program"
+    
+    if is_package_installed "$program"; then
+      if sudo pacman -Rns --noconfirm "$program" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        PROGRAMS_REMOVED+=("$program")
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to remove $program"
+      fi
+    else
+      print_status " [SKIP] Not installed" "$YELLOW"
+    fi
+  done
+  
+  echo -e "\n${GREEN}✓ Program removal completed (${current}/${total} programs processed)${RESET}\n"
+}
+
+install_pacman_programs() {
+  step "Installing Pacman programs"
+  echo -e "${CYAN}=== Programs Installing ===${RESET}"
+
+  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
+  if [ "${#specific_install_programs[@]}" -gt 0 ]; then
+    pkgs+=("${specific_install_programs[@]}")
+  fi
+
+  install_pacman_quietly "${pkgs[@]}"
+}
+
+install_aur_packages() {
+  step "Installing AUR packages"
+  if [ ${#yay_programs[@]} -eq 0 ]; then
+    log_success "No AUR packages to install."
+    return
+  fi
+
+  if ! check_yay; then
+    log_warning "Skipping AUR package installation due to missing yay."
+    return
+  fi
+
+  echo -e "${CYAN}=== AUR Installing ===${RESET}"
+  install_aur_quietly "${yay_programs[@]}"
+}
+
+install_flatpak_programs_list() {
+  local flatpaks=("$@")
+  install_flatpak_quietly "${flatpaks[@]}"
+}
+
+install_flatpak_programs_kde() {
+  step "Installing Flatpak programs for KDE"
+  local flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    net.davidotek.pupgui2
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_programs_gnome() {
+  step "Installing Flatpak programs for GNOME"
+  local flatpaks=(
+    com.mattjakeman.ExtensionManager
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    com.vysp3r.ProtonPlus
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_programs_cosmic() {
+  step "Installing Flatpak programs for Cosmic"
+  local flatpaks=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+    com.vysp3r.ProtonPlus
+    dev.edfloreshz.CosmicTweaks
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_minimal_kde() {
+  step "Installing minimal Flatpak programs for KDE"
+  local flatpaks=(
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_minimal_gnome() {
+  step "Installing minimal Flatpak programs for GNOME"
+  local flatpaks=(
+    com.mattjakeman.ExtensionManager
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_minimal_cosmic() {
+  step "Installing minimal Flatpak programs for Cosmic"
+  local flatpaks=(
+    it.mijorus.gearlever
+    dev.edfloreshz.CosmicTweaks
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+install_flatpak_minimal_generic() {
+  step "Installing minimal Flatpak programs (generic DE/WM)"
+  local flatpaks=(
+    it.mijorus.gearlever
+  )
+  install_flatpak_programs_list "${flatpaks[@]}"
+}
+
+print_programs_summary() {
+  echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
   if [ ${#PROGRAMS_INSTALLED[@]} -gt 0 ]; then
     echo -e "${GREEN}Installed:${RESET} ${PROGRAMS_INSTALLED[*]}"
+  else
+    echo -e "${YELLOW}No new packages were installed.${RESET}"
   fi
   if [ ${#PROGRAMS_REMOVED[@]} -gt 0 ]; then
     echo -e "${RED}Removed:${RESET} ${PROGRAMS_REMOVED[*]}"
-  fi
-  if [ ${#PROGRAMS_ERRORS[@]} -eq 0 ]; then
-    echo -e "${GREEN}Programs installation completed successfully!${RESET}"
   else
-    echo -e "${RED}Some errors occurred:${RESET}"
+    echo -e "${GREEN}No packages were removed.${RESET}"
+  fi
+  if [ ${#PROGRAMS_ERRORS[@]} -gt 0 ]; then
+    echo -e "${RED}Errors:${RESET}"
     for err in "${PROGRAMS_ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
+  else
+    echo -e "${GREEN}All steps completed successfully!${RESET}"
   fi
-  echo -e "${CYAN}===========================${RESET}"
+  echo -e "${CYAN}===============================${RESET}"
 }
 
-main "$@"
+# ===== MAIN LOGIC =====
+
+# Use INSTALL_MODE from menu instead of command-line flags
+if [[ "$INSTALL_MODE" == "default" ]]; then
+  pacman_programs=("${pacman_programs_default[@]}")
+  essential_programs=("${essential_programs_default[@]}")
+  yay_programs=("${yay_programs_default[@]}")
+elif [[ "$INSTALL_MODE" == "minimal" ]]; then
+  pacman_programs=("${pacman_programs_minimal[@]}")
+  essential_programs=("${essential_programs_minimal[@]}")
+  yay_programs=("${yay_programs_minimal[@]}")
+elif [[ "$INSTALL_MODE" == "custom" ]]; then
+  if ! command -v whiptail &>/dev/null; then
+    echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"
+    sudo pacman -S --noconfirm newt
+    WHIPTAIL_INSTALLED_BY_SCRIPT=true
+  fi
+  custom_package_selection
+  custom_aur_selection
+  custom_flatpak_selection
+else
+  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
+  return 1
+fi
+
+if ! check_flatpak; then
+  log_warning "Flatpak packages will be skipped."
+fi
+
+detect_desktop_environment
+print_total_packages
+remove_programs
+install_pacman_programs
+
+if [[ "$INSTALL_MODE" == "default" ]]; then
+  if [ -n "$flatpak_install_function" ]; then
+    $flatpak_install_function
+  else
+    log_warning "No Flatpak install function for your DE."
+  fi
+else
+  if [ -n "$flatpak_minimal_function" ]; then
+    $flatpak_minimal_function
+  else
+    install_flatpak_minimal_generic
+  fi
+fi
+
+install_aur_packages
+
+if [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]]; then
+  echo -e "${YELLOW}Removing 'whiptail' (newt) package as it is no longer needed...${RESET}"
+  sudo pacman -Rns --noconfirm newt
+fi

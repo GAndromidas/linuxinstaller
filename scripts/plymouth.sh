@@ -5,18 +5,67 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+# ======= Colors and Step/Log Helpers =======
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
 # Use different variable names to avoid conflicts
 PLYMOUTH_INSTALLED=()
 PLYMOUTH_ERRORS=()
 
+CURRENT_STEP=1
+
+step() {
+  echo -e "\n${CYAN}[$CURRENT_STEP] $1${RESET}"
+  ((CURRENT_STEP++))
+}
+
+log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
+log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
+log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PLYMOUTH_ERRORS+=("$1"); }
+
+run_step() {
+  local description="$1"
+  shift
+  step "$description"
+  "$@"
+  local status=$?
+  if [ $status -eq 0 ]; then
+    log_success "$description"
+  else
+    log_error "$description"
+  fi
+  return $status
+}
+
+# ======= Pacman Quiet Install Function =======
+install_pacman_quietly() {
+  local pkgs=("$@")
+  for pkg in "${pkgs[@]}"; do
+    if pacman -Q "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
+      continue
+    fi
+    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      echo -e "${GREEN}[OK]${RESET}"
+      PLYMOUTH_INSTALLED+=("$pkg")
+    else
+      echo -e "${RED}[FAIL]${RESET}"
+      log_error "Failed to install $pkg"
+    fi
+  done
+}
+
 # ======= Plymouth Setup Steps =======
 install_plymouth() {
-  step "Installing Plymouth"
-  install_packages_quietly plymouth
+  install_pacman_quietly plymouth
 }
 
 enable_plymouth_hook() {
-  step "Adding plymouth hook to mkinitcpio.conf"
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   if ! grep -q "plymouth" "$mkinitcpio_conf"; then
     sudo sed -i 's/^HOOKS=\(.*\)keyboard \(.*\)/HOOKS=\1plymouth keyboard \2/' "$mkinitcpio_conf"
@@ -27,12 +76,10 @@ enable_plymouth_hook() {
 }
 
 rebuild_initramfs() {
-  step "Rebuilding initramfs"
   sudo mkinitcpio -p linux
 }
 
 set_plymouth_theme() {
-  step "Setting Plymouth theme"
   local theme="bgrt"
   
   # Fix the double slash issue in bgrt theme if it exists
@@ -83,7 +130,6 @@ set_plymouth_theme() {
 }
 
 add_kernel_parameters() {
-  step "Adding 'splash' to kernel parameters"
   local loader_conf="/boot/loader/entries/$(ls /boot/loader/entries | grep -m1 linux | head -n1)"
   if [ -f "$loader_conf" ]; then
     if ! grep -q "splash" "$loader_conf"; then
@@ -118,11 +164,11 @@ main() {
   # Print simple banner (no figlet)
   echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
 
-  install_plymouth
-  enable_plymouth_hook
-  rebuild_initramfs
-  set_plymouth_theme
-  add_kernel_parameters
+  run_step "Installing Plymouth" install_plymouth
+  run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook
+  run_step "Rebuilding initramfs" rebuild_initramfs
+  run_step "Setting Plymouth theme" set_plymouth_theme
+  run_step "Adding 'splash' to kernel parameters" add_kernel_parameters
 
   print_summary
 }
