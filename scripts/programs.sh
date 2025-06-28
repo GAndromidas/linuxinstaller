@@ -155,6 +155,7 @@ custom_package_selection() {
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
     
+    # Only pre-select minimal packages, not default packages
     if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$display_text" "on")
     else
@@ -195,6 +196,7 @@ custom_package_selection() {
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
     
+    # Only pre-select minimal packages, not default packages
     if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$display_text" "on")
     else
@@ -725,11 +727,19 @@ if [[ "$INSTALL_MODE" == "default" ]]; then
   else
     log_warning "No Flatpak install function for your DE."
   fi
-else
+elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   if [ -n "$flatpak_minimal_function" ]; then
     $flatpak_minimal_function
   else
     install_flatpak_minimal_generic
+  fi
+elif [[ "$INSTALL_MODE" == "custom" ]]; then
+  # Use user's custom flatpak selections
+  if [ ${#flatpak_programs[@]} -gt 0 ]; then
+    step "Installing custom selected Flatpak programs"
+    install_flatpak_quietly "${flatpak_programs[@]}"
+  else
+    log_success "No Flatpak packages selected for installation."
   fi
 fi
 
