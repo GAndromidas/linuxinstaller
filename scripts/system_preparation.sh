@@ -21,47 +21,50 @@ check_prerequisites() {
 configure_pacman() {
   step "Configuring pacman optimizations"
   
-  # Handle ParallelDownloads - works whether commented or uncommented
-  if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-    # Line is commented, uncomment and set value
-    sudo sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Uncommented and set ParallelDownloads = 10"
-  elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-    # Line is uncommented, just update the value
-    sudo sed -i 's/^ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Updated ParallelDownloads = 10"
-  else
-    # Line doesn't exist, add it after [options] section
-    sudo sed -i '/^\[options\]/a ParallelDownloads = 10' /etc/pacman.conf
-    log_success "Added ParallelDownloads = 10"
-  fi
+  # Optimize pacman configuration in parallel
+  (
+    # Handle ParallelDownloads - works whether commented or uncommented
+    if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
+      sudo sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
+    elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
+      sudo sed -i 's/^ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
+    else
+      sudo sed -i '/^\[options\]/a ParallelDownloads = 10' /etc/pacman.conf
+    fi
+  ) &
   
-  # Handle Color setting
-  if grep -q "^#Color" /etc/pacman.conf; then
-    sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
-    log_success "Uncommented Color setting"
-  fi
+  (
+    # Handle Color setting
+    if grep -q "^#Color" /etc/pacman.conf; then
+      sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
+    fi
+  ) &
   
-  # Handle VerbosePkgLists setting
-  if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
-    sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
-    log_success "Uncommented VerbosePkgLists setting"
-  fi
+  (
+    # Handle VerbosePkgLists setting
+    if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
+      sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
+    fi
+  ) &
   
-  # Add ILoveCandy if not already present
-  if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
-    sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-    log_success "Added ILoveCandy setting"
-  fi
+  (
+    # Add ILoveCandy if not already present
+    if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
+      sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+    fi
+  ) &
   
-  # Enable multilib if not already enabled
-  if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
-    log_success "Enabled multilib repository"
-  else
-    log_success "Multilib repository already enabled"
-  fi
+  (
+    # Enable multilib if not already enabled
+    if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+      echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+    fi
+  ) &
   
+  # Wait for all background operations to complete
+  wait
+  
+  log_success "Pacman optimizations configured"
   echo ""
 }
 
@@ -77,47 +80,14 @@ install_all_packages() {
     zram-generator
   )
   
-  step "Installing all packages"
-  echo -e "${CYAN}Installing ${#all_packages[@]} packages via Pacman...${RESET}"
+  step "Installing all packages with parallel processing"
   
-  local total=${#all_packages[@]}
-  local current=0
-  local failed_packages=()
-  
-  for pkg in "${all_packages[@]}"; do
-    ((current++))
-    
-    # Check if already installed
-    if pacman -Q "$pkg" &>/dev/null; then
-      print_progress "$current" "$total" "$pkg"
-      print_status " [SKIP] Already installed" "$YELLOW"
-      continue
-    fi
-    
-    # Try to install
-    print_progress "$current" "$total" "$pkg"
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      INSTALLED_PACKAGES+=("$pkg")
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to install $pkg"
-      failed_packages+=("$pkg")
-    fi
-  done
-  
-  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
-  
-  if [ ${#failed_packages[@]} -gt 0 ]; then
-    echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
-    log_warning "Some packages failed to install. Continuing with installation..."
-  fi
-  
-  echo ""
+  # Use the optimized parallel installation function
+  install_packages_quietly "${all_packages[@]}"
 }
 
 update_mirrorlist() {
-  # Use only the fastest mirrors
+  # Use only the fastest mirrors with optimized settings
   run_step "Updating mirrorlist" sudo reflector \
     --protocol https \
     --latest 3 \
@@ -128,8 +98,8 @@ update_mirrorlist() {
 }
 
 update_system() {
-  # Update system
-  run_step "System update" sudo pacman -Syyu --noconfirm
+  # Use the optimized system update function
+  fast_system_update
 }
 
 set_sudo_pwfeedback() {
@@ -198,42 +168,65 @@ install_kernel_headers_for_all() {
   
   echo -e "${CYAN}Detected kernels: ${kernel_types[*]}${RESET}"
   
-  local total=${#kernel_types[@]}
-  local current=0
-  
+  local header_packages=()
   for kernel in "${kernel_types[@]}"; do
-    ((current++))
-    local headers_package="${kernel}-headers"
-    
-    print_progress "$current" "$total" "$headers_package"
-    
-    if pacman -Q "$headers_package" &>/dev/null; then
-      print_status " [SKIP] Already installed" "$YELLOW"
-    else
-      if sudo pacman -S --noconfirm --needed "$headers_package" >/dev/null 2>&1; then
-        print_status " [OK]" "$GREEN"
-        INSTALLED_PACKAGES+=("$headers_package")
-      else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to install $headers_package"
-      fi
-    fi
+    case "$kernel" in
+      "linux")
+        header_packages+=("linux-headers")
+        ;;
+      "linux-lts")
+        header_packages+=("linux-lts-headers")
+        ;;
+      "linux-zen")
+        header_packages+=("linux-zen-headers")
+        ;;
+      "linux-hardened")
+        header_packages+=("linux-hardened-headers")
+        ;;
+    esac
   done
   
-  echo -e "\n${GREEN}✓ Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
+  if [ ${#header_packages[@]} -gt 0 ]; then
+    install_packages_quietly "${header_packages[@]}"
+  fi
 }
 
 generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-# Execute ultra-fast preparation
-check_prerequisites
-configure_pacman
-install_all_packages
-update_mirrorlist
-update_system
-set_sudo_pwfeedback
-install_cpu_microcode
-install_kernel_headers_for_all
-generate_locales 
+# Main execution function with optimized flow
+main() {
+  # Run prerequisite checks
+  check_prerequisites || return 1
+  
+  # Run configuration tasks in parallel where possible
+  (
+    configure_pacman
+    set_sudo_pwfeedback
+  ) &
+  local config_pid=$!
+  
+  # Run package installation tasks
+  (
+    install_all_packages
+    install_cpu_microcode
+    install_kernel_headers_for_all
+  ) &
+  local packages_pid=$!
+  
+  # Run system update tasks
+  (
+    update_mirrorlist
+    update_system
+  ) &
+  local update_pid=$!
+  
+  # Wait for all background tasks to complete
+  wait $config_pid $packages_pid $update_pid
+  
+  log_success "System preparation completed"
+}
+
+# Run main function
+main "$@" 
