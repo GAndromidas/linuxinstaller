@@ -77,11 +77,11 @@ print_summary() {
   if [ ${#CONFIGURED[@]} -gt 0 ]; then
     echo -e "${GREEN}Configured:${RESET} ${CONFIGURED[*]}"
   fi
-  if [ ${#FAIL2BAN_ERRORS[@]} -eq 0 ]; then
+  if [ ${#ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Fail2ban installed and configured successfully!${RESET}"
   else
     echo -e "${RED}Some steps failed:${RESET}"
-    for err in "${FAIL2BAN_ERRORS[@]}"; do
+    for err in "${ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
   fi
