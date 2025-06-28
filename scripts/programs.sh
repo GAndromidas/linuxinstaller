@@ -337,6 +337,31 @@ check_flatpak() {
   fi
   step "Updating Flatpak remotes"
   flatpak update -y
+  
+  # Update desktop database to ensure Flatpak apps appear in menus
+  step "Updating desktop database for Flatpak integration"
+  if command -v update-desktop-database &>/dev/null; then
+    # Update system-wide desktop database
+    sudo update-desktop-database /usr/share/applications/ 2>/dev/null || true
+    
+    # Update user-specific desktop database
+    if [[ -d "$HOME/.local/share/applications" ]]; then
+      update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+    fi
+    
+    # Update Flatpak-specific desktop databases
+    if [[ -d "/var/lib/flatpak/exports/share/applications" ]]; then
+      sudo update-desktop-database /var/lib/flatpak/exports/share/applications 2>/dev/null || true
+    fi
+    if [[ -d "$HOME/.local/share/flatpak/exports/share/applications" ]]; then
+      update-desktop-database "$HOME/.local/share/flatpak/exports/share/applications" 2>/dev/null || true
+    fi
+    
+    log_success "Desktop database updated for Flatpak integration"
+  else
+    log_warning "update-desktop-database not found. Flatpak apps may not appear in menus until session restart."
+  fi
+  
   return 0
 }
 
