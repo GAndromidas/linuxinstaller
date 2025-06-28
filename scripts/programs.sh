@@ -5,7 +5,7 @@ set -uo pipefail
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROGRAM_LISTS_DIR="$ARCHINSTALLER_ROOT/program_lists"
+CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 
 source "$SCRIPT_DIR/common.sh"
 
@@ -32,88 +32,94 @@ log_success() { echo -e "${GREEN}[OK] $1${RESET}"; }
 log_warning() { echo -e "${YELLOW}[WARN] $1${RESET}"; }
 log_error()   { echo -e "${RED}[FAIL] $1${RESET}"; PROGRAMS_ERRORS+=("$1"); }
 
-# ===== Helper Functions for Package Lists =====
+# ===== YAML Parsing Functions =====
 
-# Function to extract package name from "package|description" format
-get_package_name() {
-  local line="$1"
-  echo "$line" | cut -d'|' -f1
+# Function to check if yq is available, install if not
+ensure_yq() {
+  if ! command -v yq &>/dev/null; then
+    echo -e "${YELLOW}yq is required for YAML parsing. Installing...${RESET}"
+    sudo pacman -S --noconfirm yq
+    if ! command -v yq &>/dev/null; then
+      log_error "Failed to install yq. Please install it manually: sudo pacman -S yq"
+      return 1
+    fi
+  fi
+  return 0
 }
 
-# Function to extract description from "package|description" format
-get_package_description() {
-  local line="$1"
-  echo "$line" | cut -d'|' -f2-
-}
-
-# Function to read package lists with descriptions
-read_package_list() {
-  local file="$1"
-  local -n packages_array="$2"
-  local -n descriptions_array="$3"
+# Function to read packages from YAML with descriptions
+read_yaml_packages() {
+  local yaml_file="$1"
+  local yaml_path="$2"
+  local -n packages_array="$3"
+  local -n descriptions_array="$4"
   
   packages_array=()
   descriptions_array=()
   
-  while IFS= read -r line; do
-    # Skip comments and empty lines
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ -z "${line// }" ]] && continue
-    
-    # Check if line contains description (has |)
-    if [[ "$line" == *"|"* ]]; then
-      packages_array+=("$(get_package_name "$line")")
-      descriptions_array+=("$(get_package_description "$line")")
-    else
-      # Fallback for old format without descriptions
-      packages_array+=("$line")
-      descriptions_array+=("$line")
-    fi
-  done < "$file"
+  # Use yq to extract packages and descriptions
+  local yq_output
+  yq_output=$(yq -r "$yaml_path[] | [.name, .description] | @tsv" "$yaml_file" 2>/dev/null)
+  
+  if [[ $? -eq 0 && -n "$yq_output" ]]; then
+    while IFS=$'\t' read -r name description; do
+      [[ -z "$name" ]] && continue
+      packages_array+=("$name")
+      descriptions_array+=("$description")
+    done <<< "$yq_output"
+  fi
 }
 
-# ===== Program Lists (Loaded from program_lists) =====
+# Function to read simple package lists (without descriptions)
+read_yaml_simple_packages() {
+  local yaml_file="$1"
+  local yaml_path="$2"
+  local -n packages_array="$3"
+  
+  packages_array=()
+  
+  # Use yq to extract simple package names
+  local yq_output
+  yq_output=$(yq -r "$yaml_path[]" "$yaml_file" 2>/dev/null)
+  
+  if [[ $? -eq 0 && -n "$yq_output" ]]; then
+    while IFS= read -r package; do
+      [[ -z "$package" ]] && continue
+      packages_array+=("$package")
+    done <<< "$yq_output"
+  fi
+}
 
-# Check if program_lists directory exists
-if [[ ! -d "$PROGRAM_LISTS_DIR" ]]; then
-  log_error "Program lists directory not found: $PROGRAM_LISTS_DIR"
-  log_error "Please ensure you have the complete archinstaller repository with program_lists folder."
+# ===== Program Lists (Loaded from YAML) =====
+
+# Check if programs.yaml exists
+PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
+if [[ ! -f "$PROGRAMS_YAML" ]]; then
+  log_error "Programs configuration file not found: $PROGRAMS_YAML"
+  log_error "Please ensure you have the complete archinstaller repository with configs/programs.yaml."
   return 1
 fi
 
-# Check if required files exist
-required_files=(
-  "pacman_default.txt"
-  "essential_default.txt"
-  "pacman_minimal.txt"
-  "essential_minimal.txt"
-  "yay_default.txt"
-  "yay_minimal.txt"
-)
+# Ensure yq is available
+if ! ensure_yq; then
+  return 1
+fi
 
-for file in "${required_files[@]}"; do
-  if [[ ! -f "$PROGRAM_LISTS_DIR/$file" ]]; then
-    log_error "Required file not found: $PROGRAM_LISTS_DIR/$file"
-    log_error "Please ensure you have the complete archinstaller repository."
-    return 1
-  fi
-done
+# Read package lists from YAML
+read_yaml_packages "$PROGRAMS_YAML" ".pacman.default" pacman_programs_default pacman_descriptions_default
+read_yaml_packages "$PROGRAMS_YAML" ".pacman.minimal" pacman_programs_minimal pacman_descriptions_minimal
+read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
+read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
+read_yaml_packages "$PROGRAMS_YAML" ".aur.default" yay_programs_default yay_descriptions_default
+read_yaml_packages "$PROGRAMS_YAML" ".aur.minimal" yay_programs_minimal yay_descriptions_minimal
 
-# Read package lists with descriptions
-read_package_list "$PROGRAM_LISTS_DIR/pacman_default.txt" pacman_programs_default pacman_descriptions_default
-read_package_list "$PROGRAM_LISTS_DIR/essential_default.txt" essential_programs_default essential_descriptions_default
-read_package_list "$PROGRAM_LISTS_DIR/pacman_minimal.txt" pacman_programs_minimal pacman_descriptions_minimal
-read_package_list "$PROGRAM_LISTS_DIR/essential_minimal.txt" essential_programs_minimal essential_descriptions_minimal
-read_package_list "$PROGRAM_LISTS_DIR/yay_default.txt" yay_programs_default yay_descriptions_default
-read_package_list "$PROGRAM_LISTS_DIR/yay_minimal.txt" yay_programs_minimal yay_descriptions_minimal
-
-# Read other package lists (keeping old format for now)
-readarray -t kde_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t kde_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/kde_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t gnome_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t gnome_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/gnome_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t cosmic_install_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_install.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
-readarray -t cosmic_remove_programs < <(grep -v '^\s*#' "$PROGRAM_LISTS_DIR/cosmic_remove.txt" | grep -v '^\s*$' 2>/dev/null || echo "")
+# Read desktop environment specific packages
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.install" kde_install_programs
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.remove" kde_remove_programs
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.gnome.install" gnome_install_programs
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.gnome.remove" gnome_remove_programs
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.install" cosmic_install_programs
+read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.remove" cosmic_remove_programs
 
 # ===== Custom Selection Functions =====
 
@@ -259,15 +265,27 @@ custom_aur_selection() {
 
 # Custom selection for Flatpaks
 custom_flatpak_selection() {
-  # Flatpak applications with descriptions
-  local flatpak_data=(
-    "io.github.shiftey.Desktop|Desktop environment"
-    "it.mijorus.gearlever|System tray application launcher"
-    "net.davidotek.pupgui2|ProtonUp-Qt - Wine and Proton manager"
-    "com.mattjakeman.ExtensionManager|GNOME Extension Manager"
-    "com.vysp3r.ProtonPlus|Proton and Wine manager"
-    "dev.edfloreshz.CosmicTweaks|System settings and tweaks"
-  )
+  # Get flatpak packages from YAML based on detected DE
+  local flatpak_data=()
+  local de_lower=""
+  
+  case "$XDG_CURRENT_DESKTOP" in
+    KDE) de_lower="kde" ;;
+    GNOME) de_lower="gnome" ;;
+    COSMIC) de_lower="cosmic" ;;
+    *) de_lower="generic" ;;
+  esac
+  
+  # Read flatpak packages from YAML
+  local yq_output
+  yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
+  
+  if [[ $? -eq 0 && -n "$yq_output" ]]; then
+    while IFS=$'\t' read -r name description; do
+      [[ -z "$name" ]] && continue
+      flatpak_data+=("$name|$description")
+    done <<< "$yq_output"
+  fi
   
   local choices=()
   for flatpak_entry in "${flatpak_data[@]}"; do
@@ -564,69 +582,72 @@ install_flatpak_programs_list() {
   install_flatpak_quietly "${flatpaks[@]}"
 }
 
+# Function to get flatpak packages from YAML
+get_flatpak_packages() {
+  local de="$1"
+  local mode="$2"
+  local -n packages_array="$3"
+  
+  packages_array=()
+  
+  # Use yq to extract flatpak package names
+  local yq_output
+  yq_output=$(yq -r ".flatpak.$de.$mode[].name" "$PROGRAMS_YAML" 2>/dev/null)
+  
+  if [[ $? -eq 0 && -n "$yq_output" ]]; then
+    while IFS= read -r package; do
+      [[ -z "$package" ]] && continue
+      packages_array+=("$package")
+    done <<< "$yq_output"
+  fi
+}
+
 install_flatpak_programs_kde() {
   step "Installing Flatpak programs for KDE"
-  local flatpaks=(
-    io.github.shiftey.Desktop
-    it.mijorus.gearlever
-    net.davidotek.pupgui2
-  )
+  local flatpaks
+  get_flatpak_packages "kde" "default" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_programs_gnome() {
   step "Installing Flatpak programs for GNOME"
-  local flatpaks=(
-    com.mattjakeman.ExtensionManager
-    io.github.shiftey.Desktop
-    it.mijorus.gearlever
-    com.vysp3r.ProtonPlus
-  )
+  local flatpaks
+  get_flatpak_packages "gnome" "default" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_programs_cosmic() {
   step "Installing Flatpak programs for Cosmic"
-  local flatpaks=(
-    io.github.shiftey.Desktop
-    it.mijorus.gearlever
-    com.vysp3r.ProtonPlus
-    dev.edfloreshz.CosmicTweaks
-  )
+  local flatpaks
+  get_flatpak_packages "cosmic" "default" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_kde() {
   step "Installing minimal Flatpak programs for KDE"
-  local flatpaks=(
-    it.mijorus.gearlever
-  )
+  local flatpaks
+  get_flatpak_packages "kde" "minimal" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_gnome() {
   step "Installing minimal Flatpak programs for GNOME"
-  local flatpaks=(
-    com.mattjakeman.ExtensionManager
-    it.mijorus.gearlever
-  )
+  local flatpaks
+  get_flatpak_packages "gnome" "minimal" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_cosmic() {
   step "Installing minimal Flatpak programs for Cosmic"
-  local flatpaks=(
-    it.mijorus.gearlever
-    dev.edfloreshz.CosmicTweaks
-  )
+  local flatpaks
+  get_flatpak_packages "cosmic" "minimal" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
 install_flatpak_minimal_generic() {
   step "Installing minimal Flatpak programs (generic DE/WM)"
-  local flatpaks=(
-    it.mijorus.gearlever
-  )
+  local flatpaks
+  get_flatpak_packages "generic" "minimal" flatpaks
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
