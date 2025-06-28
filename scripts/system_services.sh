@@ -107,18 +107,67 @@ enable_services() {
   sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
 }
 
+# Function to get total RAM in GB
+get_ram_gb() {
+  local ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+  echo $((ram_kb / 1024 / 1024))
+}
+
+# Function to get optimal ZRAM size multiplier based on RAM
+get_zram_multiplier() {
+  local ram_gb=$1
+  case $ram_gb in
+    1) echo "2.0" ;;      # 1GB RAM -> 200% ZRAM (2GB)
+    2) echo "1.5" ;;      # 2GB RAM -> 150% ZRAM (3GB)
+    3) echo "1.33" ;;     # 3GB RAM -> 133% ZRAM (4GB)
+    4) echo "1.0" ;;      # 4GB RAM -> 100% ZRAM (4GB)
+    6) echo "0.83" ;;     # 6GB RAM -> 83% ZRAM (5GB)
+    8) echo "0.75" ;;     # 8GB RAM -> 75% ZRAM (6GB)
+    10) echo "0.6" ;;     # 10GB RAM -> 60% ZRAM (6GB)
+    12) echo "0.5" ;;     # 12GB RAM -> 50% ZRAM (6GB)
+    16) echo "0.5" ;;     # 16GB RAM -> 50% ZRAM (8GB)
+    24) echo "0.33" ;;    # 24GB RAM -> 33% ZRAM (8GB)
+    32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
+    48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
+    64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
+    *) 
+      # For other sizes, use a dynamic calculation
+      if [ $ram_gb -le 4 ]; then
+        echo "1.0" ;;     # 4GB and below: 100%
+      elif [ $ram_gb -le 8 ]; then
+        echo "0.75" ;;    # 5-8GB: 75%
+      elif [ $ram_gb -le 16 ]; then
+        echo "0.5" ;;     # 9-16GB: 50%
+      elif [ $ram_gb -le 32 ]; then
+        echo "0.33" ;;    # 17-32GB: 33%
+      else
+        echo "0.25" ;;    # 32GB+: 25%
+      fi
+      ;;
+  esac
+}
+
 setup_zram_swap() {
   step "Setting up ZRAM swap"
   
-  # Create ZRAM config in one command
+  # Get system RAM and optimal multiplier
+  local ram_gb=$(get_ram_gb)
+  local multiplier=$(get_zram_multiplier $ram_gb)
+  local zram_size_gb=$(echo "$ram_gb * $multiplier" | bc -l | cut -d. -f1)
+
+  echo -e "${CYAN}System RAM: ${ram_gb}GB${RESET}"
+  echo -e "${CYAN}ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)${RESET}"
+  
+  # Create ZRAM config with optimal settings
   sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
 [zram0]
-zram-size = ram * 0.5
+zram-size = ram * ${multiplier}
 compression-algorithm = zstd
 swap-priority = 100
 EOF
   
   # Enable and start ZRAM
+  sudo systemctl daemon-reexec
   sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
 }
 
