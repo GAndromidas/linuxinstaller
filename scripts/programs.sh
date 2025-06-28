@@ -264,6 +264,8 @@ custom_flatpak_selection() {
     *) de_lower="generic" ;;
   esac
   
+  echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
+  
   # Read flatpak packages from YAML
   local yq_output
   yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
@@ -274,6 +276,8 @@ custom_flatpak_selection() {
       flatpak_data+=("$name|$description")
     done <<< "$yq_output"
   fi
+  
+  echo -e "${CYAN}Available flatpak packages: ${#flatpak_data[@]}${RESET}"
   
   local choices=()
   for flatpak_entry in "${flatpak_data[@]}"; do
@@ -297,6 +301,8 @@ custom_flatpak_selection() {
     [[ -z "$pkg" ]] && continue
     flatpak_programs+=("$pkg")
   done <<< "$selected"
+  
+  echo -e "${CYAN}User selected flatpak packages: ${flatpak_programs[*]}${RESET}"
 }
 
 # ===== Helper Functions =====
@@ -737,6 +743,7 @@ elif [[ "$INSTALL_MODE" == "custom" ]]; then
   # Use user's custom flatpak selections
   if [ ${#flatpak_programs[@]} -gt 0 ]; then
     step "Installing custom selected Flatpak programs"
+    echo -e "${CYAN}Selected flatpak packages: ${flatpak_programs[*]}${RESET}"
     install_flatpak_quietly "${flatpak_programs[@]}"
   else
     log_success "No Flatpak packages selected for installation."
