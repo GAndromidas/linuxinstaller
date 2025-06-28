@@ -6,26 +6,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 # Use different variable names to avoid conflicts
-PLYMOUTH_INSTALLED=()
 PLYMOUTH_ERRORS=()
 
-# ======= Pacman Quiet Install Function =======
-install_pacman_quietly() {
-  local pkgs=("$@")
-  for pkg in "${pkgs[@]}"; do
-    if pacman -Q "$pkg" &>/dev/null; then
-      echo -e "${YELLOW}Installing: $pkg ... [SKIP] Already installed${RESET}"
-      continue
-    fi
-    echo -ne "${CYAN}Installing: $pkg ...${RESET} "
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      echo -e "${GREEN}[OK]${RESET}"
-      PLYMOUTH_INSTALLED+=("$pkg")
-    else
-      echo -e "${RED}[FAIL]${RESET}"
-      log_error "Failed to install $pkg"
-    fi
-  done
+# ======= Plymouth Setup Steps =======
+enable_plymouth_hook() {
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  if ! grep -q "plymouth" "$mkinitcpio_conf"; then
+    sudo sed -i 's/^HOOKS=\(.*\)keyboard \(.*\)/HOOKS=\1plymouth keyboard \2/' "$mkinitcpio_conf"
+    log_success "Added plymouth hook to mkinitcpio.conf."
+  else
+    log_warning "Plymouth hook already present in mkinitcpio.conf."
+  fi
 }
 
 # ======= Kernel Detection Function =======
@@ -36,21 +27,6 @@ get_installed_kernel_types() {
   pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
   pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
   echo "${kernel_types[@]}"
-}
-
-# ======= Plymouth Setup Steps =======
-install_plymouth() {
-  install_pacman_quietly plymouth
-}
-
-enable_plymouth_hook() {
-  local mkinitcpio_conf="/etc/mkinitcpio.conf"
-  if ! grep -q "plymouth" "$mkinitcpio_conf"; then
-    sudo sed -i 's/^HOOKS=\(.*\)keyboard \(.*\)/HOOKS=\1plymouth keyboard \2/' "$mkinitcpio_conf"
-    log_success "Added plymouth hook to mkinitcpio.conf."
-  else
-    log_warning "Plymouth hook already present in mkinitcpio.conf."
-  fi
 }
 
 rebuild_initramfs() {
@@ -184,13 +160,10 @@ add_kernel_parameters() {
 
 print_summary() {
   echo -e "\n${CYAN}========= PLYMOUTH SUMMARY =========${RESET}"
-  if [ ${#PLYMOUTH_INSTALLED[@]} -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${PLYMOUTH_INSTALLED[*]}"
-  fi
   if [ ${#PLYMOUTH_ERRORS[@]} -eq 0 ]; then
-    echo -e "${GREEN}Plymouth installed and configured successfully!${RESET}"
+    echo -e "${GREEN}Plymouth configured successfully!${RESET}"
   else
-    echo -e "${RED}Some steps failed:${RESET}"
+    echo -e "${RED}Some configuration steps failed:${RESET}"
     for err in "${PLYMOUTH_ERRORS[@]}"; do
       echo -e "  - ${YELLOW}$err${RESET}"
     done
@@ -201,9 +174,8 @@ print_summary() {
 # ======= Main =======
 main() {
   # Print simple banner (no figlet)
-  echo -e "${CYAN}=== Plymouth Setup ===${RESET}"
+  echo -e "${CYAN}=== Plymouth Configuration ===${RESET}"
 
-  run_step "Installing Plymouth" install_plymouth
   run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook
   run_step "Rebuilding initramfs for all kernels" rebuild_initramfs
   run_step "Setting Plymouth theme" set_plymouth_theme
