@@ -133,15 +133,15 @@ get_zram_multiplier() {
     *) 
       # For other sizes, use a dynamic calculation
       if [ $ram_gb -le 4 ]; then
-        echo "1.0" ;;     # 4GB and below: 100%
+        echo "1.0"
       elif [ $ram_gb -le 8 ]; then
-        echo "0.75" ;;    # 5-8GB: 75%
+        echo "0.75"
       elif [ $ram_gb -le 16 ]; then
-        echo "0.5" ;;     # 9-16GB: 50%
+        echo "0.5"
       elif [ $ram_gb -le 32 ]; then
-        echo "0.33" ;;    # 17-32GB: 33%
+        echo "0.33"
       else
-        echo "0.25" ;;    # 32GB+: 25%
+        echo "0.25"
       fi
       ;;
   esac
