@@ -26,9 +26,6 @@ HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak
 
 # : "${INSTALL_MODE:=default}"
 
-# Performance tracking
-START_TIME=$(date +%s)
-
 # Ensure critical variables are defined
 : "${HOME:=/home/$USER}"
 : "${USER:=$(whoami)}"

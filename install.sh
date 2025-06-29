@@ -11,6 +11,8 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 
 source "$SCRIPTS_DIR/common.sh"
 
+START_TIME=$(date +%s)
+
 arch_ascii
 show_menu
 export INSTALL_MODE
