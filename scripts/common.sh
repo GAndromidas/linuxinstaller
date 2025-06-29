@@ -105,8 +105,7 @@ show_menu() {
 }
 
 step() {
-  local step_title="${1^^}"
-  echo -e "\n\033[1;35mSTEP: $step_title\n$step_title\n\033[0m"
+  echo -e "\n${CYAN}→ $1${RESET}"
   ((CURRENT_STEP++))
 }
 

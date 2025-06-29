@@ -69,6 +69,7 @@ echo -e "${CYAN}Step 10 completed${RESET}"
 echo -e "\n${GREEN}Installation completed successfully!${RESET}"
 print_programs_summary
 print_summary
+log_performance "Total installation time"
 
 # Delete installer directory if no errors occurred, just before reboot
 if [ ${#ERRORS[@]} -eq 0 ]; then
