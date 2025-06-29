@@ -100,7 +100,6 @@ install_grub_btrfs_if_needed() {
         if ! pacman -Q grub-btrfs &>/dev/null; then
             yay -S --noconfirm grub-btrfs
         fi
-        sudo systemctl enable --now grub-btrfs.path
     fi
 }
 
