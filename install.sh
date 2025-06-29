@@ -50,8 +50,8 @@ echo -e "${CYAN}Step 6: GameMode Installation${RESET}"
 step "GameMode Installation" && source "$SCRIPTS_DIR/gamemode.sh" install || log_error "GameMode installation failed"
 echo -e "${CYAN}Step 6 completed${RESET}"
 
-echo -e "${CYAN}Step 7: System Boot Configuration${RESET}"
-step "System Boot Configuration" && source "$SCRIPTS_DIR/system_boot_config.sh" || log_error "System boot configuration failed"
+echo -e "${CYAN}Step 7: Bootloader and Kernel Configuration${RESET}"
+step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
 echo -e "${CYAN}Step 7 completed${RESET}"
 
 echo -e "${CYAN}Step 8: Fail2ban Setup${RESET}"

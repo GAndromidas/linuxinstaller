@@ -76,9 +76,9 @@ set_plymouth_theme() {
   # Try to set the bgrt theme
   if plymouth-set-default-theme -l | grep -qw "$theme"; then
     if sudo plymouth-set-default-theme -R "$theme" 2>/dev/null; then
-    log_success "Set plymouth theme to '$theme'."
+      log_success "Set plymouth theme to '$theme'."
       return 0
-  else
+    else
       log_warning "Failed to set '$theme' theme. Trying fallback themes..."
     fi
   else
@@ -111,51 +111,58 @@ set_plymouth_theme() {
 }
 
 add_kernel_parameters() {
-  local boot_entries_dir="/boot/loader/entries"
-  
-  if [ ! -d "$boot_entries_dir" ]; then
-    log_warning "Boot entries directory not found. Skipping kernel parameter addition."
-    return
-  fi
-  
-  # Find all kernel boot entries
-  local boot_entries=()
-  while IFS= read -r -d '' entry; do
-    boot_entries+=("$entry")
-  done < <(find "$boot_entries_dir" -name "*.conf" -print0 2>/dev/null)
-  
-  if [ ${#boot_entries[@]} -eq 0 ]; then
-    log_warning "No boot entries found. Skipping kernel parameter addition."
-    return
-  fi
-  
-  echo -e "${CYAN}Found ${#boot_entries[@]} boot entries${RESET}"
-  
-  local total=${#boot_entries[@]}
-  local current=0
-  local modified_count=0
-  
-  for entry in "${boot_entries[@]}"; do
-    ((current++))
-    local entry_name=$(basename "$entry")
-    print_progress "$current" "$total" "Adding splash to $entry_name"
-    
-    if ! grep -q "splash" "$entry"; then
-      if sudo sed -i '/^options / s/$/ splash/' "$entry"; then
-        print_status " [OK]" "$GREEN"
-        log_success "Added 'splash' to $entry_name"
-        ((modified_count++))
-      else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to add 'splash' to $entry_name"
-      fi
-    else
-      print_status " [SKIP] Already has splash" "$YELLOW"
-      log_warning "'splash' already set in $entry_name"
+  # Detect bootloader
+  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
+    # systemd-boot logic (existing)
+    local boot_entries_dir="/boot/loader/entries"
+    if [ ! -d "$boot_entries_dir" ]; then
+      log_warning "Boot entries directory not found. Skipping kernel parameter addition."
+      return
     fi
-  done
-  
-  echo -e "\n${GREEN}✓ Kernel parameters updated for all boot entries (${modified_count} modified)${RESET}\n"
+    local boot_entries=()
+    while IFS= read -r -d '' entry; do
+      boot_entries+=("$entry")
+    done < <(find "$boot_entries_dir" -name "*.conf" -print0 2>/dev/null)
+    if [ ${#boot_entries[@]} -eq 0 ]; then
+      log_warning "No boot entries found. Skipping kernel parameter addition."
+      return
+    fi
+    echo -e "${CYAN}Found ${#boot_entries[@]} boot entries${RESET}"
+    local total=${#boot_entries[@]}
+    local current=0
+    local modified_count=0
+    for entry in "${boot_entries[@]}"; do
+      ((current++))
+      local entry_name=$(basename "$entry")
+      print_progress "$current" "$total" "Adding splash to $entry_name"
+      if ! grep -q "splash" "$entry"; then
+        if sudo sed -i '/^options / s/$/ splash/' "$entry"; then
+          print_status " [OK]" "$GREEN"
+          log_success "Added 'splash' to $entry_name"
+          ((modified_count++))
+        else
+          print_status " [FAIL]" "$RED"
+          log_error "Failed to add 'splash' to $entry_name"
+        fi
+      else
+        print_status " [SKIP] Already has splash" "$YELLOW"
+        log_warning "'splash' already set in $entry_name"
+      fi
+    done
+    echo -e "\n${GREEN}✓ Kernel parameters updated for all boot entries (${modified_count} modified)${RESET}\n"
+  elif [ -d /boot/grub ] || [ -f /etc/default/grub ]; then
+    # GRUB logic
+    if grep -q 'splash' /etc/default/grub; then
+      log_warning "'splash' already present in GRUB_CMDLINE_LINUX_DEFAULT."
+    else
+      sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="splash /' /etc/default/grub
+      log_success "Added 'splash' to GRUB_CMDLINE_LINUX_DEFAULT."
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
+      log_success "Regenerated grub.cfg after adding 'splash'."
+    fi
+  else
+    log_warning "No supported bootloader detected for kernel parameter addition."
+  fi
 }
 
 print_summary() {

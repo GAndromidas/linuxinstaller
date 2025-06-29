@@ -16,7 +16,7 @@
 
 ## 🚀 Overview
 
-**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, gaming optimizations, and security hardening.
+**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, gaming optimizations, security hardening, and robust dual-boot support.
 
 ### ✨ Key Features
 
@@ -27,6 +27,24 @@
 - **⚡ Performance Tuning**: ZRAM, Plymouth boot screen, and system optimizations
 - **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration
 - **🎨 Beautiful UI**: Custom terminal interface with progress tracking and error handling
+- **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot, including kernel parameters, Plymouth, and Btrfs integration
+- **🪟 Windows Dual-Boot Automation**: Detects Windows installations, copies EFI files if needed, adds Windows to the boot menu for both GRUB and systemd-boot, and sets the hardware clock for compatibility
+- **💾 NTFS Support**: Installs `ntfs-3g` automatically if Windows is detected, for seamless access to NTFS partitions
+
+---
+
+## 🧭 Bootloader & Windows Dual-Boot Support
+
+- **Automatic Detection**: The installer detects whether your system uses GRUB or systemd-boot.
+- **Configuration**: Sets kernel parameters, timeout, default entry, and console mode for the detected bootloader.
+- **Plymouth**: Ensures splash and Plymouth are enabled for both bootloaders.
+- **Btrfs**: If using GRUB and Btrfs, automatically installs and enables grub-btrfs for snapshot integration.
+- **Windows Dual-Boot**: 
+  - Detects Windows installations.
+  - For systemd-boot: finds and copies Microsoft EFI files from the Windows EFI partition if needed, then creates a loader entry.
+  - For GRUB: enables os-prober, ensures Windows is in the boot menu.
+  - Sets the hardware clock to local time for compatibility.
+- **NTFS Support**: Installs `ntfs-3g` for NTFS access and os-prober compatibility.
 
 ---
 
@@ -146,8 +164,12 @@ Interactive package selection with descriptions:
 
 ### **Boot Experience**
 - **Plymouth**: Beautiful boot screen with BGRT theme
-- **Splash Parameters**: Automatic kernel parameter configuration
+- **Bootloader Support**: Automatic detection and configuration for both GRUB and systemd-boot
+- **Splash Parameters**: Automatic kernel parameter configuration for both bootloaders
 - **Initramfs**: Automatic rebuild with Plymouth hooks
+- **Btrfs Integration**: Installs and enables grub-btrfs if using GRUB with a Btrfs root filesystem
+- **Windows Dual-Boot**: Detects Windows installations, copies EFI files if needed, adds Windows to the boot menu for both GRUB and systemd-boot, and sets the hardware clock to local time for compatibility
+- **NTFS Support**: Installs `ntfs-3g` for NTFS access and os-prober compatibility
 
 ### **Terminal Interface**
 - **Progress Tracking**: Real-time installation progress
@@ -181,7 +203,7 @@ chmod +x install.sh
 4. **YAY Installation**: AUR helper setup
 5. **Programs Installation**: Package installation based on mode and DE
 6. **GameMode Setup**: Gaming optimizations
-7. **Boot Configuration**: Kernel parameters and systemd configuration
+7. **Bootloader and Kernel Configuration**: Detects and configures GRUB or systemd-boot, sets kernel parameters, enables Plymouth, integrates Btrfs support for GRUB, and robustly configures Windows dual-boot if detected
 8. **Fail2ban Setup**: Security hardening
 9. **System Services**: Service enablement and configuration
 10. **Maintenance**: System cleanup and optimization
@@ -198,13 +220,26 @@ chmod +x install.sh
 ### **Starship Configuration** (`configs/starship.toml`)
 - Nord color scheme integration
 - Git status and branch display
-- Programming language indicators
-- Docker context support
 
 ### **Package Lists** (`program_lists/`)
 - Organized by installation mode and package manager
 - Detailed descriptions for each package
 - Desktop environment-specific configurations
+
+---
+
+## 🪟 Windows Dual-Boot Automation
+
+- **Detection**: The installer automatically detects if a Windows installation is present (by checking for EFI bootloaders and NTFS partitions).
+- **systemd-boot Integration**: 
+  - Searches all partitions for the Windows EFI files.
+  - Mounts the correct partition and copies the Microsoft EFI files to `/boot/EFI/Microsoft` if needed.
+  - Creates a loader entry for Windows if not present.
+- **GRUB Integration**: 
+  - Installs `os-prober` and enables it in GRUB config.
+  - Regenerates the GRUB menu to include Windows.
+- **Clock Compatibility**: The hardware clock is set to local time for seamless dual-booting with Windows, preventing time drift issues.
+- **NTFS Support**: Installs `ntfs-3g` for NTFS access and to ensure os-prober can detect Windows installations.
 
 ---
 
