@@ -106,7 +106,10 @@ configure_grub() {
     # Save default entry
     sudo grub-set-default 0
 
-    # Regenerate grub config
+    # Remove all fallback initramfs images (like systemd-boot logic)
+    sudo rm -f /boot/initramfs-*-fallback.img
+
+    # Regenerate GRUB config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 }
 
