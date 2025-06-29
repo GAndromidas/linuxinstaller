@@ -77,8 +77,17 @@ configure_grub() {
     # Set kernel parameters for Plymouth and quiet boot
     sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"/' /etc/default/grub
 
-    # Set default entry to saved
-    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+    # Set default entry to saved and enable save default
+    if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
+        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+    else
+        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub
+    fi
+    if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
+        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
+    else
+        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
+    fi
 
     # Set timeout to 3 seconds
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
@@ -87,30 +96,18 @@ configure_grub() {
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
 
-    # Show all kernels in main menu
-    if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
-    else
-        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
-    fi
-
-    # Show Btrfs snapshots in main menu (if grub-btrfs is installed)
-    if pacman -Q grub-btrfs &>/dev/null; then
-        if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
-            sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
-        else
-            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
-        fi
-    fi
-
-    # Save default entry
-    sudo grub-set-default 0
-
-    # Remove all fallback initramfs images (like systemd-boot logic)
+    # Remove all fallback initramfs images
     sudo rm -f /boot/initramfs-*-fallback.img
 
-    # Regenerate GRUB config
+    # Regenerate grub config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+    # Set default to standard linux kernel on first run
+    default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+    if [ -n "$default_entry" ]; then
+        sudo grub-set-default "$default_entry"
+        echo "Set GRUB default to: $default_entry"
+    fi
 }
 
 # --- grub-btrfs installation if needed ---
