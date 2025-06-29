@@ -87,6 +87,22 @@ configure_grub() {
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
 
+    # Show all kernels in main menu
+    if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
+        sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
+    else
+        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
+    fi
+
+    # Show Btrfs snapshots in main menu (if grub-btrfs is installed)
+    if pacman -Q grub-btrfs &>/dev/null; then
+        if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+        else
+            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+        fi
+    fi
+
     # Save default entry
     sudo grub-set-default 0
 
