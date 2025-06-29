@@ -99,6 +99,22 @@ configure_grub() {
     # Remove all fallback initramfs images
     sudo rm -f /boot/initramfs-*-fallback.img
 
+    # Show all kernels and fallback entries in main menu
+    if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
+        sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
+    else
+        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
+    fi
+
+    # Show Btrfs snapshots in main menu if grub-btrfs is installed
+    if pacman -Q grub-btrfs &>/dev/null; then
+        if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+        else
+            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+        fi
+    fi
+
     # Regenerate grub config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
