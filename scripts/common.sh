@@ -257,7 +257,9 @@ log_performance() {
   local step_name="$1"
   local current_time=$(date +%s)
   local elapsed=$((current_time - START_TIME))
-  echo -e "${CYAN}[PERF] $step_name completed in ${elapsed}s${RESET}"
+  local minutes=$((elapsed / 60))
+  local seconds=$((elapsed % 60))
+  echo -e "${CYAN}$step_name completed in ${minutes}m ${seconds}s (${elapsed}s)${RESET}"
 }
 
 # Function to collect errors from custom scripts
