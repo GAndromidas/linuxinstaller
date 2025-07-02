@@ -134,10 +134,10 @@ essential:
 # AUR packages for different installation modes
 aur:
   default:
+    - name: "dropbox"
+      description: "Cloud storage and file synchronization"
     - name: "heroic-games-launcher-bin"
       description: "Epic Games Store and GOG game launcher"
-    - name: "megasync-bin"
-      description: "Mega cloud storage sync client"
     - name: "spotify"
       description: "Music streaming service"
     - name: "stremio"
