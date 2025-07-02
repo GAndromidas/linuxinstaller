@@ -117,7 +117,7 @@ Interactive package selection with descriptions:
 
 ### **AUR Packages (Default Mode)**
 - **Gaming**: `heroic-games-launcher-bin`
-- **Cloud**: `megasync-bin`
+- **Cloud**: `dropbox`
 - **Media**: `spotify`, `stremio`
 - **Hardware**: `via-bin`
 
