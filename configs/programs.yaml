@@ -142,8 +142,12 @@ aur:
       description: "Music streaming service"
     - name: "stremio"
       description: "Media streaming platform"
+    - name: "ventoy-bin"
+      description: "Tool to create bootable USB drives for ISO files"
     - name: "via-bin"
       description: "VIA keyboard configuration tool"
+    - name: "visual-studio-code-bin"
+      description: "Code editing. Redefined."
   
   minimal:
     - name: "stremio"
