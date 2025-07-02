@@ -100,6 +100,15 @@ enable_services() {
     sshd.service
     ufw.service
   )
+
+  # Conditionally add rustdesk.service if installed
+  if pacman -Q rustdesk-bin &>/dev/null || pacman -Q rustdesk &>/dev/null; then
+    services+=(rustdesk.service)
+    log_success "rustdesk.service will be enabled."
+  else
+    log_warning "rustdesk is not installed. Skipping rustdesk.service."
+  fi
+
   step "Enabling the following system services:"
   for svc in "${services[@]}"; do
     echo -e "  - $svc"
@@ -303,4 +312,4 @@ detect_and_install_gpu_drivers() {
 # Execute all service and maintenance steps
 setup_firewall_and_services
 setup_zram_swap
-detect_and_install_gpu_drivers 
+detect_and_install_gpu_drivers

@@ -138,6 +138,8 @@ aur:
       description: "Cloud storage and file synchronization"
     - name: "heroic-games-launcher-bin"
       description: "Epic Games Store and GOG game launcher"
+    - name: "rustdesk-bin"
+      description: "Remote desktop software"
     - name: "spotify"
       description: "Music streaming service"
     - name: "stremio"
@@ -150,6 +152,8 @@ aur:
       description: "Code editing. Redefined."
   
   minimal:
+    - name: "rustdesk-bin"
+      description: "Remote desktop software"
     - name: "stremio"
       description: "Media streaming platform"
 
@@ -248,4 +252,4 @@ flatpak:
         description: "System tray application launcher"
     minimal:
       - name: "it.mijorus.gearlever"
-        description: "System tray application launcher" 
+        description: "System tray application launcher"
