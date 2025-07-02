@@ -119,6 +119,7 @@ Interactive package selection with descriptions:
 - **Gaming**: `heroic-games-launcher-bin`
 - **Cloud**: `dropbox`
 - **Media**: `spotify`, `stremio`
+- **Utilities**: `ventoy-bin`, `visual-studio-code-bin`
 - **Hardware**: `via-bin`
 
 ### **Flatpak Applications**
