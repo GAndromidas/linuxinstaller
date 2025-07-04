@@ -148,8 +148,6 @@ aur:
       description: "Tool to create bootable USB drives for ISO files"
     - name: "via-bin"
       description: "VIA keyboard configuration tool"
-    - name: "visual-studio-code-bin"
-      description: "Code editing. Redefined."
   
   minimal:
     - name: "rustdesk-bin"
