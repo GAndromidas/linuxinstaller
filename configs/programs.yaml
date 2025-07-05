@@ -206,8 +206,8 @@ flatpak:
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-      - name: "net.davidotek.pupgui2"
-        description: "ProtonUp-Qt - Wine and Proton manager"
+      - name: "com.vysp3r.ProtonPlus"
+        description: "Proton and Wine manager"
     minimal:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
