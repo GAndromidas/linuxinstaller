@@ -17,7 +17,7 @@ arch_ascii
 
 # Check system requirements for new users
 check_system_requirements() {
-  echo -e "${CYAN}🔍 Checking system requirements...${RESET}"
+  local requirements_failed=false
   
   # Check if running as root
   if [[ $EUID -eq 0 ]]; then
@@ -50,8 +50,8 @@ check_system_requirements() {
     exit 1
   fi
   
-  echo -e "${GREEN}✓ System requirements met!${RESET}"
-  echo ""
+  # Only show success message if we had to check something specific
+  # For now, we'll just silently continue if all requirements are met
 }
 
 check_system_requirements
