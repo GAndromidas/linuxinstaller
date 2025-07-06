@@ -92,8 +92,8 @@ show_menu() {
   echo ""
   echo -e "${BLUE}  1) Standard${RESET}     - Complete setup with all packages (intermediate users)"
   echo -e "${GREEN}  2) Minimal${RESET}     - Essential tools only (recommended for new users)"
-  echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install) (advanced users)"
-  echo -e "${RED}  4) Exit${RESET}        - Cancel installation"
+  echo -e "${YELLOW}  3) Custom${RESET}     - Interactive selection (choose what to install) (advanced users)"
+  echo -e "${RED}  4) Exit${RESET}          - Cancel installation"
   echo ""
 
   while true; do
