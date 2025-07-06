@@ -1,59 +1,9 @@
 # Arch Linux Installer - Programs Configuration
 # This file contains all package lists for different installation modes and desktop environments
 
-# Pacman packages for default installation mode
+# Pacman packages (same for all installation modes)
 pacman:
-  default:
-    - name: "android-tools"
-      description: "Android development and debugging tools"
-    - name: "bat"
-      description: "Enhanced cat command with syntax highlighting"
-    - name: "bleachbit"
-      description: "System cleaner and privacy tool"
-    - name: "btop"
-      description: "Resource monitor and process viewer"
-    - name: "cmatrix"
-      description: "Matrix-style terminal screensaver"
-    - name: "dosfstools"
-      description: "DOS filesystem utilities"
-    - name: "expac"
-      description: "Pacman database extraction utility"
-    - name: "firefox"
-      description: "Web browser"
-    - name: "fwupd"
-      description: "Firmware update daemon"
-    - name: "gnome-disk-utility"
-      description: "Disk management utility"
-    - name: "hwinfo"
-      description: "Hardware information tool"
-    - name: "inxi"
-      description: "System information script"
-    - name: "lib32-mangohud"
-      description: "32-bit overlay for monitoring system resources"
-    - name: "mangohud"
-      description: "Overlay for monitoring system resources"
-    - name: "net-tools"
-      description: "Network utilities (ifconfig, netstat, etc.)"
-    - name: "noto-fonts-extra"
-      description: "Additional Google Noto fonts"
-    - name: "samba"
-      description: "Windows file sharing compatibility"
-    - name: "sl"
-      description: "Steam locomotive animation"
-    - name: "speedtest-cli"
-      description: "Command line speedtest tool"
-    - name: "sshfs"
-      description: "SSH filesystem client"
-    - name: "ttf-hack-nerd"
-      description: "Hack font with Nerd Fonts icons"
-    - name: "ttf-liberation"
-      description: "Liberation font family"
-    - name: "unrar"
-      description: "RAR archive extractor"
-    - name: "xdg-desktop-portal-gtk"
-      description: "GTK portal for desktop integration"
-  
-  minimal:
+  packages:
     - name: "android-tools"
       description: "Android development and debugging tools"
     - name: "bat"
@@ -102,8 +52,6 @@ pacman:
 # Essential packages for different installation modes
 essential:
   default:
-    - name: "discord"
-      description: "Communication platform for gamers"
     - name: "filezilla"
       description: "FTP client for file transfers"
     - name: "gimp"
@@ -112,16 +60,10 @@ essential:
       description: "Video editing software"
     - name: "libreoffice-fresh"
       description: "Office productivity suite"
-    - name: "lutris"
-      description: "Game manager and launcher"
-    - name: "steam"
-      description: "Gaming platform and store"
     - name: "timeshift"
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
-    - name: "wine"
-      description: "Windows compatibility layer"
   
   minimal:
     - name: "libreoffice-fresh"
@@ -136,8 +78,6 @@ aur:
   default:
     - name: "dropbox"
       description: "Cloud storage and file synchronization"
-    - name: "heroic-games-launcher-bin"
-      description: "Epic Games Store and GOG game launcher"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
     - name: "spotify"
@@ -206,8 +146,6 @@ flatpak:
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-      - name: "com.vysp3r.ProtonPlus"
-        description: "Proton and Wine manager"
     minimal:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
@@ -220,8 +158,6 @@ flatpak:
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-      - name: "com.vysp3r.ProtonPlus"
-        description: "Proton and Wine manager"
     minimal:
       - name: "com.mattjakeman.ExtensionManager"
         description: "GNOME Extension Manager"
@@ -234,8 +170,6 @@ flatpak:
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-      - name: "com.vysp3r.ProtonPlus"
-        description: "Proton and Wine manager"
       - name: "dev.edfloreshz.CosmicTweaks"
         description: "System settings and tweaks"
     minimal:

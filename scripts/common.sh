@@ -82,21 +82,56 @@ EOF
 }
 
 show_menu() {
-  echo -e "${YELLOW}Welcome to the Arch Installer script!${RESET}"
-  echo "Please select your installation mode:"
-  echo "  1) Default"
-  echo "  2) Minimal"
-  echo "  3) Custom"
-  echo "  4) Exit"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+  echo -e "${CYAN}🚀 WELCOME TO ARCH INSTALLER${RESET}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+  echo -e "${YELLOW}This script will transform your fresh Arch Linux installation into a${RESET}"
+  echo -e "${YELLOW}fully configured, optimized system with all the tools you need!${RESET}"
+  echo ""
+  echo -e "${CYAN}📋 What this installer does:${RESET}"
+  echo -e "  • Installs essential system tools and utilities"
+  echo -e "  • Sets up your desktop environment (KDE, GNOME, or Cosmic)"
+  echo -e "  • Configures security features (firewall, SSH protection)"
+  echo -e "  • Optimizes system performance (ZRAM, Plymouth boot screen)"
+  echo -e "  • Sets up dual-boot with Windows (if detected)"
+  echo -e "  • Installs optional gaming tools (Steam, Discord, etc.)"
+  echo ""
+  echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
+  echo -e "${GREEN}  1) Default${RESET}     - Complete setup with all recommended packages"
+  echo -e "${YELLOW}  2) Minimal${RESET}     - Lightweight setup with essential tools only"
+  echo -e "${BLUE}  3) Custom${RESET}      - Interactive selection (choose what to install)"
+  echo -e "${RED}  4) Exit${RESET}        - Cancel installation"
+  echo ""
+  echo -e "${YELLOW}💡 Recommendation: Choose 'Default' for most users${RESET}"
+  echo -e "${YELLOW}   Choose 'Minimal' if you want a lightweight system${RESET}"
+  echo -e "${YELLOW}   Choose 'Custom' if you want full control${RESET}"
+  echo ""
 
   while true; do
-    read -r -p "Enter your choice [1-4]: " menu_choice
+    read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
     case "$menu_choice" in
-      1) INSTALL_MODE="default"; break ;;
-      2) INSTALL_MODE="minimal"; break ;;
-      3) INSTALL_MODE="custom"; break ;;
-      4) exit 0 ;;
-      *) echo "Invalid choice!";;
+      1) 
+        INSTALL_MODE="default"
+        echo -e "\n${GREEN}✓ Selected: Default installation (recommended)${RESET}"
+        break 
+        ;;
+      2) 
+        INSTALL_MODE="minimal"
+        echo -e "\n${YELLOW}✓ Selected: Minimal installation${RESET}"
+        break 
+        ;;
+      3) 
+        INSTALL_MODE="custom"
+        echo -e "\n${BLUE}✓ Selected: Custom installation${RESET}"
+        break 
+        ;;
+      4) 
+        echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
+        exit 0 
+        ;;
+      *) 
+        echo -e "\n${RED}❌ Invalid choice! Please enter 1, 2, 3, or 4.${RESET}\n"
+        ;;
     esac
   done
 }
@@ -207,24 +242,36 @@ print_summary() {
 
 prompt_reboot() {
   figlet_banner "Reboot System"
-  echo -e "${YELLOW}Setup is complete. It's strongly recommended to reboot your system now.\n"
+  echo -e "${YELLOW}🎉 Congratulations! Your Arch Linux system is now fully configured!${RESET}"
+  echo ""
+  echo -e "${CYAN}📋 What happens after reboot:${RESET}"
+  echo -e "  • 🎨 Beautiful boot screen will appear"
+  echo -e "  • 🖥️  Your desktop environment will be ready to use"
+  echo -e "  • 🛡️  Security features will be active"
+  echo -e "  • ⚡ Performance optimizations will be enabled"
+  echo -e "  • 🎮 Gaming tools will be available (if installed)"
+  echo ""
+  echo -e "${YELLOW}💡 It's strongly recommended to reboot now to apply all changes.\n"
   while true; do
     read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
     reboot_ans=${reboot_ans,,}
     case "$reboot_ans" in
       ""|y|yes)
-        echo -e "\n${CYAN}Rebooting...${RESET}\n"
+        echo -e "\n${CYAN}🔄 Rebooting your system...${RESET}"
+        echo -e "${YELLOW}   Thank you for using Arch Installer! 🚀${RESET}\n"
         # Silently uninstall figlet before reboot
         sudo pacman -R figlet --noconfirm >/dev/null 2>&1
         sudo reboot
         break
         ;;
       n|no)
-        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using \`sudo reboot\`.${RESET}\n"
+        echo -e "\n${YELLOW}⏸️  Reboot skipped. You can reboot manually at any time using:${RESET}"
+        echo -e "${CYAN}   sudo reboot${RESET}"
+        echo -e "${YELLOW}   Or simply restart your computer.${RESET}\n"
         break
         ;;
       *)
-        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+        echo -e "\n${RED}❌ Please answer Y (yes) or N (no).${RESET}\n"
         ;;
     esac
   done

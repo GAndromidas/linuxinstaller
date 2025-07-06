@@ -92,8 +92,7 @@ if ! ensure_yq; then
 fi
 
 # Read package lists from YAML
-read_yaml_packages "$PROGRAMS_YAML" ".pacman.default" pacman_programs_default pacman_descriptions_default
-read_yaml_packages "$PROGRAMS_YAML" ".pacman.minimal" pacman_programs_minimal pacman_descriptions_minimal
+read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_programs pacman_descriptions
 read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
 read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
 read_yaml_packages "$PROGRAMS_YAML" ".aur.default" yay_programs_default yay_descriptions_default
@@ -130,8 +129,12 @@ show_checklist() {
 
 # Custom selection for Pacman/Essential
 custom_package_selection() {
-  # Combine and deduplicate pacman packages
-  local all_pkgs=($(printf "%s\n" "${pacman_programs_default[@]}" "${pacman_programs_minimal[@]}" | sort -u))
+  # Pacman packages are auto-selected (same for all modes)
+  pacman_programs=("${pacman_programs[@]}")
+  log_info "Pacman packages auto-selected (same for all installation modes)"
+  
+  # Essential packages selection
+  local all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
   local choices=()
   
   for pkg in "${all_pkgs[@]}"; do
@@ -139,15 +142,15 @@ custom_package_selection() {
     
     # Find description for this package
     local description="$pkg"
-    for i in "${!pacman_programs_default[@]}"; do
-      if [[ "${pacman_programs_default[$i]}" == "$pkg" ]]; then
-        description="${pacman_descriptions_default[$i]}"
+    for i in "${!essential_programs_default[@]}"; do
+      if [[ "${essential_programs_default[$i]}" == "$pkg" ]]; then
+        description="${essential_descriptions_default[$i]}"
         break
       fi
     done
-    for i in "${!pacman_programs_minimal[@]}"; do
-      if [[ "${pacman_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${pacman_descriptions_minimal[$i]}"
+    for i in "${!essential_programs_minimal[@]}"; do
+      if [[ "${essential_programs_minimal[$i]}" == "$pkg" ]]; then
+        description="${essential_descriptions_minimal[$i]}"
         break
       fi
     done
@@ -156,7 +159,7 @@ custom_package_selection() {
     local display_text="$pkg - $description"
     
     # Only pre-select minimal packages, not default packages
-    if [[ " ${pacman_programs_minimal[*]} " == *" $pkg "* ]]; then
+    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$display_text" "on")
     else
       choices+=("$pkg" "$display_text" "off")
@@ -164,11 +167,11 @@ custom_package_selection() {
   done
   
   local selected
-  selected=$(show_checklist "Select Pacman packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  pacman_programs=()
+  selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+  essential_programs=()
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
-    pacman_programs+=("$pkg")
+    essential_programs+=("$pkg")
   done <<< "$selected"
 
   # Essential packages
@@ -697,11 +700,11 @@ print_programs_summary() {
 
 # Use INSTALL_MODE from menu instead of command-line flags
 if [[ "$INSTALL_MODE" == "default" ]]; then
-  pacman_programs=("${pacman_programs_default[@]}")
+  # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_default[@]}")
   yay_programs=("${yay_programs_default[@]}")
 elif [[ "$INSTALL_MODE" == "minimal" ]]; then
-  pacman_programs=("${pacman_programs_minimal[@]}")
+  # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then

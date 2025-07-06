@@ -22,7 +22,7 @@
 
 - **🔧 Three Installation Modes**: Default (full setup), Minimal (core utilities), Custom (interactive selection)
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
-- **🎮 Gaming Optimizations**: GameMode integration with GPU-specific optimizations
+- **🎮 Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (MangoHud, GameMode, Steam, Lutris, Wine, Discord, Heroic Games Launcher, ProtonPlus)
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and system service configuration
 - **⚡ Performance Tuning**: ZRAM, Plymouth boot screen, and system optimizations
 - **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration
@@ -71,6 +71,9 @@ Interactive package selection with descriptions:
 - Detailed package descriptions
 - Granular control over installations
 - Preview of total packages before installation
+- **Auto-selected Pacman packages**: Core system packages are automatically included (no user choice needed)
+- **Essential packages selection**: Choose productivity and media applications
+- **AUR and Flatpak selection**: Select additional applications from AUR and Flatpak
 
 ---
 
@@ -100,33 +103,37 @@ Interactive package selection with descriptions:
 
 ## 📦 Package Categories
 
-### **Pacman Packages (Default Mode)**
+### **Pacman Packages (All Modes)**
 - **Development**: `android-tools`, `git`, `base-devel`
 - **System Tools**: `btop`, `hwinfo`, `inxi`, `gnome-disk-utility`
 - **Utilities**: `bat`, `eza`, `fzf`, `zoxide`, `fastfetch`
-- **Gaming**: `gamemode`, `mangohud`, `lib32-gamemode`, `lib32-mangohud`
 - **Media**: `vlc`, `firefox`, `ttf-hack-nerd`, `ttf-liberation`
 - **System**: `ufw`, `fail2ban`, `reflector`, `zram-generator`
 - **Networking**: `openssh`, `sshfs`, `net-tools`, `samba`
 
+*Note: Gaming packages (GameMode, MangoHud, Steam, etc.) are now part of the optional Gaming Mode*
+
 ### **Essential Packages (Default Mode)**
 - **Productivity**: `libreoffice-fresh`, `gimp`, `kdenlive`
-- **Gaming**: `steam`, `lutris`, `discord`
 - **Media**: `vlc`, `timeshift`
-- **Utilities**: `filezilla`, `wine`
+- **Utilities**: `filezilla`
+
+*Note: Gaming packages (Steam, Lutris, Discord, Wine) are now part of the optional Gaming Mode*
 
 ### **AUR Packages (Default Mode)**
-- **Gaming**: `heroic-games-launcher-bin`
 - **Cloud**: `dropbox`
 - **Media**: `spotify`, `stremio`
 - **Utilities**: `ventoy-bin`, `visual-studio-code-bin`
 - **Hardware**: `via-bin`
 
+*Note: Gaming packages (Heroic Games Launcher) are now part of the optional Gaming Mode*
+
 ### **Flatpak Applications**
 - **Desktop Integration**: `io.github.shiftey.Desktop`
 - **System Tools**: `it.mijorus.gearlever`, `dev.edfloreshz.CosmicTweaks`
-- **Gaming**: `net.davidotek.pupgui2`, `com.vysp3r.ProtonPlus`
 - **Extensions**: `com.mattjakeman.ExtensionManager`
+
+*Note: Gaming Flatpaks (ProtonPlus) are now part of the optional Gaming Mode*
 
 ---
 
@@ -139,14 +146,14 @@ Interactive package selection with descriptions:
 - **CPU Microcode**: Automatic Intel/AMD microcode installation
 - **Kernel Headers**: Automatic installation for all installed kernels
 
-### **Gaming Optimizations (GameMode)**
-- **CPU Governor**: Performance mode during gaming
-- **GPU Optimizations**: 
-  - NVIDIA: PowerMizer performance mode
-  - AMD: Performance DPM level
-- **System Tweaks**: Lower swappiness, real-time priority
-- **Desktop Integration**: KDE compositor suspension
-- **VM Detection**: Minimal config for virtual machines
+### **Gaming Mode Features**
+- **Interactive Setup**: Y/n prompt with default "Yes" (press Enter to accept)
+- **Performance Monitoring**: MangoHud for real-time system monitoring
+- **GameMode**: Default GameMode installation (vanilla configuration)
+- **Gaming Platforms**: Steam, Lutris, Discord, Heroic Games Launcher
+- **Compatibility**: Wine for Windows game compatibility
+- **Proton Management**: ProtonPlus for Wine/Proton version management
+- **Hardware Support**: Works on any system (VM detection included)
 
 ### **Security Hardening**
 - **Fail2ban**: SSH protection with 30-minute bans, 3 retry limit
@@ -191,6 +198,8 @@ chmod +x install.sh
 ./install.sh
 ```
 
+📖 **For detailed instructions and troubleshooting, see [USAGE.md](USAGE.md)**
+
 ### **Requirements**
 - ✅ Fresh Arch Linux installation
 - ✅ Regular user with sudo privileges (NOT root)
@@ -203,7 +212,7 @@ chmod +x install.sh
 3. **Plymouth Setup**: Boot screen configuration
 4. **YAY Installation**: AUR helper setup
 5. **Programs Installation**: Package installation based on mode and DE
-6. **GameMode Setup**: Gaming optimizations
+6. **Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (optional)
 7. **Bootloader and Kernel Configuration**: Detects and configures GRUB or systemd-boot, sets kernel parameters, enables Plymouth, integrates Btrfs support for GRUB, and robustly configures Windows dual-boot if detected
 8. **Fail2ban Setup**: Security hardening
 9. **System Services**: Service enablement and configuration
@@ -387,8 +396,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 📈 Version History
 
 ### **Latest Features**
-- ✨ Custom installation mode with interactive package selection
-- 🎮 Enhanced GameMode with GPU-specific optimizations
+- ✨ **Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup
+- 🔧 **Streamlined Package Management**: Combined pacman packages, auto-selection in custom mode
+- 🎮 **Modern Gaming Support**: Steam, Lutris, Discord, Heroic Games Launcher, ProtonPlus
 - 🔒 Improved security with Fail2ban and firewall configuration
 - 🖥️ Better desktop environment detection and optimization
 - ⚡ Performance improvements with ZRAM and system tuning
