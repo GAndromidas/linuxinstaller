@@ -94,10 +94,6 @@ show_menu() {
   echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install)"
   echo -e "${RED}  4) Exit${RESET}        - Cancel installation"
   echo ""
-  echo -e "${YELLOW}💡 Recommendation: Choose 'Minimal' for new users${RESET}"
-  echo -e "${YELLOW}   Choose 'Default' if you want all packages and tools${RESET}"
-  echo -e "${YELLOW}   Choose 'Custom' if you want full control${RESET}"
-  echo ""
 
   while true; do
     read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
