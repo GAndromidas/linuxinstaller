@@ -90,10 +90,10 @@ show_menu() {
   echo ""
   echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
   echo ""
-  echo -e "${BLUE}  1) Standard${RESET}      - Complete setup with all packages (intermediate users)"
-  echo -e "${GREEN}  2) Minimal${RESET}      - Essential tools only (recommended for new users)"
-  echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install) (advanced users)"
-  echo -e "${RED}  4) Exit${RESET}           - Cancel installation"
+  printf "${BLUE}  1) Standard${RESET}%-12s - Complete setup with all packages (intermediate users)\n" ""
+  printf "${GREEN}  2) Minimal${RESET}%-13s - Essential tools only (recommended for new users)\n" ""
+  printf "${YELLOW}  3) Custom${RESET}%-14s - Interactive selection (choose what to install) (advanced users)\n" ""
+  printf "${RED}  4) Exit${RESET}%-16s - Cancel installation\n" ""
   echo ""
 
   while true; do
