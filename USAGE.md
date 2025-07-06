@@ -27,15 +27,15 @@
    ```
 
 4. **Follow the prompts:**
-   - Choose your installation mode (Default/Minimal/Custom)
+   - Choose your installation mode (Standard/Minimal/Custom)
    - Enter your password when prompted
    - Wait for the installation to complete (10-20 minutes)
    - Reboot when finished
 
 ## 🎯 Installation Modes
 
-### Default Mode (Advanced Users)
-- **Best for:** Advanced users who want all packages and tools
+### Standard Mode (Intermediate Users)
+- **Best for:** Intermediate users who want all packages and tools
 - **What it includes:**
   - Complete desktop environment setup
   - All applications and utilities

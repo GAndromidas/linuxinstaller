@@ -50,8 +50,8 @@
 
 ## 🛠️ Installation Modes
 
-### 1. **Default Mode** 🎯
-Complete setup with all recommended packages and optimizations:
+### 1. **Standard Mode** 🎯
+Complete setup with all recommended packages and optimizations (intermediate users):
 - Full package suite (30+ Pacman packages, 8+ AUR packages)
 - Desktop environment-specific optimizations
 - Gaming tools and optimizations
@@ -113,14 +113,14 @@ Interactive package selection with descriptions:
 
 *Note: Gaming packages (GameMode, MangoHud, Steam, etc.) are now part of the optional Gaming Mode*
 
-### **Essential Packages (Default Mode)**
+### **Essential Packages (Standard Mode)**
 - **Productivity**: `libreoffice-fresh`, `gimp`, `kdenlive`
 - **Media**: `vlc`, `timeshift`
 - **Utilities**: `filezilla`
 
 *Note: Gaming packages (Steam, Lutris, Discord, Wine) are now part of the optional Gaming Mode*
 
-### **AUR Packages (Default Mode)**
+### **AUR Packages (Standard Mode)**
 - **Cloud**: `dropbox`
 - **Media**: `spotify`, `stremio`
 - **Utilities**: `ventoy-bin`, `visual-studio-code-bin`
@@ -299,7 +299,7 @@ chmod +x install.sh
 
 ## 📊 Installation Statistics
 
-### **Default Mode**
+### **Standard Mode**
 - **Pacman Packages**: 30+ packages
 - **AUR Packages**: 8+ packages  
 - **Flatpak Apps**: 3-4 apps (DE-dependent)

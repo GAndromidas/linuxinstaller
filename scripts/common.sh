@@ -90,9 +90,9 @@ show_menu() {
   echo ""
   echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
   echo ""
-  echo -e "${BLUE}  1) Default${RESET}     - Complete setup with all packages (advanced users)"
+  echo -e "${BLUE}  1) Standard${RESET}     - Complete setup with all packages (intermediate users)"
   echo -e "${GREEN}  2) Minimal${RESET}     - Essential tools only (recommended for new users)"
-  echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install)"
+  echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install) (advanced users)"
   echo -e "${RED}  4) Exit${RESET}        - Cancel installation"
   echo ""
 
@@ -101,7 +101,7 @@ show_menu() {
           case "$menu_choice" in
         1) 
           INSTALL_MODE="default"
-          echo -e "\n${YELLOW}✓ Selected: Default installation (advanced users)${RESET}"
+          echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
           break 
           ;;
         2) 
@@ -111,7 +111,7 @@ show_menu() {
           ;;
         3) 
           INSTALL_MODE="custom"
-          echo -e "\n${BLUE}✓ Selected: Custom installation${RESET}"
+          echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
           break 
           ;;
       4) 
