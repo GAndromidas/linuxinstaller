@@ -34,20 +34,21 @@
 
 ## 🎯 Installation Modes
 
-### Default Mode (Recommended)
-- **Best for:** Most users, especially newcomers
+### Default Mode (Advanced Users)
+- **Best for:** Advanced users who want all packages and tools
 - **What it includes:**
   - Complete desktop environment setup
-  - All essential applications
+  - All applications and utilities
   - Security features
   - Performance optimizations
   - Optional gaming tools
+  - Additional tools (GIMP, Kdenlive, FileZilla, etc.)
 
-### Minimal Mode
-- **Best for:** Users who want a lightweight system
+### Minimal Mode (Recommended for New Users)
+- **Best for:** New users and those who want a clean, essential setup
 - **What it includes:**
   - Basic desktop environment
-  - Essential tools only
+  - Essential tools only (LibreOffice, VLC, Timeshift)
   - Security features
   - Performance optimizations
 

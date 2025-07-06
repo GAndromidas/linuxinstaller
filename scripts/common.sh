@@ -97,34 +97,34 @@ show_menu() {
   echo -e "  • Installs optional gaming tools (Steam, Discord, etc.)"
   echo ""
   echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
-  echo -e "${GREEN}  1) Default${RESET}     - Complete setup with all recommended packages"
-  echo -e "${YELLOW}  2) Minimal${RESET}     - Lightweight setup with essential tools only"
+  echo -e "${YELLOW}  1) Default${RESET}     - Complete setup with all packages (advanced users)"
+  echo -e "${GREEN}  2) Minimal${RESET}     - Essential tools only (recommended for new users)"
   echo -e "${BLUE}  3) Custom${RESET}      - Interactive selection (choose what to install)"
   echo -e "${RED}  4) Exit${RESET}        - Cancel installation"
   echo ""
-  echo -e "${YELLOW}💡 Recommendation: Choose 'Default' for most users${RESET}"
-  echo -e "${YELLOW}   Choose 'Minimal' if you want a lightweight system${RESET}"
+  echo -e "${YELLOW}💡 Recommendation: Choose 'Minimal' for new users${RESET}"
+  echo -e "${YELLOW}   Choose 'Default' if you want all packages and tools${RESET}"
   echo -e "${YELLOW}   Choose 'Custom' if you want full control${RESET}"
   echo ""
 
   while true; do
     read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
-    case "$menu_choice" in
-      1) 
-        INSTALL_MODE="default"
-        echo -e "\n${GREEN}✓ Selected: Default installation (recommended)${RESET}"
-        break 
-        ;;
-      2) 
-        INSTALL_MODE="minimal"
-        echo -e "\n${YELLOW}✓ Selected: Minimal installation${RESET}"
-        break 
-        ;;
-      3) 
-        INSTALL_MODE="custom"
-        echo -e "\n${BLUE}✓ Selected: Custom installation${RESET}"
-        break 
-        ;;
+          case "$menu_choice" in
+        1) 
+          INSTALL_MODE="default"
+          echo -e "\n${YELLOW}✓ Selected: Default installation (advanced users)${RESET}"
+          break 
+          ;;
+        2) 
+          INSTALL_MODE="minimal"
+          echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
+          break 
+          ;;
+        3) 
+          INSTALL_MODE="custom"
+          echo -e "\n${BLUE}✓ Selected: Custom installation${RESET}"
+          break 
+          ;;
       4) 
         echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
         exit 0 
