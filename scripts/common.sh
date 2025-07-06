@@ -89,6 +89,7 @@ show_menu() {
   echo -e "${YELLOW}fully configured, optimized system with all the tools you need!${RESET}"
   echo ""
   echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
+  echo ""
   echo -e "${BLUE}  1) Default${RESET}     - Complete setup with all packages (advanced users)"
   echo -e "${GREEN}  2) Minimal${RESET}     - Essential tools only (recommended for new users)"
   echo -e "${YELLOW}  3) Custom${RESET}      - Interactive selection (choose what to install)"
