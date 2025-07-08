@@ -173,46 +173,6 @@ custom_package_selection() {
     [[ -z "$pkg" ]] && continue
     essential_programs+=("$pkg")
   done <<< "$selected"
-
-  # Essential packages
-  all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
-  choices=()
-  
-  for pkg in "${all_pkgs[@]}"; do
-    [[ -z "$pkg" ]] && continue
-    
-    # Find description for this package
-    local description="$pkg"
-    for i in "${!essential_programs_default[@]}"; do
-      if [[ "${essential_programs_default[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_default[$i]}"
-        break
-      fi
-    done
-    for i in "${!essential_programs_minimal[@]}"; do
-      if [[ "${essential_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_minimal[$i]}"
-        break
-      fi
-    done
-    
-    # Create display text: "package_name - description"
-    local display_text="$pkg - $description"
-    
-    # Only pre-select minimal packages, not default packages
-    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$display_text" "on")
-    else
-      choices+=("$pkg" "$display_text" "off")
-    fi
-  done
-  
-  selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  essential_programs=()
-  while IFS= read -r pkg; do
-    [[ -z "$pkg" ]] && continue
-    essential_programs+=("$pkg")
-  done <<< "$selected"
 }
 
 # Custom selection for AUR
