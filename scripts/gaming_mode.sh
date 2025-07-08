@@ -26,7 +26,7 @@ while true; do
         n|no)
             log_info "Gaming Mode skipped."
             echo -e "\n"
-            exit 0
+            return 0
             ;;
         *)
             echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
