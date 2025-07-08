@@ -28,6 +28,8 @@ pacman:
       description: "Hardware information tool"
     - name: "inxi"
       description: "System information script"
+    - name: "ncdu"
+      description: "Disk usage analyzer with interactive interface"
     - name: "net-tools"
       description: "Network utilities (ifconfig, netstat, etc.)"
     - name: "noto-fonts-extra"
