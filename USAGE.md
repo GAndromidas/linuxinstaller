@@ -12,7 +12,7 @@
 
 1. **Download the installer:**
    ```bash
-   git clone https://github.com/yourusername/archinstaller.git
+   git clone https://github.com/gandromidas/archinstaller.git
    cd archinstaller
    ```
 
@@ -41,8 +41,7 @@
   - All applications and utilities
   - Security features
   - Performance optimizations
-  - Optional gaming tools
-  - Additional tools (GIMP, Kdenlive, FileZilla, etc.)
+  - Additional productivity tools (Krita, Kdenlive, FileZilla, etc.)
 
 ### Minimal Mode (Recommended for New Users)
 - **Best for:** New users and those who want a clean, essential setup
@@ -51,13 +50,15 @@
   - Essential tools only (LibreOffice, VLC, Timeshift)
   - Security features
   - Performance optimizations
+  - Core system utilities
 
-### Custom Mode
+### Custom Mode (Advanced Users)
 - **Best for:** Advanced users who want full control
 - **What it includes:**
   - Interactive package selection
   - Choose what to install
   - Full customization options
+  - Detailed package descriptions
 
 ## 🎮 Gaming Mode
 
@@ -68,6 +69,8 @@ When prompted, you can choose to install gaming tools:
 - **Wine** - Run Windows games
 - **Heroic Games Launcher** - Epic Games Store alternative
 - **ProtonPlus** - Steam Proton management tool
+- **MangoHud** - Performance monitoring overlay
+- **GameMode** - System optimization for gaming
 
 ## 🔧 What Gets Installed
 
@@ -91,6 +94,8 @@ When prompted, you can choose to install gaming tools:
 - **Text Editor** - Kate (KDE) / Gedit (GNOME)
 - **Media Player** - VLC
 - **Image Viewer** - Gwenview (KDE) / Eye of GNOME
+- **Office Suite** - LibreOffice
+- **System Backup** - Timeshift
 
 ## 🛡️ Security Features
 

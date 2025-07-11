@@ -2,7 +2,7 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
 [![Total Downloads](https://img.shields.io/github/downloads/GAndromidas/archinstaller/total.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/GAndromidas/archinstaller.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/commits/main)
+[![Last Commit](https://img.shields.io/badge/github-last%20commit-blue.svg?style=for-the-badge)](https://github.com/GAndromidas/archinstaller/commits/main)
 
 ---
 
@@ -16,11 +16,11 @@
 
 ## 🚀 Overview
 
-**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, gaming optimizations, security hardening, and robust dual-boot support.
+**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, security hardening, and robust dual-boot support.
 
 ### ✨ Key Features
 
-- **🔧 Three Installation Modes**: Default (full setup), Minimal (core utilities), Custom (interactive selection)
+- **🔧 Three Installation Modes**: Standard (full setup), Minimal (core utilities - recommended for new users), Custom (interactive selection)
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
 - **🎮 Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (MangoHud, GameMode, Steam, Lutris, Wine, Discord, Heroic Games Launcher, ProtonPlus)
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and system service configuration
@@ -50,22 +50,24 @@
 
 ## 🛠️ Installation Modes
 
-### 1. **Standard Mode** 🎯
-Complete setup with all recommended packages and optimizations (intermediate users):
-- Full package suite (30+ Pacman packages, 8+ AUR packages)
+### 1. **Standard Mode** 🎯 (Intermediate Users)
+Complete setup with all recommended packages and optimizations:
+- Full package suite (25+ Pacman packages, 6+ AUR packages)
 - Desktop environment-specific optimizations
-- Gaming tools and optimizations
+- Additional productivity and media applications
 - Security hardening
 - Performance tuning
+- **Perfect for**: Intermediate users who want all packages and tools
 
-### 2. **Minimal Mode** ⚡
+### 2. **Minimal Mode** ⚡ (Recommended for New Users)
 Lightweight setup with essential utilities:
-- Core system utilities (28 Pacman packages, 4 AUR packages)
+- Core system utilities (25 Pacman packages, 2 AUR packages)
 - Basic desktop environment support
 - Essential security features
 - Minimal performance optimizations
+- **Perfect for**: New users who want a clean, essential setup
 
-### 3. **Custom Mode** 🎛️
+### 3. **Custom Mode** 🎛️ (Advanced Users)
 Interactive package selection with descriptions:
 - Whiptail-based GUI for package selection
 - Detailed package descriptions
@@ -82,17 +84,17 @@ Interactive package selection with descriptions:
 ### **KDE Plasma** 🟦
 - **Install**: KDE-specific utilities and optimizations
 - **Remove**: Conflicting packages
-- **Flatpaks**: Desktop environment, GearLever, ProtonUp-Qt
+- **Flatpaks**: Desktop environment, GearLever
 
 ### **GNOME** 🟪
 - **Install**: GNOME-specific utilities and extensions
 - **Remove**: Conflicting packages  
-- **Flatpaks**: Extension Manager, Desktop environment, GearLever, ProtonPlus
+- **Flatpaks**: Extension Manager, Desktop environment, GearLever
 
 ### **Cosmic** 🟨
 - **Install**: Cosmic-specific utilities and tweaks
 - **Remove**: Conflicting packages
-- **Flatpaks**: Desktop environment, GearLever, ProtonPlus, CosmicTweaks
+- **Flatpaks**: Desktop environment, GearLever, CosmicTweaks
 
 ### **Other DEs/WMs** 🔧
 - Falls back to minimal package set
@@ -107,33 +109,33 @@ Interactive package selection with descriptions:
 - **Development**: `android-tools`, `git`, `base-devel`
 - **System Tools**: `btop`, `hwinfo`, `inxi`, `gnome-disk-utility`
 - **Utilities**: `bat`, `eza`, `fzf`, `zoxide`, `fastfetch`
-- **Media**: `vlc`, `firefox`, `ttf-hack-nerd`, `ttf-liberation`
+- **Media**: `firefox`, `ttf-hack-nerd`, `ttf-liberation`
 - **System**: `ufw`, `fail2ban`, `reflector`, `zram-generator`
 - **Networking**: `openssh`, `sshfs`, `net-tools`, `samba`
 
-*Note: Gaming packages (GameMode, MangoHud, Steam, etc.) are now part of the optional Gaming Mode*
-
 ### **Essential Packages (Standard Mode)**
-- **Productivity**: `libreoffice-fresh`, `gimp`, `kdenlive`
+- **Productivity**: `libreoffice-fresh`, `krita`, `kdenlive`
 - **Media**: `vlc`, `timeshift`
 - **Utilities**: `filezilla`
 
-*Note: Gaming packages (Steam, Lutris, Discord, Wine) are now part of the optional Gaming Mode*
+### **Essential Packages (Minimal Mode)**
+- **Productivity**: `libreoffice-fresh`
+- **Media**: `vlc`, `timeshift`
 
 ### **AUR Packages (Standard Mode)**
 - **Cloud**: `dropbox`
 - **Media**: `spotify`, `stremio`
-- **Utilities**: `ventoy-bin`, `visual-studio-code-bin`
-- **Hardware**: `via-bin`
+- **Utilities**: `ventoy-bin`, `via-bin`
+- **Remote Access**: `rustdesk-bin`
 
-*Note: Gaming packages (Heroic Games Launcher) are now part of the optional Gaming Mode*
+### **AUR Packages (Minimal Mode)**
+- **Media**: `stremio`
+- **Remote Access**: `rustdesk-bin`
 
 ### **Flatpak Applications**
 - **Desktop Integration**: `io.github.shiftey.Desktop`
 - **System Tools**: `it.mijorus.gearlever`, `dev.edfloreshz.CosmicTweaks`
 - **Extensions**: `com.mattjakeman.ExtensionManager`
-
-*Note: Gaming Flatpaks (ProtonPlus) are now part of the optional Gaming Mode*
 
 ---
 
@@ -146,7 +148,7 @@ Interactive package selection with descriptions:
 - **CPU Microcode**: Automatic Intel/AMD microcode installation
 - **Kernel Headers**: Automatic installation for all installed kernels
 
-### **Gaming Mode Features**
+### **Gaming Mode Features** (Optional)
 - **Interactive Setup**: Y/n prompt with default "Yes" (press Enter to accept)
 - **Performance Monitoring**: MangoHud for real-time system monitoring
 - **GameMode**: Default GameMode installation (vanilla configuration)
