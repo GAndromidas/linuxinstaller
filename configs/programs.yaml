@@ -56,8 +56,6 @@ essential:
   default:
     - name: "filezilla"
       description: "FTP client for file transfers"
-    - name: "krita"
-      description: "Digital painting and image editing software"
     - name: "kdenlive"
       description: "Video editing software"
     - name: "libreoffice-fresh"
