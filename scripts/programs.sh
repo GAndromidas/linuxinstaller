@@ -39,14 +39,14 @@ read_yaml_packages() {
   local yaml_path="$2"
   local -n packages_array="$3"
   local -n descriptions_array="$4"
-  
+
   packages_array=()
   descriptions_array=()
-  
+
   # Use yq to extract packages and descriptions
   local yq_output
   yq_output=$(yq -r "$yaml_path[] | [.name, .description] | @tsv" "$yaml_file" 2>/dev/null)
-  
+
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS=$'\t' read -r name description; do
       [[ -z "$name" ]] && continue
@@ -61,13 +61,13 @@ read_yaml_simple_packages() {
   local yaml_file="$1"
   local yaml_path="$2"
   local -n packages_array="$3"
-  
+
   packages_array=()
-  
+
   # Use yq to extract simple package names
   local yq_output
   yq_output=$(yq -r "$yaml_path[]" "$yaml_file" 2>/dev/null)
-  
+
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS= read -r package; do
       [[ -z "$package" ]] && continue
@@ -132,14 +132,14 @@ custom_package_selection() {
   # Pacman packages are auto-selected (same for all modes)
   pacman_programs=("${pacman_programs[@]}")
   log_info "Pacman packages auto-selected (same for all installation modes)"
-  
+
   # Essential packages selection
   local all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
   local choices=()
-  
+
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
-    
+
     # Find description for this package
     local description="$pkg"
     for i in "${!essential_programs_default[@]}"; do
@@ -154,10 +154,10 @@ custom_package_selection() {
         break
       fi
     done
-    
+
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-    
+
     # Only pre-select minimal packages, not default packages
     if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
       choices+=("$pkg" "$display_text" "on")
@@ -165,7 +165,7 @@ custom_package_selection() {
       choices+=("$pkg" "$display_text" "off")
     fi
   done
-  
+
   local selected
   selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   essential_programs=()
@@ -179,10 +179,10 @@ custom_package_selection() {
 custom_aur_selection() {
   local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
   local choices=()
-  
+
   for pkg in "${all_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
-    
+
     # Find description for this package
     local description="$pkg"
     for i in "${!yay_programs_default[@]}"; do
@@ -197,14 +197,14 @@ custom_aur_selection() {
         break
       fi
     done
-    
+
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-    
+
     # Set all packages to "off" by default - no pre-selection
     choices+=("$pkg" "$display_text" "off")
   done
-  
+
   local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   yay_programs=()
@@ -219,44 +219,44 @@ custom_flatpak_selection() {
   # Get flatpak packages from YAML based on detected DE
   local flatpak_data=()
   local de_lower=""
-  
+
   case "$XDG_CURRENT_DESKTOP" in
     KDE) de_lower="kde" ;;
     GNOME) de_lower="gnome" ;;
     COSMIC) de_lower="cosmic" ;;
     *) de_lower="generic" ;;
   esac
-  
+
   echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
-  
-  # Read flatpak packages from YAML - use 'default' section to show available options
+
+  # Read flatpak packages from YAML - use 'default' section which contains all flatpaks
   local yq_output
   yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
-  
+
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS=$'\t' read -r name description; do
       [[ -z "$name" ]] && continue
       flatpak_data+=("$name|$description")
     done <<< "$yq_output"
   fi
-  
+
   echo -e "${CYAN}Available flatpak packages: ${#flatpak_data[@]}${RESET}"
-  
+
   local choices=()
   for flatpak_entry in "${flatpak_data[@]}"; do
     [[ -z "$flatpak_entry" ]] && continue
-    
+
     # Extract package name and description
     local pkg=$(echo "$flatpak_entry" | cut -d'|' -f1)
     local description=$(echo "$flatpak_entry" | cut -d'|' -f2-)
-    
+
     # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-    
+
     # Set all packages to "off" by default - no pre-selection
     choices+=("$pkg" "$display_text" "off")
   done
-  
+
   local selected
   selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
   flatpak_programs=()
@@ -264,7 +264,7 @@ custom_flatpak_selection() {
     [[ -z "$pkg" ]] && continue
     flatpak_programs+=("$pkg")
   done <<< "$selected"
-  
+
   echo -e "${CYAN}User selected flatpak packages: ${flatpak_programs[*]}${RESET}"
 }
 
@@ -274,11 +274,11 @@ is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/nu
 
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
-check_yay() { 
-  if ! command -v yay &>/dev/null; then 
-    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped."; 
-    return 1; 
-  fi; 
+check_yay() {
+  if ! command -v yay &>/dev/null; then
+    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped.";
+    return 1;
+  fi;
   return 0;
 }
 
@@ -294,18 +294,18 @@ check_flatpak() {
   fi
   step "Updating Flatpak remotes"
   flatpak update -y
-  
+
   # Update desktop database to ensure Flatpak apps appear in menus
   step "Updating desktop database for Flatpak integration"
   if command -v update-desktop-database &>/dev/null; then
     # Update system-wide desktop database
     sudo update-desktop-database /usr/share/applications/ 2>/dev/null || true
-    
+
     # Update user-specific desktop database
     if [[ -d "$HOME/.local/share/applications" ]]; then
       update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
     fi
-    
+
     # Update Flatpak-specific desktop databases
     if [[ -d "/var/lib/flatpak/exports/share/applications" ]]; then
       sudo update-desktop-database /var/lib/flatpak/exports/share/applications 2>/dev/null || true
@@ -313,12 +313,12 @@ check_flatpak() {
     if [[ -d "$HOME/.local/share/flatpak/exports/share/applications" ]]; then
       update-desktop-database "$HOME/.local/share/flatpak/exports/share/applications" 2>/dev/null || true
     fi
-    
+
     log_success "Desktop database updated for Flatpak integration"
   else
     log_warning "update-desktop-database not found. Flatpak apps may not appear in menus until session restart."
   fi
-  
+
   return 0
 }
 
@@ -328,14 +328,14 @@ install_pacman_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
-  
+
   if [ $total -eq 0 ]; then
     echo -e "${YELLOW}No Pacman packages to install${RESET}"
     return
   fi
-  
+
   echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
-  
+
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
@@ -343,7 +343,7 @@ install_pacman_quietly() {
       print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    
+
     print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       print_status " [OK]" "$GREEN"
@@ -354,7 +354,7 @@ install_pacman_quietly() {
       PROGRAMS_ERRORS+=("Failed to install $pkg")
     fi
   done
-  
+
   echo -e "\n${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
@@ -362,14 +362,14 @@ install_flatpak_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
-  
+
   if [ $total -eq 0 ]; then
     echo -e "${YELLOW}No Flatpak packages to install${RESET}"
     return
   fi
-  
+
   echo -e "${CYAN}Installing ${total} packages via Flatpak...${RESET}"
-  
+
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if flatpak list --app | grep -qw "$pkg"; then
@@ -377,7 +377,7 @@ install_flatpak_quietly() {
       print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    
+
     print_progress "$current" "$total" "$pkg"
     if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
       print_status " [OK]" "$GREEN"
@@ -388,7 +388,7 @@ install_flatpak_quietly() {
       PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
     fi
   done
-  
+
   echo -e "\n${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
@@ -396,14 +396,14 @@ install_aur_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
-  
+
   if [ $total -eq 0 ]; then
     echo -e "${YELLOW}No AUR packages to install${RESET}"
     return
   fi
-  
+
   echo -e "${CYAN}Installing ${total} packages via AUR (yay)...${RESET}"
-  
+
   for pkg in "${pkgs[@]}"; do
     ((current++))
     if pacman -Q "$pkg" &>/dev/null; then
@@ -411,7 +411,7 @@ install_aur_quietly() {
       print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    
+
     print_progress "$current" "$total" "$pkg"
     if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
       print_status " [OK]" "$GREEN"
@@ -422,7 +422,7 @@ install_aur_quietly() {
       PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
     fi
   done
-  
+
   echo -e "\n${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
 }
 
@@ -464,13 +464,13 @@ detect_desktop_environment() {
 
 print_total_packages() {
   step "Calculating total packages to install"
-  
+
   # Calculate Pacman packages
   local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
-  
+
   # Calculate AUR packages
   local aur_total=${#yay_programs[@]}
-  
+
   # Calculate Flatpak packages (approximate based on DE)
   local flatpak_total=0
   if [[ "$INSTALL_MODE" == "default" ]]; then
@@ -488,10 +488,10 @@ print_total_packages() {
       *) flatpak_total=1 ;;
     esac
   fi
-  
+
   # Calculate total
   local total_packages=$((pacman_total + aur_total + flatpak_total))
-  
+
   echo -e "${CYAN}Total packages to install: ${total_packages}${RESET}"
   echo -e "  ${GREEN}Pacman: ${pacman_total}${RESET}"
   echo -e "  ${YELLOW}AUR: ${aur_total}${RESET}"
@@ -505,16 +505,16 @@ remove_programs() {
     log_success "No specific programs to remove."
     return
   fi
-  
+
   local total=${#specific_remove_programs[@]}
   local current=0
-  
+
   echo -e "${CYAN}Removing ${total} DE-specific programs...${RESET}"
-  
+
   for program in "${specific_remove_programs[@]}"; do
     ((current++))
     print_progress "$current" "$total" "$program"
-    
+
     if is_package_installed "$program"; then
       if sudo pacman -Rns --noconfirm "$program" >/dev/null 2>&1; then
         print_status " [OK]" "$GREEN"
@@ -527,7 +527,7 @@ remove_programs() {
       print_status " [SKIP] Not installed" "$YELLOW"
     fi
   done
-  
+
   echo -e "\n${GREEN}✓ Program removal completed (${current}/${total} programs processed)${RESET}\n"
 }
 
@@ -569,13 +569,13 @@ get_flatpak_packages() {
   local de="$1"
   local mode="$2"
   local -n packages_array="$3"
-  
+
   packages_array=()
-  
+
   # Use yq to extract flatpak package names
   local yq_output
   yq_output=$(yq -r ".flatpak.$de.$mode[].name" "$PROGRAMS_YAML" 2>/dev/null)
-  
+
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS= read -r package; do
       [[ -z "$package" ]] && continue

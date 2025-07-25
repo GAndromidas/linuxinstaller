@@ -64,7 +64,7 @@ essential:
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
-  
+
   minimal:
     - name: "libreoffice-fresh"
       description: "Office productivity suite"
@@ -88,7 +88,7 @@ aur:
       description: "Tool to create bootable USB drives for ISO files"
     - name: "via-bin"
       description: "VIA keyboard configuration tool"
-  
+
   minimal:
     - name: "rustdesk-bin"
       description: "Remote desktop software"
@@ -111,7 +111,7 @@ desktop_environments:
       - "spectacle"
     remove:
       - "htop"
-  
+
   gnome:
     install:
       - "adw-gtk-theme"
@@ -130,7 +130,7 @@ desktop_environments:
       - "htop"
       - "snapshot"
       - "totem"
-  
+
   cosmic:
     install:
       - "power-profiles-daemon"
@@ -149,7 +149,7 @@ flatpak:
     minimal:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-  
+
   gnome:
     default:
       - name: "com.mattjakeman.ExtensionManager"
@@ -163,7 +163,7 @@ flatpak:
         description: "GNOME Extension Manager"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-  
+
   cosmic:
     default:
       - name: "io.github.shiftey.Desktop"
@@ -177,7 +177,7 @@ flatpak:
         description: "System tray application launcher"
       - name: "dev.edfloreshz.CosmicTweaks"
         description: "System settings and tweaks"
-  
+
   generic:
     default:
       - name: "it.mijorus.gearlever"
