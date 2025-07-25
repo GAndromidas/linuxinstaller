@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth reflector rsync ufw zoxide)  # Helper utilities to install
+HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git gum openssh pacman-contrib plymouth reflector rsync ufw zoxide)  # Helper utilities to install
 
 # : "${INSTALL_MODE:=default}"
 
@@ -41,12 +41,12 @@ print_progress() {
   local total="$2"
   local description="$3"
   local max_width=$((TERM_WIDTH - 20))  # Leave space for progress indicator
-  
+
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
     description="${description:0:$((max_width-3))}..."
   fi
-  
+
   clear_line
   printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
 }
@@ -82,6 +82,47 @@ EOF
 }
 
 show_menu() {
+  # Check if gum is available, fallback to traditional menu if not
+  if command -v gum >/dev/null 2>&1; then
+    show_gum_menu
+  else
+    show_traditional_menu
+  fi
+}
+
+show_gum_menu() {
+  gum style --border double --margin "1 2" --padding "2 4" --foreground 51 --border-foreground 51 "🚀 ARCH INSTALLER"
+
+  gum style --margin "1 0" --foreground 226 "This script will transform your fresh Arch Linux installation into a"
+  gum style --margin "0 0 1 0" --foreground 226 "fully configured, optimized system with all the tools you need!"
+
+  local choice=$(gum choose --cursor "→ " --selected.foreground 51 --cursor.foreground 51 \
+    "Standard - Complete setup with all packages (intermediate users)" \
+    "Minimal - Essential tools only (recommended for new users)" \
+    "Custom - Interactive selection (choose what to install) (advanced users)" \
+    "Exit - Cancel installation")
+
+  case "$choice" in
+    "Standard"*)
+      INSTALL_MODE="default"
+      gum style --foreground 51 "✓ Selected: Standard installation (intermediate users)"
+      ;;
+    "Minimal"*)
+      INSTALL_MODE="minimal"
+      gum style --foreground 46 "✓ Selected: Minimal installation (recommended for new users)"
+      ;;
+    "Custom"*)
+      INSTALL_MODE="custom"
+      gum style --foreground 226 "✓ Selected: Custom installation (advanced users)"
+      ;;
+    "Exit"*)
+      gum style --foreground 226 "Installation cancelled. You can run this script again anytime."
+      exit 0
+      ;;
+  esac
+}
+
+show_traditional_menu() {
   echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
   echo -e "${CYAN}🚀 WELCOME TO ARCH INSTALLER${RESET}"
   echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
@@ -99,26 +140,26 @@ show_menu() {
   while true; do
     read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
           case "$menu_choice" in
-        1) 
+        1)
           INSTALL_MODE="default"
           echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
-          break 
+          break
           ;;
-        2) 
+        2)
           INSTALL_MODE="minimal"
           echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
-          break 
+          break
           ;;
-        3) 
+        3)
           INSTALL_MODE="custom"
           echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
-          break 
+          break
           ;;
-      4) 
+      4)
         echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
-        exit 0 
+        exit 0
         ;;
-      *) 
+      *)
         echo -e "\n${RED}❌ Invalid choice! Please enter 1, 2, 3, or 4.${RESET}\n"
         ;;
     esac
@@ -159,45 +200,73 @@ run_step() {
   fi
 }
 
-# Enhanced package installation with better terminal formatting
+# Enhanced package installation with gum progress bar and better formatting
 install_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
-  
+
   if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}No packages to install${RESET}"
+    if command -v gum >/dev/null 2>&1; then
+      gum style --foreground 226 "No packages to install"
+    else
+      echo -e "${YELLOW}No packages to install${RESET}"
+    fi
     return
   fi
-  
-  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
-  
-  for pkg in "${pkgs[@]}"; do
-    ((current++))
-    if pacman -Q "$pkg" &>/dev/null; then
+
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Installing ${total} packages via Pacman..."
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if pacman -Q "$pkg" &>/dev/null; then
+        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
+        continue
+      fi
+
+      gum style --foreground 15 "[$current/$total] Installing $pkg..."
+      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        gum style --foreground 46 "[$current/$total] $pkg [OK]"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
+        log_error "Failed to install $pkg"
+      fi
+    done
+
+    gum style --foreground 46 "✓ Package installation completed (${current}/${total} packages processed)"
+  else
+    # Fallback to traditional output
+    echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if pacman -Q "$pkg" &>/dev/null; then
+        print_progress "$current" "$total" "$pkg"
+        print_status " [SKIP] Already installed" "$YELLOW"
+        continue
+      fi
+
       print_progress "$current" "$total" "$pkg"
-      print_status " [SKIP] Already installed" "$YELLOW"
-      continue
-    fi
-    
-    print_progress "$current" "$total" "$pkg"
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      INSTALLED_PACKAGES+=("$pkg")
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to install $pkg"
-    fi
-  done
-  
-  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
+      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to install $pkg"
+      fi
+    done
+
+    echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
+  fi
 }
 
 # Batch install helper for multiple package groups
 install_package_groups() {
   local groups=("$@")
   local all_packages=()
-  
+
   for group in "${groups[@]}"; do
     case "$group" in
       "helpers")
@@ -215,7 +284,7 @@ install_package_groups() {
       # Add more groups as needed
     esac
   done
-  
+
   if [ "${#all_packages[@]}" -gt 0 ]; then
     install_packages_quietly "${all_packages[@]}"
   fi
@@ -230,6 +299,45 @@ print_summary() {
 }
 
 prompt_reboot() {
+  # Clean up gum before showing reboot prompt
+  cleanup_gum
+
+  # Check if gum is still available for beautiful prompts
+  if command -v gum >/dev/null 2>&1; then
+    prompt_reboot_gum
+  else
+    prompt_reboot_traditional
+  fi
+}
+
+prompt_reboot_gum() {
+  gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "🎉 INSTALLATION COMPLETED!"
+
+  gum style --margin "1 0" --foreground 226 "Congratulations! Your Arch Linux system is now fully configured!"
+
+  gum style --margin "1 0" --foreground 51 --bold "📋 What happens after reboot:"
+  gum style --margin "0 2" --foreground 15 "• 🎨 Beautiful boot screen will appear"
+  gum style --margin "0 2" --foreground 15 "• 🖥️  Your desktop environment will be ready to use"
+  gum style --margin "0 2" --foreground 15 "• 🛡️  Security features will be active"
+  gum style --margin "0 2" --foreground 15 "• ⚡ Performance optimizations will be enabled"
+  gum style --margin "0 2" --foreground 15 "• 🎮 Gaming tools will be available (if installed)"
+
+  gum style --margin "1 0" --foreground 226 "💡 It's strongly recommended to reboot now to apply all changes."
+
+  if gum confirm --default=true "🔄 Reboot now?"; then
+    gum style --foreground 51 "🔄 Rebooting your system..."
+    gum style --foreground 226 "   Thank you for using Arch Installer! 🚀"
+    # Final cleanup before reboot
+    sudo pacman -R figlet --noconfirm >/dev/null 2>&1 || true
+    sudo reboot
+  else
+    gum style --foreground 226 "⏸️  Reboot skipped. You can reboot manually at any time using:"
+    gum style --foreground 51 "   sudo reboot"
+    gum style --foreground 226 "   Or simply restart your computer."
+  fi
+}
+
+prompt_reboot_traditional() {
   figlet_banner "Reboot System"
   echo -e "${YELLOW}🎉 Congratulations! Your Arch Linux system is now fully configured!${RESET}"
   echo ""
@@ -249,7 +357,7 @@ prompt_reboot() {
         echo -e "\n${CYAN}🔄 Rebooting your system...${RESET}"
         echo -e "${YELLOW}   Thank you for using Arch Installer! 🚀${RESET}\n"
         # Silently uninstall figlet before reboot
-        sudo pacman -R figlet --noconfirm >/dev/null 2>&1
+        sudo pacman -R figlet --noconfirm >/dev/null 2>&1 || true
         sudo reboot
         break
         ;;
@@ -264,6 +372,20 @@ prompt_reboot() {
         ;;
     esac
   done
+}
+
+# Function to clean up gum and its dependencies before reboot
+cleanup_gum() {
+  if command -v gum >/dev/null 2>&1; then
+    log_info "Cleaning up gum installation..."
+    # Silently remove gum and any orphaned dependencies
+    sudo pacman -R gum --noconfirm >/dev/null 2>&1 || true
+    # Clean up any orphaned dependencies that were installed with gum
+    local orphans=$(pacman -Qtdq 2>/dev/null)
+    if [[ -n "$orphans" ]]; then
+      sudo pacman -Rns $orphans --noconfirm >/dev/null 2>&1 || true
+    fi
+  fi
 }
 
 # Pre-download package lists for faster installation
@@ -318,24 +440,24 @@ validate_file_operation() {
   local operation="$1"
   local file="$2"
   local description="$3"
-  
+
   # Check if file exists (for read operations)
   if [[ "$operation" == "read" ]] && [ ! -f "$file" ]; then
     log_error "File $file does not exist. Cannot perform: $description"
     return 1
   fi
-  
+
   # Check if directory exists (for write operations)
   if [[ "$operation" == "write" ]] && [ ! -d "$(dirname "$file")" ]; then
     log_error "Directory $(dirname "$file") does not exist. Cannot perform: $description"
     return 1
   fi
-  
+
   # Check permissions
   if [[ "$operation" == "write" ]] && [ ! -w "$(dirname "$file")" ]; then
     log_error "No write permission for $(dirname "$file"). Cannot perform: $description"
     return 1
   fi
-  
+
   return 0
-} 
+}

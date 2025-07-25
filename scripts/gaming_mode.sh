@@ -12,27 +12,38 @@ step "Gaming Mode Setup"
 figlet_banner "Gaming Mode"
 
 # Check if user wants gaming mode (default to Yes)
-echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
-echo -e "${YELLOW}This includes: MangoHud, GameMode, Steam, Lutris, Wine, and more.${RESET}"
-echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
-while true; do
-    read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
-    response=${response,,}
-    case "$response" in
-        ""|y|yes)
-            echo -e "\n"
-            break
-            ;;
-        n|no)
-            log_info "Gaming Mode skipped."
-            echo -e "\n"
-            return 0
-            ;;
-        *)
-            echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
-            ;;
-    esac
-done
+if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Would you like to enable Gaming Mode?"
+    gum style --foreground 226 "This includes: MangoHud, GameMode, Steam, Lutris, Wine, and more."
+
+    if ! gum confirm --default=true "Enable Gaming Mode?"; then
+        gum style --foreground 51 "Gaming Mode skipped."
+        return 0
+    fi
+else
+    # Fallback to traditional prompts
+    echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
+    echo -e "${YELLOW}This includes: MangoHud, GameMode, Steam, Lutris, Wine, and more.${RESET}"
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
+    while true; do
+        read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
+        response=${response,,}
+        case "$response" in
+            ""|y|yes)
+                echo -e "\n"
+                break
+                ;;
+            n|no)
+                log_info "Gaming Mode skipped."
+                echo -e "\n"
+                return 0
+                ;;
+            *)
+                echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+                ;;
+        esac
+    done
+fi
 
 # Install MangoHud for performance monitoring
 step "Installing MangoHud"
@@ -68,4 +79,4 @@ GAMING_FLATPAKS=(
 )
 install_flatpak_quietly "${GAMING_FLATPAKS[@]}"
 
-log_success "Gaming Mode setup completed." 
+log_success "Gaming Mode setup completed."
