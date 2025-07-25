@@ -58,6 +58,11 @@ check_system_requirements
 show_menu
 export INSTALL_MODE
 
+# Silently install gum for beautiful UI throughout the script
+if ! command -v gum >/dev/null 2>&1; then
+  sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
+fi
+
 # Use gum for beautiful sudo prompt if available
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 226 "Please enter your sudo password to begin the installation:"

@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git gum openssh pacman-contrib plymouth reflector rsync ufw zoxide)  # Helper utilities to install
+HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth reflector rsync ufw zoxide)  # Helper utilities to install
 
 # : "${INSTALL_MODE:=default}"
 
@@ -192,8 +192,8 @@ run_step() {
       local pkg
       pkg=$(echo "$description" | awk '{print $2}')
       INSTALLED_PACKAGES+=("$pkg")
-    elif [[ "$description" == "Removing figlet" ]]; then
-      REMOVED_PACKAGES+=("figlet")
+    elif [[ "$description" == "Removing figlet and gum" ]]; then
+      REMOVED_PACKAGES+=("figlet" "gum")
     fi
   else
     log_error "$description"
@@ -299,45 +299,6 @@ print_summary() {
 }
 
 prompt_reboot() {
-  # Clean up gum before showing reboot prompt
-  cleanup_gum
-
-  # Check if gum is still available for beautiful prompts
-  if command -v gum >/dev/null 2>&1; then
-    prompt_reboot_gum
-  else
-    prompt_reboot_traditional
-  fi
-}
-
-prompt_reboot_gum() {
-  gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "🎉 INSTALLATION COMPLETED!"
-
-  gum style --margin "1 0" --foreground 226 "Congratulations! Your Arch Linux system is now fully configured!"
-
-  gum style --margin "1 0" --foreground 51 --bold "📋 What happens after reboot:"
-  gum style --margin "0 2" --foreground 15 "• 🎨 Beautiful boot screen will appear"
-  gum style --margin "0 2" --foreground 15 "• 🖥️  Your desktop environment will be ready to use"
-  gum style --margin "0 2" --foreground 15 "• 🛡️  Security features will be active"
-  gum style --margin "0 2" --foreground 15 "• ⚡ Performance optimizations will be enabled"
-  gum style --margin "0 2" --foreground 15 "• 🎮 Gaming tools will be available (if installed)"
-
-  gum style --margin "1 0" --foreground 226 "💡 It's strongly recommended to reboot now to apply all changes."
-
-  if gum confirm --default=true "🔄 Reboot now?"; then
-    gum style --foreground 51 "🔄 Rebooting your system..."
-    gum style --foreground 226 "   Thank you for using Arch Installer! 🚀"
-    # Final cleanup before reboot
-    sudo pacman -R figlet --noconfirm >/dev/null 2>&1 || true
-    sudo reboot
-  else
-    gum style --foreground 226 "⏸️  Reboot skipped. You can reboot manually at any time using:"
-    gum style --foreground 51 "   sudo reboot"
-    gum style --foreground 226 "   Or simply restart your computer."
-  fi
-}
-
-prompt_reboot_traditional() {
   figlet_banner "Reboot System"
   echo -e "${YELLOW}🎉 Congratulations! Your Arch Linux system is now fully configured!${RESET}"
   echo ""
@@ -356,8 +317,8 @@ prompt_reboot_traditional() {
       ""|y|yes)
         echo -e "\n${CYAN}🔄 Rebooting your system...${RESET}"
         echo -e "${YELLOW}   Thank you for using Arch Installer! 🚀${RESET}\n"
-        # Silently uninstall figlet before reboot
-        sudo pacman -R figlet --noconfirm >/dev/null 2>&1 || true
+        # Silently uninstall figlet and gum before reboot
+        sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
         sudo reboot
         break
         ;;
@@ -374,19 +335,7 @@ prompt_reboot_traditional() {
   done
 }
 
-# Function to clean up gum and its dependencies before reboot
-cleanup_gum() {
-  if command -v gum >/dev/null 2>&1; then
-    log_info "Cleaning up gum installation..."
-    # Silently remove gum and any orphaned dependencies
-    sudo pacman -R gum --noconfirm >/dev/null 2>&1 || true
-    # Clean up any orphaned dependencies that were installed with gum
-    local orphans=$(pacman -Qtdq 2>/dev/null)
-    if [[ -n "$orphans" ]]; then
-      sudo pacman -Rns $orphans --noconfirm >/dev/null 2>&1 || true
-    fi
-  fi
-}
+
 
 # Pre-download package lists for faster installation
 preload_package_lists() {
