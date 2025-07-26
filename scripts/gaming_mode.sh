@@ -2,8 +2,12 @@
 set -uo pipefail
 
 # Gaming and performance tweaks installation for Arch Linux
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the directory where this script is located, resolving symlinks
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
+
 source "$SCRIPT_DIR/common.sh"
 
 step "Gaming Mode Setup"
@@ -53,7 +57,7 @@ install_packages_quietly "${MANGO_PACKAGES[@]}"
 # Copy MangoHud configuration
 step "Configuring MangoHud"
 MANGOHUD_CONFIG_DIR="$HOME/.config/MangoHud"
-MANGOHUD_CONFIG_SOURCE="$SCRIPT_DIR/../configs/MangoHud.conf"
+MANGOHUD_CONFIG_SOURCE="$CONFIGS_DIR/MangoHud.conf"
 
 # Create MangoHud config directory if it doesn't exist
 mkdir -p "$MANGOHUD_CONFIG_DIR"
