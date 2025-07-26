@@ -50,6 +50,22 @@ step "Installing MangoHud"
 MANGO_PACKAGES=("mangohud" "lib32-mangohud")
 install_packages_quietly "${MANGO_PACKAGES[@]}"
 
+# Copy MangoHud configuration
+step "Configuring MangoHud"
+MANGOHUD_CONFIG_DIR="$HOME/.config/MangoHud"
+MANGOHUD_CONFIG_SOURCE="$SCRIPT_DIR/../configs/MangoHud.conf"
+
+# Create MangoHud config directory if it doesn't exist
+mkdir -p "$MANGOHUD_CONFIG_DIR"
+
+# Copy MangoHud configuration file, replacing if it exists
+if [ -f "$MANGOHUD_CONFIG_SOURCE" ]; then
+    cp "$MANGOHUD_CONFIG_SOURCE" "$MANGOHUD_CONFIG_DIR/MangoHud.conf"
+    log_success "MangoHud configuration copied successfully."
+else
+    log_warning "MangoHud configuration file not found at $MANGOHUD_CONFIG_SOURCE"
+fi
+
 # Install GameMode for performance optimization
 step "Installing GameMode"
 GAMEMODE_PACKAGES=("gamemode" "lib32-gamemode")
