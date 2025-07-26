@@ -22,7 +22,7 @@
 
 - **🔧 Three Installation Modes**: Standard (full setup), Minimal (core utilities - recommended for new users), Custom (interactive selection)
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
-- **🎮 Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (MangoHud, GameMode, Steam, Lutris, Wine, Discord, Heroic Games Launcher, ProtonPlus)
+- **🎮 Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine)
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and system service configuration
 - **⚡ Performance Tuning**: ZRAM, Plymouth boot screen, and system optimizations
 - **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration
@@ -52,7 +52,7 @@
 
 ### 1. **Standard Mode** 🎯 (Intermediate Users)
 Complete setup with all recommended packages and optimizations:
-- Full package suite (25+ Pacman packages, 6+ AUR packages)
+- Full package suite (30+ Pacman packages, 6+ AUR packages)
 - Desktop environment-specific optimizations
 - Additional productivity and media applications
 - Security hardening
@@ -61,7 +61,7 @@ Complete setup with all recommended packages and optimizations:
 
 ### 2. **Minimal Mode** ⚡ (Recommended for New Users)
 Lightweight setup with essential utilities:
-- Core system utilities (25 Pacman packages, 2 AUR packages)
+- Core system utilities (30+ Pacman packages, 2 AUR packages)
 - Basic desktop environment support
 - Essential security features
 - Minimal performance optimizations
@@ -106,30 +106,30 @@ Interactive package selection with descriptions:
 ## 📦 Package Categories
 
 ### **Pacman Packages (All Modes)**
-- **Development**: `android-tools`, `git`, `base-devel`
-- **System Tools**: `btop`, `hwinfo`, `inxi`, `gnome-disk-utility`
-- **Utilities**: `bat`, `eza`, `fzf`, `zoxide`, `fastfetch`
-- **Media**: `firefox`, `ttf-hack-nerd`, `ttf-liberation`
-- **System**: `ufw`, `fail2ban`, `reflector`, `zram-generator`
-- **Networking**: `openssh`, `sshfs`, `net-tools`, `samba`
+- **Development**: `android-tools`
+- **System Tools**: `bat`, `bleachbit`, `btop`, `gnome-disk-utility`, `hwinfo`, `inxi`, `ncdu`, `speedtest-cli`
+- **Utilities**: `cmatrix`, `expac`, `net-tools`, `sl`, `unrar`
+- **Media**: `chromium`, `firefox`, `noto-fonts-extra`, `ttf-hack-nerd`, `ttf-liberation`
+- **System**: `dosfstools`, `fwupd`, `samba`, `sshfs`, `xdg-desktop-portal-gtk`
 
 ### **Essential Packages (Standard Mode)**
-- **Productivity**: `libreoffice-fresh`, `krita`, `kdenlive`
-- **Media**: `vlc`, `timeshift`
-- **Utilities**: `filezilla`
+- **Productivity**: `filezilla`, `gimp`, `kdenlive`, `libreoffice-fresh`, `openrgb`, `timeshift`, `vlc`, `zed`
 
 ### **Essential Packages (Minimal Mode)**
-- **Productivity**: `libreoffice-fresh`
-- **Media**: `vlc`, `timeshift`
+- **Productivity**: `libreoffice-fresh`, `timeshift`, `vlc`
 
 ### **AUR Packages (Standard Mode)**
-- **Cloud**: `dropbox`
+- **Cloud Storage**: `dropbox`
+- **Media**: `spotify`, `stremio`
+- **Utilities**: `ventoy-bin`, `via-bin`
+- **Remote Access**: `rustdesk-bin`
 - **Media**: `spotify`, `stremio`
 - **Utilities**: `ventoy-bin`, `via-bin`
 - **Remote Access**: `rustdesk-bin`
 
 ### **AUR Packages (Minimal Mode)**
 - **Media**: `stremio`
+- **Remote Access**: `rustdesk-bin`
 - **Remote Access**: `rustdesk-bin`
 
 ### **Flatpak Applications**
@@ -154,6 +154,7 @@ Interactive package selection with descriptions:
 - **GameMode**: Default GameMode installation (vanilla configuration)
 - **Gaming Platforms**: Steam, Lutris, Discord, Heroic Games Launcher
 - **Compatibility**: Wine for Windows game compatibility
+- **Streaming/Recording**: OBS Studio for content creation
 - **Proton Management**: ProtonPlus for Wine/Proton version management
 - **Hardware Support**: Works on any system (VM detection included)
 
@@ -303,14 +304,14 @@ chmod +x install.sh
 
 ### **Standard Mode**
 - **Pacman Packages**: 30+ packages
-- **AUR Packages**: 8+ packages  
+- **AUR Packages**: 6+ packages  
 - **Flatpak Apps**: 3-4 apps (DE-dependent)
 - **System Services**: 9+ services
 - **Configuration Files**: 3+ files
 
 ### **Minimal Mode**
-- **Pacman Packages**: 28 packages
-- **AUR Packages**: 4 packages
+- **Pacman Packages**: 30+ packages
+- **AUR Packages**: 2+ packages
 - **Flatpak Apps**: 1-2 apps (DE-dependent)
 - **System Services**: 6+ services
 - **Configuration Files**: 2+ files
@@ -400,7 +401,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ### **Latest Features**
 - ✨ **Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup
 - 🔧 **Streamlined Package Management**: Combined pacman packages, auto-selection in custom mode
-- 🎮 **Modern Gaming Support**: Steam, Lutris, Discord, Heroic Games Launcher, ProtonPlus
+- 🎮 **Modern Gaming Support**: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine
 - 🔒 Improved security with Fail2ban and firewall configuration
 - 🖥️ Better desktop environment detection and optimization
 - ⚡ Performance improvements with ZRAM and system tuning

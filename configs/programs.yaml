@@ -12,6 +12,8 @@ pacman:
       description: "System cleaner and privacy tool"
     - name: "btop"
       description: "Resource monitor and process viewer"
+    - name: "chromium"
+      description: "Open-source web browser"
     - name: "cmatrix"
       description: "Matrix-style terminal screensaver"
     - name: "dosfstools"
@@ -56,14 +58,20 @@ essential:
   default:
     - name: "filezilla"
       description: "FTP client for file transfers"
+    - name: "gimp"
+      description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
     - name: "libreoffice-fresh"
       description: "Office productivity suite"
+    - name: "openrgb"
+      description: "RGB lighting control software"
     - name: "timeshift"
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
+    - name: "zed"
+      description: "Modern code editor"
 
   minimal:
     - name: "libreoffice-fresh"
@@ -166,17 +174,17 @@ flatpak:
 
   cosmic:
     default:
+      - name: "dev.edfloreshz.CosmicTweaks"
+        description: "System settings and tweaks"
       - name: "io.github.shiftey.Desktop"
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
+    minimal:
       - name: "dev.edfloreshz.CosmicTweaks"
         description: "System settings and tweaks"
-    minimal:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
-      - name: "dev.edfloreshz.CosmicTweaks"
-        description: "System settings and tweaks"
 
   generic:
     default:

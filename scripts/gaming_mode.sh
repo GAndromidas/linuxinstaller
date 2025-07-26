@@ -18,7 +18,7 @@ figlet_banner "Gaming Mode"
 # Check if user wants gaming mode (default to Yes)
 if command -v gum >/dev/null 2>&1; then
     gum style --foreground 51 "Would you like to enable Gaming Mode?"
-    gum style --foreground 226 "This includes: MangoHud, GameMode, Steam, Lutris, Wine, and more."
+    gum style --foreground 226 "This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine."
 
     if ! gum confirm --default=true "Enable Gaming Mode?"; then
         gum style --foreground 51 "Gaming Mode skipped."
@@ -27,7 +27,7 @@ if command -v gum >/dev/null 2>&1; then
 else
     # Fallback to traditional prompts
     echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
-    echo -e "${YELLOW}This includes: MangoHud, GameMode, Steam, Lutris, Wine, and more.${RESET}"
+    echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
     while true; do
         read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
@@ -78,10 +78,11 @@ install_packages_quietly "${GAMEMODE_PACKAGES[@]}"
 # Install additional gaming utilities
 step "Installing gaming utilities"
 GAMING_PACKAGES=(
-    "steam"
-    "lutris"
-    "wine"
     "discord"
+    "lutris"
+    "obs-studio"
+    "steam"
+    "wine"
 )
 install_packages_quietly "${GAMING_PACKAGES[@]}"
 
