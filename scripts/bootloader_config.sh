@@ -11,7 +11,7 @@ configure_boot() {
   # Make systemd-boot silent
   find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' {} \; 2>/dev/null || true
-  
+
   # Configure loader.conf
   if [ -f "/boot/loader/loader.conf" ]; then
     sudo sed -i \
@@ -20,12 +20,12 @@ configure_boot() {
       -e 's/^timeout.*/timeout 3/' \
       -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
       /boot/loader/loader.conf
-    
+
     # Add missing lines
     grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
     grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
   fi
-  
+
   # Remove fallback entries
   sudo rm -f /boot/loader/entries/*fallback.conf 2>/dev/null || true
 }
@@ -37,7 +37,7 @@ setup_fastfetch_config() {
     else
       run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
     fi
-    
+
     # Safe config file copy
     if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
       mkdir -p "$HOME/.config/fastfetch"
@@ -118,11 +118,19 @@ configure_grub() {
     # Regenerate grub config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
-    # Set default to standard linux kernel on first run
-    default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-    if [ -n "$default_entry" ]; then
-        sudo grub-set-default "$default_entry"
-        echo "Set GRUB default to: $default_entry"
+    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
+    if [ ! -f /boot/grub/grubenv ]; then
+        # Look for linux-zen first, then fallback to standard linux
+        default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+        if [ -z "$default_entry" ]; then
+            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+        fi
+        if [ -n "$default_entry" ]; then
+            sudo grub-set-default "$default_entry"
+            echo "Set GRUB default to: $default_entry"
+        fi
+    else
+        echo "GRUB environment exists, preserving @saved configuration"
     fi
 }
 
@@ -255,4 +263,4 @@ if detect_windows; then
         add_windows_to_systemdboot
     fi
     set_localtime_for_windows
-fi 
+fi
