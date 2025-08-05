@@ -72,8 +72,6 @@ essential:
       description: "Modern code editor"
 
   minimal:
-    - name: "libreoffice-fresh"
-      description: "Office productivity suite"
     - name: "timeshift"
       description: "System restore and backup tool"
     - name: "vlc"
