@@ -84,6 +84,8 @@ aur:
   default:
     - name: "dropbox"
       description: "Cloud storage and file synchronization"
+    - name: "onlyoffice-bin"
+      description: "Office suite with document, spreadsheet and presentation editors"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
     - name: "spotify"
@@ -96,6 +98,8 @@ aur:
       description: "VIA keyboard configuration tool"
 
   minimal:
+    - name: "onlyoffice-bin"
+      description: "Office suite with document, spreadsheet and presentation editors"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
     - name: "stremio"
