@@ -62,8 +62,6 @@ essential:
       description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
-    - name: "libreoffice-fresh"
-      description: "Office productivity suite"
     - name: "openrgb"
       description: "RGB lighting control software"
     - name: "timeshift"
