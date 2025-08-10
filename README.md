@@ -190,6 +190,22 @@ Interactive package selection with descriptions:
 
 ---
 
+## 🧩 Modular & YAML-Driven Design
+
+Archinstaller is built for flexibility and easy customization:
+- **YAML-based package management**: All package lists (Pacman, AUR, Flatpak) and descriptions are in `configs/programs.yaml`.
+- **Desktop environment logic**: Packages and Flatpaks are selected based on your DE (KDE, GNOME, Cosmic, etc).
+- **Modular scripts**: Each setup step is a separate script in `scripts/` (system prep, shell, Plymouth, programs, gaming, bootloader, fail2ban, services, maintenance).
+- **All configuration in `configs/`**: Fastfetch, Starship, MangoHud, .zshrc, and more.
+- **Optional Gaming Mode**: Fully modular, can be extended by editing `scripts/gaming_mode.sh`.
+
+### 🛠 How to Add/Remove Packages or Customize
+- **Edit `configs/programs.yaml`** to add/remove packages for any mode or DE.
+- **Edit scripts in `scripts/`** to change install logic, add new steps, or customize Gaming Mode.
+- **Edit config files in `configs/`** to change Fastfetch, Starship, MangoHud, or shell settings.
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
@@ -201,7 +217,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-📖 **For detailed instructions and troubleshooting, see [USAGE.md](USAGE.md)**
+
 
 ### **Requirements**
 - ✅ Fresh Arch Linux installation
