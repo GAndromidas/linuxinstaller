@@ -68,8 +68,6 @@ essential:
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
-    - name: "zed"
-      description: "Modern code editor"
 
   minimal:
     - name: "timeshift"
