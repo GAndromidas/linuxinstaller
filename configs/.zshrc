@@ -78,6 +78,6 @@ alias unlock="sudo rm /var/lib/pacman/db.lck"
 alias rip="expac --timefmt='%d-%m-%Y %T' '%l\t%n %v' | sort | tail -200 | nl"
 
 # Load additional tools
-fastfetch --cpu-temp --gpu-temp
+fastfetch
 eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
