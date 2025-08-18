@@ -160,7 +160,28 @@ get_zram_multiplier() {
 
 setup_zram_swap() {
   step "Setting up ZRAM swap"
-  
+
+  # Check if ZRAM is already enabled
+  if ! systemctl is-active --quiet systemd-zram-setup@zram0; then
+    echo -e "${YELLOW}ZRAM is not enabled or is disabled.${RESET}"
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm --default=false "Would you like to enable and configure ZRAM swap?" || {
+        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
+        return
+      }
+    else
+      read -r -p "Would you like to enable and configure ZRAM swap? [y/N]: " response
+      response=${response,,}
+      if [[ "$response" != "y" && "$response" != "yes" ]]; then
+        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
+        return
+      fi
+    fi
+    # Enable ZRAM service
+    sudo systemctl enable systemd-zram-setup@zram0
+    sudo systemctl start systemd-zram-setup@zram0
+  fi
+
   # Get system RAM and optimal multiplier
   local ram_gb=$(get_ram_gb)
   local multiplier=$(get_zram_multiplier $ram_gb)
@@ -168,7 +189,7 @@ setup_zram_swap() {
 
   echo -e "${CYAN}System RAM: ${ram_gb}GB${RESET}"
   echo -e "${CYAN}ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)${RESET}"
-  
+
   # Create ZRAM config with optimal settings
   sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
 [zram0]
@@ -176,7 +197,7 @@ zram-size = ram * ${multiplier}
 compression-algorithm = zstd
 swap-priority = 100
 EOF
-  
+
   # Enable and start ZRAM
   sudo systemctl daemon-reexec
   sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
