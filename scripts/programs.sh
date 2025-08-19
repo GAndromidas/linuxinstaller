@@ -326,104 +326,80 @@ check_flatpak() {
 
 install_pacman_quietly() {
   local pkgs=("$@")
-  local total=${#pkgs[@]}
-  local current=0
-
+  local to_install=()
+  for pkg in "${pkgs[@]}"; do
+    pacman -Q "$pkg" &>/dev/null || to_install+=("$pkg")
+  done
+  local total=${#to_install[@]}
   if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}No Pacman packages to install${RESET}"
+    echo -e "${YELLOW}All Pacman packages are already installed.${RESET}"
     return
   fi
-
-  echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
-
-  for pkg in "${pkgs[@]}"; do
-    ((current++))
-    if pacman -Q "$pkg" &>/dev/null; then
-      print_progress "$current" "$total" "$pkg"
-      print_status " [SKIP] Already installed" "$YELLOW"
-      continue
-    fi
-
-    print_progress "$current" "$total" "$pkg"
-    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      PROGRAMS_INSTALLED+=("$pkg")
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to install $pkg"
-      PROGRAMS_ERRORS+=("Failed to install $pkg")
-    fi
-  done
-
-  echo -e "\n${GREEN}✓ Pacman installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "${CYAN}Installing ${total} packages via Pacman (batch)...${RESET}"
+  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
+  if sudo pacman -S --noconfirm --needed "${to_install[@]}"; then
+    for pkg in "${to_install[@]}"; do
+      pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg")
+    done
+    echo -e "${GREEN}✓ Pacman batch installation completed.${RESET}"
+  else
+    echo -e "${RED}Some Pacman packages failed to install.${RESET}"
+    for pkg in "${to_install[@]}"; do
+      pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install $pkg")
+    done
+  fi
 }
 
 install_flatpak_quietly() {
   local pkgs=("$@")
-  local total=${#pkgs[@]}
-  local current=0
-
+  local to_install=()
+  for pkg in "${pkgs[@]}"; do
+    flatpak list --app | grep -qw "$pkg" || to_install+=("$pkg")
+  done
+  local total=${#to_install[@]}
   if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}No Flatpak packages to install${RESET}"
+    echo -e "${YELLOW}All Flatpak packages are already installed.${RESET}"
     return
   fi
-
-  echo -e "${CYAN}Installing ${total} packages via Flatpak...${RESET}"
-
-  for pkg in "${pkgs[@]}"; do
-    ((current++))
-    if flatpak list --app | grep -qw "$pkg"; then
-      print_progress "$current" "$total" "$pkg"
-      print_status " [SKIP] Already installed" "$YELLOW"
-      continue
-    fi
-
-    print_progress "$current" "$total" "$pkg"
-    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to install Flatpak $pkg"
-      PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
-    fi
-  done
-
-  echo -e "\n${GREEN}✓ Flatpak installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "${CYAN}Installing ${total} packages via Flatpak (batch)...${RESET}"
+  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
+  if flatpak install -y --noninteractive flathub "${to_install[@]}"; then
+    for pkg in "${to_install[@]}"; do
+      flatpak list --app | grep -qw "$pkg" && PROGRAMS_INSTALLED+=("$pkg (flatpak)")
+    done
+    echo -e "${GREEN}✓ Flatpak batch installation completed.${RESET}"
+  else
+    echo -e "${RED}Some Flatpak packages failed to install.${RESET}"
+    for pkg in "${to_install[@]}"; do
+      flatpak list --app | grep -qw "$pkg" || PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
+    done
+  fi
 }
 
 install_aur_quietly() {
   local pkgs=("$@")
-  local total=${#pkgs[@]}
-  local current=0
-
+  local to_install=()
+  for pkg in "${pkgs[@]}"; do
+    pacman -Q "$pkg" &>/dev/null || to_install+=("$pkg")
+  done
+  local total=${#to_install[@]}
   if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}No AUR packages to install${RESET}"
+    echo -e "${YELLOW}All AUR packages are already installed.${RESET}"
     return
   fi
-
-  echo -e "${CYAN}Installing ${total} packages via AUR (yay)...${RESET}"
-
-  for pkg in "${pkgs[@]}"; do
-    ((current++))
-    if pacman -Q "$pkg" &>/dev/null; then
-      print_progress "$current" "$total" "$pkg"
-      print_status " [SKIP] Already installed" "$YELLOW"
-      continue
-    fi
-
-    print_progress "$current" "$total" "$pkg"
-    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      PROGRAMS_INSTALLED+=("$pkg (AUR)")
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to install AUR $pkg"
-      PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
-    fi
-  done
-
-  echo -e "\n${GREEN}✓ AUR installation completed (${current}/${total} packages processed)${RESET}\n"
+  echo -e "${CYAN}Installing ${total} packages via AUR (yay, batch)...${RESET}"
+  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
+  if yay -S --noconfirm --needed "${to_install[@]}"; then
+    for pkg in "${to_install[@]}"; do
+      pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg (AUR)")
+    done
+    echo -e "${GREEN}✓ AUR batch installation completed.${RESET}"
+  else
+    echo -e "${RED}Some AUR packages failed to install.${RESET}"
+    for pkg in "${to_install[@]}"; do
+      pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
+    done
+  fi
 }
 
 detect_desktop_environment() {
