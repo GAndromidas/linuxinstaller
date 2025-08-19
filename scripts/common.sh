@@ -285,8 +285,18 @@ install_package_groups() {
     esac
   done
 
+  # Remove duplicates before batch install
   if [ "${#all_packages[@]}" -gt 0 ]; then
-    install_packages_quietly "${all_packages[@]}"
+    # Use associative array to filter duplicates
+    declare -A pkg_map
+    for pkg in "${all_packages[@]}"; do
+      pkg_map["$pkg"]=1
+    done
+    local unique_pkgs=()
+    for pkg in "${!pkg_map[@]}"; do
+      unique_pkgs+=("$pkg")
+    done
+    install_packages_quietly "${unique_pkgs[@]}"
   fi
 }
 
