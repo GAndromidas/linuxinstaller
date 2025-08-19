@@ -61,11 +61,15 @@
         },
         {
             "type": "cpu",
-            "key": " "
+            "key": " ",
+            "temp": true,
+            "precision": 1
         },
         {
             "type": "gpu",
-            "key": " "
+            "key": " ",
+            "temp": true,
+            "precision": 1
         },
         {
             "type": "memory",
