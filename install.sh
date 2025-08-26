@@ -15,6 +15,11 @@ START_TIME=$(date +%s)
 
 arch_ascii
 
+# Silently install gum for beautiful UI before menu
+if ! command -v gum >/dev/null 2>&1; then
+  sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
+fi
+
 # Check system requirements for new users
 check_system_requirements() {
   local requirements_failed=false
@@ -57,11 +62,6 @@ check_system_requirements() {
 check_system_requirements
 show_menu
 export INSTALL_MODE
-
-# Silently install gum for beautiful UI throughout the script
-if ! command -v gum >/dev/null 2>&1; then
-  sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
-fi
 
 # Use gum for beautiful sudo prompt if available
 if command -v gum >/dev/null 2>&1; then
