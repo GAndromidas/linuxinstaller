@@ -68,12 +68,16 @@ essential:
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
+    - name: "vlc-plugins-all"
+      description: "All VLC plugins (required for VLC functionality)"
 
   minimal:
     - name: "timeshift"
       description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
+    - name: "vlc-plugins-all"
+      description: "All VLC plugins (required for VLC functionality)"
 
 # AUR packages for different installation modes
 aur:
