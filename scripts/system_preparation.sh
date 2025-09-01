@@ -117,14 +117,8 @@ install_all_packages() {
 }
 
 update_mirrorlist() {
-  # Use only the fastest mirrors
-  run_step "Updating mirrorlist" sudo reflector \
-    --protocol https \
-    --latest 3 \
-    --sort rate \
-    --save /etc/pacman.d/mirrorlist \
-    --fastest 1 \
-    --connection-timeout 1
+  # Skip mirrorlist update - reflector removed due to issues
+  log_warning "Mirrorlist update skipped - reflector removed from installer"
 }
 
 update_system() {
@@ -231,7 +225,6 @@ generate_locales() {
 check_prerequisites
 configure_pacman
 install_all_packages
-update_mirrorlist
 update_system
 set_sudo_pwfeedback
 install_cpu_microcode

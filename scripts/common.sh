@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth reflector rsync ufw zoxide)  # Helper utilities to install
+HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth rsync ufw zoxide)  # Helper utilities to install
 
 # : "${INSTALL_MODE:=default}"
 

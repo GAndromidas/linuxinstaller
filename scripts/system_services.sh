@@ -95,8 +95,6 @@ enable_services() {
     fstrim.timer
     paccache.timer
     power-profiles-daemon.service
-    reflector.service
-    reflector.timer
     sshd.service
     ufw.service
   )

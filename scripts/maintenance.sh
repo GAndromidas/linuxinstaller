@@ -33,4 +33,17 @@ cleanup_helpers() {
 
 cleanup_and_optimize
 setup_maintenance
-cleanup_helpers 
+cleanup_helpers
+
+# Update mirrorlist using rate-mirrors if installed
+update_mirrorlist_with_rate_mirrors() {
+  step "Updating mirrorlist with rate-mirrors"
+  if command -v rate-mirrors >/dev/null 2>&1; then
+    run_step "Updating mirrorlist with fastest mirrors" sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch
+    log_success "Mirrorlist updated successfully with rate-mirrors"
+  else
+    log_warning "rate-mirrors not found. Mirrorlist update skipped."
+  fi
+}
+
+update_mirrorlist_with_rate_mirrors 
