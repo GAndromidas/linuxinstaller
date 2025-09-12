@@ -18,198 +18,288 @@
 
 ### ✨ Key Features
 
-- **🔧 Three Installation Modes**: Standard (full setup), Minimal (core utilities - recommended for new users), Custom (interactive selection)
+- **🔧 Three Installation Modes**: Standard (complete setup), Minimal (essential tools), Custom (interactive selection)
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
-- **🎮 Optional Gaming Mode**: Interactive Y/n prompt for comprehensive gaming setup (Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine)
-- **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and system service configuration
-- **⚡ Performance Tuning**: ZRAM, Plymouth boot screen, and system optimizations
-- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration
-- **🎨 Beautiful UI**: Custom terminal interface with progress tracking and error handling
-- **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot, including kernel parameters, Plymouth, and Btrfs integration
-- **🪟 Windows Dual-Boot Automation**: Detects Windows installations, copies EFI files if needed, adds Windows to the boot menu for both GRUB and systemd-boot, and sets the hardware clock for compatibility
-- **💾 NTFS Support**: Installs `ntfs-3g` automatically if Windows is detected, for seamless access to NTFS partitions
-
----
-
-## 🧭 Bootloader & Windows Dual-Boot Support
-
-- **Automatic Detection**: The installer detects whether your system uses GRUB or systemd-boot.
-- **Configuration**: Sets kernel parameters, timeout, default entry, and console mode for the detected bootloader.
-- **Plymouth**: Ensures splash and Plymouth are enabled for both bootloaders.
-- **Btrfs**: If using GRUB and Btrfs, automatically installs and enables grub-btrfs for snapshot integration.
-- **Windows Dual-Boot**:
-  - Detects Windows installations.
-  - For systemd-boot: finds and copies Microsoft EFI files from the Windows EFI partition if needed, then creates a loader entry.
-  - For GRUB: enables os-prober, ensures Windows is in the boot menu.
-  - Sets the hardware clock to local time for compatibility.
-- **NTFS Support**: Installs `ntfs-3g` for NTFS access and os-prober compatibility.
+- **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
+- **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
+- **⚡ Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
+- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
+- **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
+- **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
+- **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
+- **🎯 GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
 
 ---
 
 ## 🛠️ Installation Modes
 
-### 1. **Standard Mode** 🎯 (Intermediate Users)
-Complete setup with all recommended packages and optimizations:
-- Full package suite (30+ Pacman packages, 6+ AUR packages)
-- Desktop environment-specific optimizations
-- Additional productivity and media applications
-- Security hardening
-- Performance tuning
-- **Perfect for**: Intermediate users who want all packages and tools
+### 1. **Standard Mode** 🎯 (Complete Setup)
+Full-featured installation with all recommended packages and optimizations:
+- **Pacman**: 25+ core packages (browsers, utilities, fonts, development tools)
+- **Essential**: 7 productivity applications (GIMP, KDENlive, OpenRGB, Timeshift, VLC, etc.)
+- **AUR**: 8 applications (Dropbox, Spotify, Stremio, Ventoy, RustDesk, etc.)
+- **Flatpaks**: Desktop environment-specific applications
+- **Perfect for**: Users who want a complete, ready-to-use system
 
-### 2. **Minimal Mode** ⚡ (Recommended for New Users)
-Lightweight setup with essential utilities:
-- Core system utilities (30+ Pacman packages, 2 AUR packages)
-- Basic desktop environment support
-- Essential security features
-- Minimal performance optimizations
-- **Perfect for**: New users who want a clean, essential setup
+### 2. **Minimal Mode** ⚡ (Essential Only)
+Lightweight setup with core utilities only:
+- **Pacman**: Same 25+ core packages as Standard
+- **Essential**: 3 essential applications (Timeshift, VLC, VLC plugins)
+- **AUR**: 4 essential applications (OnlyOffice, Rate-Mirrors, RustDesk, Stremio)
+- **Flatpaks**: Minimal DE-specific applications
+- **Perfect for**: Users who prefer a clean, essential setup or have limited resources
 
-### 3. **Custom Mode** 🎛️ (Advanced Users)
-Interactive package selection with descriptions:
-- Whiptail-based GUI for package selection
-- Detailed package descriptions
-- Granular control over installations
-- Preview of total packages before installation
-- **Auto-selected Pacman packages**: Core system packages are automatically included (no user choice needed)
-- **Essential packages selection**: Choose productivity and media applications
-- **AUR and Flatpak selection**: Select additional applications from AUR and Flatpak
+### 3. **Custom Mode** 🎛️ (Interactive Selection)
+Interactive package selection with detailed descriptions:
+- **Whiptail GUI**: User-friendly interface for package selection
+- **Smart Categories**: Auto-selected core packages + optional selections
+- **Package Descriptions**: Detailed information for each optional package
+- **Preview Summary**: Shows total packages before installation
+- **Perfect for**: Advanced users who want granular control
 
 ---
 
 ## 🖥️ Desktop Environment Support
 
 ### **KDE Plasma** 🟦
-- **Install**: KDE-specific utilities and optimizations
-- **Remove**: Conflicting packages
-- **Flatpaks**: Desktop environment, GearLever
+- **Installs**: KDE-specific utilities (KDE Connect, Spectacle, Okular, QBittorrent, Kvantum)
+- **Removes**: Conflicting packages (htop - replaced by btop)
+- **Flatpaks**: Desktop environment integration, GearLever
+- **Shortcuts**: Custom global shortcuts configuration
 
 ### **GNOME** 🟪
-- **Install**: GNOME-specific utilities and extensions
-- **Remove**: Conflicting packages
+- **Installs**: GNOME utilities (GNOME Tweaks, Transmission GTK, Seahorse, dconf-editor)
+- **Removes**: Bloatware (Epiphany, GNOME Contacts, Maps, Music, Tour, Totem, Snapshot)
 - **Flatpaks**: Extension Manager, Desktop environment, GearLever
+- **Theme**: ADW GTK theme integration
 
 ### **Cosmic** 🟨
-- **Install**: Cosmic-specific utilities and tweaks
-- **Remove**: Conflicting packages
-- **Flatpaks**: Desktop environment, GearLever, CosmicTweaks
+- **Installs**: Cosmic-specific utilities and power management
+- **Removes**: Conflicting packages (htop)
+- **Flatpaks**: CosmicTweaks, Desktop environment, GearLever
+- **Optimization**: Basic Cosmic desktop optimization
 
 ### **Other DEs/WMs** 🔧
-- Falls back to minimal package set
-- Generic optimizations
-- Basic Flatpak support
+- **Generic Support**: Works with any desktop environment or window manager
+- **Minimal Packages**: Essential utilities without DE-specific conflicts
+- **Flatpak Support**: GearLever for application management
 
 ---
 
-## 📦 Package Categories
+## 📦 Complete Package Breakdown
 
-### **Pacman Packages (All Modes)**
-- **Development**: `android-tools`
-- **System Tools**: `bat`, `bleachbit`, `btop`, `gnome-disk-utility`, `hwinfo`, `inxi`, `ncdu`, `speedtest-cli`
-- **Utilities**: `cmatrix`, `expac`, `net-tools`, `sl`, `unrar`
-- **Media**: `chromium`, `firefox`, `noto-fonts-extra`, `ttf-hack-nerd`, `ttf-liberation`
-- **System**: `dosfstools`, `fwupd`, `samba`, `sshfs`, `xdg-desktop-portal-gtk`
+### **Core Pacman Packages** (All Modes)
+```
+System Tools    : android-tools, bleachbit, btop, gnome-disk-utility, hwinfo, inxi, ncdu
+Network         : net-tools, speedtest-cli, sshfs, samba
+Development     : git (included in helpers), base-devel (included in helpers)
+Media           : chromium, firefox, vlc (in essential)
+Utilities       : bat, cmatrix, dosfstools, expac, sl, unrar
+Fonts           : noto-fonts-extra, ttf-hack-nerd, ttf-liberation
+System          : fwupd, xdg-desktop-portal-gtk
+```
 
-### **Essential Packages (Standard Mode)**
-- **Productivity**: `filezilla`, `gimp`, `kdenlive`, `libreoffice-fresh`, `openrgb`, `timeshift`, `vlc`, `zed`
+### **Helper Utilities** (Installed First)
+```
+base-devel, bc, bluez-utils, cronie, curl, eza, fastfetch, figlet, flatpak, 
+fzf, git, openssh, pacman-contrib, plymouth, rsync, ufw, zoxide, 
+zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
+```
 
-### **Essential Packages (Minimal Mode)**
-- **Productivity**: `libreoffice-fresh`, `timeshift`, `vlc`
+### **Essential Packages**
+**Standard Mode**: filezilla, gimp, kdenlive, openrgb, timeshift, vlc, vlc-plugins-all  
+**Minimal Mode**: timeshift, vlc, vlc-plugins-all
 
-### **AUR Packages (Standard Mode)**
-- **Cloud Storage**: `dropbox`
-- **Media**: `spotify`, `stremio`
-- **Utilities**: `ventoy-bin`, `via-bin`
-- **Remote Access**: `rustdesk-bin`
-- **Media**: `spotify`, `stremio`
-- **Utilities**: `ventoy-bin`, `via-bin`
-- **Remote Access**: `rustdesk-bin`
+### **AUR Packages**
+**Standard Mode**: dropbox, onlyoffice-bin, rate-mirrors-bin, rustdesk-bin, spotify, stremio, ventoy-bin, via-bin  
+**Minimal Mode**: onlyoffice-bin, rate-mirrors-bin, rustdesk-bin, stremio
 
-### **AUR Packages (Minimal Mode)**
-- **Media**: `stremio`
-- **Remote Access**: `rustdesk-bin`
-- **Remote Access**: `rustdesk-bin`
-
-### **Flatpak Applications**
-- **Desktop Integration**: `io.github.shiftey.Desktop`
-- **System Tools**: `it.mijorus.gearlever`, `dev.edfloreshz.CosmicTweaks`
-- **Extensions**: `com.mattjakeman.ExtensionManager`
+### **Gaming Mode Packages** (Optional)
+**Pacman**: discord, gamemode, lib32-gamemode, lutris, mangohud, lib32-mangohud, obs-studio, steam, wine  
+**AUR**: heroic-games-launcher-bin  
+**Flatpak**: com.vysp3r.ProtonPlus
 
 ---
 
-## 🔧 System Optimizations
+## 🔧 System Optimizations & Features
 
 ### **Performance Enhancements**
-- **ZRAM**: 50% RAM compression with zstd algorithm
-- **Pacman Optimization**: Parallel downloads, color output, ILoveCandy
-- **Mirror Optimization**: Fastest mirror selection via reflector
-- **CPU Microcode**: Automatic Intel/AMD microcode installation
-- **Kernel Headers**: Automatic installation for all installed kernels
-
-### **Gaming Mode Features** (Optional)
-- **Interactive Setup**: Y/n prompt with default "Yes" (press Enter to accept)
-- **Performance Monitoring**: MangoHud for real-time system monitoring
-- **GameMode**: Default GameMode installation (vanilla configuration)
-- **Gaming Platforms**: Steam, Lutris, Discord, Heroic Games Launcher, OBS Studio
-- **Compatibility**: Wine for Windows game compatibility
-- **Streaming/Recording**: OBS Studio for content creation
-- **Proton Management**: ProtonPlus for Wine/Proton version management
-- **Hardware Support**: Works on any system (VM detection included)
+- **Pacman Optimization**: 10 parallel downloads, color output, ILoveCandy, VerbosePkgLists
+- **Multilib Repository**: Automatically enabled for 32-bit application support
+- **Intelligent ZRAM**: Dynamic sizing based on available RAM with zstd compression
+- **CPU Microcode**: Automatic Intel/AMD detection and installation
+- **Kernel Headers**: Automatic installation for all installed kernels (linux, linux-lts, linux-zen, linux-hardened)
+- **Mirror Optimization**: rate-mirrors integration for fastest mirror selection
+- **SSD Optimization**: Automatic fstrim execution on SSD detection
 
 ### **Security Hardening**
-- **Fail2ban**: SSH protection with 30-minute bans, 3 retry limit
-- **Firewall**: UFW or Firewalld with SSH and KDE Connect support
-- **System Services**: Automatic service enablement and configuration
+- **Fail2ban**: SSH protection with 30-minute bans after 3 failed attempts
+- **Firewall**: Auto-detects and configures UFW or Firewalld with SSH access
+- **KDE Connect**: Automatic port configuration (1714-1764) if KDE Connect is installed
+- **System Services**: Comprehensive service enablement and configuration
+
+### **Boot Experience**
+- **Plymouth**: Beautiful boot screen with automatic configuration
+- **Dual Bootloader Support**: 
+  - **systemd-boot**: Quiet boot, 3s timeout, console-mode max, removes fallback entries
+  - **GRUB**: Plymouth integration, 3s timeout, saves default entry, removes fallback images
+- **Btrfs Integration**: Automatic grub-btrfs installation and configuration for snapshot support
+- **Windows Dual-Boot**: 
+  - Detects Windows installations automatically
+  - Copies Microsoft EFI files if needed (systemd-boot)
+  - Adds Windows entries to boot menu (both bootloaders)
+  - Sets hardware clock to local time for compatibility
+  - Installs ntfs-3g for NTFS partition access
+
+### **Shell Configuration**
+- **ZSH**: Default shell with Oh-My-Zsh framework
+- **Starship**: Beautiful, fast prompt with system information
+- **Enhanced Navigation**: zoxide for smart directory jumping
+- **System Information**: fastfetch with custom configuration
+- **Aliases**: Comprehensive system maintenance and navigation aliases
+- **Plugins**: Git integration, FZF fuzzy finding, autosuggestions, syntax highlighting
+
+### **GPU Driver Intelligence**
+- **AMD**: Mesa, AMDGPU, Vulkan support with 32-bit libraries
+- **Intel**: Mesa, Intel Vulkan, hardware acceleration libraries  
+- **NVIDIA**: 
+  - Auto-detects GPU generation (Turing+, Maxwell/Pascal, Kepler, Fermi, Tesla)
+  - Recommends appropriate driver (nvidia-open-dkms for newer, nvidia for older)
+  - Offers Nouveau alternative for legacy cards
+  - Includes Vulkan and 32-bit library support
+- **VM Detection**: Installs guest utilities (qemu-guest-agent, spice-vdagent, xf86-video-qxl) when virtualization is detected
 
 ---
 
 ## 🎨 User Experience
 
-### **Shell Configuration**
-- **ZSH**: Default shell with autosuggestions and syntax highlighting
-- **Starship**: Beautiful, fast prompt with system information
-- **Zoxide**: Smart directory navigation
-- **Fastfetch**: System information display with custom configuration
+### **Beautiful Interface**
+- **gum Integration**: Modern terminal UI with styled prompts and progress indicators
+- **Progress Tracking**: Real-time installation progress with step-by-step feedback
+- **Error Handling**: Comprehensive error collection with detailed reporting
+- **ASCII Art**: Beautiful Arch Linux branding throughout the installation
+- **Color Coding**: Intuitive color-coded status messages for easy understanding
 
-### **Boot Experience**
-- **Plymouth**: Beautiful boot screen with BGRT theme
-- **Bootloader Support**: Automatic detection and configuration for both GRUB and systemd-boot
-- **Splash Parameters**: Automatic kernel parameter configuration for both bootloaders
-- **Initramfs**: Automatic rebuild with Plymouth hooks
-- **Btrfs Integration**: Installs and enables grub-btrfs if using GRUB with a Btrfs root filesystem
-- **Windows Dual-Boot**: Detects Windows installations, copies EFI files if needed, adds Windows to the boot menu for both GRUB and systemd-boot, and sets the hardware clock to local time for compatibility
-- **NTFS Support**: Installs `ntfs-3g` for NTFS access and os-prober compatibility
-
-### **Terminal Interface**
-- **Progress Tracking**: Real-time installation progress
-- **Error Handling**: Comprehensive error collection and reporting
-- **Color Coding**: Intuitive color-coded status messages
-- **ASCII Art**: Beautiful Arch Linux branding
+### **Installation Process**
+1. **System Requirements**: Checks Arch Linux, internet connectivity, disk space, and user privileges
+2. **Interactive Menu**: Clean mode selection with descriptions
+3. **10 Installation Steps**: Each step clearly labeled with progress tracking
+4. **Error Recovery**: Non-critical errors don't stop installation; comprehensive error reporting
+5. **Final Summary**: Complete breakdown of installed/removed packages and any issues
+6. **Reboot Management**: Intelligent reboot prompt with system preparation
 
 ---
 
-## 🧩 Modular & YAML-Driven Design
+## 🧩 Modular Architecture
 
-Archinstaller is built for flexibility and easy customization:
-- **YAML-based package management**: All package lists (Pacman, AUR, Flatpak) and descriptions are in `configs/programs.yaml`.
-- **Desktop environment logic**: Packages and Flatpaks are selected based on your DE (KDE, GNOME, Cosmic, etc).
-- **Modular scripts**: Each setup step is a separate script in `scripts/` (system prep, shell, Plymouth, programs, gaming, bootloader, fail2ban, services, maintenance).
-- **All configuration in `configs/`**: Fastfetch, Starship, MangoHud, .zshrc, and more.
-- **Optional Gaming Mode**: Fully modular, can be extended by editing `scripts/gaming_mode.sh`.
+### **YAML-Driven Configuration**
+- **programs.yaml**: All package lists, descriptions, and desktop environment mappings
+- **Easy Customization**: Add/remove packages by editing YAML configuration
+- **Mode Support**: Separate package lists for default, minimal, and desktop environments
+- **Scalable**: Easy to extend with new desktop environments or package categories
 
-### 🛠 How to Add/Remove Packages or Customize
-- **Edit `configs/programs.yaml`** to add/remove packages for any mode or DE.
-- **Edit scripts in `scripts/`** to change install logic, add new steps, or customize Gaming Mode.
-- **Edit config files in `configs/`** to change Fastfetch, Starship, MangoHud, or shell settings.
+### **Modular Scripts**
+```
+install.sh           - Main orchestration script with beautiful UI
+scripts/common.sh    - Shared functions, colors, and utilities
+scripts/system_preparation.sh - System updates and core package installation
+scripts/shell_setup.sh        - ZSH, Oh-My-Zsh, and shell configuration
+scripts/plymouth.sh           - Boot screen setup
+scripts/yay.sh               - AUR helper installation
+scripts/programs.sh          - Application installation with DE detection
+scripts/gaming_mode.sh       - Gaming tools and performance tweaks
+scripts/bootloader_config.sh - Bootloader detection and configuration
+scripts/fail2ban.sh          - SSH security hardening
+scripts/system_services.sh   - Service management and GPU drivers
+scripts/maintenance.sh       - Final cleanup and optimization
+```
+
+### **Configuration Files**
+```
+configs/.zshrc          - Custom ZSH configuration with aliases
+configs/starship.toml   - Starship prompt configuration
+configs/MangoHud.conf   - Gaming performance overlay settings
+configs/config.jsonc    - Fastfetch system information display
+configs/kglobalshortcutsrc - KDE global shortcuts
+```
 
 ---
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Fresh Arch Linux installation
+- Internet connection  
+- Regular user account with sudo privileges
+- At least 2GB free disk space
+
+### Installation
 ```bash
 # Clone the repository
-git clone [https://github.com/gandromidas/archinstaller](https://github.com/gandromidas/archinstaller) && cd archinstaller
+git clone https://github.com/gandromidas/archinstaller && cd archinstaller
 
 # Make executable and run
 chmod +x install.sh
 ./install.sh
+```
+
+### What Happens Next
+1. **System Check**: Validates prerequisites automatically
+2. **Mode Selection**: Choose your installation approach
+3. **Automated Installation**: Sit back and let the script work (10-20 minutes)
+4. **Gaming Setup**: Optional gaming tools installation
+5. **Final Configuration**: Bootloader, security, and service setup
+6. **System Reboot**: Automatic cleanup and reboot prompt
+
+---
+
+## 🔧 Customization
+
+### Adding Packages
+Edit `configs/programs.yaml` to add packages to any mode or desktop environment:
+```yaml
+essential:
+  default:
+    - name: "your-package"
+      description: "Package description"
+```
+
+### Modifying Installation Logic
+Each installation step is a separate script in `scripts/` directory. Modify the relevant script for custom behavior.
+
+### Desktop Environment Support
+Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `programs.sh`.
+
+### Gaming Mode Customization
+Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configurations.
+
+---
+
+## ⚠️ Important Notes
+
+- **Run as regular user**: Never run as root - the script will check and exit
+- **Fresh installation recommended**: Designed for post-installation setup
+- **Internet required**: All packages are downloaded during installation
+- **Reboot recommended**: Many optimizations require a restart to take effect
+- **Non-destructive**: Script preserves existing configurations when possible
+
+---
+
+## 🤝 Contributing
+
+This project is designed to be easily extensible. To contribute:
+
+1. **Package additions**: Update `configs/programs.yaml`
+2. **New features**: Add scripts to `scripts/` directory
+3. **Desktop environments**: Extend DE detection and package selection
+4. **Configurations**: Add config files to `configs/` directory
+
+---
+
+## 📄 License
+
+This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
+
+---
+
+**Transform your Arch Linux installation into a powerhouse! 🚀**
