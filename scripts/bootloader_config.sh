@@ -5,6 +5,25 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cachyos_support.sh"
+
+# Check if we're running in CachyOS compatibility mode
+CACHYOS_MODE=${CACHYOS_MODE:-false}
+
+# Skip GRUB configuration entirely on CachyOS
+if $IS_CACHYOS; then
+  echo -e "${YELLOW}CachyOS detected - skipping GRUB bootloader configuration.${RESET}"
+  echo -e "${CYAN}CachyOS manages bootloader configuration automatically with optimized settings.${RESET}"
+
+  # Still handle fastfetch config and basic systemd-boot if present
+  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
+    configure_boot
+  fi
+  setup_fastfetch_config
+
+  log_success "Bootloader configuration skipped (CachyOS compatibility)"
+  exit 0
+fi
 
 # Apply all boot configurations at once
 configure_boot() {
@@ -32,19 +51,18 @@ configure_boot() {
 
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
-    if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
-      log_warning "fastfetch config already exists. Skipping generation."
-    else
-      run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
-    fi
-
-    # Safe config file copy
+    # Always replace fastfetch config with archinstaller's version
     if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
       mkdir -p "$HOME/.config/fastfetch"
       cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-      log_success "fastfetch config copied from configs directory."
+      if $IS_CACHYOS; then
+        log_success "fastfetch config replaced with archinstaller version (CachyOS compatibility)."
+      else
+        log_success "fastfetch config copied from configs directory."
+      fi
     else
-      log_warning "config.jsonc not found in configs directory. Using generated config."
+      log_warning "config.jsonc not found in configs directory. Generating default config."
+      run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
     fi
   else
     log_warning "fastfetch not installed. Skipping config setup."
@@ -74,70 +92,138 @@ fi
 
 # --- GRUB configuration ---
 configure_grub() {
-    # Set kernel parameters for Plymouth and quiet boot
-    sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"/' /etc/default/grub
+    if [ "$CACHYOS_MODE" = "true" ]; then
+        echo -e "${CYAN}Running GRUB configuration in CachyOS compatibility mode${RESET}"
+        # CachyOS-compatible GRUB configuration - be more conservative
 
-    # Set default entry to saved and enable save default
-    if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
-    else
-        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub
-    fi
-    if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
-    else
-        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
-    fi
-
-    # Set timeout to 3 seconds
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
-
-    # Set console mode (gfxmode)
-    grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
-    grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
-
-    # Remove all fallback initramfs images
-    sudo rm -f /boot/initramfs-*-fallback.img
-
-    # Show all kernels and fallback entries in main menu
-    if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
-    else
-        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
-    fi
-
-    # Show Btrfs snapshots in main menu if grub-btrfs is installed
-    if pacman -Q grub-btrfs &>/dev/null; then
-        if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
-            sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+        # Only modify basic GRUB settings, leave kernel parameters alone
+        # Set default entry to saved and enable save default
+        if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
         else
-            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+            echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub
         fi
-    fi
+        if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
+        else
+            echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
+        fi
 
-    # Regenerate grub config
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
+        # Set timeout to 3 seconds
+        sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
 
-    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
-    if [ ! -f /boot/grub/grubenv ]; then
-        # Look for linux-zen first, then fallback to standard linux
-        default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-        if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+        # Set console mode (gfxmode) - safe changes
+        grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
+        grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
+
+        # Show all kernels and fallback entries in main menu
+        if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
+        else
+            echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
         fi
-        if [ -n "$default_entry" ]; then
-            sudo grub-set-default "$default_entry"
-            echo "Set GRUB default to: $default_entry"
+
+        # Show Btrfs snapshots in main menu if grub-btrfs is installed
+        if pacman -Q grub-btrfs &>/dev/null; then
+            if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
+                sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+            else
+                echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+            fi
         fi
+
+        # Regenerate grub config
+        sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+        # For CachyOS, look for CachyOS kernels first, then others
+        if [ ! -f /boot/grub/grubenv ]; then
+            # Look for CachyOS kernels first, then linux-zen, then standard linux
+            default_entry=$(grep -P "menuentry '.*[Cc]achy.*'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            if [ -z "$default_entry" ]; then
+                default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            fi
+            if [ -z "$default_entry" ]; then
+                default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            fi
+            if [ -n "$default_entry" ]; then
+                sudo grub-set-default "$default_entry"
+                echo "Set GRUB default to: $default_entry (CachyOS mode)"
+            fi
+        else
+            echo "GRUB environment exists, preserving @saved configuration"
+        fi
+
+        echo -e "${GREEN}CachyOS-compatible GRUB configuration completed${RESET}"
     else
-        echo "GRUB environment exists, preserving @saved configuration"
+        # Original GRUB configuration for regular Arch Linux
+        # Set kernel parameters for Plymouth and quiet boot
+        sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"/' /etc/default/grub
+
+        # Set default entry to saved and enable save default
+        if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+        else
+            echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub
+        fi
+        if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
+        else
+            echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
+        fi
+
+        # Set timeout to 3 seconds
+        sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+
+        # Set console mode (gfxmode)
+        grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
+        grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
+
+        # Remove all fallback initramfs images
+        sudo rm -f /boot/initramfs-*-fallback.img
+
+        # Show all kernels and fallback entries in main menu
+        if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
+        else
+            echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
+        fi
+
+        # Show Btrfs snapshots in main menu if grub-btrfs is installed
+        if pacman -Q grub-btrfs &>/dev/null; then
+            if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
+                sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+            else
+                echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+            fi
+        fi
+
+        # Regenerate grub config
+        sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+        # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
+        if [ ! -f /boot/grub/grubenv ]; then
+            # Look for linux-zen first, then fallback to standard linux
+            default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            if [ -z "$default_entry" ]; then
+                default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            fi
+            if [ -n "$default_entry" ]; then
+                sudo grub-set-default "$default_entry"
+                echo "Set GRUB default to: $default_entry"
+            fi
+        else
+            echo "GRUB environment exists, preserving @saved configuration"
+        fi
     fi
 }
 
 # --- grub-btrfs installation if needed ---
 install_grub_btrfs_if_needed() {
     if [ "$BOOTLOADER" = "grub" ] && [ "$IS_BTRFS" = true ]; then
-        if ! pacman -Q grub-btrfs &>/dev/null; then
+        # Skip grub-btrfs installation in CachyOS mode if it's already installed
+        if [ "$CACHYOS_MODE" = "true" ] && pacman -Q grub-btrfs &>/dev/null; then
+            echo -e "${YELLOW}grub-btrfs already installed in CachyOS, skipping installation${RESET}"
+        elif ! pacman -Q grub-btrfs &>/dev/null; then
             yay -S --noconfirm grub-btrfs
         fi
         # Add Timeshift post-snapshot hook for grub-btrfs

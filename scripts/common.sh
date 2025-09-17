@@ -22,7 +22,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth rsync ufw zoxide)  # Helper utilities to install
+# Helper utilities to install - conditionally includes ZSH packages
+get_helper_utils() {
+  local utils=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth rsync ufw)
+
+  # Add ZSH-related utilities only if not keeping Fish on CachyOS
+  if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
+    utils+=(zoxide)
+  fi
+
+  echo "${utils[@]}"
+}
+
+HELPER_UTILS=($(get_helper_utils))
 
 # : "${INSTALL_MODE:=default}"
 
@@ -273,10 +285,16 @@ install_package_groups() {
         all_packages+=("${HELPER_UTILS[@]}")
         ;;
       "zsh")
-        all_packages+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
+        # Skip ZSH packages if keeping Fish on CachyOS
+        if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
+          all_packages+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
+        fi
         ;;
       "starship")
-        all_packages+=(starship)
+        # Skip Starship if keeping Fish on CachyOS
+        if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
+          all_packages+=(starship)
+        fi
         ;;
       "zram")
         all_packages+=(zram-generator)
@@ -392,6 +410,26 @@ collect_custom_script_errors() {
 # Check if command exists
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+# Get installed kernel types
+get_installed_kernel_types() {
+  local kernel_types=()
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
+}
+
+# Check if running as root user
+check_root_user() {
+  if [[ $EUID -eq 0 ]]; then
+    echo -e "${RED}❌ Error: This script should NOT be run as root!${RESET}"
+    echo -e "${YELLOW}   Please run as a regular user with sudo privileges.${RESET}"
+    echo -e "${YELLOW}   Example: ./install.sh (not sudo ./install.sh)${RESET}"
+    exit 1
+  fi
 }
 
 # Validate file system operations

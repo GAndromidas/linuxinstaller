@@ -20,34 +20,27 @@ enable_plymouth_hook() {
 }
 
 # ======= Kernel Detection Function =======
-get_installed_kernel_types() {
-  local kernel_types=()
-  pacman -Q linux &>/dev/null && kernel_types+=("linux")
-  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-  echo "${kernel_types[@]}"
-}
+
 
 rebuild_initramfs() {
   local kernel_types
   kernel_types=($(get_installed_kernel_types))
-  
+
   if [ "${#kernel_types[@]}" -eq 0 ]; then
     log_warning "No supported kernel types detected. Rebuilding only for 'linux'."
     sudo mkinitcpio -p linux
     return
   fi
-  
+
   echo -e "${CYAN}Detected kernels: ${kernel_types[*]}${RESET}"
-  
+
   local total=${#kernel_types[@]}
   local current=0
-  
+
   for kernel in "${kernel_types[@]}"; do
     ((current++))
     print_progress "$current" "$total" "Rebuilding initramfs for $kernel"
-    
+
     if sudo mkinitcpio -p "$kernel" >/dev/null 2>&1; then
       print_status " [OK]" "$GREEN"
       log_success "Rebuilt initramfs for $kernel"
@@ -56,13 +49,13 @@ rebuild_initramfs() {
       log_error "Failed to rebuild initramfs for $kernel"
     fi
   done
-  
+
   echo -e "\n${GREEN}✓ Initramfs rebuild completed for all kernels${RESET}\n"
 }
 
 set_plymouth_theme() {
   local theme="bgrt"
-  
+
   # Fix the double slash issue in bgrt theme if it exists
   local bgrt_config="/usr/share/plymouth/themes/bgrt/bgrt.plymouth"
   if [ -f "$bgrt_config" ]; then
@@ -72,7 +65,7 @@ set_plymouth_theme() {
       log_success "Fixed double slash in bgrt theme configuration"
     fi
   fi
-  
+
   # Try to set the bgrt theme
   if plymouth-set-default-theme -l | grep -qw "$theme"; then
     if sudo plymouth-set-default-theme -R "$theme" 2>/dev/null; then
@@ -84,7 +77,7 @@ set_plymouth_theme() {
   else
     log_warning "Theme '$theme' not found in available themes."
   fi
-  
+
   # Fallback to spinner theme (which bgrt depends on anyway)
   local fallback_theme="spinner"
   if plymouth-set-default-theme -l | grep -qw "$fallback_theme"; then
@@ -93,7 +86,7 @@ set_plymouth_theme() {
       return 0
     fi
   fi
-  
+
   # Last resort: use the first available theme
   local first_theme
   first_theme=$(plymouth-set-default-theme -l | head -n1)

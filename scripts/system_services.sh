@@ -4,17 +4,18 @@ set -uo pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cachyos_support.sh"
 
 setup_firewall_and_services() {
   step "Setting up firewall and services"
-  
+
   # First handle firewall setup
   if command -v firewalld >/dev/null 2>&1; then
     run_step "Configuring Firewalld" configure_firewalld
   else
     run_step "Configuring UFW" configure_ufw
   fi
-  
+
   # Then handle services
   run_step "Enabling system services" enable_services
 }
@@ -107,11 +108,33 @@ enable_services() {
     log_warning "rustdesk is not installed. Skipping rustdesk.service."
   fi
 
-  step "Enabling the following system services:"
-  for svc in "${services[@]}"; do
-    echo -e "  - $svc"
-  done
-  sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
+  # For CachyOS, only enable services that aren't already managed by CachyOS
+  if $IS_CACHYOS; then
+    step "Enabling additional system services (CachyOS compatibility mode):"
+    local cachyos_services=()
+
+    for svc in "${services[@]}"; do
+      if ! systemctl is-enabled "$svc" >/dev/null 2>&1; then
+        cachyos_services+=("$svc")
+        echo -e "  - $svc ${YELLOW}(not enabled by CachyOS)${RESET}"
+      else
+        echo -e "  - $svc ${GREEN}(already managed by CachyOS)${RESET}"
+      fi
+    done
+
+    if [ ${#cachyos_services[@]} -gt 0 ]; then
+      sudo systemctl enable --now "${cachyos_services[@]}" 2>/dev/null || true
+      log_success "Enabled ${#cachyos_services[@]} additional services for CachyOS"
+    else
+      log_success "All services already managed by CachyOS"
+    fi
+  else
+    step "Enabling the following system services:"
+    for svc in "${services[@]}"; do
+      echo -e "  - $svc"
+    done
+    sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
+  fi
 }
 
 # Function to get total RAM in GB
@@ -139,7 +162,7 @@ get_zram_multiplier() {
     32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
     48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
     64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
-    *) 
+    *)
       # For other sizes, use a dynamic calculation
       if [ $ram_gb -le 4 ]; then
         echo "1.0"
@@ -158,6 +181,14 @@ get_zram_multiplier() {
 
 setup_zram_swap() {
   step "Setting up ZRAM swap"
+
+  # Skip ZRAM setup on CachyOS - let CachyOS handle it
+  if $IS_CACHYOS; then
+    echo -e "${YELLOW}CachyOS detected - skipping ZRAM configuration.${RESET}"
+    echo -e "${CYAN}CachyOS manages ZRAM automatically with optimized settings.${RESET}"
+    log_success "ZRAM setup skipped (CachyOS compatibility)"
+    return
+  fi
 
   # Check if ZRAM is already enabled
   if ! systemctl is-active --quiet systemd-zram-setup@zram0; then
@@ -203,6 +234,14 @@ EOF
 
 detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
+
+  # Skip graphics driver installation on CachyOS - let CachyOS handle it
+  if $IS_CACHYOS; then
+    echo -e "${YELLOW}CachyOS detected - skipping graphics driver installation.${RESET}"
+    echo -e "${CYAN}CachyOS manages graphics drivers automatically with optimized configurations.${RESET}"
+    log_success "Graphics driver installation skipped (CachyOS compatibility)"
+    return
+  fi
 
   # VM detection function (from gamemode.sh)
   is_vm() {
@@ -332,3 +371,9 @@ detect_and_install_gpu_drivers() {
 setup_firewall_and_services
 setup_zram_swap
 detect_and_install_gpu_drivers
+
+# CachyOS-specific configurations
+if $IS_CACHYOS; then
+  enable_cachyos_services
+  setup_cachyos_desktop_tweaks
+fi

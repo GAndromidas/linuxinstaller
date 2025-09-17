@@ -9,8 +9,13 @@ ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/cachyos_support.sh"
 
 step "Gaming Mode Setup"
+
+if $IS_CACHYOS; then
+  log_info "CachyOS detected - gaming packages will be installed using CachyOS compatibility mode"
+fi
 
 # Show Gaming Mode banner
 figlet_banner "Gaming Mode"
@@ -91,13 +96,77 @@ step "Installing AUR gaming packages"
 GAMING_AUR_PACKAGES=(
     "heroic-games-launcher-bin"
 )
-install_aur_quietly "${GAMING_AUR_PACKAGES[@]}"
+
+# Install AUR packages using yay
+if command -v yay &>/dev/null; then
+  local total=${#GAMING_AUR_PACKAGES[@]}
+  local current=0
+  local failed_packages=()
+
+  for pkg in "${GAMING_AUR_PACKAGES[@]}"; do
+    ((current++))
+    print_progress "$current" "$total" "$pkg"
+    if pacman -Q "$pkg" &>/dev/null; then
+      print_status " [SKIP] Already installed" "$YELLOW"
+    else
+      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        INSTALLED_PACKAGES+=("$pkg (AUR)")
+      else
+        print_status " [FAIL]" "$RED"
+        failed_packages+=("$pkg")
+      fi
+    fi
+  done
+
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    log_warning "Some AUR gaming packages failed to install: ${failed_packages[*]}"
+  fi
+else
+  log_error "yay not found. Skipping AUR gaming packages."
+fi
 
 # Install additional gaming-related Flatpaks
 step "Installing gaming-related Flatpaks"
 GAMING_FLATPAKS=(
     "com.vysp3r.ProtonPlus"
 )
-install_flatpak_quietly "${GAMING_FLATPAKS[@]}"
 
-log_success "Gaming Mode setup completed."
+if command -v flatpak >/dev/null 2>&1; then
+  if ! flatpak remote-list | grep -q flathub; then
+    log_warning "Flathub repository not enabled. Adding Flathub..."
+    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  fi
+
+  local total=${#GAMING_FLATPAKS[@]}
+  local current=0
+  local failed_packages=()
+
+  for pkg in "${GAMING_FLATPAKS[@]}"; do
+    ((current++))
+    print_progress "$current" "$total" "$pkg"
+    if flatpak list | grep -q "$pkg"; then
+      print_status " [SKIP] Already installed" "$YELLOW"
+    else
+      if sudo flatpak install -y flathub "$pkg" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        INSTALLED_PACKAGES+=("$pkg (Flatpak)")
+      else
+        print_status " [FAIL]" "$RED"
+        failed_packages+=("$pkg")
+      fi
+    fi
+  done
+
+  if [ ${#failed_packages[@]} -gt 0 ]; then
+    log_warning "Some Flatpak gaming packages failed to install: ${failed_packages[*]}"
+  fi
+else
+  log_error "Flatpak not installed. Skipping Flatpak gaming packages."
+fi
+
+if $IS_CACHYOS; then
+  log_success "Gaming Mode setup completed with CachyOS compatibility."
+else
+  log_success "Gaming Mode setup completed."
+fi
