@@ -233,9 +233,4 @@ fi
 # --- Final Summary ---
 print_applications_summary
 log_success "Application installation process completed."
-echo -e "${GREEN}Your system is now ready to use! Enjoy your new Arch Linux setup.${RESET}"
-echo -e "${YELLOW}It is recommended to reboot your system for all changes to take effect.${RESET}"
-echo ""
-echo -e "${YELLOW}Press ENTER to return to the main menu...${RESET}"
-read -r
 return 0
