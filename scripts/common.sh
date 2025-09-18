@@ -351,13 +351,15 @@ ensure_yay_installed() {
 
   # Clone and build yay from source
   log_info "Downloading yay source..."
-  if ! git clone --depth 1 https://aur.archlinux.org/yay.git . 2>/dev/null; then
+  if ! git clone --depth 1 https://aur.archlinux.org/yay.git .; then
     log_error "Failed to download yay source"
     return 1
   fi
 
   log_info "Installing yay from source..."
-  if ! makepkg -si --noconfirm --needed 2>/dev/null; then
+  # Ensure sudo privileges for makepkg -si
+  sudo -v || { log_error "Sudo privileges required for yay installation."; return 1; }
+  if ! makepkg -si --noconfirm; then
     log_error "Failed to install yay from source"
     return 1
   fi
@@ -930,9 +932,9 @@ prompt_reboot() {
 # Pre-download package lists for faster installation
 preload_package_lists() {
   step "Preloading package lists for faster installation"
-  sudo pacman -Sy --noconfirm >/dev/null 2>&1
+  sudo pacman -Sy --noconfirm
   if command -v yay >/dev/null; then
-    yay -Sy --noconfirm >/dev/null 2>&1
+    yay -Sy --noconfirm
   else
     log_warning "yay not available for AUR package list update"
   fi
@@ -941,7 +943,7 @@ preload_package_lists() {
 # Optimized system update
 fast_system_update() {
   step "Performing optimized system update"
-  sudo pacman -Syu --noconfirm --overwrite="*"
+  sudo pacman -Syu --noconfirm
   if command -v yay >/dev/null; then
     yay -Syu --noconfirm
   else
