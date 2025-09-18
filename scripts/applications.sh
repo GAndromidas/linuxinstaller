@@ -35,43 +35,6 @@ read_yaml_packages() {
   local -n packages_array="$3"
   packages_array=()
   local yq_output
-  yq_output=$(#!/bin/bash
-set -uo pipefail
-
-# Simplified and Efficient Applications Installation
-# Installs packages from programs.yaml in batches for speed and reliability.
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
-
-source "$SCRIPT_DIR/common.sh"
-
-
-export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
-
-# ===== YAML Parsing Functions =====
-
-# Function to check if yq is available, install if not
-ensure_yq() {
-  if ! command -v yq &>/dev/null; then
-    echo -e "${YELLOW}yq is required for YAML parsing. Installing...${RESET}"
-    sudo pacman -S --noconfirm yq
-    if ! command -v yq &>/dev/null; then
-      log_error "Failed to install yq. Please install it manually: sudo pacman -S yq"
-      return 1
-    fi
-  fi
-  return 0
-}
-
-# Function to read packages from YAML
-read_yaml_packages() {
-  local yaml_file="$1"
-  local yaml_path="$2"
-  local -n packages_array="$3"
-  packages_array=()
-  local yq_output
   yq_output=$(yq -r "$yaml_path[].name" "$yaml_file" 2>/dev/null)
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS= read -r package; do
