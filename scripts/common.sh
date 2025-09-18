@@ -319,22 +319,27 @@ ensure_paru_installed() {
 
   cd "$temp_dir" || { log_error "Failed to enter temp directory"; return 1; }
 
-  # Clone and build paru-bin (precompiled)
-  log_info "Downloading paru-bin source..."
-  if ! git clone --depth 1 https://aur.archlinux.org/paru-bin.git . 2>/dev/null; then
-    log_error "Failed to download paru-bin source"
+  # Clone and build paru from source
+  log_info "Downloading paru source..."
+  if ! git clone --depth 1 https://aur.archlinux.org/paru.git . 2>/dev/null; then
+    log_error "Failed to download paru source"
     return 1
   fi
 
-  log_info "Installing paru-bin (precompiled)..."
+  log_info "Installing paru from source..."
   if ! makepkg -si --noconfirm --needed 2>/dev/null; then
-    log_error "Failed to install paru-bin"
+    log_error "Failed to install paru from source"
     return 1
+  fi
+
+  # Clean package cache to save space after installation
+  if command -v paru &>/dev/null; then
+    paru -Scc --noconfirm || true
   fi
 
   # Verify installation
   if command -v paru &>/dev/null && paru --version >/dev/null 2>&1; then
-    log_success "paru installed and verified successfully"
+    log_success "paru installed from source and cleaned up successfully"
   else
     log_error "paru installation verification failed"
     return 1

@@ -105,8 +105,9 @@ install_cpu_microcode() {
 install_kernel_headers_for_all() {
   step "Installing kernel headers"
 
-  # Get all installed kernels
-  local kernels=($(pacman -Q | grep '^linux' | grep -E 'linux(-[^[:space:]]+)?[[:space:]]' | awk '{print $1}' | grep -E '^linux(-[^[:space:]]+)?$'))
+  # Get only actual kernel packages (not firmware or other linux-* packages)
+  local kernels=($(get_installed_kernel_types))
+
   local headers_packages=()
 
   for kernel in "${kernels[@]}"; do
@@ -142,25 +143,31 @@ install_paru() {
     return 0
   fi
 
-  # Simple bulletproof paru installation
-  log_info "Installing paru from AUR..."
+  # Install paru from source (not precompiled binary)
+  log_info "Installing paru from source..."
 
   # Go to tmp directory
   local temp_dir=$(mktemp -d)
+  local current_dir=$(pwd)
   cd "$temp_dir"
 
-  # Download and install paru-bin (precompiled)
-  git clone https://aur.archlinux.org/paru-bin.git
-  cd paru-bin
+  # Download and install paru from source
+  git clone https://aur.archlinux.org/paru.git
+  cd paru
   makepkg -si --noconfirm --needed
 
-  # Clean up
-  cd /
+  # Clean up build files and source
+  cd "$current_dir"
   rm -rf "$temp_dir"
+
+  # Clean package cache to save space
+  if command -v paru &>/dev/null; then
+    paru -Scc --noconfirm || true
+  fi
 
   # Verify installation
   if command -v paru &>/dev/null && paru --version &>/dev/null; then
-    log_success "paru installed successfully"
+    log_success "paru installed successfully from source and cleaned up"
     return 0
   else
     log_error "paru installation failed"
