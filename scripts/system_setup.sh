@@ -40,29 +40,45 @@ configure_pacman() {
 
   # Enable parallel downloads, color output, verbose package lists, and ILoveCandy
   local pacman_conf="/etc/pacman.conf"
-  if ! grep -q "^ParallelDownloads" "$pacman_conf"; then
-    sudo sed -i 's/^#ParallelDownloads/ParallelDownloads/' "$pacman_conf"
-    log_success "Enabled parallel downloads in pacman"
+  # Handle ParallelDownloads - works whether commented or uncommented
+  if grep -q "^#ParallelDownloads" "$pacman_conf"; then
+    # Line is commented, uncomment and set value
+    sudo sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 10/' "$pacman_conf"
+    log_success "Uncommented and set ParallelDownloads = 10"
+  elif grep -q "^ParallelDownloads" "$pacman_conf"; then
+    # Line is uncommented, just update the value
+    sudo sed -i 's/^ParallelDownloads.*/ParallelDownloads = 10/' "$pacman_conf"
+    log_success "Updated ParallelDownloads = 10"
+  else
+    # Line doesn't exist, add it after [options] section
+    sudo sed -i '/^\[options\]/a ParallelDownloads = 10' "$pacman_conf"
+    log_success "Added ParallelDownloads = 10"
   fi
-  if ! grep -q "^Color" "$pacman_conf"; then
+  
+  # Handle Color setting
+  if grep -q "^#Color" "$pacman_conf"; then
     sudo sed -i 's/^#Color/Color/' "$pacman_conf"
-    log_success "Enabled color output in pacman"
+    log_success "Uncommented Color setting"
   fi
-  if ! grep -q "^VerbosePkgLists" "$pacman_conf"; then
+  
+  # Handle VerbosePkgLists setting
+  if grep -q "^#VerbosePkgLists" "$pacman_conf"; then
     sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' "$pacman_conf"
-    log_success "Enabled verbose package lists in pacman"
+    log_success "Uncommented VerbosePkgLists setting"
   fi
-  # Check for ILoveCandy and add it if it doesn't exist
-  if ! grep -q "ILoveCandy" "$pacman_conf"; then
-    # Insert ILoveCandy after the first uncommented option in the [options] section
-    sudo sed -i '/^\[options\]/,/^\s*$/ s/\(^\s*[a-zA-Z]\w*\)/\1\nILoveCandy/' "$pacman_conf"
-    log_success "Added ILoveCandy to pacman"
+  
+  # Add ILoveCandy if not already present
+  if ! grep -q "^ILoveCandy" "$pacman_conf"; then
+    sudo sed -i '/^Color/a ILoveCandy' "$pacman_conf"
+    log_success "Added ILoveCandy setting"
   fi
-
-  # Enable multilib repository if not already enabled
+  
+  # Enable multilib if not already enabled
   if ! grep -q "^\[multilib\]" "$pacman_conf"; then
     echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a "$pacman_conf" >/dev/null
     log_success "Enabled multilib repository"
+  else
+    log_success "Multilib repository already enabled"
   fi
 }
 
