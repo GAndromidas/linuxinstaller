@@ -20,9 +20,8 @@ check_prerequisites() {
 configure_pacman() {
   step "Configuring pacman optimizations"
 
-  if $IS_CACHYOS; then
-    log_info "CachyOS detected - skipping pacman.conf modifications"
-    log_info "Preserving CachyOS optimized configuration (architecture, repositories, settings)"
+  # Use centralized CachyOS detection
+  if should_skip_pacman_config; then
     return 0
   fi
 
@@ -215,7 +214,8 @@ set_sudo_pwfeedback() {
 install_cpu_microcode() {
   step "Detecting CPU and installing appropriate microcode"
 
-  # Skip microcode installation on CachyOS - let CachyOS handle it
+  # Use centralized CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     echo -e "${YELLOW}CachyOS detected - skipping microcode installation.${RESET}"
     echo -e "${CYAN}CachyOS manages CPU microcode automatically with optimized updates.${RESET}"

@@ -93,8 +93,8 @@ show_cachyos_info() {
       echo -e "  • ${RED}Fish shell${RESET} - Will be COMPLETELY REMOVED (NO BACKUPS!)"
       echo -e "  • ${GREEN}ZSH setup${RESET} - Will replace Fish with your ZSH configuration"
     elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
-      echo -e "  • ${GREEN}Fish shell${RESET} - Will be ENHANCED with archinstaller aliases"
-      echo -e "  • ${GREEN}Fastfetch integration${RESET} - Added to Fish shell startup"
+      echo -e "  • ${GREEN}Fish shell${RESET} - Will be kept as-is (CachyOS configuration preserved)"
+      echo -e "  • ${GREEN}Fastfetch config${RESET} - Will be replaced with archinstaller version"
     else
       echo -e "  • ${YELLOW}Shell setup${RESET} - You will choose Fish→ZSH or Fish enhancement"
     fi
@@ -124,6 +124,8 @@ show_cachyos_info() {
 
 # Function to check if we should skip Plymouth
 should_skip_plymouth() {
+  # Ensure reliable CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     log_info "Skipping Plymouth setup - CachyOS has Plymouth pre-configured"
     return 0  # Skip Plymouth
@@ -133,6 +135,8 @@ should_skip_plymouth() {
 
 # Function to check if we should skip bootloader kernel config
 should_skip_kernel_config() {
+  # Ensure reliable CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     log_info "Skipping kernel configuration - CachyOS manages its own kernel setup"
     return 0  # Skip kernel config
@@ -142,6 +146,8 @@ should_skip_kernel_config() {
 
 # Function to check if we should modify bootloader config
 should_modify_bootloader() {
+  # Ensure reliable CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     # We'll still do some bootloader modifications but be more conservative
     log_info "Using conservative bootloader modifications for CachyOS"
@@ -164,18 +170,18 @@ show_shell_choice_menu() {
   if command -v gum >/dev/null 2>&1; then
     choice=$(gum choose --cursor "→ " --selected.foreground 51 --cursor.foreground 51 \
       "🐚 Convert to ZSH - Replace Fish with archinstaller ZSH setup" \
-      "🐠 Keep Fish - Enhance Fish with archinstaller aliases and fastfetch" \
+      "🐠 Keep Fish - Replace fastfetch config only" \
       "❌ Cancel - Exit installation")
   else
     echo -e "${CYAN}1) 🐚 Convert to ZSH - Replace Fish with archinstaller ZSH setup${RESET}"
-    echo -e "${CYAN}2) 🐠 Keep Fish - Enhance Fish with archinstaller aliases and fastfetch${RESET}"
+    echo -e "${CYAN}2) 🐠 Keep Fish - Replace fastfetch config only${RESET}"
     echo -e "${CYAN}3) ❌ Cancel - Exit installation${RESET}"
     echo ""
     while true; do
       read -r -p "$(echo -e "${YELLOW}Enter your choice [1-3]: ${RESET}")" menu_choice
       case "$menu_choice" in
         1) choice="🐚 Convert to ZSH - Replace Fish with archinstaller ZSH setup"; break ;;
-        2) choice="🐠 Keep Fish - Enhance Fish with archinstaller aliases and fastfetch"; break ;;
+        2) choice="🐠 Keep Fish - Replace fastfetch config only"; break ;;
         3) choice="❌ Cancel - Exit installation"; break ;;
         *) echo -e "${RED}❌ Invalid choice! Please enter 1, 2, or 3.${RESET}" ;;
       esac
@@ -190,7 +196,7 @@ show_shell_choice_menu() {
       ;;
     *"Keep Fish"*)
       export CACHYOS_SHELL_CHOICE="fish"
-      log_success "User chose: Keep Fish with enhancements"
+      log_success "User chose: Keep Fish, replace fastfetch config only"
       return 0
       ;;
     *"Cancel"*)
@@ -250,166 +256,32 @@ handle_shell_conversion() {
 
     return 0
   elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
-    echo -e "\n${YELLOW}═══ Enhancing Fish Shell ═══${RESET}"
-    echo -e "${CYAN}Keeping Fish shell and adding archinstaller enhancements...${RESET}"
+    echo -e "\n${YELLOW}═══ Keeping Fish Shell ═══${RESET}"
+    echo -e "${CYAN}Preserving CachyOS Fish configuration, replacing fastfetch config only...${RESET}"
 
-    # Enhance Fish configuration
-    enhance_fish_configuration
+    replace_fastfetch_config_only
     return 0
   fi
 
   return 1  # No choice made
 }
 
-# Function to enhance Fish shell with archinstaller features
-enhance_fish_configuration() {
-  log_info "Adding archinstaller enhancements to Fish configuration"
+# Function to only replace fastfetch config for Fish users
+replace_fastfetch_config_only() {
+  log_info "Replacing fastfetch config with archinstaller version"
 
-  # Create Fish config directory if it doesn't exist
-  mkdir -p "$HOME/.config/fish"
-
-  # Read ZSH aliases from archinstaller .zshrc and convert to Fish format
-  if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-    log_info "Converting ZSH aliases to Fish format"
-
-    # Create a Fish aliases file
-    cat > "$HOME/.config/fish/archinstaller_aliases.fish" << 'EOF'
-# Archinstaller aliases converted to Fish format
-# System maintenance
-alias update='sudo pacman -Syu'
-alias install='sudo pacman -S'
-alias search='pacman -Ss'
-alias remove='sudo pacman -Rns'
-alias clean='sudo pacman -Sc'
-alias orphans='sudo pacman -Rns (pacman -Qtdq)'
-alias mirrors='sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist'
-
-# Navigation and file operations
-alias ll='eza -la --icons --group-directories-first'
-alias ls='eza --icons --group-directories-first'
-alias la='eza -a --icons --group-directories-first'
-alias lt='eza -T --icons --group-directories-first'
-alias l='eza -l --icons --group-directories-first'
-alias grep='grep --color=auto'
-alias df='df -h'
-alias free='free -h'
-alias du='ncdu'
-
-# Git shortcuts
-alias gs='git status'
-alias ga='git add'
-alias gc='git commit -m'
-alias gp='git push'
-alias gl='git log --oneline'
-alias gd='git diff'
-
-# System information
-alias info='fastfetch'
-alias cpu='grep "model name" /proc/cpuinfo | head -1'
-alias mem='free -h'
-alias disk='df -h'
-alias temp='sensors 2>/dev/null || echo "lm-sensors not installed"'
-
-# Network
-alias myip='curl -s https://ipinfo.io/ip'
-alias ping='ping -c 5'
-alias ports='netstat -tuln'
-
-# File permissions
-alias chx='chmod +x'
-alias ch755='chmod 755'
-alias ch644='chmod 644'
-
-# Safety aliases
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
-
-# Zoxide integration for Fish
-if command -v zoxide > /dev/null
-    zoxide init fish | source
-end
-EOF
-
-    # Source the aliases in Fish config
-    if [ -f "$HOME/.config/fish/config.fish" ]; then
-      # Add source line if not already present
-      if ! grep -q "archinstaller_aliases.fish" "$HOME/.config/fish/config.fish"; then
-        echo "" >> "$HOME/.config/fish/config.fish"
-        echo "# Archinstaller aliases" >> "$HOME/.config/fish/config.fish"
-        echo "source ~/.config/fish/archinstaller_aliases.fish" >> "$HOME/.config/fish/config.fish"
-      fi
-    else
-      # Create config.fish with aliases
-      cat > "$HOME/.config/fish/config.fish" << 'EOF'
-# Fish configuration enhanced by Archinstaller
-
-# Source archinstaller aliases
-source ~/.config/fish/archinstaller_aliases.fish
-
-# Disable Fish greeting
-set fish_greeting
-
-# Add fastfetch on terminal start
-if status is-interactive
-    fastfetch
-end
-EOF
-    fi
-
-    log_success "Fish aliases added from archinstaller configuration"
-  fi
-
-  # Add fastfetch integration to Fish config
-  log_info "Adding fastfetch integration to Fish shell"
-
-  # Ensure fastfetch runs on Fish startup
-  if ! grep -q "fastfetch" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-    echo "" >> "$HOME/.config/fish/config.fish"
-    echo "# Show system information on terminal start" >> "$HOME/.config/fish/config.fish"
-    echo "if status is-interactive" >> "$HOME/.config/fish/config.fish"
-    echo "    fastfetch" >> "$HOME/.config/fish/config.fish"
-    echo "end" >> "$HOME/.config/fish/config.fish"
-  fi
-
-  # Copy fastfetch config if available
+  # Copy fastfetch config if available (don't modify Fish config - CachyOS handles that)
   if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
     mkdir -p "$HOME/.config/fastfetch"
-    cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/"
-    log_success "Fastfetch configuration copied"
+    cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+    log_success "Fastfetch configuration replaced with archinstaller version"
+  else
+    log_warning "config.jsonc not found in configs directory"
   fi
 
-  # Add Fish-specific enhancements
-  cat >> "$HOME/.config/fish/config.fish" << 'EOF'
-
-# Fish-specific archinstaller enhancements
-# Better command completion
-set -g fish_autosuggestion_enabled 1
-
-# Better history
-set -g fish_history_max_size 10000
-
-# Custom Fish functions for archinstaller compatibility
-function update-system
-    sudo pacman -Syu
-end
-
-function search-package
-    pacman -Ss $argv
-end
-
-function install-package
-    sudo pacman -S $argv
-end
-
-function system-info
-    fastfetch
-end
-EOF
-
-  echo -e "${GREEN}✓ Fish shell enhanced with archinstaller features${RESET}"
-  echo -e "${YELLOW}  Added: aliases, fastfetch integration, and custom functions${RESET}"
-  echo -e "${YELLOW}  Your Fish shell now has archinstaller functionality${RESET}"
+  echo -e "${GREEN}✓ Fish shell configuration preserved${RESET}"
+  echo -e "${YELLOW}  Replaced: fastfetch config with archinstaller version${RESET}"
+  echo -e "${YELLOW}  Your CachyOS Fish configuration remains unchanged${RESET}"
   echo -e "${CYAN}═══════════════════════════════════════════════${RESET}\n"
 }
 
@@ -731,31 +603,70 @@ setup_cachyos_desktop_tweaks() {
   echo -e "${CYAN}══════════════════════════════════════════${RESET}\n"
 }
 
-# Function to check if yay should be skipped on CachyOS
-should_skip_yay_installation() {
-  # Direct CachyOS detection for yay script
+# Centralized function to ensure CachyOS detection is reliable across all scripts
+ensure_cachyos_detection() {
+  # If already detected and variable is set, return
+  if $IS_CACHYOS; then
+    return 0
+  fi
+
+  # Perform direct detection
   local cachyos_detected=false
 
-  # Check /etc/os-release
+  # Method 1: Check /etc/os-release
   if [ -f /etc/os-release ] && grep -qi "cachyos" /etc/os-release; then
     cachyos_detected=true
   fi
 
-  # Check for CachyOS packages
+  # Method 2: Check for CachyOS packages
   if pacman -Q cachyos-keyring &>/dev/null || pacman -Q cachyos-mirrorlist &>/dev/null; then
     cachyos_detected=true
   fi
 
-  # Check both variable and direct detection, and verify yay exists
-  if ($IS_CACHYOS || $cachyos_detected) && command -v yay &>/dev/null; then
+  # Method 3: Check CachyOS repositories in pacman.conf
+  if grep -qi "cachyos" /etc/pacman.conf 2>/dev/null; then
+    cachyos_detected=true
+  fi
+
+  # Update the global variable if detected
+  if $cachyos_detected; then
+    IS_CACHYOS=true
+    export IS_CACHYOS
+    return 0
+  fi
+
+  return 1
+}
+
+# Function to check if yay should be skipped on CachyOS
+should_skip_yay_installation() {
+  # Ensure reliable CachyOS detection
+  ensure_cachyos_detection
+
+  # Check both variable and verify yay exists
+  if $IS_CACHYOS && command -v yay &>/dev/null; then
     echo -e "${YELLOW}CachyOS detected - skipping yay installation.${RESET}"
     echo -e "${CYAN}CachyOS already includes yay AUR helper by default.${RESET}"
     log_info "yay installation skipped (CachyOS compatibility) - yay already available"
     return 0  # Skip yay installation
-  elif $IS_CACHYOS || $cachyos_detected; then
+  elif $IS_CACHYOS; then
     echo -e "${YELLOW}CachyOS detected but yay not found - will install yay.${RESET}"
     log_warning "CachyOS system detected but yay not available, proceeding with installation"
     return 1  # Don't skip, install yay
+  fi
+
+  return 1  # Not CachyOS, don't skip
+}
+
+# Function to check if pacman.conf should be skipped on CachyOS
+should_skip_pacman_config() {
+  # Ensure reliable CachyOS detection
+  ensure_cachyos_detection
+
+  if $IS_CACHYOS; then
+    log_info "CachyOS detected - skipping pacman.conf modifications"
+    log_info "Preserving CachyOS optimized configuration (architecture, repositories, settings)"
+    return 0  # Skip pacman config
   fi
 
   return 1  # Not CachyOS, don't skip

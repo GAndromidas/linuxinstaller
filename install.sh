@@ -261,7 +261,7 @@ if $IS_CACHYOS; then
   if [[ "${CACHYOS_SHELL_CHOICE:-}" == "zsh" ]]; then
     echo -e "  • 🐚 ZSH shell (converted from Fish with all archinstaller features)"
   elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
-    echo -e "  • 🐠 Enhanced Fish shell (with archinstaller aliases and fastfetch)"
+    echo -e "  • 🐠 Fish shell preserved (only fastfetch config replaced)"
   fi
   echo -e "  • 🐧 CachyOS compatibility (preserved kernels, bootloader, ZRAM, graphics, and repositories)"
   echo -e "  • ⚡ CachyOS optimizations preserved (microcode, performance tweaks)"

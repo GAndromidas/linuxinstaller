@@ -183,7 +183,8 @@ get_zram_multiplier() {
 setup_zram_swap() {
   step "Setting up ZRAM swap"
 
-  # Skip ZRAM setup on CachyOS - let CachyOS handle it
+  # Use centralized CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     echo -e "${YELLOW}CachyOS detected - skipping ZRAM configuration.${RESET}"
     echo -e "${CYAN}CachyOS manages ZRAM automatically with optimized settings.${RESET}"
@@ -236,7 +237,8 @@ EOF
 detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
 
-  # Skip graphics driver installation on CachyOS - let CachyOS handle it
+  # Use centralized CachyOS detection
+  ensure_cachyos_detection
   if $IS_CACHYOS; then
     echo -e "${YELLOW}CachyOS detected - skipping graphics driver installation.${RESET}"
     echo -e "${CYAN}CachyOS manages graphics drivers automatically with optimized configurations.${RESET}"

@@ -18,13 +18,13 @@ setup_shell() {
     if command -v gum >/dev/null 2>&1; then
       choice=$(gum choose --cursor "→ " --selected.foreground 51 --cursor.foreground 51 \
         "Switch to ZSH - Replace Fish with ZSH shell (recommended)" \
-        "Keep Fish - Enhance Fish with archinstaller features" \
+        "Keep Fish - Replace fastfetch config only" \
         "Cancel - Exit installation")
     else
       echo -e "${CYAN}Choose your shell preference:${RESET}"
       echo ""
       echo -e "  ${BLUE}1) Switch to ZSH${RESET} - Replace Fish with ZSH shell (recommended)"
-      echo -e "  ${GREEN}2) Keep Fish${RESET} - Enhance Fish with archinstaller features"
+      echo -e "  ${GREEN}2) Keep Fish${RESET} - Replace fastfetch config only"
       echo -e "  ${RED}3) Cancel${RESET} - Exit installation"
       echo ""
 
@@ -36,7 +36,7 @@ setup_shell() {
             break
             ;;
           2)
-            choice="Keep Fish - Enhance Fish with archinstaller features"
+            choice="Keep Fish - Replace fastfetch config only"
             break
             ;;
           3)
