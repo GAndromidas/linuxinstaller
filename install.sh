@@ -67,10 +67,6 @@ detect_cachyos
 show_cachyos_info
 
 # Show shell choice menu for CachyOS Fish users
-if $IS_CACHYOS && is_fish_shell; then
-  show_shell_choice_menu
-fi
-
 show_menu
 export INSTALL_MODE
 
@@ -123,22 +119,7 @@ else
   echo -e "${CYAN}Step 2: Shell Setup${RESET}"
   echo -e "${YELLOW}🐚 Installing ZSH shell with autocompletion and syntax highlighting...${RESET}"
 fi
-step "Shell Setup" && {
-  # Handle CachyOS shell configuration based on user choice
-  if $IS_CACHYOS && is_fish_shell; then
-    if [[ "${CACHYOS_SHELL_CHOICE:-}" == "zsh" ]]; then
-      purge_fish_completely
-      handle_shell_conversion
-      source "$SCRIPTS_DIR/shell_setup.sh"
-    elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
-      handle_shell_conversion  # This will run enhance_fish_configuration
-      # Skip ZSH setup entirely when keeping Fish
-    fi
-  else
-    # Non-CachyOS or non-Fish systems run normal shell setup
-    source "$SCRIPTS_DIR/shell_setup.sh"
-  fi
-} || log_error "Shell setup failed"
+step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 2 completed"
   echo ""

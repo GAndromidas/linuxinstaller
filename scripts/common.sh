@@ -116,15 +116,15 @@ show_gum_menu() {
 
   case "$choice" in
     "Standard"*)
-      INSTALL_MODE="default"
+      export INSTALL_MODE="default"
       gum style --foreground 51 "✓ Selected: Standard installation (intermediate users)"
       ;;
     "Minimal"*)
-      INSTALL_MODE="minimal"
+      export INSTALL_MODE="minimal"
       gum style --foreground 46 "✓ Selected: Minimal installation (recommended for new users)"
       ;;
     "Custom"*)
-      INSTALL_MODE="custom"
+      export INSTALL_MODE="custom"
       gum style --foreground 226 "✓ Selected: Custom installation (advanced users)"
       ;;
     "Exit"*)
@@ -152,21 +152,21 @@ show_traditional_menu() {
   while true; do
     read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
           case "$menu_choice" in
-        1)
-          INSTALL_MODE="default"
-          echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
-          break
-          ;;
-        2)
-          INSTALL_MODE="minimal"
-          echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
-          break
-          ;;
-        3)
-          INSTALL_MODE="custom"
-          echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
-          break
-          ;;
+          1)
+            export INSTALL_MODE="default"
+            echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
+            break
+            ;;
+          2)
+            export INSTALL_MODE="minimal"
+            echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
+            break
+            ;;
+          3)
+            export INSTALL_MODE="custom"
+            echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
+            break
+            ;;
       4)
         echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
         exit 0

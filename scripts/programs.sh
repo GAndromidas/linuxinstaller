@@ -8,6 +8,7 @@ ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPTS_DIR/cachyos_support.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
 
@@ -632,18 +633,141 @@ print_programs_summary() {
   echo -e "${CYAN}===============================${RESET}"
 }
 
+# CachyOS Package Filtering Functions
+filter_packages_for_cachyos() {
+  if ! $IS_CACHYOS; then
+    return 0
+  fi
+
+  log_info "Filtering packages for CachyOS compatibility"
+
+  # Common packages that CachyOS already has or manages differently
+  local cachyos_skip_packages=(
+    "yay"  # CachyOS includes yay by default
+    "fish" # CachyOS uses fish by default
+    "plymouth"
+    "plymouth-theme-archlinux"
+    "grub-theme-vimix"
+    "kernel-modules-hook"
+  )
+
+  # Filter essential programs
+  local filtered_essential=()
+  for package in "${essential_programs[@]}"; do
+    local should_skip=false
+    for skip_package in "${cachyos_skip_packages[@]}"; do
+      if [[ "$package" == "$skip_package" ]]; then
+        log_info "Skipping $package - already provided by CachyOS"
+        should_skip=true
+        break
+      fi
+    done
+
+    # Check if package is already installed and configured by CachyOS
+    if ! $should_skip && is_cachyos_package_configured "$package"; then
+      log_info "Skipping $package - already configured by CachyOS"
+      should_skip=true
+    fi
+
+    if ! $should_skip; then
+      filtered_essential+=("$package")
+    fi
+  done
+  essential_programs=("${filtered_essential[@]}")
+
+  # Filter AUR programs
+  local filtered_yay=()
+  for package in "${yay_programs[@]}"; do
+    local should_skip=false
+    for skip_package in "${cachyos_skip_packages[@]}"; do
+      if [[ "$package" == "$skip_package" ]]; then
+        log_info "Skipping AUR package $package - already provided by CachyOS"
+        should_skip=true
+        break
+      fi
+    done
+
+    if ! $should_skip && is_cachyos_package_configured "$package"; then
+      log_info "Skipping AUR package $package - already configured by CachyOS"
+      should_skip=true
+    fi
+
+    if ! $should_skip; then
+      filtered_yay+=("$package")
+    fi
+  done
+  yay_programs=("${filtered_yay[@]}")
+
+  log_success "Package filtering completed for CachyOS"
+}
+
+install_cachyos_compatible_packages() {
+  if $IS_CACHYOS; then
+    log_info "Installing packages with CachyOS compatibility mode"
+
+    # Install essential programs with extra error handling
+    if [ ${#essential_programs[@]} -gt 0 ]; then
+      step "Installing filtered essential programs for CachyOS"
+      echo -e "${CYAN}Packages to install: ${essential_programs[*]}${RESET}"
+
+      # Use more conservative installation approach
+      for package in "${essential_programs[@]}"; do
+        if ! pacman -Q "$package" &>/dev/null; then
+          log_info "Installing $package"
+          if ! sudo pacman -S --noconfirm "$package"; then
+            log_warning "Failed to install $package, continuing with next package"
+          fi
+        else
+          log_info "$package already installed, skipping"
+        fi
+      done
+    else
+      log_info "No essential programs to install after CachyOS filtering"
+    fi
+
+    # Install AUR programs
+    if [ ${#yay_programs[@]} -gt 0 ]; then
+      step "Installing filtered AUR programs for CachyOS"
+      echo -e "${CYAN}AUR packages to install: ${yay_programs[*]}${RESET}"
+      install_yay_programs
+    else
+      log_info "No AUR programs to install after CachyOS filtering"
+    fi
+  else
+    # Non-CachyOS systems use normal installation
+    install_pacman_programs
+  fi
+}
+
 # ===== MAIN LOGIC =====
+
+# Debug logging for troubleshooting
+log_info "=== PROGRAMS INSTALLATION DEBUG ==="
+log_info "INSTALL_MODE: ${INSTALL_MODE:-NOT_SET}"
+log_info "IS_CACHYOS: $IS_CACHYOS"
+if $IS_CACHYOS; then
+  log_info "CachyOS shell choice: ${CACHYOS_SHELL_CHOICE:-NOT_SET}"
+fi
+log_info "========================================"
+
+# CachyOS compatibility message
+if $IS_CACHYOS; then
+  log_info "CachyOS detected - will skip packages that are already pre-installed or configured"
+fi
 
 # Use INSTALL_MODE from menu instead of command-line flags
 if [[ "$INSTALL_MODE" == "default" ]]; then
+  log_info "Loading DEFAULT installation packages"
   # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_default[@]}")
   yay_programs=("${yay_programs_default[@]}")
 elif [[ "$INSTALL_MODE" == "minimal" ]]; then
+  log_info "Loading MINIMAL installation packages"
   # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
+  log_info "Loading CUSTOM installation packages"
   if ! command -v whiptail &>/dev/null; then
     echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"
     sudo pacman -S --noconfirm newt
@@ -653,9 +777,12 @@ elif [[ "$INSTALL_MODE" == "custom" ]]; then
   custom_aur_selection
   custom_flatpak_selection
 else
-  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
+  log_error "INSTALL_MODE not set or invalid: '${INSTALL_MODE:-NOT_SET}'. Please run the installer from the main menu."
   return 1
 fi
+
+# Debug: Show package counts before filtering
+log_info "Before CachyOS filtering - Essential: ${#essential_programs[@]}, AUR: ${#yay_programs[@]}"
 
 if ! check_flatpak; then
   log_warning "Flatpak packages will be skipped."
@@ -663,8 +790,16 @@ fi
 
 detect_desktop_environment
 print_total_packages
+
+# Apply CachyOS package filtering before installation
+if $IS_CACHYOS; then
+  log_info "Applying CachyOS package filtering..."
+  filter_packages_for_cachyos
+  log_info "After CachyOS filtering - Essential: ${#essential_programs[@]}, AUR: ${#yay_programs[@]}"
+fi
+
 remove_programs
-install_pacman_programs
+install_cachyos_compatible_packages
 
 if [[ "$INSTALL_MODE" == "default" ]]; then
   if [ -n "$flatpak_install_function" ]; then

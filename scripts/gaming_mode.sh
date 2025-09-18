@@ -16,29 +16,57 @@ detect_cachyos >/dev/null 2>&1 || true
 
 step "Gaming Mode Setup"
 
-if $IS_CACHYOS; then
-  log_info "CachyOS detected - gaming packages will be installed using CachyOS compatibility mode"
-fi
+# Debug logging
+log_info "=== GAMING MODE DEBUG ==="
+log_info "INSTALL_MODE: ${INSTALL_MODE:-NOT_SET}"
+log_info "IS_CACHYOS: $IS_CACHYOS"
+log_info "=========================="
+
+# Respect installation mode selection
+case "$INSTALL_MODE" in
+  "minimal")
+    if command -v gum >/dev/null 2>&1; then
+      gum style --foreground 226 "Gaming Mode skipped - Minimal installation selected"
+    else
+      echo -e "${YELLOW}Gaming Mode skipped - Minimal installation selected${RESET}"
+    fi
+    return 0
+    ;;
+  "custom")
+    # Custom installation should ask the user
+    log_info "Custom installation - asking user about gaming mode"
+    ;;
+  "default")
+    # Default installation includes gaming mode
+    if $IS_CACHYOS; then
+      log_info "CachyOS detected - gaming packages will be installed using CachyOS compatibility mode"
+    fi
+    ;;
+  *)
+    log_warning "Unknown INSTALL_MODE: ${INSTALL_MODE:-NOT_SET}, defaulting to ask user"
+    ;;
+esac
 
 # Show Gaming Mode banner
 figlet_banner "Gaming Mode"
 
-# Check if user wants gaming mode (default to Yes)
-if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "Would you like to enable Gaming Mode?"
+# Check if user wants gaming mode (behavior depends on installation mode)
+if [[ "$INSTALL_MODE" == "default" ]]; then
+  # Default mode: auto-enable gaming mode with option to skip
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Gaming Mode (Default Installation)"
     gum style --foreground 226 "This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine."
 
-    if ! gum confirm --default=true "Enable Gaming Mode?"; then
+    if ! gum confirm --default=true "Install Gaming Mode packages?"; then
         gum style --foreground 51 "Gaming Mode skipped."
         return 0
     fi
-else
-    # Fallback to traditional prompts
-    echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
+  else
+    echo -e "${CYAN}Gaming Mode (Default Installation)${RESET}"
     echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
     while true; do
-        read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
+        read -r -p "$(echo -e "${YELLOW}Install Gaming Mode packages? [Y/n]: ${RESET}")" response
         response=${response,,}
         case "$response" in
             ""|y|yes)
@@ -55,6 +83,40 @@ else
                 ;;
         esac
     done
+  fi
+elif [[ "$INSTALL_MODE" == "custom" ]]; then
+  # Custom mode: ask user with neutral default
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Gaming Mode (Custom Installation)"
+    gum style --foreground 226 "This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine."
+
+    if ! gum confirm --default=false "Would you like to install Gaming Mode packages?"; then
+        gum style --foreground 51 "Gaming Mode skipped."
+        return 0
+    fi
+  else
+    echo -e "${CYAN}Gaming Mode (Custom Installation)${RESET}"
+    echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
+    while true; do
+        read -r -p "$(echo -e "${YELLOW}Would you like to install Gaming Mode packages? [y/N]: ${RESET}")" response
+        response=${response,,}
+        case "$response" in
+            y|yes)
+                echo -e "\n"
+                break
+                ;;
+            ""|n|no)
+                log_info "Gaming Mode skipped."
+                echo -e "\n"
+                return 0
+                ;;
+            *)
+                echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+                ;;
+        esac
+    done
+  fi
 fi
 
 # Install MangoHud for performance monitoring

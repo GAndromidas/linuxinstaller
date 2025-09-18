@@ -600,6 +600,69 @@ check_cachyos_system_requirements() {
   return 0
 }
 
+# Function to check if a package is already configured by CachyOS
+is_cachyos_package_configured() {
+  local package="$1"
+
+  if ! $IS_CACHYOS; then
+    return 1  # Not CachyOS, package not configured
+  fi
+
+  # Package is installed, check if it's a CachyOS default that might be configured
+  case "$package" in
+    "plymouth"|"plymouth-theme-"*)
+      # CachyOS often has Plymouth pre-configured
+      if pacman -Q plymouth &>/dev/null; then
+        log_info "$package already configured by CachyOS"
+        return 0
+      fi
+      ;;
+    "yay")
+      # CachyOS includes yay by default
+      if command -v yay &>/dev/null; then
+        log_info "yay already available in CachyOS"
+        return 0
+      fi
+      ;;
+    "fish")
+      # CachyOS uses fish by default
+      if command -v fish &>/dev/null; then
+        log_info "fish shell is CachyOS default"
+        return 0
+      fi
+      ;;
+    "grub"|"grub-btrfs")
+      # CachyOS manages its own bootloader configuration
+      if pacman -Q "$package" &>/dev/null; then
+        log_info "$package managed by CachyOS"
+        return 0
+      fi
+      ;;
+    "linux-zen"|"linux-cachyos"*)
+      # CachyOS has its own kernel management
+      if pacman -Q "$package" &>/dev/null; then
+        log_info "$package managed by CachyOS kernel system"
+        return 0
+      fi
+      ;;
+    *)
+      # For other packages, just check if they're installed and likely pre-configured
+      if pacman -Q "$package" &>/dev/null; then
+        # Additional heuristic: if it's a core system package in CachyOS, consider it configured
+        local cachyos_core_packages=("fastfetch" "starship" "zsh" "firefox" "kate" "konsole")
+        for core_pkg in "${cachyos_core_packages[@]}"; do
+          if [[ "$package" == "$core_pkg" ]]; then
+            log_info "$package is pre-configured in CachyOS"
+            return 0
+          fi
+        done
+      fi
+      ;;
+  esac
+
+  return 1  # Package not configured by CachyOS
+}
+
 # Function to enable essential services for CachyOS
 enable_cachyos_services() {
   if ! $IS_CACHYOS; then
