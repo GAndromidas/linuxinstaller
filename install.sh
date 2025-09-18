@@ -233,8 +233,6 @@ else
 fi
 log_performance "Total installation time"
 
-print_comprehensive_summary
-
 # Kill the sudo keep-alive process explicitly
 kill "$SUDO_KEEPALIVE_PID" 2>/dev/null
 
@@ -248,57 +246,15 @@ stop_parallel_engine
 
 # Handle cleanup and final results
 if [ ${#ERRORS[@]} -eq 0 ]; then
-  if command -v gum >/dev/null 2>&1; then
-    echo ""
-    gum style --foreground 226 "🧹 Cleaning up installer files..."
-  else
-    echo -e "${YELLOW}🧹 Cleaning up installer files...${RESET}"
-  fi
-  cd "$SCRIPT_DIR/.."
-  rm -rf "$(basename "$SCRIPT_DIR")"
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 46 "✓ Installer files cleaned up"
-  else
-    echo -e "${GREEN}✓ Installer files cleaned up${RESET}"
-  fi
+  gum style --foreground 46 "🎯 Zero Installation Errors - Perfect Setup!"
 else
-  if command -v gum >/dev/null 2>&1; then
-    echo ""
-    gum style --border normal --margin "1 0" --padding "0 2" --foreground 226 --border-foreground 226 "⚠️  Installation Issues Detected"
-    gum style --foreground 226 "The following non-critical issues occurred:"
-    for error in "${ERRORS[@]}"; do
-      gum style --margin "0 2" --foreground 15 "• $error"
-    done
-    echo ""
-    gum style --foreground 51 "💡 Your system should still work perfectly!"
-    gum style --foreground 15 "   • Most errors are package conflicts or optional features"
-    gum style --foreground 15 "   • Core functionality has been installed successfully"
-    gum style --foreground 15 "   • You can run the installer again to retry failed components"
-  else
-    echo ""
-    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${RESET}"
-    echo -e "${YELLOW}⚠️  INSTALLATION ISSUES DETECTED${RESET}"
-    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${RESET}"
-    echo -e "${YELLOW}The following non-critical issues occurred:${RESET}"
-    for error in "${ERRORS[@]}"; do
-      echo -e "${RED}   • $error${RESET}"
-    done
-    echo ""
-    echo -e "${GREEN}💡 Your system should still work perfectly!${RESET}"
-    echo -e "${GREEN}   • Most errors are package conflicts or optional features${RESET}"
-    echo -e "${GREEN}   • Core functionality has been installed successfully${RESET}"
-    echo -e "${GREEN}   • You can run the installer again to retry failed components${RESET}"
-  fi
+  gum style --foreground 196 "❌ Installation completed with ${#ERRORS[@]} errors. Please review the summary above."
 fi
 
-# Final system health check
-if command -v gum >/dev/null 2>&1; then
-  echo ""
-  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "🏥 Final System Health Check"
-  gum style --foreground 226 "System is ready for use! Check dashboard above for details."
-else
-  echo -e "${CYAN}🏥 Final System Health Check${RESET}"
-  echo -e "${GREEN}System is ready for use! Check stats above for details.${RESET}"
-fi
+# Show beautiful completion animation
+show_completion_animation
 
+print_comprehensive_summary
+
+# Prompt for reboot
 prompt_reboot

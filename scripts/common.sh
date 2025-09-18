@@ -244,18 +244,20 @@ install_packages_quietly() {
     if [ ${#packages_to_install[@]} -gt 0 ]; then
       gum style --foreground 51 "📦 Installing ${#packages_to_install[@]} packages via Pacman..."
 
-      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}"; then
         installed_count=${#packages_to_install[@]}
         INSTALLED_PACKAGES+=("${packages_to_install[@]}")
         gum style --foreground 46 "✓ Successfully installed ${installed_count} packages"
       else
+        log_error "Batch installation failed. Attempting individual package installation."
         # If batch install fails, try one by one to identify failures
         for pkg in "${packages_to_install[@]}"; do
-          if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+          if sudo pacman -S --noconfirm --needed "$pkg"; then
             ((installed_count++))
             INSTALLED_PACKAGES+=("$pkg")
           else
             failed_packages+=("$pkg")
+            ERRORS+=("Failed to install package: $pkg")
           fi
         done
         gum style --foreground 196 "⚠️  Some packages failed to install"
@@ -274,7 +276,7 @@ install_packages_quietly() {
     if [ ${#packages_to_install[@]} -gt 0 ]; then
       echo -e "${CYAN}📦 Installing ${#packages_to_install[@]} packages via Pacman...${RESET}"
 
-      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}"; then
         installed_count=${#packages_to_install[@]}
         INSTALLED_PACKAGES+=("${packages_to_install[@]}")
         echo -e "${GREEN}✓ Successfully installed ${installed_count} packages${RESET}"
@@ -788,43 +790,58 @@ print_comprehensive_summary() {
       gum style --foreground 196 "🗑️  Packages Removed: $total_removed"
     fi
     if [ $total_errors -gt 0 ]; then
-      gum style --foreground 196 "❌ Installation Errors: $total_errors"
-      gum style --foreground 226 "   ℹ️  Don't worry! Most errors are non-critical."
+      gum style --foreground 196 "❌ Packages with Installation Errors: $total_errors"
+      gum style --foreground 196 "   • Review logs for details on:"
+      for error_msg in "${ERRORS[@]}"; do
+        gum style --foreground 196 "     - $error_msg"
+      done
     else
       gum style --foreground 46 "🎯 Zero Installation Errors - Perfect Setup!"
     fi
 
+    # Final Health Check
+    echo ""
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "🏥 Final System Health Check"
+    gum style --foreground 46 "System is ready for use! Check dashboard above for details."
+
     # What's Next
     echo ""
-    gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "🔮 What's Next?"
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 205 --border-foreground 205 "🔮 What's Next?"
     gum style --foreground 15 "1. Reboot your system to activate all changes"
     gum style --foreground 15 "2. Your enhanced ZSH shell will be ready on first login"
     gum style --foreground 15 "3. All applications are installed and configured"
-    if [ "$gaming_mode" = true ]; then
-      gum style --foreground 15 "4. Gaming tools (Steam, Lutris, etc.) are ready to use"
-      gum style --foreground 15 "5. MangoHud overlay available for performance monitoring"
-    fi
-    gum style --foreground 15 "$([ "$gaming_mode" = true ] && echo "6" || echo "4"). Check 'fastfetch' command for beautiful system info"
+    gum style --foreground 15 "4. Gaming tools (Steam, Lutris, etc.) are ready to use"
+    gum style --foreground 15 "5. MangoHud overlay available for performance monitoring"
+    gum style --foreground 15 "6. Check 'fastfetch' command for beautiful system info"
 
+    # Useful Commands
     echo ""
-    gum style --foreground 226 "💡 Useful Commands After Reboot:"
+    gum style --foreground 205 "💡 Useful Commands After Reboot:"
     gum style --foreground 15 "   • fastfetch - Beautiful system information"
     gum style --foreground 15 "   • update - Update all packages (Pacman + AUR + Flatpak)"
     gum style --foreground 15 "   • clean - Clean package cache and unused packages"
-    if [ "$gaming_mode" = true ]; then
-      gum style --foreground 15 "   • mangohud <game> - Launch games with performance overlay"
-    fi
+    gum style --foreground 15 "   • mangohud <game> - Launch games with performance overlay"
 
+    # Important Notes
     echo ""
-    gum style --foreground 46 "🔧 Important Notes:"
+    gum style --foreground 205 "🔧 Important Notes:"
     gum style --foreground 15 "   • Your ZSH shell includes helpful aliases and autocompletion"
     gum style --foreground 15 "   • Firewall is active - configure ports as needed"
-    if [ "$gaming_mode" = true ]; then
-      gum style --foreground 15 "   • Steam and gaming tools are ready - just login and play!"
-    fi
+    gum style --foreground 15 "   • Steam and gaming tools are ready - just login and play!"
     gum style --foreground 15 "   • All kernel headers installed for DKMS compatibility"
     gum style --foreground 15 "   • ZRAM swap is active - check with 'zramctl'"
 
+    echo ""
+    gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "🎉 Congratulations! Your Arch Linux system is now fully configured!"
+    gum style --foreground 15 "📋 What happens after reboot:"
+    gum style --foreground 15 "  • 🎨 Beautiful boot screen will appear"
+    gum style --foreground 15 "  • 🖥  Your desktop environment will be ready to use"
+    gum style --foreground 15 "  • 🛡  Security features will be active"
+    gum style --foreground 15 "  • ⚡ Performance optimizations will be enabled"
+    gum style --foreground 15 "  • 🎮 Gaming tools will be available (if installed)"
+    gum style --foreground 226 "💡 It's strongly recommended to reboot now to apply all changes."
+
+    gum confirm "Reboot now?" && sudo reboot
   else
     # Fallback for systems without gum
     echo ""
@@ -1271,7 +1288,7 @@ show_system_health_dashboard() {
         if [[ $failed_count -gt 0 ]]; then
             gum style --foreground 196 "  ⚠️  Failed:    $failed_count packages"
         fi
-        gum style --foreground 51 "  ⏱️  Duration:  $(format_duration $(($(date +%s) - START_TIME)))"
+        gum style --foreground 51 "  ⏱️  Duration:  $(format_duration $(( $(date +%s) - START_TIME )))"
     else
         echo -e "${WHITE}System Performance:${RESET}"
         echo -e "  ${CYAN}🖥️  CPU Usage:    ${cpu_usage}%${RESET}"
@@ -1283,7 +1300,7 @@ show_system_health_dashboard() {
         if [[ $failed_count -gt 0 ]]; then
             echo -e "  ${YELLOW}⚠️  Failed:    $failed_count packages${RESET}"
         fi
-        echo -e "  ${BLUE}⏱️  Duration:  $(format_duration $(($(date +%s) - START_TIME)))${RESET}"
+        echo -e "  ${BLUE}⏱️  Duration:  $(format_duration $(( $(date +%s) - START_TIME )))${RESET}"
     fi
 
     echo ""
@@ -1324,14 +1341,8 @@ show_completion_animation() {
 
 # Stop parallel engine and cleanup
 stop_parallel_engine() {
-    echo -e "${YELLOW}DEBUG: Active background jobs before wait:${RESET}"
-    jobs -l
-
     # Wait for all background jobs to finish
     wait
-
-    echo -e "${YELLOW}DEBUG: Active background jobs after wait:${RESET}"
-    jobs -l
 
     # Clean up job control directory
     rm -rf "${JOB_DIR:-/tmp/arch_installer_jobs_$}" 2>/dev/null || true

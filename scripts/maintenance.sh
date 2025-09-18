@@ -30,6 +30,13 @@ perform_system_cleanup() {
     log_success "No orphaned packages found"
   fi
 
+  # Remove yay-debug if it exists
+  if pacman -Q yay-debug &>/dev/null; then
+    run_step "Removing yay-debug package" sudo pacman -Rns yay-debug --noconfirm
+  else
+    log_success "yay-debug not found or already removed"
+  fi
+
   # System optimization
   run_step "Cleaning temporary files" sudo rm -rf /tmp/* /var/tmp/*
 
