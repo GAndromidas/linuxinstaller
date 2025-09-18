@@ -316,23 +316,31 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
 else
   if command -v gum >/dev/null 2>&1; then
     echo ""
-    gum style --foreground 226 "⚠️  Some errors occurred during installation:"
-    for error in "${ERRORS[@]}"; do
-      gum style --margin "0 2" --foreground 196 "• $error"
-    done
+    gum style --foreground 196 "❌ INSTALLATION COMPLETED WITH ERRORS"
+    gum style --foreground 226 "📊 Error Summary: ${#ERRORS[@]} error(s) encountered"
     echo ""
-    gum style --foreground 226 "💡 Don't worry! Most errors are non-critical and your system should still work."
-    gum style --foreground 226 "   The installer directory has been preserved so you can review what happened."
-    gum style --foreground 226 "   You can run the installer again to fix any issues."
+    gum style --foreground 226 "🔍 For detailed diagnostic information, see the summary above."
+    gum style --foreground 226 "💡 The installer directory has been preserved for troubleshooting."
+    gum style --foreground 226 "📝 When reporting issues, include the complete diagnostic information from the summary."
+    echo ""
+    gum style --foreground 226 "🔧 Next steps:"
+    gum style --margin "0 2" --foreground 226 "1. Review the error details in the summary above"
+    gum style --margin "0 2" --foreground 226 "2. Check suggested fixes and log files"
+    gum style --margin "0 2" --foreground 226 "3. Run installer again to retry failed steps"
+    gum style --margin "0 2" --foreground 226 "4. Report persistent issues with full diagnostic info"
   else
-    echo -e "\n${YELLOW}⚠️  Some errors occurred during installation:${RESET}"
-    for error in "${ERRORS[@]}"; do
-      echo -e "${RED}   • $error${RESET}"
-    done
+    echo -e "\n${RED}❌ INSTALLATION COMPLETED WITH ERRORS${RESET}"
+    echo -e "${YELLOW}📊 Error Summary: ${#ERRORS[@]} error(s) encountered${RESET}"
     echo ""
-    echo -e "${YELLOW}💡 Don't worry! Most errors are non-critical and your system should still work.${RESET}"
-    echo -e "${YELLOW}   The installer directory has been preserved so you can review what happened.${RESET}"
-    echo -e "${YELLOW}   You can run the installer again to fix any issues.${RESET}"
+    echo -e "${YELLOW}🔍 For detailed diagnostic information, see the summary above.${RESET}"
+    echo -e "${YELLOW}💡 The installer directory has been preserved for troubleshooting.${RESET}"
+    echo -e "${YELLOW}📝 When reporting issues, include the complete diagnostic information from the summary.${RESET}"
+    echo ""
+    echo -e "${YELLOW}🔧 Next steps:${RESET}"
+    echo -e "${YELLOW}   1. Review the error details in the summary above${RESET}"
+    echo -e "${YELLOW}   2. Check suggested fixes and log files${RESET}"
+    echo -e "${YELLOW}   3. Run installer again to retry failed steps${RESET}"
+    echo -e "${YELLOW}   4. Report persistent issues with full diagnostic info${RESET}"
   fi
 fi
 

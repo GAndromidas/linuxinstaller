@@ -3,8 +3,8 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
-source "$SCRIPT_DIR/cachyos_support.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/cachyos_support.sh"
 
 check_prerequisites() {
   step "Checking system prerequisites"

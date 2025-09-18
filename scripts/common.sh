@@ -318,12 +318,247 @@ install_package_groups() {
   fi
 }
 
+# Get locale-aware date formatting
+get_locale_date() {
+  local locale_country=""
+  local date_format=""
+
+  # Try to detect locale/country from various sources
+  if [[ -n "$LANG" ]]; then
+    locale_country=$(echo "$LANG" | cut -d'_' -f2 | cut -d'.' -f1)
+  elif [[ -n "$LC_TIME" ]]; then
+    locale_country=$(echo "$LC_TIME" | cut -d'_' -f2 | cut -d'.' -f1)
+  fi
+
+  # Format date based on detected country/locale
+  case "$locale_country" in
+    "GR"|"EL")  # Greece
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "US")       # United States
+      date_format="%m/%d/%Y %I:%M:%S %p"
+      ;;
+    "GB"|"UK")  # United Kingdom
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "DE")       # Germany
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "FR")       # France
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "IT")       # Italy
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "ES")       # Spain
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "PT")       # Portugal
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "NL")       # Netherlands
+      date_format="%d-%m-%Y %H:%M:%S"
+      ;;
+    "BE")       # Belgium
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "CH")       # Switzerland
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "AT")       # Austria
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "SE")       # Sweden
+      date_format="%Y-%m-%d %H:%M:%S"
+      ;;
+    "NO")       # Norway
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "DK")       # Denmark
+      date_format="%d-%m-%Y %H:%M:%S"
+      ;;
+    "FI")       # Finland
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "PL")       # Poland
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "CZ")       # Czech Republic
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "RU")       # Russia
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "JP")       # Japan
+      date_format="%Y/%m/%d %H:%M:%S"
+      ;;
+    "KR")       # South Korea
+      date_format="%Y.%m.%d %H:%M:%S"
+      ;;
+    "CN")       # China
+      date_format="%Y-%m-%d %H:%M:%S"
+      ;;
+    "IN")       # India
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "AU")       # Australia
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "NZ")       # New Zealand
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "CA")       # Canada
+      date_format="%Y-%m-%d %H:%M:%S"
+      ;;
+    "BR")       # Brazil
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "MX")       # Mexico
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "AR")       # Argentina
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "TR")       # Turkey
+      date_format="%d.%m.%Y %H:%M:%S"
+      ;;
+    "IL")       # Israel
+      date_format="%d/%m/%Y %H:%M:%S"
+      ;;
+    "ZA")       # South Africa
+      date_format="%Y/%m/%d %H:%M:%S"
+      ;;
+    *)          # Default: use system locale or ISO format
+      if locale -k LC_TIME >/dev/null 2>&1; then
+        # Use system's locale-specific date format
+        date "+%x %X" 2>/dev/null && return
+      fi
+      # Fallback to ISO format
+      date_format="%Y-%m-%d %H:%M:%S (ISO)"
+      ;;
+  esac
+
+  date "+$date_format"
+}
+
 print_summary() {
-  echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
-  [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
-  [ "${#REMOVED_PACKAGES[@]}" -gt 0 ] && echo -e "${RED}Removed: ${REMOVED_PACKAGES[*]}${RESET}"
-  [ "${#ERRORS[@]}" -gt 0 ] && echo -e "\n${RED}Errors: ${ERRORS[*]}${RESET}"
-  echo -e "${CYAN}======================${RESET}"
+  echo -e "\n${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${CYAN}║                    INSTALLATION SUMMARY                     ║${RESET}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+
+  # System Information
+  echo -e "\n${YELLOW}📋 System Information:${RESET}"
+  echo -e "   OS: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo "Unknown")"
+  echo -e "   Kernel: $(uname -r)"
+  echo -e "   Architecture: $(uname -m)"
+  echo -e "   Desktop: ${XDG_CURRENT_DESKTOP:-Unknown}"
+  echo -e "   Shell: $SHELL"
+  echo -e "   Locale: ${LANG:-Not set} ($(echo "$LANG" | cut -d'_' -f2 | cut -d'.' -f1 2>/dev/null || echo "Unknown country"))"
+
+  # CachyOS Detection
+  if [[ -f /etc/cachy-release ]] || [[ -f /usr/share/cachy-browser/cachy-browser ]] || [[ $(uname -r) =~ cachyos ]]; then
+    echo -e "   Distribution: ${GREEN}CachyOS Detected${RESET}"
+  else
+    echo -e "   Distribution: ${CYAN}Standard Arch Linux${RESET}"
+  fi
+
+  # Installation Mode
+  echo -e "   Install Mode: ${INSTALL_MODE:-default}"
+  echo -e "   Date: $(get_locale_date)"
+
+  # Package Summary
+  if [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ]; then
+    echo -e "\n${GREEN}📦 Successfully Installed (${#INSTALLED_PACKAGES[@]} packages):${RESET}"
+    printf "   %s\n" "${INSTALLED_PACKAGES[@]}" | sort | column -c 80 | sed 's/^/   /'
+  fi
+
+  if [ "${#REMOVED_PACKAGES[@]}" -gt 0 ]; then
+    echo -e "\n${RED}🗑️  Removed (${#REMOVED_PACKAGES[@]} packages):${RESET}"
+    printf "   %s\n" "${REMOVED_PACKAGES[@]}" | sort
+  fi
+
+  # AUR Helper Status
+  echo -e "\n${YELLOW}🔧 AUR Helper Status:${RESET}"
+  if command -v yay >/dev/null 2>&1; then
+    echo -e "   ${GREEN}✓ yay installed and working${RESET}"
+  elif command -v paru >/dev/null 2>&1; then
+    echo -e "   ${GREEN}✓ paru detected${RESET}"
+  else
+    echo -e "   ${RED}✗ No AUR helper found${RESET}"
+  fi
+
+  # Critical Dependencies Check
+  echo -e "\n${YELLOW}🔍 Critical Dependencies:${RESET}"
+  local critical_deps=("base-devel" "git" "sudo" "systemd")
+  for dep in "${critical_deps[@]}"; do
+    if pacman -Q "$dep" >/dev/null 2>&1; then
+      echo -e "   ${GREEN}✓ $dep${RESET}"
+    else
+      echo -e "   ${RED}✗ $dep (MISSING!)${RESET}"
+    fi
+  done
+
+  # Service Status
+  echo -e "\n${YELLOW}⚙️  Key Services:${RESET}"
+  local services=("NetworkManager" "bluetooth" "ufw" "fail2ban")
+  for service in "${services[@]}"; do
+    if systemctl is-enabled "$service" >/dev/null 2>&1; then
+      echo -e "   ${GREEN}✓ $service enabled${RESET}"
+    elif systemctl list-unit-files | grep -q "$service"; then
+      echo -e "   ${YELLOW}! $service disabled${RESET}"
+    else
+      echo -e "   ${CYAN}- $service not installed${RESET}"
+    fi
+  done
+
+  # Errors and Warnings
+  if [ "${#ERRORS[@]}" -gt 0 ]; then
+    echo -e "\n${RED}❌ ERRORS ENCOUNTERED (${#ERRORS[@]}):${RESET}"
+    echo -e "${RED}╭─────────────────────────────────────────────────────────────╮${RESET}"
+    for i in "${!ERRORS[@]}"; do
+      echo -e "${RED}│ $((i+1)). ${ERRORS[i]}${RESET}"
+    done
+    echo -e "${RED}╰─────────────────────────────────────────────────────────────╯${RESET}"
+
+    echo -e "\n${YELLOW}🔍 Diagnostic Information for Troubleshooting:${RESET}"
+
+    # Log file locations
+    echo -e "   ${CYAN}Log files to check:${RESET}"
+    echo -e "     • /var/log/pacman.log (package installation logs)"
+    echo -e "     • journalctl -xe (system logs)"
+    echo -e "     • ~/.cache/yay/ (AUR build logs, if applicable)"
+
+    # Common fixes
+    echo -e "\n   ${CYAN}Common fixes to try:${RESET}"
+    echo -e "     • sudo pacman -Syu (update system)"
+    echo -e "     • sudo pacman -S --needed base-devel git (install build tools)"
+    echo -e "     • systemctl --failed (check failed services)"
+    echo -e "     • ping archlinux.org (test internet connection)"
+
+    # System state for debugging
+    echo -e "\n   ${CYAN}System state snapshot:${RESET}"
+    echo -e "     • Available disk space: $(df -h / | awk 'NR==2 {print $4}' || echo "Unknown")"
+    echo -e "     • Memory usage: $(free -h | awk 'NR==2 {print $3"/"$2}' || echo "Unknown")"
+    echo -e "     • Network: $(ping -c 1 archlinux.org >/dev/null 2>&1 && echo "Connected" || echo "Disconnected")"
+    echo -e "     • Pacman lock: $([ -f /var/lib/pacman/db.lck ] && echo "LOCKED" || echo "Free")"
+
+    # Environment info
+    echo -e "\n   ${CYAN}Environment variables:${RESET}"
+    echo -e "     • HOME: $HOME"
+    echo -e "     • USER: $USER"
+    echo -e "     • PATH length: ${#PATH} chars"
+    echo -e "     • LANG: ${LANG:-Not set}"
+
+    echo -e "\n${RED}⚠️  IMPORTANT: When reporting issues, include the above diagnostic information!${RESET}"
+
+  else
+    echo -e "\n${GREEN}✅ INSTALLATION COMPLETED SUCCESSFULLY!${RESET}"
+    echo -e "${GREEN}   All steps completed without errors.${RESET}"
+  fi
+
+  echo -e "\n${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${CYAN}║                     END OF SUMMARY                          ║${RESET}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${RESET}"
 }
 
 prompt_reboot() {

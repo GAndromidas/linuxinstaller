@@ -25,8 +25,24 @@ install_yay() {
 
   # Check if base-devel is installed (required for building packages)
   if ! pacman -Q base-devel &>/dev/null; then
-    log_error "base-devel package is required but not installed. Please install it first."
-    return 1
+    log_warning "base-devel not found, installing now..."
+    if sudo pacman -S --noconfirm --needed base-devel >/dev/null 2>&1; then
+      log_success "base-devel installed successfully"
+    else
+      log_error "Failed to install base-devel package"
+      return 1
+    fi
+  fi
+
+  # Check if git is installed (required for cloning)
+  if ! pacman -Q git &>/dev/null; then
+    log_warning "git not found, installing now..."
+    if sudo pacman -S --noconfirm --needed git >/dev/null 2>&1; then
+      log_success "git installed successfully"
+    else
+      log_error "Failed to install git package"
+      return 1
+    fi
   fi
 
   # Create temporary directory for building
