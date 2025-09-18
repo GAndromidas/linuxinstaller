@@ -22,19 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-# Helper utilities to install - conditionally includes ZSH packages
-get_helper_utils() {
-  local utils=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth rsync ufw)
-
-  # Add ZSH-related utilities only if not keeping Fish on CachyOS
-  if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
-    utils+=(zoxide)
-  fi
-
-  echo "${utils[@]}"
-}
-
-HELPER_UTILS=($(get_helper_utils))
+HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak fzf git openssh pacman-contrib plymouth rsync ufw zoxide)  # Helper utilities to install
 
 # : "${INSTALL_MODE:=default}"
 
@@ -116,15 +104,15 @@ show_gum_menu() {
 
   case "$choice" in
     "Standard"*)
-      export INSTALL_MODE="default"
+      INSTALL_MODE="default"
       gum style --foreground 51 "✓ Selected: Standard installation (intermediate users)"
       ;;
     "Minimal"*)
-      export INSTALL_MODE="minimal"
+      INSTALL_MODE="minimal"
       gum style --foreground 46 "✓ Selected: Minimal installation (recommended for new users)"
       ;;
     "Custom"*)
-      export INSTALL_MODE="custom"
+      INSTALL_MODE="custom"
       gum style --foreground 226 "✓ Selected: Custom installation (advanced users)"
       ;;
     "Exit"*)
@@ -152,21 +140,21 @@ show_traditional_menu() {
   while true; do
     read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
           case "$menu_choice" in
-          1)
-            export INSTALL_MODE="default"
-            echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
-            break
-            ;;
-          2)
-            export INSTALL_MODE="minimal"
-            echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
-            break
-            ;;
-          3)
-            export INSTALL_MODE="custom"
-            echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
-            break
-            ;;
+        1)
+          INSTALL_MODE="default"
+          echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
+          break
+          ;;
+        2)
+          INSTALL_MODE="minimal"
+          echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
+          break
+          ;;
+        3)
+          INSTALL_MODE="custom"
+          echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
+          break
+          ;;
       4)
         echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
         exit 0
@@ -285,16 +273,10 @@ install_package_groups() {
         all_packages+=("${HELPER_UTILS[@]}")
         ;;
       "zsh")
-        # Skip ZSH packages if keeping Fish on CachyOS
-        if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
-          all_packages+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
-        fi
+        all_packages+=(zsh zsh-autosuggestions zsh-syntax-highlighting)
         ;;
       "starship")
-        # Skip Starship if keeping Fish on CachyOS
-        if [[ "${CACHYOS_SHELL_CHOICE:-}" != "fish" ]]; then
-          all_packages+=(starship)
-        fi
+        all_packages+=(starship)
         ;;
       "zram")
         all_packages+=(zram-generator)
@@ -318,247 +300,12 @@ install_package_groups() {
   fi
 }
 
-# Get locale-aware date formatting
-get_locale_date() {
-  local locale_country=""
-  local date_format=""
-
-  # Try to detect locale/country from various sources
-  if [[ -n "$LANG" ]]; then
-    locale_country=$(echo "$LANG" | cut -d'_' -f2 | cut -d'.' -f1)
-  elif [[ -n "$LC_TIME" ]]; then
-    locale_country=$(echo "$LC_TIME" | cut -d'_' -f2 | cut -d'.' -f1)
-  fi
-
-  # Format date based on detected country/locale
-  case "$locale_country" in
-    "GR"|"EL")  # Greece
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "US")       # United States
-      date_format="%m/%d/%Y %I:%M:%S %p"
-      ;;
-    "GB"|"UK")  # United Kingdom
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "DE")       # Germany
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "FR")       # France
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "IT")       # Italy
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "ES")       # Spain
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "PT")       # Portugal
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "NL")       # Netherlands
-      date_format="%d-%m-%Y %H:%M:%S"
-      ;;
-    "BE")       # Belgium
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "CH")       # Switzerland
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "AT")       # Austria
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "SE")       # Sweden
-      date_format="%Y-%m-%d %H:%M:%S"
-      ;;
-    "NO")       # Norway
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "DK")       # Denmark
-      date_format="%d-%m-%Y %H:%M:%S"
-      ;;
-    "FI")       # Finland
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "PL")       # Poland
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "CZ")       # Czech Republic
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "RU")       # Russia
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "JP")       # Japan
-      date_format="%Y/%m/%d %H:%M:%S"
-      ;;
-    "KR")       # South Korea
-      date_format="%Y.%m.%d %H:%M:%S"
-      ;;
-    "CN")       # China
-      date_format="%Y-%m-%d %H:%M:%S"
-      ;;
-    "IN")       # India
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "AU")       # Australia
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "NZ")       # New Zealand
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "CA")       # Canada
-      date_format="%Y-%m-%d %H:%M:%S"
-      ;;
-    "BR")       # Brazil
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "MX")       # Mexico
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "AR")       # Argentina
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "TR")       # Turkey
-      date_format="%d.%m.%Y %H:%M:%S"
-      ;;
-    "IL")       # Israel
-      date_format="%d/%m/%Y %H:%M:%S"
-      ;;
-    "ZA")       # South Africa
-      date_format="%Y/%m/%d %H:%M:%S"
-      ;;
-    *)          # Default: use system locale or ISO format
-      if locale -k LC_TIME >/dev/null 2>&1; then
-        # Use system's locale-specific date format
-        date "+%x %X" 2>/dev/null && return
-      fi
-      # Fallback to ISO format
-      date_format="%Y-%m-%d %H:%M:%S (ISO)"
-      ;;
-  esac
-
-  date "+$date_format"
-}
-
 print_summary() {
-  echo -e "\n${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${CYAN}║                    INSTALLATION SUMMARY                     ║${RESET}"
-  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${RESET}"
-
-  # System Information
-  echo -e "\n${YELLOW}📋 System Information:${RESET}"
-  echo -e "   OS: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo "Unknown")"
-  echo -e "   Kernel: $(uname -r)"
-  echo -e "   Architecture: $(uname -m)"
-  echo -e "   Desktop: ${XDG_CURRENT_DESKTOP:-Unknown}"
-  echo -e "   Shell: $SHELL"
-  echo -e "   Locale: ${LANG:-Not set} ($(echo "$LANG" | cut -d'_' -f2 | cut -d'.' -f1 2>/dev/null || echo "Unknown country"))"
-
-  # CachyOS Detection
-  if [[ -f /etc/cachy-release ]] || [[ -f /usr/share/cachy-browser/cachy-browser ]] || [[ $(uname -r) =~ cachyos ]]; then
-    echo -e "   Distribution: ${GREEN}CachyOS Detected${RESET}"
-  else
-    echo -e "   Distribution: ${CYAN}Standard Arch Linux${RESET}"
-  fi
-
-  # Installation Mode
-  echo -e "   Install Mode: ${INSTALL_MODE:-default}"
-  echo -e "   Date: $(get_locale_date)"
-
-  # Package Summary
-  if [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ]; then
-    echo -e "\n${GREEN}📦 Successfully Installed (${#INSTALLED_PACKAGES[@]} packages):${RESET}"
-    printf "   %s\n" "${INSTALLED_PACKAGES[@]}" | sort | column -c 80 | sed 's/^/   /'
-  fi
-
-  if [ "${#REMOVED_PACKAGES[@]}" -gt 0 ]; then
-    echo -e "\n${RED}🗑️  Removed (${#REMOVED_PACKAGES[@]} packages):${RESET}"
-    printf "   %s\n" "${REMOVED_PACKAGES[@]}" | sort
-  fi
-
-  # AUR Helper Status
-  echo -e "\n${YELLOW}🔧 AUR Helper Status:${RESET}"
-  if command -v yay >/dev/null 2>&1; then
-    echo -e "   ${GREEN}✓ yay installed and working${RESET}"
-  elif command -v paru >/dev/null 2>&1; then
-    echo -e "   ${GREEN}✓ paru detected${RESET}"
-  else
-    echo -e "   ${RED}✗ No AUR helper found${RESET}"
-  fi
-
-  # Critical Dependencies Check
-  echo -e "\n${YELLOW}🔍 Critical Dependencies:${RESET}"
-  local critical_deps=("base-devel" "git" "sudo" "systemd")
-  for dep in "${critical_deps[@]}"; do
-    if pacman -Q "$dep" >/dev/null 2>&1; then
-      echo -e "   ${GREEN}✓ $dep${RESET}"
-    else
-      echo -e "   ${RED}✗ $dep (MISSING!)${RESET}"
-    fi
-  done
-
-  # Service Status
-  echo -e "\n${YELLOW}⚙️  Key Services:${RESET}"
-  local services=("NetworkManager" "bluetooth" "ufw" "fail2ban")
-  for service in "${services[@]}"; do
-    if systemctl is-enabled "$service" >/dev/null 2>&1; then
-      echo -e "   ${GREEN}✓ $service enabled${RESET}"
-    elif systemctl list-unit-files | grep -q "$service"; then
-      echo -e "   ${YELLOW}! $service disabled${RESET}"
-    else
-      echo -e "   ${CYAN}- $service not installed${RESET}"
-    fi
-  done
-
-  # Errors and Warnings
-  if [ "${#ERRORS[@]}" -gt 0 ]; then
-    echo -e "\n${RED}❌ ERRORS ENCOUNTERED (${#ERRORS[@]}):${RESET}"
-    echo -e "${RED}╭─────────────────────────────────────────────────────────────╮${RESET}"
-    for i in "${!ERRORS[@]}"; do
-      echo -e "${RED}│ $((i+1)). ${ERRORS[i]}${RESET}"
-    done
-    echo -e "${RED}╰─────────────────────────────────────────────────────────────╯${RESET}"
-
-    echo -e "\n${YELLOW}🔍 Diagnostic Information for Troubleshooting:${RESET}"
-
-    # Log file locations
-    echo -e "   ${CYAN}Log files to check:${RESET}"
-    echo -e "     • /var/log/pacman.log (package installation logs)"
-    echo -e "     • journalctl -xe (system logs)"
-    echo -e "     • ~/.cache/yay/ (AUR build logs, if applicable)"
-
-    # Common fixes
-    echo -e "\n   ${CYAN}Common fixes to try:${RESET}"
-    echo -e "     • sudo pacman -Syu (update system)"
-    echo -e "     • sudo pacman -S --needed base-devel git (install build tools)"
-    echo -e "     • systemctl --failed (check failed services)"
-    echo -e "     • ping archlinux.org (test internet connection)"
-
-    # System state for debugging
-    echo -e "\n   ${CYAN}System state snapshot:${RESET}"
-    echo -e "     • Available disk space: $(df -h / | awk 'NR==2 {print $4}' || echo "Unknown")"
-    echo -e "     • Memory usage: $(free -h | awk 'NR==2 {print $3"/"$2}' || echo "Unknown")"
-    echo -e "     • Network: $(ping -c 1 archlinux.org >/dev/null 2>&1 && echo "Connected" || echo "Disconnected")"
-    echo -e "     • Pacman lock: $([ -f /var/lib/pacman/db.lck ] && echo "LOCKED" || echo "Free")"
-
-    # Environment info
-    echo -e "\n   ${CYAN}Environment variables:${RESET}"
-    echo -e "     • HOME: $HOME"
-    echo -e "     • USER: $USER"
-    echo -e "     • PATH length: ${#PATH} chars"
-    echo -e "     • LANG: ${LANG:-Not set}"
-
-    echo -e "\n${RED}⚠️  IMPORTANT: When reporting issues, include the above diagnostic information!${RESET}"
-
-  else
-    echo -e "\n${GREEN}✅ INSTALLATION COMPLETED SUCCESSFULLY!${RESET}"
-    echo -e "${GREEN}   All steps completed without errors.${RESET}"
-  fi
-
-  echo -e "\n${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${CYAN}║                     END OF SUMMARY                          ║${RESET}"
-  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+  echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
+  [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
+  [ "${#REMOVED_PACKAGES[@]}" -gt 0 ] && echo -e "${RED}Removed: ${REMOVED_PACKAGES[*]}${RESET}"
+  [ "${#ERRORS[@]}" -gt 0 ] && echo -e "\n${RED}Errors: ${ERRORS[*]}${RESET}"
+  echo -e "${CYAN}======================${RESET}"
 }
 
 prompt_reboot() {
@@ -645,39 +392,6 @@ collect_custom_script_errors() {
 # Check if command exists
 command_exists() {
   command -v "$1" >/dev/null 2>&1
-}
-
-# Get installed kernel types
-get_installed_kernel_types() {
-  local kernel_types=()
-
-  # Check for CachyOS kernels first
-  pacman -Q linux-cachyos &>/dev/null && kernel_types+=("linux-cachyos")
-  pacman -Q linux-cachyos-lts &>/dev/null && kernel_types+=("linux-cachyos-lts")
-  pacman -Q linux-cachyos-zen &>/dev/null && kernel_types+=("linux-cachyos-zen")
-  pacman -Q linux-cachyos-hardened &>/dev/null && kernel_types+=("linux-cachyos-hardened")
-  pacman -Q linux-cachyos-rt &>/dev/null && kernel_types+=("linux-cachyos-rt")
-  pacman -Q linux-cachyos-bore &>/dev/null && kernel_types+=("linux-cachyos-bore")
-  pacman -Q linux-cachyos-bmq &>/dev/null && kernel_types+=("linux-cachyos-bmq")
-  pacman -Q linux-cachyos-pds &>/dev/null && kernel_types+=("linux-cachyos-pds")
-
-  # Check for standard Arch kernels
-  pacman -Q linux &>/dev/null && kernel_types+=("linux")
-  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-
-  echo "${kernel_types[@]}"
-}
-
-# Check if running as root user
-check_root_user() {
-  if [[ $EUID -eq 0 ]]; then
-    echo -e "${RED}❌ Error: This script should NOT be run as root!${RESET}"
-    echo -e "${YELLOW}   Please run as a regular user with sudo privileges.${RESET}"
-    echo -e "${YELLOW}   Example: ./install.sh (not sudo ./install.sh)${RESET}"
-    exit 1
-  fi
 }
 
 # Validate file system operations

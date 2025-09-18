@@ -10,7 +10,6 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 
 source "$SCRIPTS_DIR/common.sh"
-source "$SCRIPTS_DIR/cachyos_support.sh"
 
 START_TIME=$(date +%s)
 
@@ -26,18 +25,18 @@ check_system_requirements() {
   local requirements_failed=false
 
   # Check if running as root
-  check_root_user
-
-  # Check if we're on Arch Linux or compatible system (like CachyOS)
-  if [[ ! -f /etc/arch-release ]] && ! detect_cachyos; then
-    echo -e "${RED}❌ Error: This script is designed for Arch Linux and compatible distributions!${RESET}"
-    echo -e "${YELLOW}   Please run this on a fresh Arch Linux installation or CachyOS.${RESET}"
+  if [[ $EUID -eq 0 ]]; then
+    echo -e "${RED}❌ Error: This script should NOT be run as root!${RESET}"
+    echo -e "${YELLOW}   Please run as a regular user with sudo privileges.${RESET}"
+    echo -e "${YELLOW}   Example: ./install.sh (not sudo ./install.sh)${RESET}"
     exit 1
   fi
 
-  # If CachyOS is detected, run CachyOS specific requirements check
-  if $IS_CACHYOS; then
-    check_cachyos_system_requirements || exit 1
+  # Check if we're on Arch Linux
+  if [[ ! -f /etc/arch-release ]]; then
+    echo -e "${RED}❌ Error: This script is designed for Arch Linux only!${RESET}"
+    echo -e "${YELLOW}   Please run this on a fresh Arch Linux installation.${RESET}"
+    exit 1
   fi
 
   # Check internet connection
@@ -61,18 +60,6 @@ check_system_requirements() {
 }
 
 check_system_requirements
-
-# Detect CachyOS and show compatibility info
-detect_cachyos
-show_cachyos_info
-
-# Show CachyOS shell choice menu for Fish users (must come before show_menu)
-ensure_cachyos_detection
-if $IS_CACHYOS && is_fish_shell; then
-  show_shell_choice_menu
-fi
-
-# Show shell choice menu for CachyOS Fish users
 show_menu
 export INSTALL_MODE
 
@@ -136,38 +123,18 @@ else
   echo -e "${CYAN}Step 3: Plymouth Setup${RESET}"
   echo -e "${YELLOW}🎨 Setting up beautiful boot screen...${RESET}"
 fi
-if should_skip_plymouth; then
-  gum style --foreground 226 "🎨 Skipping Plymouth setup - CachyOS has this pre-configured..." 2>/dev/null || echo -e "${YELLOW}🎨 Skipping Plymouth setup - CachyOS has this pre-configured...${RESET}"
-  gum style --foreground 46 "✓ Step 3 skipped (CachyOS compatibility)" 2>/dev/null || echo -e "${GREEN}✓ Step 3 skipped (CachyOS compatibility)${RESET}"
-else
-  step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 46 "✓ Step 3 completed"
-  else
-    echo -e "${GREEN}✓ Step 3 completed${RESET}"
-  fi
-fi
+step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
 if command -v gum >/dev/null 2>&1; then
+  gum style --foreground 46 "✓ Step 3 completed"
   echo ""
-  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step 4: AUR Helper Setup"
-  if $IS_CACHYOS; then
-    gum style --foreground 226 "📦 Detecting CachyOS AUR helper..."
-  else
-    gum style --foreground 226 "📦 Installing AUR helper for additional software..."
-  fi
+  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step 4: Yay Installation"
+  gum style --foreground 226 "📦 Installing AUR helper for additional software..."
 else
-  echo -e "${CYAN}Step 4: AUR Helper Setup${RESET}"
-  if $IS_CACHYOS; then
-    echo -e "${YELLOW}📦 Detecting CachyOS AUR helper...${RESET}"
-  else
-    echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
-  fi
+  echo -e "${GREEN}✓ Step 3 completed${RESET}"
+  echo -e "${CYAN}Step 4: Yay Installation${RESET}"
+  echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-if $IS_CACHYOS; then
-  step "AUR Helper Detection (CachyOS)" && source "$SCRIPTS_DIR/yay.sh" || log_error "AUR helper detection failed"
-else
-  step "AUR Helper Installation" && source "$SCRIPTS_DIR/yay.sh" || log_error "AUR helper installation failed"
-fi
+step "Yay Installation" && source "$SCRIPTS_DIR/yay.sh" || log_error "Yay installation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""
@@ -194,29 +161,13 @@ if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 6 completed"
   echo ""
   gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step 7: Bootloader and Kernel Configuration"
-  if $IS_CACHYOS; then
-    gum style --foreground 226 "🔧 Skipping bootloader configuration (CachyOS managed)..."
-  else
-    gum style --foreground 226 "🔧 Configuring bootloader and setting up dual-boot with Windows..."
-  fi
+  gum style --foreground 226 "🔧 Configuring bootloader and setting up dual-boot with Windows..."
 else
   echo -e "${GREEN}✓ Step 6 completed${RESET}"
   echo -e "${CYAN}Step 7: Bootloader and Kernel Configuration${RESET}"
-  if $IS_CACHYOS; then
-    echo -e "${YELLOW}🔧 Skipping bootloader configuration (CachyOS managed)...${RESET}"
-  else
-    echo -e "${YELLOW}🔧 Configuring bootloader and setting up dual-boot with Windows...${RESET}"
-  fi
+  echo -e "${YELLOW}🔧 Configuring bootloader and setting up dual-boot with Windows...${RESET}"
 fi
-if $IS_CACHYOS; then
-  gum style --foreground 226 "🔧 Skipping bootloader configuration - CachyOS manages this automatically..." 2>/dev/null || echo -e "${YELLOW}🔧 Skipping bootloader configuration - CachyOS manages this automatically...${RESET}"
-  step "Bootloader Configuration (CachyOS Skip)" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader configuration failed"
-elif should_skip_kernel_config; then
-  gum style --foreground 226 "🔧 Using CachyOS-compatible bootloader configuration..." 2>/dev/null || echo -e "${YELLOW}🔧 Using CachyOS-compatible bootloader configuration...${RESET}"
-  step "CachyOS-Compatible Bootloader Configuration" && CACHYOS_MODE=true source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "CachyOS bootloader configuration failed"
-else
-  step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
-fi
+step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 7 completed"
   echo ""
@@ -263,21 +214,10 @@ echo ""
 echo -e "${YELLOW}🎯 What's been set up for you:${RESET}"
 echo -e "  • 🖥️  Desktop environment with all essential applications"
 echo -e "  • 🛡️  Security features (firewall, SSH protection)"
-if $IS_CACHYOS; then
-  if [[ "${CACHYOS_SHELL_CHOICE:-}" == "zsh" ]]; then
-    echo -e "  • 🐚 ZSH shell (converted from Fish with all archinstaller features)"
-  elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
-    echo -e "  • 🐠 Fish shell preserved (only fastfetch config replaced)"
-  fi
-  echo -e "  • 🐧 CachyOS compatibility (preserved kernels, bootloader, ZRAM, graphics, and repositories)"
-  echo -e "  • ⚡ CachyOS optimizations preserved (microcode, performance tweaks)"
-else
-  echo -e "  • ⚡ Performance optimizations (ZRAM, boot screen, microcode)"
-  echo -e "  • 🐚 Enhanced shell with autocompletion"
-  echo -e "  • 🎨 Graphics drivers and boot optimizations"
-fi
+echo -e "  • ⚡ Performance optimizations (ZRAM, boot screen)"
 echo -e "  • 🎮 Gaming tools (if you chose Gaming Mode)"
 echo -e "  • 🔧 Dual-boot with Windows (if detected)"
+echo -e "  • 🐚 Enhanced shell with autocompletion"
 echo ""
 print_programs_summary
 print_summary
@@ -303,31 +243,23 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
 else
   if command -v gum >/dev/null 2>&1; then
     echo ""
-    gum style --foreground 196 "❌ INSTALLATION COMPLETED WITH ERRORS"
-    gum style --foreground 226 "📊 Error Summary: ${#ERRORS[@]} error(s) encountered"
+    gum style --foreground 226 "⚠️  Some errors occurred during installation:"
+    for error in "${ERRORS[@]}"; do
+      gum style --margin "0 2" --foreground 196 "• $error"
+    done
     echo ""
-    gum style --foreground 226 "🔍 For detailed diagnostic information, see the summary above."
-    gum style --foreground 226 "💡 The installer directory has been preserved for troubleshooting."
-    gum style --foreground 226 "📝 When reporting issues, include the complete diagnostic information from the summary."
-    echo ""
-    gum style --foreground 226 "🔧 Next steps:"
-    gum style --margin "0 2" --foreground 226 "1. Review the error details in the summary above"
-    gum style --margin "0 2" --foreground 226 "2. Check suggested fixes and log files"
-    gum style --margin "0 2" --foreground 226 "3. Run installer again to retry failed steps"
-    gum style --margin "0 2" --foreground 226 "4. Report persistent issues with full diagnostic info"
+    gum style --foreground 226 "💡 Don't worry! Most errors are non-critical and your system should still work."
+    gum style --foreground 226 "   The installer directory has been preserved so you can review what happened."
+    gum style --foreground 226 "   You can run the installer again to fix any issues."
   else
-    echo -e "\n${RED}❌ INSTALLATION COMPLETED WITH ERRORS${RESET}"
-    echo -e "${YELLOW}📊 Error Summary: ${#ERRORS[@]} error(s) encountered${RESET}"
+    echo -e "\n${YELLOW}⚠️  Some errors occurred during installation:${RESET}"
+    for error in "${ERRORS[@]}"; do
+      echo -e "${RED}   • $error${RESET}"
+    done
     echo ""
-    echo -e "${YELLOW}🔍 For detailed diagnostic information, see the summary above.${RESET}"
-    echo -e "${YELLOW}💡 The installer directory has been preserved for troubleshooting.${RESET}"
-    echo -e "${YELLOW}📝 When reporting issues, include the complete diagnostic information from the summary.${RESET}"
-    echo ""
-    echo -e "${YELLOW}🔧 Next steps:${RESET}"
-    echo -e "${YELLOW}   1. Review the error details in the summary above${RESET}"
-    echo -e "${YELLOW}   2. Check suggested fixes and log files${RESET}"
-    echo -e "${YELLOW}   3. Run installer again to retry failed steps${RESET}"
-    echo -e "${YELLOW}   4. Report persistent issues with full diagnostic info${RESET}"
+    echo -e "${YELLOW}💡 Don't worry! Most errors are non-critical and your system should still work.${RESET}"
+    echo -e "${YELLOW}   The installer directory has been preserved so you can review what happened.${RESET}"
+    echo -e "${YELLOW}   You can run the installer again to fix any issues.${RESET}"
   fi
 fi
 

@@ -14,17 +14,16 @@
 
 ## 🚀 Overview
 
-**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux and compatible distributions (including **CachyOS**) that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, security hardening, and robust dual-boot support.
+**Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, security hardening, and robust dual-boot support.
 
 ### ✨ Key Features
 
 - **🔧 Three Installation Modes**: Standard (complete setup), Minimal (essential tools), Custom (interactive selection)
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
-- **🐧 CachyOS Compatibility**: Native support with smart component skipping, preserves optimizations, replaces fastfetch config
-- **🎮 Gaming Mode**: Works on both Arch and CachyOS with full gaming package support
+- **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
 - **⚡ Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
-- **📦 Multi-Source Packages**: Pacman, AUR (auto-detects helper), and Flatpak integration with YAML-driven configuration
+- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
 - **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
 - **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
 - **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
@@ -102,22 +101,22 @@ System          : fwupd, xdg-desktop-portal-gtk
 
 ### **Helper Utilities** (Installed First)
 ```
-base-devel, bc, bluez-utils, cronie, curl, eza, fastfetch, figlet, flatpak,
-fzf, git, openssh, pacman-contrib, plymouth, rsync, ufw, zoxide,
+base-devel, bc, bluez-utils, cronie, curl, eza, fastfetch, figlet, flatpak, 
+fzf, git, openssh, pacman-contrib, plymouth, rsync, ufw, zoxide, 
 zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 ```
 
 ### **Essential Packages**
-**Standard Mode**: filezilla, gimp, kdenlive, openrgb, timeshift, vlc, vlc-plugins-all
+**Standard Mode**: filezilla, gimp, kdenlive, openrgb, timeshift, vlc, vlc-plugins-all  
 **Minimal Mode**: timeshift, vlc, vlc-plugins-all
 
 ### **AUR Packages**
-**Standard Mode**: dropbox, onlyoffice-bin, rate-mirrors-bin, rustdesk-bin, spotify, stremio, ventoy-bin, via-bin
+**Standard Mode**: dropbox, onlyoffice-bin, rate-mirrors-bin, rustdesk-bin, spotify, stremio, ventoy-bin, via-bin  
 **Minimal Mode**: onlyoffice-bin, rate-mirrors-bin, rustdesk-bin, stremio
 
 ### **Gaming Mode Packages** (Optional)
-**Pacman**: discord, gamemode, lib32-gamemode, lutris, mangohud, lib32-mangohud, obs-studio, steam, wine
-**AUR**: heroic-games-launcher-bin
+**Pacman**: discord, gamemode, lib32-gamemode, lutris, mangohud, lib32-mangohud, obs-studio, steam, wine  
+**AUR**: heroic-games-launcher-bin  
 **Flatpak**: com.vysp3r.ProtonPlus
 
 ---
@@ -141,11 +140,11 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Boot Experience**
 - **Plymouth**: Beautiful boot screen with automatic configuration
-- **Dual Bootloader Support**:
+- **Dual Bootloader Support**: 
   - **systemd-boot**: Quiet boot, 3s timeout, console-mode max, removes fallback entries
   - **GRUB**: Plymouth integration, 3s timeout, saves default entry, removes fallback images
 - **Btrfs Integration**: Automatic grub-btrfs installation and configuration for snapshot support
-- **Windows Dual-Boot**:
+- **Windows Dual-Boot**: 
   - Detects Windows installations automatically
   - Copies Microsoft EFI files if needed (systemd-boot)
   - Adds Windows entries to boot menu (both bootloaders)
@@ -154,7 +153,6 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Shell Configuration**
 - **ZSH**: Default shell with Oh-My-Zsh framework
-- **CachyOS Integration**: Interactive Fish→ZSH conversion with user choice or Fish enhancement
 - **Starship**: Beautiful, fast prompt with system information
 - **Enhanced Navigation**: zoxide for smart directory jumping
 - **System Information**: fastfetch with custom configuration
@@ -163,34 +161,13 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **GPU Driver Intelligence**
 - **AMD**: Mesa, AMDGPU, Vulkan support with 32-bit libraries
-- **Intel**: Mesa, Intel Vulkan, hardware acceleration libraries
-- **NVIDIA**:
+- **Intel**: Mesa, Intel Vulkan, hardware acceleration libraries  
+- **NVIDIA**: 
   - Auto-detects GPU generation (Turing+, Maxwell/Pascal, Kepler, Fermi, Tesla)
   - Recommends appropriate driver (nvidia-open-dkms for newer, nvidia for older)
   - Offers Nouveau alternative for legacy cards
   - Includes Vulkan and 32-bit library support
 - **VM Detection**: Installs guest utilities (qemu-guest-agent, spice-vdagent, xf86-video-qxl) when virtualization is detected
-
----
-
-## 🐧 CachyOS Compatibility
-
-**Archinstaller** provides native **CachyOS** support with smart compatibility:
-
-### **What Gets Skipped** (Preserves CachyOS optimizations)
-- **Graphics Drivers**: CachyOS manages these with optimized settings
-- **ZRAM Configuration**: CachyOS has optimized ZRAM setup  
-- **Microcode**: CachyOS handles automatic microcode updates
-- **Bootloader Config**: CachyOS manages GRUB/systemd-boot optimally
-- **AUR Helper Install**: Replaces paru with yay (archinstaller standard)
-- **Kernel/Repository Changes**: Preserves CachyOS kernels and repos
-
-### **What Gets Enhanced**
-- **Fastfetch Config**: Always replaces with archinstaller's custom config
-- **Gaming Mode**: All gaming apps installed same as Arch Linux
-- **Shell Choice**: Convert Fish→ZSH or enhance existing Fish
-- **System Services**: Only enables what CachyOS hasn't configured
-- **Applications**: Full package installation with smart duplicate detection
 
 ---
 
@@ -244,7 +221,6 @@ configs/starship.toml   - Starship prompt configuration
 configs/MangoHud.conf   - Gaming performance overlay settings
 configs/config.jsonc    - Fastfetch system information display
 configs/kglobalshortcutsrc - KDE global shortcuts
-configs/programs.yaml   - Complete package lists and desktop environment mappings
 ```
 
 ---
@@ -252,8 +228,8 @@ configs/programs.yaml   - Complete package lists and desktop environment mapping
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Fresh Arch Linux installation **or CachyOS**
-- Internet connection
+- Fresh Arch Linux installation
+- Internet connection  
 - Regular user account with sudo privileges
 - At least 2GB free disk space
 
@@ -274,66 +250,6 @@ chmod +x install.sh
 4. **Gaming Setup**: Optional gaming tools installation
 5. **Final Configuration**: Bootloader, security, and service setup
 6. **System Reboot**: Automatic cleanup and reboot prompt
-
-## 📋 Detailed Installation Flow
-
-### **10 Installation Steps:**
-
-**Step 1: System Preparation** 📦
-- Updates package lists and mirrors
-- Installs helper utilities (base-devel, curl, git, fastfetch, etc.)
-- Configures pacman.conf optimizations (CachyOS: skipped)
-- Installs CPU microcode (Intel/AMD) (CachyOS: skipped)
-- Installs kernel headers for all detected kernels
-
-**Step 2: Shell Setup** 🐚
-- **Arch Linux**: Installs ZSH with Oh-My-Zsh, plugins, and Starship prompt
-- **CachyOS**: Interactive choice between Fish→ZSH conversion or Fish enhancement
-
-**Step 3: Plymouth Setup** 🎨
-- Sets up beautiful boot screen with Arch logo
-- Configures kernel parameters and initramfs
-- **CachyOS**: Completely skipped (preserves CachyOS Plymouth)
-
-**Step 4: AUR Helper Setup** 📦
-- **Arch Linux**: Builds and installs yay from source
-- **CachyOS**: Removes paru and installs yay (archinstaller standard)
-
-**Step 5: Programs Installation** 🖥️
-- Installs packages based on selected mode (Standard/Minimal/Custom)
-- Desktop environment specific applications (KDE/GNOME/Cosmic)
-- Essential tools, browsers, media players, development tools
-- AUR packages via detected helper
-- Flatpak applications
-
-**Step 6: Gaming Mode** 🎮
-- **Optional**: Interactive gaming tools setup
-- Installs Discord, Steam, Lutris, MangoHud, GameMode
-- Configures MangoHud performance overlay
-- Adds Heroic Games Launcher, ProtonPlus via AUR/Flatpak
-
-**Step 7: Bootloader Configuration** 🔧
-- **Arch Linux**: Full GRUB/systemd-boot configuration with Plymouth integration
-- **CachyOS**: Completely skipped (preserves CachyOS bootloader setup)
-- Windows dual-boot detection and configuration
-- Fastfetch configuration (always replaced with archinstaller version)
-
-**Step 8: Fail2ban Setup** 🛡️
-- Installs and configures SSH protection
-- Sets up 30-minute bans after 3 failed login attempts
-- Configures systemd backend for log monitoring
-
-**Step 9: System Services** ⚙️
-- **Arch Linux**: Full firewall setup (UFW), ZRAM configuration, GPU drivers
-- **CachyOS**: Conservative approach - only enables what CachyOS hasn't configured
-- Enables essential services (SSH, Bluetooth, fstrim, etc.)
-- Configures power management and system optimization
-
-**Step 10: Maintenance** 🧹
-- Cleans package caches (pacman, AUR helper, Flatpak)
-- Removes orphaned packages and temporary files
-- Updates mirror lists with rate-mirrors
-- Final system optimization and sync
 
 ---
 
@@ -362,11 +278,10 @@ Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configu
 ## ⚠️ Important Notes
 
 - **Run as regular user**: Never run as root - the script will check and exit
-- **Fresh installation recommended**: Designed for post-installation setup on Arch Linux or CachyOS
+- **Fresh installation recommended**: Designed for post-installation setup
 - **Internet required**: All packages are downloaded during installation
 - **Reboot recommended**: Many optimizations require a restart to take effect
 - **Non-destructive**: Script preserves existing configurations when possible
-- **CachyOS users**: Your optimizations and Plymouth setup are preserved; you choose how to handle Fish shell
 
 ---
 

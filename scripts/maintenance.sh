@@ -46,4 +46,4 @@ update_mirrorlist_with_rate_mirrors() {
   fi
 }
 
-update_mirrorlist_with_rate_mirrors
+update_mirrorlist_with_rate_mirrors 
