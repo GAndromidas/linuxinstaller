@@ -104,11 +104,20 @@ set_plymouth_theme() {
 }
 
 add_kernel_parameters() {
-  # Detect bootloader
-  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
+  # Detect bootloader - improved CachyOS detection
+  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ] || [ -d /efi/loader ] || [ -d /boot/EFI/BOOT ]; then
     # systemd-boot logic (existing)
-    local boot_entries_dir="/boot/loader/entries"
-    if [ ! -d "$boot_entries_dir" ]; then
+    # Try multiple possible boot entry directories for CachyOS compatibility
+    local boot_entries_dir=""
+    if [ -d "/boot/loader/entries" ]; then
+      boot_entries_dir="/boot/loader/entries"
+    elif [ -d "/efi/loader/entries" ]; then
+      boot_entries_dir="/efi/loader/entries"
+    elif [ -d "/boot/EFI/systemd" ]; then
+      boot_entries_dir="/boot/EFI/systemd"
+    fi
+
+    if [ -z "$boot_entries_dir" ] || [ ! -d "$boot_entries_dir" ]; then
       log_warning "Boot entries directory not found. Skipping kernel parameter addition."
       return
     fi
@@ -153,8 +162,16 @@ add_kernel_parameters() {
       sudo grub-mkconfig -o /boot/grub/grub.cfg
       log_success "Regenerated grub.cfg after adding 'splash'."
     fi
+  elif [ -f /etc/systemd/boot/loader.conf ] || [ -d /sys/firmware/efi/efivars ]; then
+    # Try alternative EFI detection for CachyOS
+    log_warning "EFI system detected but no standard bootloader configuration found."
+    log_info "This might be a CachyOS system with custom boot configuration."
+    log_info "Plymouth splash parameter may need to be added manually via systemd-boot configuration."
   else
     log_warning "No supported bootloader detected for kernel parameter addition."
+    if $IS_CACHYOS; then
+      log_info "On CachyOS, Plymouth splash may be pre-configured or managed by the system."
+    fi
   fi
 }
 

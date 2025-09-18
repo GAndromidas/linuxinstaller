@@ -51,9 +51,11 @@ detect_cachyos() {
     echo -e "${GREEN}✓ CachyOS detected!${RESET}"
     echo -e "${CYAN}  Running in CachyOS compatibility mode${RESET}"
     echo -e "${YELLOW}  Some steps will be skipped or modified for CachyOS${RESET}"
+    export IS_CACHYOS
     return 0
   else
     IS_CACHYOS=false
+    export IS_CACHYOS
     return 1
   fi
 }
@@ -727,6 +729,36 @@ setup_cachyos_desktop_tweaks() {
   fi
 
   echo -e "${CYAN}══════════════════════════════════════════${RESET}\n"
+}
+
+# Function to check if yay should be skipped on CachyOS
+should_skip_yay_installation() {
+  # Direct CachyOS detection for yay script
+  local cachyos_detected=false
+
+  # Check /etc/os-release
+  if [ -f /etc/os-release ] && grep -qi "cachyos" /etc/os-release; then
+    cachyos_detected=true
+  fi
+
+  # Check for CachyOS packages
+  if pacman -Q cachyos-keyring &>/dev/null || pacman -Q cachyos-mirrorlist &>/dev/null; then
+    cachyos_detected=true
+  fi
+
+  # Check both variable and direct detection, and verify yay exists
+  if ($IS_CACHYOS || $cachyos_detected) && command -v yay &>/dev/null; then
+    echo -e "${YELLOW}CachyOS detected - skipping yay installation.${RESET}"
+    echo -e "${CYAN}CachyOS already includes yay AUR helper by default.${RESET}"
+    log_info "yay installation skipped (CachyOS compatibility) - yay already available"
+    return 0  # Skip yay installation
+  elif $IS_CACHYOS || $cachyos_detected; then
+    echo -e "${YELLOW}CachyOS detected but yay not found - will install yay.${RESET}"
+    log_warning "CachyOS system detected but yay not available, proceeding with installation"
+    return 1  # Don't skip, install yay
+  fi
+
+  return 1  # Not CachyOS, don't skip
 }
 
 # Export the IS_CACHYOS variable so other scripts can use it

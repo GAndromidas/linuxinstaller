@@ -650,10 +650,23 @@ command_exists() {
 # Get installed kernel types
 get_installed_kernel_types() {
   local kernel_types=()
+
+  # Check for CachyOS kernels first
+  pacman -Q linux-cachyos &>/dev/null && kernel_types+=("linux-cachyos")
+  pacman -Q linux-cachyos-lts &>/dev/null && kernel_types+=("linux-cachyos-lts")
+  pacman -Q linux-cachyos-zen &>/dev/null && kernel_types+=("linux-cachyos-zen")
+  pacman -Q linux-cachyos-hardened &>/dev/null && kernel_types+=("linux-cachyos-hardened")
+  pacman -Q linux-cachyos-rt &>/dev/null && kernel_types+=("linux-cachyos-rt")
+  pacman -Q linux-cachyos-bore &>/dev/null && kernel_types+=("linux-cachyos-bore")
+  pacman -Q linux-cachyos-bmq &>/dev/null && kernel_types+=("linux-cachyos-bmq")
+  pacman -Q linux-cachyos-pds &>/dev/null && kernel_types+=("linux-cachyos-pds")
+
+  # Check for standard Arch kernels
   pacman -Q linux &>/dev/null && kernel_types+=("linux")
   pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
   pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
   pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+
   echo "${kernel_types[@]}"
 }
 

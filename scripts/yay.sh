@@ -12,15 +12,12 @@ source "$SCRIPTS_DIR/cachyos_support.sh"
 install_yay() {
   step "Installing yay AUR helper"
 
-  # Skip yay installation on CachyOS - it already has yay by default
-  if $IS_CACHYOS; then
-    echo -e "${YELLOW}CachyOS detected - skipping yay installation.${RESET}"
-    echo -e "${CYAN}CachyOS already includes yay AUR helper by default.${RESET}"
-    log_success "yay installation skipped (CachyOS compatibility)"
+  # Use centralized CachyOS detection from cachyos_support.sh
+  if should_skip_yay_installation; then
     return 0
   fi
 
-  # Check if yay is already installed
+  # Check if yay is already installed (fallback for any system)
   if command -v yay &>/dev/null; then
     log_success "yay is already installed"
     return 0
