@@ -230,20 +230,20 @@ detect_and_install_gpu_drivers() {
   }
 
   if is_vm; then
-    echo -e "${YELLOW}Virtual machine detected. Installing VM guest utilities and skipping physical GPU drivers.${RESET}"
+    step "Installing VM guest utilities"
     install_packages_quietly qemu-guest-agent spice-vdagent xf86-video-qxl
-    log_success "VM guest utilities installed."
+    log_success "VM guest utilities installed"
     return
   fi
 
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
-    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
+    step "Installing AMD GPU drivers"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "AMD drivers and Vulkan support installed."
+    log_success "AMD drivers and Vulkan support installed"
   elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
-    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
+    step "Installing Intel GPU drivers"
     install_packages_quietly mesa vulkan-intel lib32-vulkan-intel mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "Intel drivers and Vulkan support installed."
+    log_success "Intel drivers and Vulkan support installed"
   elif lspci | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
 
@@ -280,8 +280,7 @@ detect_and_install_gpu_drivers() {
       nvidia_note="(defaulting to latest proprietary driver)"
     fi
 
-    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
-    echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
+    step "Installing NVIDIA GPU drivers ($nvidia_family)"
 
     if [[ "$nvidia_family" == "Kepler" || "$nvidia_family" == "Fermi" || "$nvidia_family" == "Tesla" ]]; then
       echo -e "${YELLOW}Your NVIDIA GPU is legacy and may not be well supported by the proprietary driver, especially on Wayland.${RESET}"
@@ -294,21 +293,19 @@ detect_and_install_gpu_drivers() {
         read -r -p "Enter your choice [1-2]: " legacy_choice
         case "$legacy_choice" in
           1)
-            echo -e "${CYAN}Installing Nouveau drivers...${RESET}"
             install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-            log_success "Nouveau drivers installed."
+            log_success "Nouveau drivers installed"
             break
             ;;
           2)
-            echo -e "${CYAN}Installing legacy proprietary NVIDIA drivers...${RESET}"
             if [[ "$nvidia_family" == "Kepler" ]]; then
-              paru -S --noconfirm --needed nvidia-470xx-dkms
+              paru -S --noconfirm --needed nvidia-470xx-dkms >/dev/null 2>&1
             elif [[ "$nvidia_family" == "Fermi" ]]; then
-              paru -S --noconfirm --needed nvidia-390xx-dkms
+              paru -S --noconfirm --needed nvidia-390xx-dkms >/dev/null 2>&1
             elif [[ "$nvidia_family" == "Tesla" ]]; then
-              paru -S --noconfirm --needed nvidia-340xx-dkms
+              paru -S --noconfirm --needed nvidia-340xx-dkms >/dev/null 2>&1
             fi
-            log_success "Legacy proprietary NVIDIA drivers installed."
+            log_success "Legacy proprietary NVIDIA drivers installed"
             break
             ;;
           *)
@@ -334,8 +331,9 @@ detect_and_install_gpu_drivers() {
     log_success "NVIDIA drivers installed."
     return
   else
-    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
+    step "Installing basic Mesa drivers"
     install_packages_quietly mesa
+    log_success "Basic Mesa drivers installed"
   fi
 }
 

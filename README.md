@@ -29,6 +29,7 @@
 - **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
 - **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
 - **🎯 GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
+- **🚀 Enhanced Installation**: Improved package installation with better progress tracking and error handling
 
 ---
 
@@ -181,7 +182,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **gum Integration**: Modern terminal UI with styled prompts and progress indicators
 - **Progress Tracking**: Real-time installation progress with step-by-step feedback
 - **Error Handling**: Comprehensive error collection with detailed reporting
-- **ASCII Art**: Beautiful Arch Linux branding throughout the installation
+- **ASCII Art**: Simple Arch Linux branding at startup
 - **Color Coding**: Intuitive color-coded status messages for easy understanding
 
 ### **Installation Process**
@@ -205,7 +206,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 ### **Modular Scripts**
 ```
 install.sh                    - Main orchestration script with beautiful UI
-scripts/common.sh            - Shared functions, colors, and utilities (enhanced)
+scripts/common.sh            - Shared functions, colors, utilities, and enhanced progress
 scripts/system_setup.sh      - System updates, core packages, and Paru AUR helper setup
 scripts/user_environment.sh  - ZSH, Oh-My-Zsh, and shell configuration
 scripts/boot_setup.sh        - Plymouth boot screen and bootloader configuration
@@ -249,7 +250,7 @@ chmod +x install.sh
 ### What Happens Next
 1. **System Check**: Validates prerequisites automatically
 2. **Mode Selection**: Choose your installation approach
-3. **Automated Installation**: Sit back and let the script work (10-20 minutes)
+3. **Automated Installation**: Comprehensive package installation (20-30 minutes)
 4. **Gaming Setup**: Optional gaming tools installation
 5. **Security Configuration**: Optional SSH hardening and firewall setup
 6. **Final Configuration**: Bootloader, services, and system optimization

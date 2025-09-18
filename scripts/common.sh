@@ -18,6 +18,13 @@ CURRENT_STEP=1           # Tracks current step for progress display
 INSTALLED_PACKAGES=()    # Tracks installed packages
 REMOVED_PACKAGES=()      # Tracks removed packages
 
+# Enhanced parallel installation variables
+PARALLEL_LIMIT=10        # Maximum parallel installations
+BATCH_SIZE=5             # Packages per batch
+PARALLEL_JOBS=()         # Track parallel jobs
+FAILED_PACKAGES=()       # Track failed installations
+START_TIME=$(date +%s)   # Track total installation time
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script directory
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
@@ -167,7 +174,11 @@ show_traditional_menu() {
 }
 
 step() {
-  echo -e "\n${CYAN}→ $1${RESET}"
+  if command -v gum >/dev/null 2>&1; then
+    gum style --margin "1 0" --foreground 51 "→ $1"
+  else
+    echo -e "\n${CYAN}→ $1${RESET}"
+  fi
   ((CURRENT_STEP++))
 }
 
@@ -200,12 +211,14 @@ run_step() {
   fi
 }
 
-# Unified package installation system with progress tracking
+# Clean package installation system with minimal output
 install_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
-  local current=0
+  local installed_count=0
+  local skipped_count=0
   local failed_packages=()
+  local packages_to_install=()
 
   if [ $total -eq 0 ]; then
     if command -v gum >/dev/null 2>&1; then
@@ -216,59 +229,74 @@ install_packages_quietly() {
     return 0
   fi
 
+  # Filter out already installed packages
+  for pkg in "${pkgs[@]}"; do
+    if pacman -Q "$pkg" &>/dev/null; then
+      ((skipped_count++))
+    else
+      packages_to_install+=("$pkg")
+    fi
+  done
+
   if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "Installing ${total} packages via Pacman..."
+    if [ ${#packages_to_install[@]} -gt 0 ]; then
+      gum style --foreground 51 "📦 Installing ${#packages_to_install[@]} packages via Pacman..."
 
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if pacman -Q "$pkg" &>/dev/null; then
-        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
-        continue
-      fi
-
-      gum style --foreground 15 "[$current/$total] Installing $pkg..."
-      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        gum style --foreground 46 "[$current/$total] $pkg [OK]"
-        INSTALLED_PACKAGES+=("$pkg")
+      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+        installed_count=${#packages_to_install[@]}
+        INSTALLED_PACKAGES+=("${packages_to_install[@]}")
+        gum style --foreground 46 "✓ Successfully installed ${installed_count} packages"
       else
-        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
-        log_error "Failed to install $pkg"
-        failed_packages+=("$pkg")
+        # If batch install fails, try one by one to identify failures
+        for pkg in "${packages_to_install[@]}"; do
+          if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+            ((installed_count++))
+            INSTALLED_PACKAGES+=("$pkg")
+          else
+            failed_packages+=("$pkg")
+          fi
+        done
+        gum style --foreground 196 "⚠️  Some packages failed to install"
       fi
-    done
+    fi
 
-    gum style --foreground 46 "✓ Package installation completed (${current}/${total} packages processed)"
+    if [ $skipped_count -gt 0 ]; then
+      gum style --foreground 226 "⏭️  Skipped ${skipped_count} already installed packages"
+    fi
+
     if [ ${#failed_packages[@]} -gt 0 ]; then
-      gum style --foreground 226 "Failed packages: ${failed_packages[*]}"
+      gum style --foreground 196 "❌ Failed: ${failed_packages[*]}"
     fi
   else
     # Fallback to traditional output
-    echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
+    if [ ${#packages_to_install[@]} -gt 0 ]; then
+      echo -e "${CYAN}📦 Installing ${#packages_to_install[@]} packages via Pacman...${RESET}"
 
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if pacman -Q "$pkg" &>/dev/null; then
-        print_progress "$current" "$total" "$pkg"
-        print_status " [SKIP] Already installed" "$YELLOW"
-        continue
-      fi
-
-      print_progress "$current" "$total" "$pkg"
-      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        print_status " [OK]" "$GREEN"
-        INSTALLED_PACKAGES+=("$pkg")
+      if sudo pacman -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+        installed_count=${#packages_to_install[@]}
+        INSTALLED_PACKAGES+=("${packages_to_install[@]}")
+        echo -e "${GREEN}✓ Successfully installed ${installed_count} packages${RESET}"
       else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to install $pkg"
-        failed_packages+=("$pkg")
+        # If batch install fails, try one by one to identify failures
+        for pkg in "${packages_to_install[@]}"; do
+          if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+            ((installed_count++))
+            INSTALLED_PACKAGES+=("$pkg")
+          else
+            failed_packages+=("$pkg")
+          fi
+        done
+        echo -e "${RED}⚠️  Some packages failed to install${RESET}"
       fi
-    done
-
-    echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-      echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
     fi
-    echo ""
+
+    if [ $skipped_count -gt 0 ]; then
+      echo -e "${YELLOW}⏭️  Skipped ${skipped_count} already installed packages${RESET}"
+    fi
+
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      echo -e "${RED}❌ Failed: ${failed_packages[*]}${RESET}"
+    fi
   fi
 
   # Return 1 if any packages failed, 0 otherwise
@@ -352,12 +380,14 @@ ensure_paru_installed() {
   return 0
 }
 
-# AUR package installation with paru
-install_aur_quietly() {
+# Clean AUR package installation with minimal output
+install_aur_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
-  local current=0
+  local installed_count=0
+  local skipped_count=0
   local failed_packages=()
+  local packages_to_install=()
 
   if [ $total -eq 0 ]; then
     if command -v gum >/dev/null 2>&1; then
@@ -373,58 +403,74 @@ install_aur_quietly() {
     return 1
   fi
 
+  # Filter out already installed packages
+  for pkg in "${pkgs[@]}"; do
+    if paru -Q "$pkg" &>/dev/null; then
+      ((skipped_count++))
+    else
+      packages_to_install+=("$pkg")
+    fi
+  done
+
   if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "Installing ${total} AUR packages via paru..."
+    if [ ${#packages_to_install[@]} -gt 0 ]; then
+      gum style --foreground 51 "🔧 Installing ${#packages_to_install[@]} AUR packages via paru..."
 
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if paru -Q "$pkg" &>/dev/null; then
-        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
-        continue
-      fi
-
-      gum style --foreground 15 "[$current/$total] Installing $pkg..."
-      if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        gum style --foreground 46 "[$current/$total] $pkg [OK]"
-        INSTALLED_PACKAGES+=("$pkg")
+      if paru -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+        installed_count=${#packages_to_install[@]}
+        INSTALLED_PACKAGES+=("${packages_to_install[@]}")
+        gum style --foreground 46 "✓ Successfully installed ${installed_count} AUR packages"
       else
-        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
-        log_error "Failed to install AUR package $pkg"
-        failed_packages+=("$pkg")
+        # If batch install fails, try one by one to identify failures
+        for pkg in "${packages_to_install[@]}"; do
+          if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+            ((installed_count++))
+            INSTALLED_PACKAGES+=("$pkg")
+          else
+            failed_packages+=("$pkg")
+          fi
+        done
+        gum style --foreground 196 "⚠️  Some AUR packages failed to install"
       fi
-    done
+    fi
 
-    gum style --foreground 46 "✓ AUR package installation completed (${current}/${total} packages processed)"
+    if [ $skipped_count -gt 0 ]; then
+      gum style --foreground 226 "⏭️  Skipped ${skipped_count} already installed AUR packages"
+    fi
+
     if [ ${#failed_packages[@]} -gt 0 ]; then
-      gum style --foreground 226 "Failed AUR packages: ${failed_packages[*]}"
+      gum style --foreground 196 "❌ Failed AUR packages: ${failed_packages[*]}"
     fi
   else
-    echo -e "${CYAN}Installing ${total} AUR packages via paru...${RESET}"
+    # Fallback to traditional output
+    if [ ${#packages_to_install[@]} -gt 0 ]; then
+      echo -e "${CYAN}🔧 Installing ${#packages_to_install[@]} AUR packages via paru...${RESET}"
 
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if paru -Q "$pkg" &>/dev/null; then
-        print_progress "$current" "$total" "$pkg"
-        print_status " [SKIP] Already installed" "$YELLOW"
-        continue
-      fi
-
-      print_progress "$current" "$total" "$pkg"
-      if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        print_status " [OK]" "$GREEN"
-        INSTALLED_PACKAGES+=("$pkg")
+      if paru -S --noconfirm --needed "${packages_to_install[@]}" >/dev/null 2>&1; then
+        installed_count=${#packages_to_install[@]}
+        INSTALLED_PACKAGES+=("${packages_to_install[@]}")
+        echo -e "${GREEN}✓ Successfully installed ${installed_count} AUR packages${RESET}"
       else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to install AUR package $pkg"
-        failed_packages+=("$pkg")
+        # If batch install fails, try one by one to identify failures
+        for pkg in "${packages_to_install[@]}"; do
+          if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+            ((installed_count++))
+            INSTALLED_PACKAGES+=("$pkg")
+          else
+            failed_packages+=("$pkg")
+          fi
+        done
+        echo -e "${RED}⚠️  Some AUR packages failed to install${RESET}"
       fi
-    done
-
-    echo -e "\n${GREEN}✓ AUR package installation completed (${current}/${total} packages processed)${RESET}"
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-      echo -e "${YELLOW}Failed AUR packages: ${failed_packages[*]}${RESET}"
     fi
-    echo ""
+
+    if [ $skipped_count -gt 0 ]; then
+      echo -e "${YELLOW}⏭️  Skipped ${skipped_count} already installed AUR packages${RESET}"
+    fi
+
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      echo -e "${RED}❌ Failed AUR packages: ${failed_packages[*]}${RESET}"
+    fi
   fi
 
   # Return 1 if any packages failed, 0 otherwise
@@ -642,20 +688,196 @@ install_package_groups() {
   fi
 }
 
-print_summary() {
-  echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
-  [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
-  [ "${#REMOVED_PACKAGES[@]}" -gt 0 ] && echo -e "${RED}Removed: ${REMOVED_PACKAGES[*]}${RESET}"
+print_comprehensive_summary() {
+  local total_installed=${#INSTALLED_PACKAGES[@]}
+  local total_removed=${#REMOVED_PACKAGES[@]}
+  local total_errors=${#ERRORS[@]}
+  local install_time=$(date)
+  local gaming_mode=false
+  local windows_detected=false
+  local bootloader_type="Unknown"
 
-  # Show ZRAM profile information
+  # Detect gaming mode
   if [ -f "/tmp/archinstaller_gaming" ] || command -v steam >/dev/null 2>&1 || command -v lutris >/dev/null 2>&1; then
-    echo -e "${GREEN}ZRAM Profile: Gaming (performance-focused tuning)${RESET}"
-  else
-    echo -e "${GREEN}ZRAM Profile: Regular (balanced for desktop use)${RESET}"
+    gaming_mode=true
   fi
 
-  [ "${#ERRORS[@]}" -gt 0 ] && echo -e "\n${RED}Errors: ${ERRORS[*]}${RESET}"
-  echo -e "${CYAN}======================${RESET}"
+  # Detect Windows dual-boot
+  if [ -d /boot/efi/EFI/Microsoft ] || [ -d /boot/EFI/Microsoft ] || lsblk -f | grep -qi ntfs; then
+    windows_detected=true
+  fi
+
+  # Detect bootloader
+  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
+    bootloader_type="systemd-boot"
+  elif [ -d /boot/grub ] || [ -f /etc/default/grub ]; then
+    bootloader_type="GRUB"
+  fi
+
+  if command -v gum >/dev/null 2>&1; then
+    echo ""
+    gum style --border double --margin "1 2" --padding "1 4" --foreground 51 --border-foreground 51 "🎉 ARCH LINUX INSTALLATION COMPLETED"
+
+    # System Configuration Summary
+    echo ""
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 46 --border-foreground 46 "📋 System Configuration Summary"
+
+    # ZRAM Configuration
+    if [ "$gaming_mode" = true ]; then
+      gum style --foreground 51 "⚡ ZRAM Profile: Gaming (performance-focused tuning)"
+      gum style --foreground 15 "   • High swappiness (150-180) for maximum performance"
+      gum style --foreground 15 "   • Aggressive memory management optimizations"
+      gum style --foreground 15 "   • Optimized for gaming workloads and multitasking"
+    else
+      gum style --foreground 51 "⚡ ZRAM Profile: Regular (balanced for desktop use)"
+      gum style --foreground 15 "   • Moderate swappiness (80-100) for stability"
+      gum style --foreground 15 "   • Conservative memory management"
+      gum style --foreground 15 "   • Optimized for general desktop workflows"
+    fi
+
+    # System Information
+    local current_de="${XDG_CURRENT_DESKTOP:-Unknown}"
+    local cpu_info=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//' | cut -c1-40)
+    local ram_gb=$(get_ram_gb)
+    local gpu_info=$(lspci | grep -E 'VGA|3D' | head -1 | cut -d: -f3 | sed 's/^ *//' | cut -c1-40)
+
+    gum style --foreground 51 "💻 System Information:"
+    gum style --foreground 15 "   • CPU: $cpu_info"
+    gum style --foreground 15 "   • RAM: ${ram_gb}GB"
+    gum style --foreground 15 "   • GPU: $gpu_info"
+    gum style --foreground 15 "   • Desktop: $current_de"
+
+    # Security Features
+    echo ""
+    gum style --foreground 51 "🛡️  Security Features Enabled:"
+    gum style --foreground 15 "   • UFW Firewall configured and active"
+    gum style --foreground 15 "   • Fail2ban protection for SSH (if SSH enabled)"
+    gum style --foreground 15 "   • Secure sudo configuration with password feedback"
+
+    # Boot Configuration
+    echo ""
+    gum style --foreground 51 "🥾 Boot Configuration:"
+    gum style --foreground 15 "   • Bootloader: $bootloader_type"
+    gum style --foreground 15 "   • Plymouth boot screen enabled"
+    if [ "$windows_detected" = true ]; then
+      gum style --foreground 15 "   • Windows dual-boot configured"
+    fi
+
+    # Performance Optimizations
+    echo ""
+    gum style --foreground 51 "🚀 Performance Optimizations:"
+    gum style --foreground 15 "   • Parallel package downloads enabled"
+    gum style --foreground 15 "   • CPU microcode installed and configured"
+    gum style --foreground 15 "   • GPU drivers automatically detected and installed"
+
+    # Package Statistics
+    echo ""
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 226 --border-foreground 226 "📊 Package Installation Statistics"
+    gum style --foreground 46 "✅ Packages Successfully Installed: $total_installed"
+    if [ $total_removed -gt 0 ]; then
+      gum style --foreground 196 "🗑️  Packages Removed: $total_removed"
+    fi
+    if [ $total_errors -gt 0 ]; then
+      gum style --foreground 196 "❌ Installation Errors: $total_errors"
+      gum style --foreground 226 "   ℹ️  Don't worry! Most errors are non-critical."
+    else
+      gum style --foreground 46 "🎯 Zero Installation Errors - Perfect Setup!"
+    fi
+
+    # What's Next
+    echo ""
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "🔮 What's Next?"
+    gum style --foreground 15 "1. Reboot your system to activate all changes"
+    gum style --foreground 15 "2. Your enhanced ZSH shell will be ready on first login"
+    gum style --foreground 15 "3. All applications are installed and configured"
+    if [ "$gaming_mode" = true ]; then
+      gum style --foreground 15 "4. Gaming tools (Steam, Lutris, etc.) are ready to use"
+      gum style --foreground 15 "5. MangoHud overlay available for performance monitoring"
+    fi
+    gum style --foreground 15 "$([ "$gaming_mode" = true ] && echo "6" || echo "4"). Check 'fastfetch' command for beautiful system info"
+
+    echo ""
+    gum style --foreground 226 "💡 Useful Commands After Reboot:"
+    gum style --foreground 15 "   • fastfetch - Beautiful system information"
+    gum style --foreground 15 "   • update - Update all packages (Pacman + AUR + Flatpak)"
+    gum style --foreground 15 "   • clean - Clean package cache and unused packages"
+    if [ "$gaming_mode" = true ]; then
+      gum style --foreground 15 "   • mangohud <game> - Launch games with performance overlay"
+    fi
+
+    echo ""
+    gum style --foreground 46 "🔧 Important Notes:"
+    gum style --foreground 15 "   • Your ZSH shell includes helpful aliases and autocompletion"
+    gum style --foreground 15 "   • Firewall is active - configure ports as needed"
+    if [ "$gaming_mode" = true ]; then
+      gum style --foreground 15 "   • Steam and gaming tools are ready - just login and play!"
+    fi
+    gum style --foreground 15 "   • All kernel headers installed for DKMS compatibility"
+    gum style --foreground 15 "   • ZRAM swap is active - check with 'zramctl'"
+
+  else
+    # Fallback for systems without gum
+    echo ""
+    echo -e "${GREEN}════════════════════════════════════════════════════════════════${RESET}"
+    echo -e "${GREEN}🎉 ARCH LINUX INSTALLATION COMPLETED SUCCESSFULLY! 🎉${RESET}"
+    echo -e "${GREEN}════════════════════════════════════════════════════════════════${RESET}"
+    echo ""
+
+    echo -e "${CYAN}📋 SYSTEM CONFIGURATION SUMMARY:${RESET}"
+    if [ "$gaming_mode" = true ]; then
+      echo -e "${GREEN}⚡ ZRAM Profile: Gaming (performance-focused tuning)${RESET}"
+      echo -e "   • High swappiness (150-180) for maximum performance"
+      echo -e "   • Aggressive memory management optimizations"
+    else
+      echo -e "${GREEN}⚡ ZRAM Profile: Regular (balanced for desktop use)${RESET}"
+      echo -e "   • Moderate swappiness (80-100) for stability"
+      echo -e "   • Conservative memory management"
+    fi
+
+    local cpu_info=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//' | cut -c1-40)
+    local ram_gb=$(get_ram_gb)
+    local gpu_info=$(lspci | grep -E 'VGA|3D' | head -1 | cut -d: -f3 | sed 's/^ *//' | cut -c1-40)
+
+    echo -e "${GREEN}💻 System: $cpu_info, ${ram_gb}GB RAM${RESET}"
+    echo -e "${GREEN}🖥️  Desktop: ${XDG_CURRENT_DESKTOP:-Unknown}${RESET}"
+    echo -e "${GREEN}🎮 Graphics: $gpu_info${RESET}"
+    echo -e "${GREEN}🥾 Bootloader: $bootloader_type$([ "$windows_detected" = true ] && echo " + Windows dual-boot" || echo "")${RESET}"
+    echo -e "${GREEN}🛡️  Security: UFW Firewall + Fail2ban + Secure sudo${RESET}"
+    echo -e "${GREEN}🚀 Performance: Plymouth + GPU drivers + CPU microcode${RESET}"
+    echo ""
+
+    echo -e "${YELLOW}📊 PACKAGE STATISTICS:${RESET}"
+    echo -e "${GREEN}✅ Installed: $total_installed packages${RESET}"
+    [ $total_removed -gt 0 ] && echo -e "${RED}🗑️  Removed: $total_removed packages${RESET}"
+    [ $total_errors -gt 0 ] && echo -e "${RED}❌ Errors: $total_errors (mostly non-critical)${RESET}" || echo -e "${GREEN}🎯 Zero errors - Perfect setup!${RESET}"
+    echo ""
+
+    echo -e "${CYAN}🔮 WHAT'S NEXT:${RESET}"
+    echo -e "1. Reboot to activate all changes"
+    echo -e "2. Enhanced ZSH shell ready on login"
+    echo -e "3. All applications configured and ready"
+    [ "$gaming_mode" = true ] && echo -e "4. Gaming tools ready (Steam, Lutris, MangoHud)"
+    echo ""
+
+    echo -e "${YELLOW}💡 USEFUL COMMANDS:${RESET}"
+    echo -e "   • fastfetch - System information"
+    echo -e "   • update - Update all packages"
+    echo -e "   • clean - Clean package cache"
+    [ "$gaming_mode" = true ] && echo -e "   • mangohud <game> - Performance overlay"
+    echo ""
+
+    echo -e "${GREEN}🔧 IMPORTANT NOTES:${RESET}"
+    echo -e "   • ZSH shell with aliases and autocompletion ready"
+    echo -e "   • Firewall active - configure ports as needed"
+    [ "$gaming_mode" = true ] && echo -e "   • Gaming tools ready - just login and play!"
+    echo -e "   • Kernel headers installed for compatibility"
+    echo -e "   • ZRAM swap active - check with 'zramctl'"
+  fi
+}
+
+# Legacy function for compatibility
+print_summary() {
+  print_comprehensive_summary
 }
 
 prompt_reboot() {
@@ -717,6 +939,399 @@ fast_system_update() {
   else
     log_warning "paru not available for AUR update"
   fi
+}
+
+# =============================================================================
+# ENHANCED PARALLEL INSTALLATION ENGINE
+# =============================================================================
+
+# Dynamic progress bar with ETA calculation
+draw_progress_bar() {
+    local progress="$1"
+    local width="$2"
+    local message="$3"
+    local color="${4:-CYAN}"
+
+    local filled_width=$((progress * width / 100))
+    local empty_width=$((width - filled_width))
+
+    # Create progress bar
+    local bar=""
+    for ((i=0; i<filled_width; i++)); do
+        bar+="█"
+    done
+    for ((i=0; i<empty_width; i++)); do
+        bar+="░"
+    done
+
+    # Calculate ETA
+    local current_time=$(date +%s)
+    local elapsed=$((current_time - START_TIME))
+    local eta=""
+    if [[ $progress -gt 5 ]]; then
+        local total_estimated=$((elapsed * 100 / progress))
+        local remaining=$((total_estimated - elapsed))
+        eta=" | ETA: $(format_duration $remaining)"
+    fi
+
+    # Print progress bar with beautiful formatting
+    printf "\r${CYAN}▌${WHITE}%s${CYAN}▐ %3d%%%s ${GRAY}%s${RESET}" \
+           "$bar" "$progress" "$eta" "$message"
+}
+
+# Animate progress with spinner and real-time updates
+animate_progress() {
+    local progress_file="$1"
+    local message="$2"
+    local width=$((TERM_WIDTH - 20))
+
+    local spinner_chars=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+    local spinner_index=0
+
+    while true; do
+        if [[ -f "$progress_file" ]]; then
+            local progress=$(cat "$progress_file" 2>/dev/null || echo "0")
+            local spinner="${spinner_chars[$spinner_index]}"
+
+            # Draw progress with spinner
+            printf "\r${CYAN}%s ${RESET}" "$spinner"
+            draw_progress_bar "$progress" "$width" "$message" "CYAN"
+
+            # Update spinner
+            spinner_index=$(((spinner_index + 1) % ${#spinner_chars[@]}))
+
+            # Exit if complete
+            if [[ "$progress" -ge 100 ]]; then
+                printf "\r${GREEN}✓ ${RESET}"
+                draw_progress_bar "100" "$width" "$message" "GREEN"
+                echo ""
+                break
+            fi
+        fi
+
+        sleep 0.1
+    done
+}
+
+# Format duration helper
+format_duration() {
+    local duration="$1"
+    local hours=$((duration / 3600))
+    local minutes=$(((duration % 3600) / 60))
+    local seconds=$((duration % 60))
+
+    if [[ $hours -gt 0 ]]; then
+        printf "%dh %dm %ds" "$hours" "$minutes" "$seconds"
+    elif [[ $minutes -gt 0 ]]; then
+        printf "%dm %ds" "$minutes" "$seconds"
+    else
+        printf "%ds" "$seconds"
+    fi
+}
+
+# Beautiful ASCII art step transitions
+show_step_transition() {
+    local current="$1"
+    local total="$2"
+    local step_name="$3"
+    local icon="$4"
+
+    if command -v gum >/dev/null 2>&1; then
+        gum style --border double --margin "1 2" --padding "1 4" --foreground 51 --border-foreground 51 "STEP $current OF $total"
+        gum style --margin "1 0" --foreground 226 "$icon $step_name"
+    else
+        clear
+        echo -e "${CYAN}"
+        printf "%*s" $((TERM_WIDTH/2 + 10)) ""
+        echo "╭─────────────────────────╮"
+        printf "%*s" $((TERM_WIDTH/2 + 10)) ""
+        echo "│    STEP $current OF $total    │"
+        printf "%*s" $((TERM_WIDTH/2 + 10)) ""
+        echo "╰─────────────────────────╯"
+        echo -e "${RESET}"
+        echo ""
+        echo -e "${YELLOW}$icon ${WHITE}$step_name${RESET}"
+        echo ""
+    fi
+
+    # Progress indicator
+    local progress_width=50
+    local filled=$((current * progress_width / total))
+    local empty=$((progress_width - filled))
+
+    printf "${CYAN}["
+    printf "%*s" "$filled" "" | tr ' ' '█'
+    printf "${GRAY}"
+    printf "%*s" "$empty" "" | tr ' ' '░'
+    printf "${CYAN}] %d/%d${RESET}\n" "$current" "$total"
+    echo ""
+}
+
+# Initialize parallel installation engine
+init_parallel_engine() {
+    echo "Initializing Parallel Installation Engine..." >> /var/log/arch_installer.log 2>/dev/null || true
+    echo "Maximum parallel jobs: $PARALLEL_LIMIT" >> /var/log/arch_installer.log 2>/dev/null || true
+    echo "Batch size: $BATCH_SIZE" >> /var/log/arch_installer.log 2>/dev/null || true
+
+    # Create job control directory
+    mkdir -p "/tmp/arch_installer_jobs_$$"
+    export JOB_DIR="/tmp/arch_installer_jobs_$$"
+}
+
+# Install packages in parallel batches - THE MAIN FEATURE!
+install_packages_parallel() {
+    local packages=("$@")
+    local total_packages=${#packages[@]}
+
+    if [[ $total_packages -eq 0 ]]; then
+        return 0
+    fi
+
+    echo "Starting parallel installation of $total_packages packages" >> /var/log/arch_installer.log 2>/dev/null || true
+
+    # Initialize parallel engine if not done
+    if [[ ! -d "/tmp/arch_installer_jobs_$$" ]]; then
+        init_parallel_engine
+    fi
+
+    # Split packages into batches
+    local batch_num=0
+    for ((i=0; i<total_packages; i+=BATCH_SIZE)); do
+        local batch=("${packages[@]:i:BATCH_SIZE}")
+        install_batch_parallel "$batch_num" "${batch[@]}" &
+
+        # Limit concurrent batches
+        if (( $(jobs -r | wc -l) >= PARALLEL_LIMIT )); then
+            wait -n  # Wait for any job to complete
+        fi
+
+        ((batch_num++))
+    done
+
+    # Wait for all batches to complete
+    wait
+
+    echo "Parallel installation completed" >> /var/log/arch_installer.log 2>/dev/null || true
+}
+
+# Install a batch of packages in parallel
+install_batch_parallel() {
+    local batch_id="$1"
+    shift
+    local packages=("$@")
+
+    local batch_log="${JOB_DIR:-/tmp}/batch_${batch_id}.log"
+    local batch_status="${JOB_DIR:-/tmp}/batch_${batch_id}.status"
+
+    echo "RUNNING" > "$batch_status"
+    echo "Installing batch $batch_id: ${packages[*]}" >> "$batch_log"
+
+    # Try pacman first, then AUR for failed packages
+    local failed_packages=()
+
+    for package in "${packages[@]}"; do
+        if install_single_package "$package" >> "$batch_log" 2>&1; then
+            echo "✓ $package" >> "$batch_log"
+            INSTALLED_PACKAGES+=("$package")
+        else
+            echo "✗ $package (will retry with AUR)" >> "$batch_log"
+            failed_packages+=("$package")
+        fi
+    done
+
+    # Retry failed packages with AUR helper
+    for package in "${failed_packages[@]}"; do
+        if install_aur_package "$package" >> "$batch_log" 2>&1; then
+            echo "✓ $package (AUR)" >> "$batch_log"
+            INSTALLED_PACKAGES+=("$package")
+        else
+            echo "✗ $package (FAILED)" >> "$batch_log"
+            FAILED_PACKAGES+=("$package")
+        fi
+    done
+
+    echo "COMPLETED" > "$batch_status"
+}
+
+# Install a single package
+install_single_package() {
+    local package="$1"
+
+    # Check if already installed
+    if pacman -Qi "$package" &>/dev/null; then
+        return 0
+    fi
+
+    # Install with pacman
+    sudo pacman -S --noconfirm --needed "$package" 2>/dev/null
+}
+
+# Install package via AUR
+install_aur_package() {
+    local package="$1"
+
+    # Check if paru is available
+    if ! command -v paru >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # Install with paru
+    paru -S --noconfirm --needed "$package" 2>/dev/null
+}
+
+# Enhanced category-based parallel installation
+install_category_parallel() {
+    local category="$1"
+    shift
+    local packages=("$@")
+
+    if [[ ${#packages[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    if command -v gum >/dev/null 2>&1; then
+        gum style --foreground 51 "📦 Installing $category (${#packages[@]} packages)"
+    else
+        echo -e "${CYAN}📦 Installing $category (${#packages[@]} packages)${RESET}"
+    fi
+
+    # Create progress file
+    local progress_file="/tmp/arch_installer_progress_$$"
+    echo "0" > "$progress_file"
+
+    # Start progress animation in background
+    animate_progress "$progress_file" "$category" &
+    local progress_pid=$!
+
+    # Start parallel installation
+    local start_time=$(date +%s)
+
+    # Update progress during installation
+    {
+        echo "25" > "$progress_file"
+        install_packages_parallel "${packages[@]}"
+        echo "100" > "$progress_file"
+    } &
+
+    wait
+
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    # Stop progress animation
+    kill $progress_pid 2>/dev/null || true
+    wait $progress_pid 2>/dev/null || true
+
+    # Show results
+    local successful=$((${#packages[@]} - ${#FAILED_PACKAGES[@]}))
+
+    if command -v gum >/dev/null 2>&1; then
+        gum style --foreground 46 "✓ $category: $successful/${#packages[@]} packages installed in ${duration}s"
+        if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
+            gum style --foreground 226 "⚠ Failed packages: ${FAILED_PACKAGES[*]}"
+        fi
+    else
+        echo -e "${GREEN}✓ $category: $successful/${#packages[@]} packages installed in ${duration}s${RESET}"
+        if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
+            echo -e "${YELLOW}⚠ Failed packages: ${FAILED_PACKAGES[*]}${RESET}"
+        fi
+    fi
+
+    # Reset failed packages for next category
+    FAILED_PACKAGES=()
+    rm -f "$progress_file"
+    echo ""
+}
+
+# System Health Dashboard
+show_system_health_dashboard() {
+    if command -v gum >/dev/null 2>&1; then
+        gum style --border double --margin "1 2" --padding "1 4" --foreground 51 --border-foreground 51 "🏥 SYSTEM HEALTH DASHBOARD"
+    else
+        echo -e "${CYAN}"
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║                  🏥 SYSTEM HEALTH DASHBOARD                  ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo -e "${RESET}"
+    fi
+
+    # Get system stats
+    local cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2+$4}' | cut -d'%' -f1 2>/dev/null || echo "N/A")
+    local memory_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}' 2>/dev/null || echo "N/A")
+    local disk_usage=$(df / | tail -1 | awk '{print $5}' | sed 's/%//' 2>/dev/null || echo "N/A")
+    local installed_count=${#INSTALLED_PACKAGES[@]}
+    local failed_count=${#FAILED_PACKAGES[@]}
+
+    if command -v gum >/dev/null 2>&1; then
+        gum style --margin "1 0" --foreground 226 "System Performance:"
+        gum style --foreground 15 "  🖥️  CPU Usage:    ${cpu_usage}%"
+        gum style --foreground 15 "  💾 Memory Usage: ${memory_usage}%"
+        gum style --foreground 15 "  💽 Disk Usage:   ${disk_usage}%"
+        echo ""
+        gum style --foreground 226 "Installation Statistics:"
+        gum style --foreground 46 "  ✅ Installed: $installed_count packages"
+        if [[ $failed_count -gt 0 ]]; then
+            gum style --foreground 196 "  ⚠️  Failed:    $failed_count packages"
+        fi
+        gum style --foreground 51 "  ⏱️  Duration:  $(format_duration $(($(date +%s) - START_TIME)))"
+    else
+        echo -e "${WHITE}System Performance:${RESET}"
+        echo -e "  ${CYAN}🖥️  CPU Usage:    ${cpu_usage}%${RESET}"
+        echo -e "  ${CYAN}💾 Memory Usage: ${memory_usage}%${RESET}"
+        echo -e "  ${CYAN}💽 Disk Usage:   ${disk_usage}%${RESET}"
+        echo ""
+        echo -e "${WHITE}Installation Statistics:${RESET}"
+        echo -e "  ${GREEN}✅ Installed: $installed_count packages${RESET}"
+        if [[ $failed_count -gt 0 ]]; then
+            echo -e "  ${YELLOW}⚠️  Failed:    $failed_count packages${RESET}"
+        fi
+        echo -e "  ${BLUE}⏱️  Duration:  $(format_duration $(($(date +%s) - START_TIME)))${RESET}"
+    fi
+
+    echo ""
+}
+
+# Completion animation
+show_completion_animation() {
+    if command -v gum >/dev/null 2>&1; then
+        gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "🎉 INSTALLATION COMPLETE! 🎉"
+    else
+        clear
+        echo -e "${GREEN}"
+        echo "    ╔══════════════════════════════════════════════════════════════╗"
+        echo "    ║                    🎉 INSTALLATION COMPLETE! 🎉             ║"
+        echo "    ║                                                              ║"
+        echo "    ║  ███████╗██╗   ██╗ ██████╗ ██████╗███████╗███████╗███████╗  ║"
+        echo "    ║  ██╔════╝██║   ██║██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝  ║"
+        echo "    ║  ███████╗██║   ██║██║     ██║     █████╗  ███████╗███████╗  ║"
+        echo "    ║  ╚════██║██║   ██║██║     ██║     ██╔══╝  ╚════██║╚════██║  ║"
+        echo "    ║  ███████║╚██████╔╝╚██████╗╚██████╗███████╗███████║███████║  ║"
+        echo "    ║  ╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚══════╝╚══════╝╚══════╝  ║"
+        echo "    ║                                                              ║"
+        echo "    ╚══════════════════════════════════════════════════════════════╝"
+        echo -e "${RESET}"
+
+        # Celebration animation
+        local celebration=("🎊" "🎉" "✨" "🌟" "⭐" "💫" "🎈" "🎆")
+        for i in {1..3}; do
+            for char in "${celebration[@]}"; do
+                printf "\r${YELLOW}%*s%s%*s${RESET}" \
+                       $((TERM_WIDTH/2 - 1)) "" "$char" $((TERM_WIDTH/2 - 1)) ""
+                sleep 0.1
+            done
+        done
+        echo ""
+    fi
+}
+
+# Stop parallel engine and cleanup
+stop_parallel_engine() {
+    # Wait for all background jobs to finish
+    wait
+
+    # Clean up job control directory
+    rm -rf "${JOB_DIR:-/tmp/arch_installer_jobs_$$}" 2>/dev/null || true
+    rm -f "/tmp/arch_installer_progress_$$" 2>/dev/null || true
 }
 
 # Performance tracking

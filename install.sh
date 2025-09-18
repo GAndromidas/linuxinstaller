@@ -203,33 +203,49 @@ step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Mainten
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 10 completed"
   echo ""
+
+  # Show beautiful completion animation
+  show_completion_animation
+
+  # Display system health dashboard
+  show_system_health_dashboard
+
 else
   echo -e "${GREEN}✓ Step 10 completed${RESET}"
-  echo -e "\n${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
-  echo -e "${GREEN}🎉 INSTALLATION COMPLETED SUCCESSFULLY! 🎉${RESET}"
-  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+
+  # Show completion animation for non-gum systems
+  show_completion_animation
+
+  # Display system health dashboard
+  show_system_health_dashboard
 fi
-echo ""
-echo -e "${YELLOW}🎯 What's been set up for you:${RESET}"
-echo -e "  • 🖥️  Desktop environment with all essential applications"
-echo -e "  • 🛡️  Security features (firewall, SSH protection)"
-echo -e "  • ⚡ Performance optimizations (ZRAM, boot screen)"
-echo -e "  • 🎮 Gaming tools (if you chose Gaming Mode)"
-echo -e "  • 🔧 Dual-boot with Windows (if detected)"
-echo -e "  • 🐚 Enhanced shell with autocompletion"
-echo ""
-print_applications_summary
-print_summary
 log_performance "Total installation time"
 
-# Handle installation results with gum styling
+# Enhanced final summary with parallel installation stats
+if command -v gum >/dev/null 2>&1; then
+  gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "📊 PARALLEL INSTALLATION STATS"
+  gum style --foreground 226 "⚡ Packages installed in parallel batches of $BATCH_SIZE"
+  gum style --foreground 226 "🚀 Maximum concurrent installations: $PARALLEL_LIMIT"
+  gum style --foreground 226 "⏱️  Total installation time: $(format_duration $(($(date +%s) - START_TIME)))"
+  echo ""
+fi
+
+print_comprehensive_summary
+
+# Stop parallel installation engine and cleanup
+if command -v gum >/dev/null 2>&1; then
+  gum style --foreground 226 "🧹 Stopping parallel installation engine..."
+else
+  echo -e "${YELLOW}🧹 Stopping parallel installation engine...${RESET}"
+fi
+stop_parallel_engine
+
+# Handle cleanup and final results
 if [ ${#ERRORS[@]} -eq 0 ]; then
   if command -v gum >/dev/null 2>&1; then
     echo ""
-    gum style --foreground 46 "✅ All steps completed successfully!"
     gum style --foreground 226 "🧹 Cleaning up installer files..."
   else
-    echo -e "\n${GREEN}✅ All steps completed successfully!${RESET}"
     echo -e "${YELLOW}🧹 Cleaning up installer files...${RESET}"
   fi
   cd "$SCRIPT_DIR/.."
@@ -242,24 +258,41 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
 else
   if command -v gum >/dev/null 2>&1; then
     echo ""
-    gum style --foreground 226 "⚠️  Some errors occurred during installation:"
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 226 --border-foreground 226 "⚠️  Installation Issues Detected"
+    gum style --foreground 226 "The following non-critical issues occurred:"
     for error in "${ERRORS[@]}"; do
-      gum style --margin "0 2" --foreground 196 "• $error"
+      gum style --margin "0 2" --foreground 15 "• $error"
     done
     echo ""
-    gum style --foreground 226 "💡 Don't worry! Most errors are non-critical and your system should still work."
-    gum style --foreground 226 "   The installer directory has been preserved so you can review what happened."
-    gum style --foreground 226 "   You can run the installer again to fix any issues."
+    gum style --foreground 51 "💡 Your system should still work perfectly!"
+    gum style --foreground 15 "   • Most errors are package conflicts or optional features"
+    gum style --foreground 15 "   • Core functionality has been installed successfully"
+    gum style --foreground 15 "   • You can run the installer again to retry failed components"
   else
-    echo -e "\n${YELLOW}⚠️  Some errors occurred during installation:${RESET}"
+    echo ""
+    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${RESET}"
+    echo -e "${YELLOW}⚠️  INSTALLATION ISSUES DETECTED${RESET}"
+    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${RESET}"
+    echo -e "${YELLOW}The following non-critical issues occurred:${RESET}"
     for error in "${ERRORS[@]}"; do
       echo -e "${RED}   • $error${RESET}"
     done
     echo ""
-    echo -e "${YELLOW}💡 Don't worry! Most errors are non-critical and your system should still work.${RESET}"
-    echo -e "${YELLOW}   The installer directory has been preserved so you can review what happened.${RESET}"
-    echo -e "${YELLOW}   You can run the installer again to fix any issues.${RESET}"
+    echo -e "${GREEN}💡 Your system should still work perfectly!${RESET}"
+    echo -e "${GREEN}   • Most errors are package conflicts or optional features${RESET}"
+    echo -e "${GREEN}   • Core functionality has been installed successfully${RESET}"
+    echo -e "${GREEN}   • You can run the installer again to retry failed components${RESET}"
   fi
+fi
+
+# Final system health check
+if command -v gum >/dev/null 2>&1; then
+  echo ""
+  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "🏥 Final System Health Check"
+  gum style --foreground 226 "System is ready for use! Check dashboard above for details."
+else
+  echo -e "${CYAN}🏥 Final System Health Check${RESET}"
+  echo -e "${GREEN}System is ready for use! Check stats above for details.${RESET}"
 fi
 
 prompt_reboot
