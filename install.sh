@@ -240,6 +240,15 @@ if command -v gum >/dev/null 2>&1; then
   gum style --foreground 226 "🚀 Maximum concurrent installations: $PARALLEL_LIMIT"
   gum style --foreground 226 "⏱️  Total installation time: $(format_duration $(($(date +%s) - START_TIME)))"
   echo ""
+else
+  echo -e "${CYAN}"
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║             📊 PARALLEL INSTALLATION STATS                  ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo -e "${YELLOW}⚡ Packages installed in parallel batches of $BATCH_SIZE${RESET}"
+  echo -e "${YELLOW}🚀 Maximum concurrent installations: $PARALLEL_LIMIT${RESET}"
+  echo -e "${YELLOW}⏱️  Total installation time: $(format_duration $(($(date +%s) - START_TIME)))${RESET}"
+  echo ""
 fi
 
 print_comprehensive_summary

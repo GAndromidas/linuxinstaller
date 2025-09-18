@@ -583,6 +583,12 @@ enable_system_services() {
     ((current++))
     print_progress "$current" "$total" "$service"
 
+    # Check if service unit file exists first
+    if ! systemctl list-unit-files "$service" --quiet 2>/dev/null | grep -q "$service"; then
+      print_status " [SKIP] Service not available" "$YELLOW"
+      continue
+    fi
+
     if systemctl is-enabled "$service" &>/dev/null; then
       print_status " [SKIP] Already enabled" "$YELLOW"
     else
@@ -1069,9 +1075,16 @@ show_step_transition() {
 
 # Initialize parallel installation engine
 init_parallel_engine() {
-    echo "Initializing Parallel Installation Engine..." >> /var/log/arch_installer.log 2>/dev/null || true
-    echo "Maximum parallel jobs: $PARALLEL_LIMIT" >> /var/log/arch_installer.log 2>/dev/null || true
-    echo "Batch size: $BATCH_SIZE" >> /var/log/arch_installer.log 2>/dev/null || true
+    # Try to write to /var/log, fallback to home directory
+    LOG_FILE="/var/log/arch_installer.log"
+    if ! echo "test" >> "$LOG_FILE" 2>/dev/null; then
+        LOG_FILE="$HOME/arch_installer.log"
+        echo "Warning: Using $LOG_FILE instead of /var/log/arch_installer.log (permission denied)" >&2
+    fi
+
+    echo "Initializing Parallel Installation Engine..." >> "$LOG_FILE" 2>/dev/null || true
+    echo "Maximum parallel jobs: $PARALLEL_LIMIT" >> "$LOG_FILE" 2>/dev/null || true
+    echo "Batch size: $BATCH_SIZE" >> "$LOG_FILE" 2>/dev/null || true
 
     # Create job control directory
     mkdir -p "/tmp/arch_installer_jobs_$$"

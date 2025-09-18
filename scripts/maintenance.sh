@@ -41,25 +41,13 @@ perform_system_cleanup() {
   run_step "Syncing filesystem" sync
 }
 
-# Clean up installer-specific utilities
+# Clean up installer-specific utilities (gum and figlet will be removed at reboot)
 cleanup_installer_utilities() {
   step "Cleaning up installer utilities"
 
-  # Remove installer-specific packages that are no longer needed
-  local installer_utils=("gum" "figlet")
-  local to_remove=()
-
-  for util in "${installer_utils[@]}"; do
-    if pacman -Q "$util" >/dev/null 2>&1; then
-      to_remove+=("$util")
-    fi
-  done
-
-  if [ ${#to_remove[@]} -gt 0 ]; then
-    run_step "Removing installer utilities: ${to_remove[*]}" sudo pacman -R "${to_remove[@]}" --noconfirm
-  else
-    log_success "No installer utilities to remove"
-  fi
+  # Don't remove gum and figlet here - they're needed until the very end
+  # They will be removed by prompt_reboot() right before the system reboots
+  log_success "Installer utilities (gum, figlet) will be cleaned up before reboot"
 }
 
 # Update mirrorlist using rate-mirrors if available

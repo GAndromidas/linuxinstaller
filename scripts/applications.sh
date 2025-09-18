@@ -593,6 +593,13 @@ install_pacman_programs() {
     done
   }
 
+  # Execute the installation functions
+  install_pacman_packages
+  if [[ "$INSTALL_MODE" != "minimal" ]] || [[ ${#paru_programs[@]} -gt 0 ]]; then
+    install_aur_packages
+  fi
+}
+
 install_flatpak_programs_list() {
   local flatpaks=("$@")
 
@@ -790,7 +797,7 @@ elif [[ "$INSTALL_MODE" == "custom" ]]; then
   fi
 fi
 
-install_aur_packages
+
 
 # Show final completion with cleanup
 if command -v gum >/dev/null 2>&1; then
