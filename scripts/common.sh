@@ -649,7 +649,7 @@ print_summary() {
 
   # Show ZRAM profile information
   if [ -f "/tmp/archinstaller_gaming" ] || command -v steam >/dev/null 2>&1 || command -v lutris >/dev/null 2>&1; then
-    echo -e "${GREEN}ZRAM Profile: Gaming (CachyOS-style aggressive tuning)${RESET}"
+    echo -e "${GREEN}ZRAM Profile: Gaming (performance-focused tuning)${RESET}"
   else
     echo -e "${GREEN}ZRAM Profile: Regular (balanced for desktop use)${RESET}"
   fi

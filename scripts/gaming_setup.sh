@@ -26,7 +26,7 @@ if command -v gum >/dev/null 2>&1; then
     else
         # Create gaming mode marker for ZRAM detection
         touch /tmp/archinstaller_gaming
-        gum style --foreground 46 "Gaming Mode enabled - system will use performance-optimized ZRAM profile"
+        gum style --foreground 46 "Gaming Mode enabled - system will use gaming-optimized ZRAM profile"
     fi
 else
     # Fallback to traditional prompts
@@ -42,7 +42,7 @@ else
                 echo -e "\n"
                 # Create gaming mode marker for ZRAM detection
                 touch /tmp/archinstaller_gaming
-                echo -e "${GREEN}Gaming Mode enabled - system will use performance-optimized ZRAM profile${RESET}"
+                echo -e "${GREEN}Gaming Mode enabled - system will use gaming-optimized ZRAM profile${RESET}"
                 log_info "Gaming Mode enabled!"
                 break
                 ;;

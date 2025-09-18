@@ -22,7 +22,7 @@
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
 - **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
-- **Performance Tuning**: Smart ZRAM profiles (gaming vs regular), Plymouth boot screen, and system optimizations
+- **⚡ Performance Tuning**: Smart ZRAM profiles (gaming vs regular), Plymouth boot screen, and system optimizations
 - **📦 Multi-Source Packages**: Pacman, AUR (via Paru), and Flatpak integration with YAML-driven configuration
 - **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
 - **🔒 SSH Security**: Optional SSH hardening with customizable security settings
@@ -128,7 +128,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **Pacman Optimization**: Parallel downloads and color output enabled
 - **Multilib Repository**: Automatically enabled for 32-bit application support
 - **Smart ZRAM System**: Context-aware ZRAM configuration with gaming vs regular profiles
-  - **Gaming Profile**: CachyOS-style aggressive tuning (150-180 swappiness, kernel optimizations)
+  - **Gaming Profile**: Performance-focused tuning (150-180 swappiness, kernel optimizations)
   - **Regular Profile**: Balanced desktop performance (80-100 swappiness, conservative settings)
 - **CPU Microcode**: Automatic Intel/AMD detection and installation
 - **Kernel Headers**: Automatic installation for all installed kernels
