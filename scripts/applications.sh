@@ -88,7 +88,7 @@ install_aur_packages() {
 install_flatpak_packages() {
     local packages_to_install=("$@")
     log_info "Installing ${#packages_to_install[@]} Flatpak applications..."
-    if ! flatpak install -y --non-interactive "${packages_to_install[@]}"; then
+        if ! flatpak install -y "${packages_to_install[@]}"; then
         log_error "Failed to install some Flatpak applications."
     else
         log_success "All Flatpak applications installed successfully."

@@ -89,7 +89,7 @@ install_packages_quietly discord lutris obs-studio steam wine
 step "Installing AUR gaming packages"
 
 if command -v paru &>/dev/null; then
-    install_aur_quietly heroic-games-launcher-bin
+        install_aur_packages_quietly heroic-games-launcher-bin
 else
     log_error "paru not found - AUR packages skipped"
 fi

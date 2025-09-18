@@ -1322,12 +1322,18 @@ show_completion_animation() {
 
 # Stop parallel engine and cleanup
 stop_parallel_engine() {
+    echo -e "${YELLOW}DEBUG: Active background jobs before wait:${RESET}"
+    jobs -l
+
     # Wait for all background jobs to finish
     wait
 
+    echo -e "${YELLOW}DEBUG: Active background jobs after wait:${RESET}"
+    jobs -l
+
     # Clean up job control directory
-    rm -rf "${JOB_DIR:-/tmp/arch_installer_jobs_$$}" 2>/dev/null || true
-    rm -f "/tmp/arch_installer_progress_$$" 2>/dev/null || true
+    rm -rf "${JOB_DIR:-/tmp/arch_installer_jobs_$}" 2>/dev/null || true
+    rm -f "/tmp/arch_installer_progress_$" 2>/dev/null || true
 }
 
 # Performance tracking
