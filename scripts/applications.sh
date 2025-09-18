@@ -473,6 +473,12 @@ detect_desktop_environment() {
 print_total_packages() {
   step "Calculating total packages to install"
 
+  # Defensive initialization of arrays
+  [[ -z "${pacman_programs+x}" ]] && pacman_programs=()
+  [[ -z "${essential_programs+x}" ]] && essential_programs=()
+  [[ -z "${specific_install_programs+x}" ]] && specific_install_programs=()
+  [[ -z "${paru_programs+x}" ]] && paru_programs=()
+
   # Calculate Pacman packages
   local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
 
@@ -542,22 +548,18 @@ remove_programs() {
 install_pacman_programs() {
   step "Installing Pacman programs"
 
+  # Defensive initialization of arrays to prevent unbound variable errors
+  [[ -z "${pacman_programs+x}" ]] && pacman_programs=()
+  [[ -z "${essential_programs+x}" ]] && essential_programs=()
+  [[ -z "${specific_install_programs+x}" ]] && specific_install_programs=()
+
+  # Install pacman packages
   local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
   if [ "${#specific_install_programs[@]}" -gt 0 ]; then
     pkgs+=("${specific_install_programs[@]}")
   fi
 
-  # Enhanced Parallel Installation Functions
-
-  install_pacman_packages() {
-    local pkgs
-    get_packages "pacman" "$INSTALL_MODE" pkgs
-
-    if [ ${#pkgs[@]} -eq 0 ]; then
-      log_success "No pacman packages to install."
-      return
-    fi
-
+  if [ ${#pkgs[@]} -gt 0 ]; then
     # Show step transition with beautiful animation
     show_step_transition "$CURRENT_STEP" "10" "Installing System Packages" "📦"
     ((CURRENT_STEP++))
@@ -567,36 +569,33 @@ install_pacman_programs() {
 
     # Add installed packages to tracking
     PROGRAMS_INSTALLED+=("${pkgs[@]}")
-  }
+  else
+    log_success "No pacman packages to install."
+  fi
 
-  install_aur_packages() {
-    if [ ${#paru_programs[@]} -eq 0 ]; then
-      log_success "No AUR packages to install."
-      return
-    fi
-
-    if ! check_paru; then
-      log_warning "Skipping AUR package installation due to missing paru."
-      return
-    fi
-
-    # Show step transition with beautiful animation
-    show_step_transition "$CURRENT_STEP" "10" "Installing AUR Packages" "🔧"
-    ((CURRENT_STEP++))
-
-    # Use parallel installation engine for AUR packages too
-    install_category_parallel "AUR Packages" "${paru_programs[@]}"
-
-    # Add installed packages to tracking
-    for pkg in "${paru_programs[@]}"; do
-      PROGRAMS_INSTALLED+=("$pkg (AUR)")
-    done
-  }
-
-  # Execute the installation functions
-  install_pacman_packages
+  # Install AUR packages
+  [[ -z "${paru_programs+x}" ]] && paru_programs=()
   if [[ "$INSTALL_MODE" != "minimal" ]] || [[ ${#paru_programs[@]} -gt 0 ]]; then
-    install_aur_packages
+    if [ ${#paru_programs[@]} -gt 0 ]; then
+      if ! check_paru; then
+        log_warning "Skipping AUR package installation due to missing paru."
+        return
+      fi
+
+      # Show step transition with beautiful animation
+      show_step_transition "$CURRENT_STEP" "10" "Installing AUR Packages" "🔧"
+      ((CURRENT_STEP++))
+
+      # Use parallel installation engine for AUR packages too
+      install_category_parallel "AUR Packages" "${paru_programs[@]}"
+
+      # Add installed packages to tracking
+      for pkg in "${paru_programs[@]}"; do
+        PROGRAMS_INSTALLED+=("$pkg (AUR)")
+      done
+    else
+      log_success "No AUR packages to install."
+    fi
   fi
 }
 

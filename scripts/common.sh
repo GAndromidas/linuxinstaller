@@ -6,7 +6,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BLUE='\033[0;34m'
+GRAY='\033[0;37m'
+WHITE='\033[1;37m'
 RESET='\033[0m'
+
+# Global log file variable - initialize with fallback
+LOG_FILE="$HOME/arch_installer.log"
 
 # Terminal formatting helpers
 TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
@@ -1076,8 +1081,10 @@ show_step_transition() {
 # Initialize parallel installation engine
 init_parallel_engine() {
     # Try to write to /var/log, fallback to home directory
-    LOG_FILE="/var/log/arch_installer.log"
-    if ! echo "test" >> "$LOG_FILE" 2>/dev/null; then
+    local test_log="/var/log/arch_installer.log"
+    if echo "test" >> "$test_log" 2>/dev/null; then
+        LOG_FILE="$test_log"
+    else
         LOG_FILE="$HOME/arch_installer.log"
         echo "Warning: Using $LOG_FILE instead of /var/log/arch_installer.log (permission denied)" >&2
     fi
@@ -1100,7 +1107,7 @@ install_packages_parallel() {
         return 0
     fi
 
-    echo "Starting parallel installation of $total_packages packages" >> /var/log/arch_installer.log 2>/dev/null || true
+    echo "Starting parallel installation of $total_packages packages" >> "$LOG_FILE" 2>/dev/null || true
 
     # Initialize parallel engine if not done
     if [[ ! -d "/tmp/arch_installer_jobs_$$" ]]; then
@@ -1124,7 +1131,7 @@ install_packages_parallel() {
     # Wait for all batches to complete
     wait
 
-    echo "Parallel installation completed" >> /var/log/arch_installer.log 2>/dev/null || true
+    echo "Parallel installation completed" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # Install a batch of packages in parallel
