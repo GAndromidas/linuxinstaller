@@ -9,7 +9,10 @@ ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 
 source "$SCRIPT_DIR/common.sh"
-source "$SCRIPT_DIR/cachyos_support.sh"
+source "$ARCHINSTALLER_ROOT/scripts/cachyos_support.sh"
+
+# Initialize CachyOS detection
+detect_cachyos >/dev/null 2>&1 || true
 
 step "Gaming Mode Setup"
 
@@ -99,9 +102,9 @@ GAMING_AUR_PACKAGES=(
 
 # Install AUR packages using yay
 if command -v yay &>/dev/null; then
-  local total=${#GAMING_AUR_PACKAGES[@]}
-  local current=0
-  local failed_packages=()
+  total=${#GAMING_AUR_PACKAGES[@]}
+  current=0
+  failed_packages=()
 
   for pkg in "${GAMING_AUR_PACKAGES[@]}"; do
     ((current++))
@@ -138,9 +141,9 @@ if command -v flatpak >/dev/null 2>&1; then
     sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   fi
 
-  local total=${#GAMING_FLATPAKS[@]}
-  local current=0
-  local failed_packages=()
+  total=${#GAMING_FLATPAKS[@]}
+  current=0
+  failed_packages=()
 
   for pkg in "${GAMING_FLATPAKS[@]}"; do
     ((current++))
