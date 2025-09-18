@@ -29,10 +29,12 @@ setup_system_services() {
 
 # Firewall functions moved to security_setup.sh
 
-# Function to get total RAM in GB
+# Function to get total RAM in GB with proper rounding
 get_ram_gb() {
   local ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-  echo $((ram_kb / 1024 / 1024))
+  # Use proper rounding instead of truncation
+  # Add 512MB (524288 KB) before dividing to round to nearest GB
+  echo $(((ram_kb + 524288) / 1024 / 1024))
 }
 
 # Function to get optimal ZRAM size multiplier based on RAM
