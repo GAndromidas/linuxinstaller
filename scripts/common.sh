@@ -275,6 +275,78 @@ install_packages_quietly() {
   [ ${#failed_packages[@]} -eq 0 ]
 }
 
+# Standalone yay installation function that can be called from other scripts
+ensure_yay_installed() {
+  # Check if yay is already installed and working
+  if command -v yay &>/dev/null && yay --version >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log_warning "yay not found or not working - installing it now..."
+
+  # Check dependencies
+  local deps_needed=()
+  if ! pacman -Q base-devel &>/dev/null; then
+    deps_needed+=(base-devel)
+  fi
+  if ! command -v git &>/dev/null; then
+    deps_needed+=(git)
+  fi
+
+  # Install dependencies if needed
+  if [[ ${#deps_needed[@]} -gt 0 ]]; then
+    log_info "Installing yay dependencies: ${deps_needed[*]}"
+    sudo pacman -S --noconfirm --needed "${deps_needed[@]}" || {
+      log_error "Failed to install yay dependencies"
+      return 1
+    }
+  fi
+
+  # Store original directory and create temp directory
+  local original_dir="$PWD"
+  local temp_dir
+  temp_dir=$(mktemp -d -t yay-install-XXXXXX) || {
+    log_error "Failed to create temporary directory"
+    return 1
+  }
+
+  # Cleanup function
+  cleanup_yay_install() {
+    cd "$original_dir" 2>/dev/null
+    rm -rf "$temp_dir" 2>/dev/null
+  }
+  trap cleanup_yay_install EXIT
+
+  cd "$temp_dir" || { log_error "Failed to enter temp directory"; return 1; }
+
+  # Clone and build yay
+  log_info "Downloading yay source..."
+  if ! git clone --depth 1 https://aur.archlinux.org/yay.git . 2>/dev/null; then
+    log_error "Failed to download yay source"
+    return 1
+  fi
+
+  log_info "Building yay (this may take a few minutes)..."
+  if ! sudo -u "$USER" makepkg -si --noconfirm --needed --rmdeps 2>/dev/null; then
+    log_error "Failed to build yay"
+    return 1
+  fi
+
+  # Verify installation
+  if command -v yay &>/dev/null && yay --version >/dev/null 2>&1; then
+    log_success "yay installed and verified successfully"
+  else
+    log_error "yay installation verification failed"
+    return 1
+  fi
+
+  # Cleanup
+  cleanup_yay_install
+  trap - EXIT
+
+  return 0
+}
+
 # AUR package installation with yay
 install_aur_quietly() {
   local pkgs=("$@")

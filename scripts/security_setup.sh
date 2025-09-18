@@ -155,54 +155,7 @@ configure_ufw() {
   fi
 }
 
-# ======= SSH Hardening =======
-harden_ssh() {
-  step "Hardening SSH configuration"
-
-  local ssh_config="/etc/ssh/sshd_config"
-  local ssh_backup="/etc/ssh/sshd_config.backup"
-
-  # Create backup if it doesn't exist
-  if [ ! -f "$ssh_backup" ]; then
-    sudo cp "$ssh_config" "$ssh_backup"
-    log_success "Created SSH config backup"
-  fi
-
-  # Apply SSH hardening settings
-  local ssh_settings=(
-    "PermitRootLogin no"
-    "PasswordAuthentication yes"
-    "PubkeyAuthentication yes"
-    "X11Forwarding no"
-    "MaxAuthTries 3"
-    "ClientAliveInterval 300"
-    "ClientAliveCountMax 2"
-    "Protocol 2"
-  )
-
-  for setting in "${ssh_settings[@]}"; do
-    local key=$(echo "$setting" | cut -d' ' -f1)
-    local value=$(echo "$setting" | cut -d' ' -f2-)
-
-    if grep -q "^#*$key" "$ssh_config"; then
-      sudo sed -i "s/^#*$key.*/$setting/" "$ssh_config"
-    else
-      echo "$setting" | sudo tee -a "$ssh_config" >/dev/null
-    fi
-  done
-
-  log_success "SSH hardening applied"
-  SECURITY_CONFIGURED+=("ssh-hardening")
-
-  # Test SSH config
-  if sudo sshd -t; then
-    log_success "SSH configuration is valid"
-  else
-    log_error "SSH configuration has errors - restoring backup"
-    sudo cp "$ssh_backup" "$ssh_config"
-    return 1
-  fi
-}
+# SSH Hardening moved to system_services.sh to happen after SSH service is enabled
 
 print_security_summary() {
   echo -e "\n${CYAN}======= SECURITY SETUP SUMMARY =======${RESET}"
@@ -239,8 +192,8 @@ main() {
   # Firewall configuration
   setup_firewall
 
-  # SSH hardening
-  run_step "Hardening SSH configuration" harden_ssh
+  # SSH hardening now handled in system_services.sh after SSH service is enabled
+  log_info "SSH hardening will be handled after SSH service is enabled"
 
   print_security_summary
 }

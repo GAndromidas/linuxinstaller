@@ -242,9 +242,91 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
+# SSH Hardening - moved here to happen AFTER SSH service is enabled
+harden_ssh() {
+  step "Hardening SSH configuration"
+
+  log_info "Applying SSH security hardening automatically"
+
+  # Verify SSH service is running and host keys exist
+  local max_attempts=10
+  local attempt=0
+
+  while [ $attempt -lt $max_attempts ]; do
+    if systemctl is-active sshd >/dev/null 2>&1 && [ -f "/etc/ssh/ssh_host_rsa_key" ]; then
+      log_success "SSH service is active and host keys are present"
+      break
+    fi
+
+    if [ $attempt -eq 0 ]; then
+      log_info "Waiting for SSH service to fully initialize..."
+    fi
+
+    sleep 2
+    ((attempt++))
+
+    if [ $attempt -eq $max_attempts ]; then
+      log_error "SSH service failed to start properly or host keys missing"
+      return 1
+    fi
+  done
+
+  local ssh_config="/etc/ssh/sshd_config"
+  local ssh_backup="/etc/ssh/sshd_config.backup"
+
+  # Create backup if it doesn't exist
+  if [ ! -f "$ssh_backup" ]; then
+    sudo cp "$ssh_config" "$ssh_backup"
+    log_success "Created SSH config backup"
+  fi
+
+  # Apply SSH hardening settings
+  local ssh_settings=(
+    "PermitRootLogin no"
+    "PasswordAuthentication yes"
+    "PubkeyAuthentication yes"
+    "X11Forwarding no"
+    "MaxAuthTries 3"
+    "ClientAliveInterval 300"
+    "ClientAliveCountMax 2"
+    "Protocol 2"
+  )
+
+  for setting in "${ssh_settings[@]}"; do
+    local key=$(echo "$setting" | cut -d' ' -f1)
+    local value=$(echo "$setting" | cut -d' ' -f2-)
+
+    if grep -q "^#*$key" "$ssh_config"; then
+      sudo sed -i "s/^#*$key.*/$setting/" "$ssh_config"
+    else
+      echo "$setting" | sudo tee -a "$ssh_config" >/dev/null
+    fi
+  done
+
+  log_success "SSH hardening applied"
+
+  # Test SSH config (should work now since service is enabled and keys exist)
+  if sudo sshd -t; then
+    log_success "SSH configuration is valid"
+    # Restart SSH service to apply changes
+    if sudo systemctl restart sshd; then
+      log_success "SSH service restarted with hardened configuration"
+    else
+      log_warning "SSH service restart failed"
+      return 1
+    fi
+  else
+    log_error "SSH configuration has errors - restoring backup"
+    sudo cp "$ssh_backup" "$ssh_config"
+    sudo systemctl restart sshd
+    return 1
+  fi
+}
+
 # Execute all service and system configuration steps
 main() {
   setup_system_services
+  harden_ssh
   setup_zram_swap
   detect_and_install_gpu_drivers
 }

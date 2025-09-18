@@ -133,7 +133,14 @@ else
   echo -e "${CYAN}Step 4: Yay Installation${RESET}"
   echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-step "Yay Installation" && echo "AUR helper (yay) already installed in Step 1" || log_error "Yay installation already handled"
+step "Yay Installation" && {
+  if ensure_yay_installed; then
+    log_success "AUR helper (yay) is available and ready"
+  else
+    log_error "Failed to install or verify yay AUR helper"
+    log_warning "AUR packages will be unavailable for this installation"
+  fi
+} || log_error "Yay verification/installation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""

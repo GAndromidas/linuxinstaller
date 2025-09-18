@@ -146,62 +146,127 @@ install_yay() {
   # Check if yay is already installed
   if command -v yay &>/dev/null; then
     log_success "yay is already installed"
-    return 0
+    # Test that yay actually works
+    if yay --version >/dev/null 2>&1; then
+      log_success "yay is functional"
+      return 0
+    else
+      log_warning "yay is installed but not functional - reinstalling"
+    fi
   fi
 
   # Check if base-devel is installed (required for building packages)
   if ! pacman -Q base-devel &>/dev/null; then
-    log_error "base-devel package is required but not installed. Please install it first."
-    return 1
+    log_warning "base-devel not found - installing it first"
+    if ! sudo pacman -S --noconfirm --needed base-devel; then
+      log_error "Failed to install base-devel package"
+      return 1
+    fi
   fi
+
+  # Check if git is installed (required for cloning)
+  if ! command -v git &>/dev/null; then
+    log_warning "git not found - installing it first"
+    if ! sudo pacman -S --noconfirm --needed git; then
+      log_error "Failed to install git"
+      return 1
+    fi
+  fi
+
+  # Store original directory
+  local original_dir="$PWD"
 
   # Create temporary directory for building
   local temp_dir
-  temp_dir=$(mktemp -d)
-  cd "$temp_dir" || { log_error "Failed to create temporary directory"; return 1; }
-
-  # Clone yay repository
-  print_progress 1 4 "Cloning yay repository"
-  if git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
-    print_status " [OK]" "$GREEN"
-  else
-    print_status " [FAIL]" "$RED"
-    log_error "Failed to clone yay repository"
-    cd - >/dev/null && rm -rf "$temp_dir"
+  temp_dir=$(mktemp -d -t yay-build-XXXXXX)
+  if [[ ! -d "$temp_dir" ]]; then
+    log_error "Failed to create temporary directory"
     return 1
   fi
 
-  # Build yay
-  print_progress 2 4 "Building yay"
-  echo -e "\n${YELLOW}Please enter your sudo password to build and install yay:${RESET}"
-  sudo -v
-  if makepkg -si --noconfirm --needed >/dev/null 2>&1; then
+  # Ensure cleanup on exit
+  trap "cd '$original_dir' 2>/dev/null; rm -rf '$temp_dir' 2>/dev/null" EXIT
+
+  cd "$temp_dir" || { log_error "Failed to enter temporary directory"; return 1; }
+
+  # Clone yay repository with better error handling
+  print_progress 1 5 "Cloning yay repository"
+  if git clone --depth 1 https://aur.archlinux.org/yay.git . 2>/dev/null; then
     print_status " [OK]" "$GREEN"
   else
     print_status " [FAIL]" "$RED"
-    log_error "Failed to build yay"
-    cd - >/dev/null && rm -rf "$temp_dir"
+    log_error "Failed to clone yay repository - check internet connection"
     return 1
   fi
 
-  # Verify installation
-  print_progress 3 4 "Verifying installation"
+  # Verify we have the PKGBUILD
+  if [[ ! -f "PKGBUILD" ]]; then
+    log_error "PKGBUILD not found in yay repository"
+    return 1
+  fi
+
+  # Build yay with better error handling
+  print_progress 2 5 "Building yay"
+  log_info "Building yay - this may take a few minutes..."
+
+  # Make sure we have sudo access
+  if ! sudo -n true 2>/dev/null; then
+    echo -e "\n${YELLOW}sudo password required for yay installation:${RESET}"
+    sudo -v || { log_error "sudo access required"; return 1; }
+  fi
+
+  if makepkg -si --noconfirm --needed --rmdeps 2>/dev/null; then
+    print_status " [OK]" "$GREEN"
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "Failed to build yay - checking for common issues..."
+
+    # Try to diagnose the problem
+    if ! pacman -Q base-devel >/dev/null 2>&1; then
+      log_error "base-devel is missing"
+    fi
+    if ! command -v gcc >/dev/null 2>&1; then
+      log_error "gcc compiler is missing"
+    fi
+    if ! command -v make >/dev/null 2>&1; then
+      log_error "make is missing"
+    fi
+
+    return 1
+  fi
+
+  # Verify installation works
+  print_progress 3 5 "Verifying yay installation"
+  sleep 1  # Give system a moment
   if command -v yay &>/dev/null; then
     print_status " [OK]" "$GREEN"
   else
     print_status " [FAIL]" "$RED"
-    log_error "yay installation verification failed"
-    cd - >/dev/null && rm -rf "$temp_dir"
+    log_error "yay command not found after installation"
+    return 1
+  fi
+
+  # Test yay functionality
+  print_progress 4 5 "Testing yay functionality"
+  if yay --version >/dev/null 2>&1; then
+    print_status " [OK]" "$GREEN"
+  else
+    print_status " [FAIL]" "$RED"
+    log_error "yay is installed but not functional"
     return 1
   fi
 
   # Clean up
-  print_progress 4 4 "Cleaning up"
-  cd - >/dev/null && rm -rf "$temp_dir"
+  print_progress 5 5 "Cleaning up"
+  cd "$original_dir" >/dev/null 2>&1
+  rm -rf "$temp_dir" 2>/dev/null
   print_status " [OK]" "$GREEN"
 
-  echo -e "\n${GREEN}✓ yay AUR helper installed successfully${RESET}"
-  log_success "yay AUR helper installed"
+  # Remove the trap since we're cleaning up manually
+  trap - EXIT
+
+  echo -e "\n${GREEN}✓ yay AUR helper installed and verified successfully${RESET}"
+  log_success "yay AUR helper ready for use"
   echo ""
 }
 
