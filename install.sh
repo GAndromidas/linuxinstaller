@@ -235,6 +235,9 @@ log_performance "Total installation time"
 
 print_comprehensive_summary
 
+# Kill the sudo keep-alive process explicitly
+kill "$SUDO_KEEPALIVE_PID" 2>/dev/null
+
 # Stop parallel installation engine and cleanup
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 226 "🧹 Stopping parallel installation engine..."
