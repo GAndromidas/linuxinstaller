@@ -646,6 +646,14 @@ print_summary() {
   echo -e "\n${CYAN}=== INSTALL SUMMARY ===${RESET}"
   [ "${#INSTALLED_PACKAGES[@]}" -gt 0 ] && echo -e "${GREEN}Installed: ${INSTALLED_PACKAGES[*]}${RESET}"
   [ "${#REMOVED_PACKAGES[@]}" -gt 0 ] && echo -e "${RED}Removed: ${REMOVED_PACKAGES[*]}${RESET}"
+
+  # Show ZRAM profile information
+  if [ -f "/tmp/archinstaller_gaming" ] || command -v steam >/dev/null 2>&1 || command -v lutris >/dev/null 2>&1; then
+    echo -e "${GREEN}ZRAM Profile: Gaming (CachyOS-style aggressive tuning)${RESET}"
+  else
+    echo -e "${GREEN}ZRAM Profile: Regular (balanced for desktop use)${RESET}"
+  fi
+
   [ "${#ERRORS[@]}" -gt 0 ] && echo -e "\n${RED}Errors: ${ERRORS[*]}${RESET}"
   echo -e "${CYAN}======================${RESET}"
 }

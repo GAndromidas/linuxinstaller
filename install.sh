@@ -133,13 +133,7 @@ else
   echo -e "${CYAN}Step 4: Paru Installation${RESET}"
   echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-step "Paru Installation" && {
-  if command -v paru &>/dev/null && paru --version &>/dev/null; then
-    log_success "AUR helper (paru) is available and ready"
-  else
-    log_error "paru AUR helper is not available - check system setup"
-  fi
-} || log_error "Paru verification failed"
+step "Paru Installation" && ensure_paru_installed || log_error "Paru installation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""
@@ -172,7 +166,7 @@ else
   echo -e "${CYAN}Step 7: Bootloader and Kernel Configuration${RESET}"
   echo -e "${YELLOW}🔧 Configuring bootloader and setting up dual-boot with Windows...${RESET}"
 fi
-step "Bootloader and Kernel Configuration" && echo "Bootloader configuration already handled in Step 3" || log_error "Bootloader configuration already handled"
+step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_setup.sh" || log_error "Bootloader configuration failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 7 completed"
   echo ""

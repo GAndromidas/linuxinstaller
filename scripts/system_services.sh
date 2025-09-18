@@ -37,44 +37,130 @@ get_ram_gb() {
   echo $(((ram_kb + 524288) / 1024 / 1024))
 }
 
-# Function to get optimal ZRAM size multiplier based on RAM
-get_zram_multiplier() {
+# Detect if gaming mode is enabled
+detect_gaming_mode() {
+  # Check various indicators that gaming mode was selected
+  if [[ "$INSTALL_MODE" == *"gaming"* ]] || \
+     [[ -f "/tmp/gaming_mode_enabled" ]] || \
+     [[ -f "/tmp/archinstaller_gaming" ]] || \
+     command -v steam >/dev/null 2>&1 || \
+     command -v lutris >/dev/null 2>&1; then
+    return 0  # Gaming mode detected
+  fi
+  return 1    # Regular mode
+}
+
+# Get optimal ZRAM configuration based on system profile
+get_zram_config() {
   local ram_gb=$1
-  case $ram_gb in
-    1) echo "2.0" ;;      # 1GB RAM -> 200% ZRAM (2GB)
-    2) echo "1.5" ;;      # 2GB RAM -> 150% ZRAM (3GB)
-    3) echo "1.33" ;;     # 3GB RAM -> 133% ZRAM (4GB)
-    4) echo "1.0" ;;      # 4GB RAM -> 100% ZRAM (4GB)
-    6) echo "0.83" ;;     # 6GB RAM -> 83% ZRAM (5GB)
-    8) echo "0.75" ;;     # 8GB RAM -> 75% ZRAM (6GB)
-    10) echo "0.6" ;;     # 10GB RAM -> 60% ZRAM (6GB)
-    12) echo "0.5" ;;     # 12GB RAM -> 50% ZRAM (6GB)
-    15) echo "0.5" ;;     # 15GB RAM -> 50% ZRAM (8GB) - treat as 16GB
-    16) echo "0.5" ;;     # 16GB RAM -> 50% ZRAM (8GB)
-    24) echo "0.33" ;;    # 24GB RAM -> 33% ZRAM (8GB)
-    31) echo "0.25" ;;    # 31GB RAM -> 25% ZRAM (8GB) - treat as 32GB
-    32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
-    48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
-    64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
-    *)
-      # For other sizes, use a dynamic calculation
-      if [ $ram_gb -le 4 ]; then
-        echo "1.0"
-      elif [ $ram_gb -le 8 ]; then
-        echo "0.75"
-      elif [ $ram_gb -le 16 ]; then
-        echo "0.5"
-      elif [ $ram_gb -le 32 ]; then
-        echo "0.33"
-      else
-        echo "0.25"
-      fi
-      ;;
-  esac
+  local profile=$2
+
+  if [ "$profile" = "gaming" ]; then
+    # Gaming Profile - Aggressive ZRAM allocation for maximum performance
+    case $ram_gb in
+      1|2) echo "1.5 150" ;;     # 1-2GB RAM -> 150% ZRAM, swappiness 150
+      3|4) echo "1.25 150" ;;    # 3-4GB RAM -> 125% ZRAM, swappiness 150
+      6|8) echo "1.0 160" ;;     # 6-8GB RAM -> 100% ZRAM, swappiness 160
+      12|16) echo "0.75 160" ;;  # 12-16GB RAM -> 75% ZRAM, swappiness 160
+      24|32) echo "0.5 180" ;;   # 24-32GB RAM -> 50% ZRAM, swappiness 180
+      *)
+        if [ "$ram_gb" -le 4 ]; then
+          echo "1.25 150"
+        elif [ "$ram_gb" -le 16 ]; then
+          echo "0.75 160"
+        else
+          echo "0.4 180"
+        fi
+        ;;
+    esac
+  else
+    # Regular Profile - Conservative ZRAM allocation for stability
+    case $ram_gb in
+      1|2) echo "1.0 90" ;;      # 1-2GB RAM -> 100% ZRAM, swappiness 90
+      3|4) echo "0.75 90" ;;     # 3-4GB RAM -> 75% ZRAM, swappiness 90
+      6|8) echo "0.6 100" ;;     # 6-8GB RAM -> 60% ZRAM, swappiness 100
+      12|16) echo "0.4 100" ;;   # 12-16GB RAM -> 40% ZRAM, swappiness 100
+      24|32) echo "0.3 80" ;;    # 24-32GB RAM -> 30% ZRAM, swappiness 80
+      *)
+        if [ "$ram_gb" -le 4 ]; then
+          echo "0.75 90"
+        elif [ "$ram_gb" -le 16 ]; then
+          echo "0.4 100"
+        else
+          echo "0.25 80"
+        fi
+        ;;
+    esac
+  fi
+}
+
+# Apply kernel parameters for ZRAM optimization
+apply_zram_kernel_params() {
+  local profile=$1
+  local swappiness=$2
+
+  step "Applying ZRAM kernel optimizations for $profile profile"
+
+  # Create sysctl configuration for ZRAM
+  local sysctl_file="/etc/sysctl.d/99-archinstaller-zram.conf"
+
+  if [ "$profile" = "gaming" ]; then
+    # Gaming profile - CachyOS style aggressive optimizations
+    sudo tee "$sysctl_file" > /dev/null << EOF
+# ZRAM Gaming Profile Optimizations (CachyOS-style)
+# Applied by archinstaller for gaming systems
+
+# Set swappiness for aggressive ZRAM usage
+vm.swappiness = $swappiness
+
+# Reduce memory fragmentation for gaming performance
+vm.watermark_boost_factor = 0
+
+# More aggressive free memory maintenance
+vm.watermark_scale_factor = 125
+
+# Disable swap readahead for ZRAM (better for compressed swap)
+vm.page-cluster = 0
+
+# Reduce cache pressure for gaming workloads
+vm.vfs_cache_pressure = 50
+
+# Optimize memory reclaim for gaming
+vm.dirty_ratio = 5
+vm.dirty_background_ratio = 1
+EOF
+    log_success "Applied gaming profile kernel optimizations (swappiness: $swappiness)"
+  else
+    # Regular profile - balanced optimizations
+    sudo tee "$sysctl_file" > /dev/null << EOF
+# ZRAM Regular Profile Optimizations
+# Applied by archinstaller for general desktop use
+
+# Set moderate swappiness for balanced ZRAM usage
+vm.swappiness = $swappiness
+
+# Conservative memory management
+vm.vfs_cache_pressure = 60
+
+# Standard memory reclaim settings
+vm.dirty_ratio = 10
+vm.dirty_background_ratio = 5
+EOF
+    log_success "Applied regular profile kernel optimizations (swappiness: $swappiness)"
+  fi
+
+  # Disable zswap to prevent conflicts with ZRAM
+  if ! grep -q "zswap.enabled=0" /etc/default/grub 2>/dev/null && [ -f /etc/default/grub ]; then
+    sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/&zswap.enabled=0 /' /etc/default/grub
+    log_success "Disabled zswap to prevent conflicts with ZRAM"
+  fi
+
+  # Apply sysctl settings immediately
+  sudo sysctl -p "$sysctl_file" >/dev/null 2>&1 || true
 }
 
 setup_zram_swap() {
-  step "Setting up ZRAM swap"
+  step "Setting up intelligent ZRAM swap"
 
   # Check if ZRAM is already configured
   if systemctl is-active --quiet systemd-zram-setup@zram0; then
@@ -82,30 +168,32 @@ setup_zram_swap() {
     return 0
   fi
 
-  # Interactive confirmation
-  local enable_zram=false
-  if command -v gum >/dev/null 2>&1; then
-    gum confirm --default=false "Would you like to enable and configure ZRAM swap?" && enable_zram=true
+  # Detect system profile
+  local profile="regular"
+  if detect_gaming_mode; then
+    profile="gaming"
+    log_info "Gaming system detected - using performance-optimized ZRAM profile"
   else
-    read -r -p "Would you like to enable and configure ZRAM swap? [y/N]: " response
-    response=${response,,}
-    [[ "$response" =~ ^(y|yes)$ ]] && enable_zram=true
+    log_info "Regular system detected - using balanced ZRAM profile"
   fi
 
-  if [ "$enable_zram" = false ]; then
-    log_info "ZRAM configuration skipped by user"
-    return 0
-  fi
-
-  # Get system RAM and optimal multiplier
+  # Get system RAM and optimal configuration
   local ram_gb=$(get_ram_gb)
-  local multiplier=$(get_zram_multiplier $ram_gb)
+  local config=$(get_zram_config $ram_gb $profile)
+  local multiplier=$(echo $config | cut -d' ' -f1)
+  local swappiness=$(echo $config | cut -d' ' -f2)
   local zram_size_gb=$(echo "$ram_gb * $multiplier" | bc -l | cut -d. -f1)
 
-  log_info "System RAM: ${ram_gb}GB, ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)"
+  log_info "System RAM: ${ram_gb}GB"
+  log_info "ZRAM Profile: $profile (${multiplier}x multiplier, ${zram_size_gb}GB effective, swappiness: $swappiness)"
+
+  # Apply kernel optimizations for the selected profile
+  apply_zram_kernel_params "$profile" "$swappiness"
 
   # Create optimized ZRAM configuration
   sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
+# ZRAM Configuration - $profile profile
+# Generated by archinstaller for optimal performance
 [zram0]
 zram-size = ram * ${multiplier}
 compression-algorithm = zstd
@@ -114,7 +202,14 @@ EOF
 
   # Enable and start ZRAM services
   enable_system_services systemd-zram-setup@zram0
-  log_success "ZRAM swap configured and enabled"
+
+  if [ "$profile" = "gaming" ]; then
+    log_success "Gaming-optimized ZRAM configured (CachyOS-style aggressive tuning)"
+    log_info "Benefits: Maximum RAM utilization, reduced stuttering, better game performance"
+  else
+    log_success "Balanced ZRAM configured for general desktop use"
+    log_info "Benefits: Improved multitasking, stable performance, efficient memory usage"
+  fi
 }
 
 detect_and_install_gpu_drivers() {

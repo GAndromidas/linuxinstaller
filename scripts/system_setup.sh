@@ -134,46 +134,7 @@ generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-install_paru() {
-  step "Installing paru AUR helper"
 
-  # Check if paru is already installed and working
-  if command -v paru &>/dev/null && paru --version &>/dev/null; then
-    log_success "paru is already installed and working"
-    return 0
-  fi
-
-  # Install paru from source (not precompiled binary)
-  log_info "Installing paru from source..."
-
-  # Go to tmp directory
-  local temp_dir=$(mktemp -d)
-  local current_dir=$(pwd)
-  cd "$temp_dir"
-
-  # Download and install paru from source
-  git clone https://aur.archlinux.org/paru.git
-  cd paru
-  makepkg -si --noconfirm --needed
-
-  # Clean up build files and source
-  cd "$current_dir"
-  rm -rf "$temp_dir"
-
-  # Clean package cache to save space
-  if command -v paru &>/dev/null; then
-    paru -Scc --noconfirm || true
-  fi
-
-  # Verify installation
-  if command -v paru &>/dev/null && paru --version &>/dev/null; then
-    log_success "paru installed successfully from source and cleaned up"
-    return 0
-  else
-    log_error "paru installation failed"
-    return 1
-  fi
-}
 
 # Execute system setup steps
 main() {
@@ -185,7 +146,6 @@ main() {
   install_cpu_microcode
   install_kernel_headers_for_all
   generate_locales
-  install_paru
 }
 
 # Run main function

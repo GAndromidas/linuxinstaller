@@ -23,27 +23,35 @@ if command -v gum >/dev/null 2>&1; then
     if ! gum confirm --default=true "Enable Gaming Mode?"; then
         gum style --foreground 51 "Gaming Mode skipped."
         return 0
+    else
+        # Create gaming mode marker for ZRAM detection
+        touch /tmp/archinstaller_gaming
+        gum style --foreground 46 "Gaming Mode enabled - system will use performance-optimized ZRAM profile"
     fi
 else
     # Fallback to traditional prompts
     echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
     echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
+
     while true; do
         read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
         response=${response,,}
         case "$response" in
             ""|y|yes)
                 echo -e "\n"
+                # Create gaming mode marker for ZRAM detection
+                touch /tmp/archinstaller_gaming
+                echo -e "${GREEN}Gaming Mode enabled - system will use performance-optimized ZRAM profile${RESET}"
+                log_info "Gaming Mode enabled!"
                 break
                 ;;
             n|no)
                 log_info "Gaming Mode skipped."
-                echo -e "\n"
                 return 0
                 ;;
             *)
-                echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+                echo -e "${RED}Please answer yes (y) or no (n).${RESET}"
                 ;;
         esac
     done
