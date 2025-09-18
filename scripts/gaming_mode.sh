@@ -23,35 +23,27 @@ if command -v gum >/dev/null 2>&1; then
     if ! gum confirm --default=true "Enable Gaming Mode?"; then
         gum style --foreground 51 "Gaming Mode skipped."
         return 0
-    else
-        # Create gaming mode marker for ZRAM detection
-        touch /tmp/archinstaller_gaming
-        gum style --foreground 46 "Gaming Mode enabled - system will use gaming-optimized ZRAM profile"
     fi
 else
     # Fallback to traditional prompts
     echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
     echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
-
     while true; do
         read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
         response=${response,,}
         case "$response" in
             ""|y|yes)
                 echo -e "\n"
-                # Create gaming mode marker for ZRAM detection
-                touch /tmp/archinstaller_gaming
-                echo -e "${GREEN}Gaming Mode enabled - system will use gaming-optimized ZRAM profile${RESET}"
-                log_info "Gaming Mode enabled!"
                 break
                 ;;
             n|no)
                 log_info "Gaming Mode skipped."
+                echo -e "\n"
                 return 0
                 ;;
             *)
-                echo -e "${RED}Please answer yes (y) or no (n).${RESET}"
+                echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
                 ;;
         esac
     done
@@ -59,7 +51,8 @@ fi
 
 # Install MangoHud for performance monitoring
 step "Installing MangoHud"
-install_packages_quietly mangohud lib32-mangohud
+MANGO_PACKAGES=("mangohud" "lib32-mangohud")
+install_packages_quietly "${MANGO_PACKAGES[@]}"
 
 # Copy MangoHud configuration
 step "Configuring MangoHud"
@@ -79,23 +72,32 @@ fi
 
 # Install GameMode for performance optimization
 step "Installing GameMode"
-install_packages_quietly gamemode lib32-gamemode
+GAMEMODE_PACKAGES=("gamemode" "lib32-gamemode")
+install_packages_quietly "${GAMEMODE_PACKAGES[@]}"
 
 # Install additional gaming utilities
 step "Installing gaming utilities"
-install_packages_quietly discord lutris obs-studio steam wine
+GAMING_PACKAGES=(
+    "discord"
+    "lutris"
+    "obs-studio"
+    "steam"
+    "wine"
+)
+install_packages_quietly "${GAMING_PACKAGES[@]}"
 
 # Install AUR gaming packages
 step "Installing AUR gaming packages"
-
-if command -v yay &>/dev/null; then
-        install_aur_packages_quietly heroic-games-launcher-bin
-else
-    log_error "yay not found - AUR packages skipped"
-fi
+GAMING_AUR_PACKAGES=(
+    "heroic-games-launcher-bin"
+)
+install_aur_quietly "${GAMING_AUR_PACKAGES[@]}"
 
 # Install additional gaming-related Flatpaks
 step "Installing gaming-related Flatpaks"
-install_flatpak_quietly com.vysp3r.ProtonPlus
+GAMING_FLATPAKS=(
+    "com.vysp3r.ProtonPlus"
+)
+install_flatpak_quietly "${GAMING_FLATPAKS[@]}"
 
 log_success "Gaming Mode setup completed."

@@ -22,14 +22,12 @@
 - **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
 - **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
-- **⚡ Performance Tuning**: Smart ZRAM profiles (gaming vs regular), Plymouth boot screen, and system optimizations
-- **📦 Multi-Source Packages**: Pacman, AUR (via yay), and Flatpak integration with YAML-driven configuration
+- **⚡ Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
+- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
 - **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
-- **🔒 SSH Security**: Optional SSH hardening with customizable security settings
 - **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
 - **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
 - **🎯 GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
-- **🚀 Enhanced Installation**: Improved package installation with better progress tracking and error handling
 
 ---
 
@@ -118,7 +116,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Gaming Mode Packages** (Optional)
 **Pacman**: discord, gamemode, lib32-gamemode, lutris, mangohud, lib32-mangohud, obs-studio, steam, wine  
-**AUR**: heroic-games-launcher-bin (installed via yay)
+**AUR**: heroic-games-launcher-bin  
 **Flatpak**: com.vysp3r.ProtonPlus
 
 ---
@@ -126,22 +124,19 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 ## 🔧 System Optimizations & Features
 
 ### **Performance Enhancements**
-- **Pacman Optimization**: Parallel downloads and color output enabled
+- **Pacman Optimization**: 10 parallel downloads, color output, ILoveCandy, VerbosePkgLists
 - **Multilib Repository**: Automatically enabled for 32-bit application support
-- **Smart ZRAM System**: Context-aware ZRAM configuration with gaming vs regular profiles
-  - **Gaming Profile**: Performance-focused tuning (150-180 swappiness, kernel optimizations)
-  - **Regular Profile**: Balanced desktop performance (80-100 swappiness, conservative settings)
+- **Intelligent ZRAM**: Dynamic sizing based on available RAM with zstd compression
 - **CPU Microcode**: Automatic Intel/AMD detection and installation
-- **Kernel Headers**: Automatic installation for all installed kernels
-- **AUR Helper**: Popular yay AUR helper (built from source)
+- **Kernel Headers**: Automatic installation for all installed kernels (linux, linux-lts, linux-zen, linux-hardened)
 - **Mirror Optimization**: rate-mirrors integration for fastest mirror selection
+- **SSD Optimization**: Automatic fstrim execution on SSD detection
 
 ### **Security Hardening**
 - **Fail2ban**: SSH protection with 30-minute bans after 3 failed attempts
-- **Firewall**: Auto-detects and configures UFW with SSH access
-- **SSH Hardening**: Optional SSH security configuration (disabled root login, connection limits, idle timeouts)
+- **Firewall**: Auto-detects and configures UFW or Firewalld with SSH access
 - **KDE Connect**: Automatic port configuration (1714-1764) if KDE Connect is installed
-- **System Services**: Comprehensive service management and configuration
+- **System Services**: Comprehensive service enablement and configuration
 
 ### **Boot Experience**
 - **Plymouth**: Beautiful boot screen with automatic configuration
@@ -161,7 +156,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **Starship**: Beautiful, fast prompt with system information
 - **Enhanced Navigation**: zoxide for smart directory jumping
 - **System Information**: fastfetch with custom configuration
-- **Aliases**: Comprehensive system maintenance and navigation aliases (using Paru)
+- **Aliases**: Comprehensive system maintenance and navigation aliases
 - **Plugins**: Git integration, FZF fuzzy finding, autosuggestions, syntax highlighting
 
 ### **GPU Driver Intelligence**
@@ -182,11 +177,11 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **gum Integration**: Modern terminal UI with styled prompts and progress indicators
 - **Progress Tracking**: Real-time installation progress with step-by-step feedback
 - **Error Handling**: Comprehensive error collection with detailed reporting
-- **ASCII Art**: Simple Arch Linux branding at startup
+- **ASCII Art**: Beautiful Arch Linux branding throughout the installation
 - **Color Coding**: Intuitive color-coded status messages for easy understanding
 
 ### **Installation Process**
-1. **System Requirements**: Checks Arch Linux, internet connectivity, disk space, and prerequisites  
+1. **System Requirements**: Checks Arch Linux, internet connectivity, disk space, and user privileges
 2. **Interactive Menu**: Clean mode selection with descriptions
 3. **10 Installation Steps**: Each step clearly labeled with progress tracking
 4. **Error Recovery**: Non-critical errors don't stop installation; comprehensive error reporting
@@ -205,26 +200,27 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Modular Scripts**
 ```
-install.sh                    - Main orchestration script with beautiful UI
-scripts/common.sh            - Shared functions, colors, utilities, and enhanced progress
-scripts/system_setup.sh      - System updates, core packages, and Paru AUR helper setup
-scripts/user_environment.sh  - ZSH, Oh-My-Zsh, and shell configuration
-scripts/boot_setup.sh        - Plymouth boot screen and bootloader configuration
-scripts/applications.sh      - Application installation with DE detection
-scripts/gaming_setup.sh      - Gaming tools and performance tweaks
-scripts/security_setup.sh    - Fail2ban, firewall, and SSH security hardening
-scripts/system_services.sh   - Service management, smart ZRAM profiles, and GPU drivers
+install.sh           - Main orchestration script with beautiful UI
+scripts/common.sh    - Shared functions, colors, and utilities
+scripts/system_preparation.sh - System updates and core package installation
+scripts/shell_setup.sh        - ZSH, Oh-My-Zsh, and shell configuration
+scripts/plymouth.sh           - Boot screen setup
+scripts/yay.sh               - AUR helper installation
+scripts/programs.sh          - Application installation with DE detection
+scripts/gaming_mode.sh       - Gaming tools and performance tweaks
+scripts/bootloader_config.sh - Bootloader detection and configuration
+scripts/fail2ban.sh          - SSH security hardening
+scripts/system_services.sh   - Service management and GPU drivers
 scripts/maintenance.sh       - Final cleanup and optimization
 ```
 
 ### **Configuration Files**
 ```
-configs/.zshrc               - Custom ZSH configuration with aliases
-configs/starship.toml        - Starship prompt configuration
-configs/MangoHud.conf        - Gaming performance overlay settings
-configs/config.jsonc         - Fastfetch system information display
-configs/kglobalshortcutsrc   - KDE global shortcuts
-configs/programs.yaml        - YAML-driven package configuration
+configs/.zshrc          - Custom ZSH configuration with aliases
+configs/starship.toml   - Starship prompt configuration
+configs/MangoHud.conf   - Gaming performance overlay settings
+configs/config.jsonc    - Fastfetch system information display
+configs/kglobalshortcutsrc - KDE global shortcuts
 ```
 
 ---
@@ -250,11 +246,10 @@ chmod +x install.sh
 ### What Happens Next
 1. **System Check**: Validates prerequisites automatically
 2. **Mode Selection**: Choose your installation approach
-3. **Automated Installation**: Comprehensive package installation (20-30 minutes)
+3. **Automated Installation**: Sit back and let the script work (10-20 minutes)
 4. **Gaming Setup**: Optional gaming tools installation
-5. **Security Configuration**: Optional SSH hardening and firewall setup
-6. **Final Configuration**: Bootloader, services, and system optimization
-7. **System Reboot**: Automatic cleanup and reboot prompt
+5. **Final Configuration**: Bootloader, security, and service setup
+6. **System Reboot**: Automatic cleanup and reboot prompt
 
 ---
 
@@ -270,27 +265,21 @@ essential:
 ```
 
 ### Modifying Installation Logic
-Each installation step uses consolidated scripts in `scripts/` directory:
-- **System foundation**: `system_setup.sh` (system prep + Paru AUR helper)
-- **User experience**: `user_environment.sh` (ZSH shell and configs)
-- **Boot configuration**: `boot_setup.sh` (Plymouth + bootloader configuration)
-- **Security**: `security_setup.sh` (fail2ban + firewall + optional SSH hardening)
+Each installation step is a separate script in `scripts/` directory. Modify the relevant script for custom behavior.
 
 ### Desktop Environment Support
-Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `applications.sh`.
+Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `programs.sh`.
 
 ### Gaming Mode Customization
-Modify `scripts/gaming_setup.sh` to add or remove gaming applications and configurations.
+Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configurations.
 
 ---
 
 ## ⚠️ Important Notes
 
 - **Run as regular user**: Never run as root - the script will check and exit
-- **Fresh installation recommended**: Designed for post-installation setup  
+- **Fresh installation recommended**: Designed for post-installation setup
 - **Internet required**: All packages are downloaded during installation
-- **Paru AUR helper**: Modern replacement for yay with better performance
-- **SSH hardening**: Optional security feature - prompts before applying
 - **Reboot recommended**: Many optimizations require a restart to take effect
 - **Non-destructive**: Script preserves existing configurations when possible
 

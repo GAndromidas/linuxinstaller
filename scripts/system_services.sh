@@ -5,10 +5,90 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-setup_system_services() {
-  step "Setting up system services"
+setup_firewall_and_services() {
+  step "Setting up firewall and services"
+  
+  # First handle firewall setup
+  if command -v firewalld >/dev/null 2>&1; then
+    run_step "Configuring Firewalld" configure_firewalld
+  else
+    run_step "Configuring UFW" configure_ufw
+  fi
+  
+  # Then handle services
+  run_step "Enabling system services" enable_services
+}
 
-  # System services using unified function
+configure_firewalld() {
+  # Start and enable firewalld
+  sudo systemctl start firewalld
+  sudo systemctl enable firewalld
+
+  # Set default policies
+  sudo firewall-cmd --set-default-zone=drop
+  log_success "Default policy set to deny all incoming connections."
+
+  sudo firewall-cmd --set-default-zone=public
+  log_success "Default policy set to allow all outgoing connections."
+
+  # Allow SSH
+  if ! sudo firewall-cmd --list-all | grep -q "22/tcp"; then
+    sudo firewall-cmd --add-service=ssh --permanent
+    sudo firewall-cmd --reload
+    log_success "SSH allowed through Firewalld."
+  else
+    log_warning "SSH is already allowed. Skipping SSH service configuration."
+  fi
+
+  # Check if KDE Connect is installed
+  if pacman -Q kdeconnect &>/dev/null; then
+    # Allow specific ports for KDE Connect
+    sudo firewall-cmd --add-port=1714-1764/udp --permanent
+    sudo firewall-cmd --add-port=1714-1764/tcp --permanent
+    sudo firewall-cmd --reload
+    log_success "KDE Connect ports allowed through Firewalld."
+  else
+    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+  fi
+}
+
+configure_ufw() {
+  # Install UFW if not present
+  if ! command -v ufw >/dev/null 2>&1; then
+    install_packages_quietly ufw
+    log_success "UFW installed successfully."
+  fi
+
+  # Enable UFW
+  sudo ufw enable
+
+  # Set default policies
+  sudo ufw default deny incoming
+  log_success "Default policy set to deny all incoming connections."
+
+  sudo ufw default allow outgoing
+  log_success "Default policy set to allow all outgoing connections."
+
+  # Allow SSH
+  if ! sudo ufw status | grep -q "22/tcp"; then
+    sudo ufw allow ssh
+    log_success "SSH allowed through UFW."
+  else
+    log_warning "SSH is already allowed. Skipping SSH service configuration."
+  fi
+
+  # Check if KDE Connect is installed
+  if pacman -Q kdeconnect &>/dev/null; then
+    # Allow specific ports for KDE Connect
+    sudo ufw allow 1714:1764/udp
+    sudo ufw allow 1714:1764/tcp
+    log_success "KDE Connect ports allowed through UFW."
+  else
+    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+  fi
+}
+
+enable_services() {
   local services=(
     bluetooth.service
     cronie.service
@@ -16,200 +96,109 @@ setup_system_services() {
     paccache.timer
     power-profiles-daemon.service
     sshd.service
+    ufw.service
   )
 
   # Conditionally add rustdesk.service if installed
   if pacman -Q rustdesk-bin &>/dev/null || pacman -Q rustdesk &>/dev/null; then
     services+=(rustdesk.service)
-    log_success "rustdesk detected - service will be enabled"
+    log_success "rustdesk.service will be enabled."
+  else
+    log_warning "rustdesk is not installed. Skipping rustdesk.service."
   fi
 
-  enable_system_services "${services[@]}"
+  step "Enabling the following system services:"
+  for svc in "${services[@]}"; do
+    echo -e "  - $svc"
+  done
+  sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
 }
 
-# Firewall functions moved to security_setup.sh
-
-# Function to get total RAM in GB with proper rounding
+# Function to get total RAM in GB
 get_ram_gb() {
   local ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-  # Use proper rounding instead of truncation
-  # Add 512MB (524288 KB) before dividing to round to nearest GB
-  echo $(((ram_kb + 524288) / 1024 / 1024))
+  echo $((ram_kb / 1024 / 1024))
 }
 
-# Detect if gaming mode is enabled
-detect_gaming_mode() {
-  # Check various indicators that gaming mode was selected
-  if [[ "$INSTALL_MODE" == *"gaming"* ]] || \
-     [[ -f "/tmp/gaming_mode_enabled" ]] || \
-     [[ -f "/tmp/archinstaller_gaming" ]] || \
-     command -v steam >/dev/null 2>&1 || \
-     command -v lutris >/dev/null 2>&1; then
-    return 0  # Gaming mode detected
-  fi
-  return 1    # Regular mode
-}
-
-# Get optimal ZRAM configuration based on system profile
-get_zram_config() {
+# Function to get optimal ZRAM size multiplier based on RAM
+get_zram_multiplier() {
   local ram_gb=$1
-  local profile=$2
-
-  if [ "$profile" = "gaming" ]; then
-    # Gaming Profile - Aggressive ZRAM allocation for maximum performance
-    case $ram_gb in
-      1|2) echo "1.5 150" ;;     # 1-2GB RAM -> 150% ZRAM, swappiness 150
-      3|4) echo "1.25 150" ;;    # 3-4GB RAM -> 125% ZRAM, swappiness 150
-      6|8) echo "1.0 160" ;;     # 6-8GB RAM -> 100% ZRAM, swappiness 160
-      12|16) echo "0.75 160" ;;  # 12-16GB RAM -> 75% ZRAM, swappiness 160
-      24|32) echo "0.5 180" ;;   # 24-32GB RAM -> 50% ZRAM, swappiness 180
-      *)
-        if [ "$ram_gb" -le 4 ]; then
-          echo "1.25 150"
-        elif [ "$ram_gb" -le 16 ]; then
-          echo "0.75 160"
-        else
-          echo "0.4 180"
-        fi
-        ;;
-    esac
-  else
-    # Regular Profile - Conservative ZRAM allocation for stability
-    case $ram_gb in
-      1|2) echo "1.0 90" ;;      # 1-2GB RAM -> 100% ZRAM, swappiness 90
-      3|4) echo "0.75 90" ;;     # 3-4GB RAM -> 75% ZRAM, swappiness 90
-      6|8) echo "0.6 100" ;;     # 6-8GB RAM -> 60% ZRAM, swappiness 100
-      12|16) echo "0.4 100" ;;   # 12-16GB RAM -> 40% ZRAM, swappiness 100
-      24|32) echo "0.3 80" ;;    # 24-32GB RAM -> 30% ZRAM, swappiness 80
-      *)
-        if [ "$ram_gb" -le 4 ]; then
-          echo "0.75 90"
-        elif [ "$ram_gb" -le 16 ]; then
-          echo "0.4 100"
-        else
-          echo "0.25 80"
-        fi
-        ;;
-    esac
-  fi
-}
-
-# Apply kernel parameters for ZRAM optimization
-apply_zram_kernel_params() {
-  local profile=$1
-  local swappiness=$2
-
-  step "Applying ZRAM kernel optimizations for $profile profile"
-
-  # Create sysctl configuration for ZRAM
-  local sysctl_file="/etc/sysctl.d/99-archinstaller-zram.conf"
-
-  if [ "$profile" = "gaming" ]; then
-    # Gaming profile - aggressive optimizations for maximum performance
-    sudo tee "$sysctl_file" > /dev/null << EOF
-# ZRAM Gaming Profile Optimizations
-# Applied by archinstaller for gaming systems
-
-# Set swappiness for aggressive ZRAM usage
-vm.swappiness = $swappiness
-
-# Reduce memory fragmentation for gaming performance
-vm.watermark_boost_factor = 0
-
-# More aggressive free memory maintenance
-vm.watermark_scale_factor = 125
-
-# Disable swap readahead for ZRAM (better for compressed swap)
-vm.page-cluster = 0
-
-# Reduce cache pressure for gaming workloads
-vm.vfs_cache_pressure = 50
-
-# Optimize memory reclaim for gaming
-vm.dirty_ratio = 5
-vm.dirty_background_ratio = 1
-EOF
-    log_success "Applied gaming performance optimizations (swappiness: $swappiness)"
-  else
-    # Regular profile - balanced optimizations
-    sudo tee "$sysctl_file" > /dev/null << EOF
-# ZRAM Regular Profile Optimizations
-# Applied by archinstaller for general desktop use
-
-# Set moderate swappiness for balanced ZRAM usage
-vm.swappiness = $swappiness
-
-# Conservative memory management
-vm.vfs_cache_pressure = 60
-
-# Standard memory reclaim settings
-vm.dirty_ratio = 10
-vm.dirty_background_ratio = 5
-EOF
-    log_success "Applied regular profile kernel optimizations (swappiness: $swappiness)"
-  fi
-
-  # Disable zswap to prevent conflicts with ZRAM
-  if ! grep -q "zswap.enabled=0" /etc/default/grub 2>/dev/null && [ -f /etc/default/grub ]; then
-    sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/&zswap.enabled=0 /' /etc/default/grub
-    log_success "Disabled zswap to prevent conflicts with ZRAM"
-  fi
-
-  # Apply sysctl settings immediately
-  sudo sysctl -p "$sysctl_file" >/dev/null 2>&1 || true
+  case $ram_gb in
+    1) echo "2.0" ;;      # 1GB RAM -> 200% ZRAM (2GB)
+    2) echo "1.5" ;;      # 2GB RAM -> 150% ZRAM (3GB)
+    3) echo "1.33" ;;     # 3GB RAM -> 133% ZRAM (4GB)
+    4) echo "1.0" ;;      # 4GB RAM -> 100% ZRAM (4GB)
+    6) echo "0.83" ;;     # 6GB RAM -> 83% ZRAM (5GB)
+    8) echo "0.75" ;;     # 8GB RAM -> 75% ZRAM (6GB)
+    10) echo "0.6" ;;     # 10GB RAM -> 60% ZRAM (6GB)
+    12) echo "0.5" ;;     # 12GB RAM -> 50% ZRAM (6GB)
+    15) echo "0.5" ;;     # 15GB RAM -> 50% ZRAM (8GB) - treat as 16GB
+    16) echo "0.5" ;;     # 16GB RAM -> 50% ZRAM (8GB)
+    24) echo "0.33" ;;    # 24GB RAM -> 33% ZRAM (8GB)
+    31) echo "0.25" ;;    # 31GB RAM -> 25% ZRAM (8GB) - treat as 32GB
+    32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
+    48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
+    64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
+    *) 
+      # For other sizes, use a dynamic calculation
+      if [ $ram_gb -le 4 ]; then
+        echo "1.0"
+      elif [ $ram_gb -le 8 ]; then
+        echo "0.75"
+      elif [ $ram_gb -le 16 ]; then
+        echo "0.5"
+      elif [ $ram_gb -le 32 ]; then
+        echo "0.33"
+      else
+        echo "0.25"
+      fi
+      ;;
+  esac
 }
 
 setup_zram_swap() {
-  step "Setting up intelligent ZRAM swap"
+  step "Setting up ZRAM swap"
 
-  # Check if ZRAM is already configured
-  if systemctl is-active --quiet systemd-zram-setup@zram0; then
-    log_success "ZRAM is already active"
-    return 0
+  # Check if ZRAM is already enabled
+  if ! systemctl is-active --quiet systemd-zram-setup@zram0; then
+    echo -e "${YELLOW}ZRAM is not enabled or is disabled.${RESET}"
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm --default=false "Would you like to enable and configure ZRAM swap?" || {
+        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
+        return
+      }
+    else
+      read -r -p "Would you like to enable and configure ZRAM swap? [y/N]: " response
+      response=${response,,}
+      if [[ "$response" != "y" && "$response" != "yes" ]]; then
+        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
+        return
+      fi
+    fi
+    # Enable ZRAM service
+    sudo systemctl enable systemd-zram-setup@zram0
+    sudo systemctl start systemd-zram-setup@zram0
   fi
 
-  # Detect system profile
-  local profile="regular"
-  if detect_gaming_mode; then
-    profile="gaming"
-    log_info "Gaming system detected - using performance-optimized ZRAM profile"
-  else
-    log_info "Regular system detected - using balanced ZRAM profile"
-  fi
-
-  # Get system RAM and optimal configuration
+  # Get system RAM and optimal multiplier
   local ram_gb=$(get_ram_gb)
-  local config=$(get_zram_config $ram_gb $profile)
-  local multiplier=$(echo $config | cut -d' ' -f1)
-  local swappiness=$(echo $config | cut -d' ' -f2)
+  local multiplier=$(get_zram_multiplier $ram_gb)
   local zram_size_gb=$(echo "$ram_gb * $multiplier" | bc -l | cut -d. -f1)
 
-  log_info "System RAM: ${ram_gb}GB"
-  log_info "ZRAM Profile: $profile (${multiplier}x multiplier, ${zram_size_gb}GB effective, swappiness: $swappiness)"
+  echo -e "${CYAN}System RAM: ${ram_gb}GB${RESET}"
+  echo -e "${CYAN}ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)${RESET}"
 
-  # Apply kernel optimizations for the selected profile
-  apply_zram_kernel_params "$profile" "$swappiness"
-
-  # Create optimized ZRAM configuration
+  # Create ZRAM config with optimal settings
   sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
-# ZRAM Configuration - $profile profile
-# Generated by archinstaller with intelligent optimization
 [zram0]
 zram-size = ram * ${multiplier}
 compression-algorithm = zstd
 swap-priority = 100
 EOF
 
-  # Enable and start ZRAM services
-  enable_system_services systemd-zram-setup@zram0
-
-  if [ "$profile" = "gaming" ]; then
-    log_success "Gaming-optimized ZRAM configured with performance-focused tuning"
-    log_info "Benefits: Maximum RAM utilization, reduced stuttering, better game performance"
-  else
-    log_success "Balanced ZRAM configured for general desktop use"
-    log_info "Benefits: Improved multitasking, stable performance, efficient memory usage"
-  fi
+  # Enable and start ZRAM
+  sudo systemctl daemon-reexec
+  sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
 }
 
 detect_and_install_gpu_drivers() {
@@ -230,20 +219,20 @@ detect_and_install_gpu_drivers() {
   }
 
   if is_vm; then
-    step "Installing VM guest utilities"
+    echo -e "${YELLOW}Virtual machine detected. Installing VM guest utilities and skipping physical GPU drivers.${RESET}"
     install_packages_quietly qemu-guest-agent spice-vdagent xf86-video-qxl
-    log_success "VM guest utilities installed"
+    log_success "VM guest utilities installed."
     return
   fi
 
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
-    step "Installing AMD GPU drivers"
+    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "AMD drivers and Vulkan support installed"
+    log_success "AMD drivers and Vulkan support installed."
   elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
-    step "Installing Intel GPU drivers"
+    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa vulkan-intel lib32-vulkan-intel mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "Intel drivers and Vulkan support installed"
+    log_success "Intel drivers and Vulkan support installed."
   elif lspci | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
 
@@ -280,7 +269,8 @@ detect_and_install_gpu_drivers() {
       nvidia_note="(defaulting to latest proprietary driver)"
     fi
 
-    step "Installing NVIDIA GPU drivers ($nvidia_family)"
+    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
+    echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
 
     if [[ "$nvidia_family" == "Kepler" || "$nvidia_family" == "Fermi" || "$nvidia_family" == "Tesla" ]]; then
       echo -e "${YELLOW}Your NVIDIA GPU is legacy and may not be well supported by the proprietary driver, especially on Wayland.${RESET}"
@@ -293,20 +283,21 @@ detect_and_install_gpu_drivers() {
         read -r -p "Enter your choice [1-2]: " legacy_choice
         case "$legacy_choice" in
           1)
+            echo -e "${CYAN}Installing Nouveau drivers...${RESET}"
             install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-            log_success "Nouveau drivers installed"
+            log_success "Nouveau drivers installed."
             break
             ;;
           2)
-            ensure_yay_installed || { log_error "Could not install yay to get legacy drivers."; break; }
+            echo -e "${CYAN}Installing legacy proprietary NVIDIA drivers...${RESET}"
             if [[ "$nvidia_family" == "Kepler" ]]; then
-              yay -S --noconfirm --needed nvidia-470xx-dkms >/dev/null 2>&1
+              yay -S --noconfirm --needed nvidia-470xx-dkms
             elif [[ "$nvidia_family" == "Fermi" ]]; then
-              yay -S --noconfirm --needed nvidia-390xx-dkms >/dev/null 2>&1
+              yay -S --noconfirm --needed nvidia-390xx-dkms
             elif [[ "$nvidia_family" == "Tesla" ]]; then
-              yay -S --noconfirm --needed nvidia-340xx-dkms >/dev/null 2>&1
+              yay -S --noconfirm --needed nvidia-340xx-dkms
             fi
-            log_success "Legacy proprietary NVIDIA drivers installed"
+            log_success "Legacy proprietary NVIDIA drivers installed."
             break
             ;;
           *)
@@ -332,100 +323,12 @@ detect_and_install_gpu_drivers() {
     log_success "NVIDIA drivers installed."
     return
   else
-    step "Installing basic Mesa drivers"
+    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
     install_packages_quietly mesa
-    log_success "Basic Mesa drivers installed"
   fi
 }
 
-# SSH Hardening - moved here to happen AFTER SSH service is enabled
-harden_ssh() {
-  step "Hardening SSH configuration"
-
-  log_info "Applying SSH security hardening automatically"
-
-  # Verify SSH service is running and host keys exist
-  local max_attempts=10
-  local attempt=0
-
-  while [ $attempt -lt $max_attempts ]; do
-    if systemctl is-active sshd >/dev/null 2>&1 && [ -f "/etc/ssh/ssh_host_rsa_key" ]; then
-      log_success "SSH service is active and host keys are present"
-      break
-    fi
-
-    if [ $attempt -eq 0 ]; then
-      log_info "Waiting for SSH service to fully initialize..."
-    fi
-
-    sleep 2
-    ((attempt++))
-
-    if [ $attempt -eq $max_attempts ]; then
-      log_error "SSH service failed to start properly or host keys missing"
-      return 1
-    fi
-  done
-
-  local ssh_config="/etc/ssh/sshd_config"
-  local ssh_backup="/etc/ssh/sshd_config.backup"
-
-  # Create backup if it doesn't exist
-  if [ ! -f "$ssh_backup" ]; then
-    sudo cp "$ssh_config" "$ssh_backup"
-    log_success "Created SSH config backup"
-  fi
-
-  # Apply SSH hardening settings
-  local ssh_settings=(
-    "PermitRootLogin no"
-    "PasswordAuthentication yes"
-    "PubkeyAuthentication yes"
-    "X11Forwarding no"
-    "MaxAuthTries 3"
-    "ClientAliveInterval 300"
-    "ClientAliveCountMax 2"
-    "Protocol 2"
-  )
-
-  for setting in "${ssh_settings[@]}"; do
-    local key=$(echo "$setting" | cut -d' ' -f1)
-    local value=$(echo "$setting" | cut -d' ' -f2-)
-
-    if grep -q "^#*$key" "$ssh_config"; then
-      sudo sed -i "s/^#*$key.*/$setting/" "$ssh_config"
-    else
-      echo "$setting" | sudo tee -a "$ssh_config" >/dev/null
-    fi
-  done
-
-  log_success "SSH hardening applied"
-
-  # Test SSH config (should work now since service is enabled and keys exist)
-  if sudo sshd -t; then
-    log_success "SSH configuration is valid"
-    # Restart SSH service to apply changes
-    if sudo systemctl restart sshd; then
-      log_success "SSH service restarted with hardened configuration"
-    else
-      log_warning "SSH service restart failed"
-      return 1
-    fi
-  else
-    log_error "SSH configuration has errors - restoring backup"
-    sudo cp "$ssh_backup" "$ssh_config"
-    sudo systemctl restart sshd
-    return 1
-  fi
-}
-
-# Execute all service and system configuration steps
-main() {
-  setup_system_services
-  harden_ssh
-  setup_zram_swap
-  detect_and_install_gpu_drivers
-}
-
-# Run main function
-main
+# Execute all service and maintenance steps
+setup_firewall_and_services
+setup_zram_swap
+detect_and_install_gpu_drivers
