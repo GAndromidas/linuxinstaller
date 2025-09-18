@@ -145,7 +145,7 @@ else
   echo -e "${CYAN}Step 4: Paru Installation${RESET}"
   echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-step "Paru Installation" && ensure_paru_installed || log_error "Paru installation failed"
+step "Yay Installation" && ensure_yay_installed || log_error "Yay installation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""

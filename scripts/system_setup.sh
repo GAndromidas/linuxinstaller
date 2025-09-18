@@ -38,16 +38,25 @@ check_prerequisites() {
 configure_pacman() {
   step "Configuring pacman"
 
-  # Enable parallel downloads and color output
+  # Enable parallel downloads, color output, verbose package lists, and ILoveCandy
   local pacman_conf="/etc/pacman.conf"
   if ! grep -q "^ParallelDownloads" "$pacman_conf"; then
     sudo sed -i 's/^#ParallelDownloads/ParallelDownloads/' "$pacman_conf"
     log_success "Enabled parallel downloads in pacman"
   fi
-
   if ! grep -q "^Color" "$pacman_conf"; then
     sudo sed -i 's/^#Color/Color/' "$pacman_conf"
     log_success "Enabled color output in pacman"
+  fi
+  if ! grep -q "^VerbosePkgLists" "$pacman_conf"; then
+    sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' "$pacman_conf"
+    log_success "Enabled verbose package lists in pacman"
+  fi
+  # Check for ILoveCandy and add it if it doesn't exist
+  if ! grep -q "ILoveCandy" "$pacman_conf"; then
+    # Insert ILoveCandy after the first uncommented option in the [options] section
+    sudo sed -i '/^\[options\]/,/^\s*$/ s/\(^\s*[a-zA-Z]\w*\)/\1\nILoveCandy/' "$pacman_conf"
+    log_success "Added ILoveCandy to pacman"
   fi
 
   # Enable multilib repository if not already enabled
@@ -134,12 +143,25 @@ generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
+enable_fstrim_for_ssd() {
+    step "Checking for SSD and enabling fstrim.timer"
+    # Check if the root device is a rotational disk. If not, it's likely an SSD/NVMe.
+    if [ "$(cat /sys/block/$(lsblk -no pkname /)/queue/rotational)" = "0" ]; then
+        log_info "SSD detected. Enabling fstrim.timer for TRIM support."
+        sudo systemctl enable fstrim.timer
+        log_success "fstrim.timer enabled."
+    else
+        log_warning "Rotational disk (HDD) detected. Skipping fstrim.timer."
+    fi
+}
+
 
 
 # Execute system setup steps
 main() {
   check_prerequisites
   configure_pacman
+  enable_fstrim_for_ssd
   install_all_packages
   update_system
   set_sudo_pwfeedback

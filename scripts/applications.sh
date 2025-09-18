@@ -73,11 +73,11 @@ install_pacman_packages() {
     fi
 }
 
-# Installs a list of AUR packages using paru
+# Installs a list of AUR packages using yay
 install_aur_packages() {
     local packages_to_install=("$@")
     log_info "Installing ${#packages_to_install[@]} AUR packages..."
-    if ! paru -S --noconfirm --needed "${packages_to_install[@]}"; then
+    if ! yay -S --noconfirm --needed "${packages_to_install[@]}"; then
         log_error "Failed to install some AUR packages."
     else
         log_success "All AUR packages installed successfully."
@@ -96,8 +96,8 @@ install_flatpak_packages() {
 }
 
 # Dummy functions to avoid errors if they are not defined in common.sh
-check_paru() {
-    command -v paru &>/dev/null
+check_yay() {
+    command -v yay &>/dev/null
 }
 
 check_flatpak() {
@@ -208,10 +208,10 @@ fi
 # 3. Install AUR packages
 if [ ${#aur_packages[@]} -gt 0 ]; then
     step "Installing AUR packages..."
-    if check_paru; then
+    if check_yay; then
         install_aur_packages "${aur_packages[@]}"
     else
-        log_warning "paru (AUR helper) is not installed. Skipping AUR packages."
+        log_warning "yay (AUR helper) is not installed. Skipping AUR packages."
     fi
 else
     log_success "No AUR packages to install."

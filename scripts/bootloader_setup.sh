@@ -126,8 +126,8 @@ install_grub_btrfs_if_needed() {
     step "Installing grub-btrfs for Btrfs snapshots"
 
     if ! pacman -Q grub-btrfs &>/dev/null; then
-      ensure_paru_installed
-      paru -S --noconfirm grub-btrfs
+      ensure_yay_installed
+      yay -S --noconfirm grub-btrfs
       log_success "Installed grub-btrfs"
     else
       log_success "grub-btrfs already installed"

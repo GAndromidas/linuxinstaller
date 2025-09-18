@@ -12,9 +12,9 @@ perform_system_cleanup() {
   # Package cache cleanup
   run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
 
-  if command -v paru >/dev/null 2>&1; then
-    run_step "Cleaning paru cache" paru -Sc --noconfirm
-    run_step "Cleaning paru build directory" sudo rm -rf /tmp/paru*
+  if command -v yay >/dev/null 2>&1; then
+    run_step "Cleaning yay cache" yay -Sc --noconfirm
+    run_step "Cleaning yay build directory" sudo rm -rf /tmp/yay* "$HOME/.cache/yay"
   fi
 
   # Flatpak cleanup

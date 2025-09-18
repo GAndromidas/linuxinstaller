@@ -88,10 +88,10 @@ install_packages_quietly discord lutris obs-studio steam wine
 # Install AUR gaming packages
 step "Installing AUR gaming packages"
 
-if command -v paru &>/dev/null; then
+if command -v yay &>/dev/null; then
         install_aur_packages_quietly heroic-games-launcher-bin
 else
-    log_error "paru not found - AUR packages skipped"
+    log_error "yay not found - AUR packages skipped"
 fi
 
 # Install additional gaming-related Flatpaks
