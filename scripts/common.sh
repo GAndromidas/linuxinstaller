@@ -10,9 +10,6 @@ GRAY='\033[0;37m'
 WHITE='\033[1;37m'
 RESET='\033[0m'
 
-# Global log file variable - initialize with fallback
-LOG_FILE="$HOME/arch_installer.log"
-
 # Terminal formatting helpers
 TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
 TERM_HEIGHT=$(tput lines 2>/dev/null || echo 24)
@@ -1080,19 +1077,6 @@ show_step_transition() {
 
 # Initialize parallel installation engine
 init_parallel_engine() {
-    # Try to write to /var/log, fallback to home directory
-    local test_log="/var/log/arch_installer.log"
-    if echo "test" >> "$test_log" 2>/dev/null; then
-        LOG_FILE="$test_log"
-    else
-        LOG_FILE="$HOME/arch_installer.log"
-        echo "Warning: Using $LOG_FILE instead of /var/log/arch_installer.log (permission denied)" >&2
-    fi
-
-    echo "Initializing Parallel Installation Engine..." >> "$LOG_FILE" 2>/dev/null || true
-    echo "Maximum parallel jobs: $PARALLEL_LIMIT" >> "$LOG_FILE" 2>/dev/null || true
-    echo "Batch size: $BATCH_SIZE" >> "$LOG_FILE" 2>/dev/null || true
-
     # Create job control directory
     mkdir -p "/tmp/arch_installer_jobs_$$"
     export JOB_DIR="/tmp/arch_installer_jobs_$$"
@@ -1107,7 +1091,7 @@ install_packages_parallel() {
         return 0
     fi
 
-    echo "Starting parallel installation of $total_packages packages" >> "$LOG_FILE" 2>/dev/null || true
+
 
     # Initialize parallel engine if not done
     if [[ ! -d "/tmp/arch_installer_jobs_$$" ]]; then
@@ -1130,8 +1114,6 @@ install_packages_parallel() {
 
     # Wait for all batches to complete
     wait
-
-    echo "Parallel installation completed" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # Install a batch of packages in parallel
@@ -1140,32 +1122,26 @@ install_batch_parallel() {
     shift
     local packages=("$@")
 
-    local batch_log="${JOB_DIR:-/tmp}/batch_${batch_id}.log"
     local batch_status="${JOB_DIR:-/tmp}/batch_${batch_id}.status"
 
     echo "RUNNING" > "$batch_status"
-    echo "Installing batch $batch_id: ${packages[*]}" >> "$batch_log"
 
     # Try pacman first, then AUR for failed packages
     local failed_packages=()
 
     for package in "${packages[@]}"; do
-        if install_single_package "$package" >> "$batch_log" 2>&1; then
-            echo "✓ $package" >> "$batch_log"
+        if install_single_package "$package" >/dev/null 2>&1; then
             INSTALLED_PACKAGES+=("$package")
         else
-            echo "✗ $package (will retry with AUR)" >> "$batch_log"
             failed_packages+=("$package")
         fi
     done
 
     # Retry failed packages with AUR helper
     for package in "${failed_packages[@]}"; do
-        if install_aur_package "$package" >> "$batch_log" 2>&1; then
-            echo "✓ $package (AUR)" >> "$batch_log"
+        if install_aur_package "$package" >/dev/null 2>&1; then
             INSTALLED_PACKAGES+=("$package")
         else
-            echo "✗ $package (FAILED)" >> "$batch_log"
             FAILED_PACKAGES+=("$package")
         fi
     done
