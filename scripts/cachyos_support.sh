@@ -102,6 +102,7 @@ show_cachyos_info() {
     echo -e "  • ${GREEN}System preparation${RESET} - Will be more conservative with changes"
     echo -e ""
     echo -e "${YELLOW}The following will PROCEED normally:${RESET}"
+    echo -e "  • ${CYAN}AUR helper setup${RESET} - Will replace paru with yay (archinstaller standard)"
     echo -e "  • ${CYAN}Programs installation${RESET}"
     echo -e "  • ${CYAN}Gaming mode setup${RESET}"
     echo -e "  • ${CYAN}System services${RESET}"
@@ -643,16 +644,27 @@ should_skip_yay_installation() {
   # Ensure reliable CachyOS detection
   ensure_cachyos_detection
 
-  # Check both variable and verify yay exists
-  if $IS_CACHYOS && command -v yay &>/dev/null; then
-    echo -e "${YELLOW}CachyOS detected - skipping yay installation.${RESET}"
-    echo -e "${CYAN}CachyOS already includes yay AUR helper by default.${RESET}"
-    log_info "yay installation skipped (CachyOS compatibility) - yay already available"
-    return 0  # Skip yay installation
-  elif $IS_CACHYOS; then
-    echo -e "${YELLOW}CachyOS detected but yay not found - will install yay.${RESET}"
-    log_warning "CachyOS system detected but yay not available, proceeding with installation"
-    return 1  # Don't skip, install yay
+  if $IS_CACHYOS; then
+    if command -v yay &>/dev/null; then
+      echo -e "${YELLOW}CachyOS detected - yay already installed, skipping installation.${RESET}"
+      log_info "yay installation skipped (CachyOS compatibility) - yay already available"
+      return 0  # Skip yay installation
+    elif command -v paru &>/dev/null; then
+      echo -e "${YELLOW}CachyOS detected with paru - removing paru and installing yay.${RESET}"
+      echo -e "${CYAN}Replacing paru with yay for archinstaller compatibility.${RESET}"
+      log_info "CachyOS uses paru, removing it and installing yay instead"
+      # Remove paru
+      if sudo pacman -Rns --noconfirm paru &>/dev/null; then
+        log_success "paru removed successfully"
+      else
+        log_warning "Failed to remove paru, but continuing with yay installation"
+      fi
+      return 1  # Don't skip, install yay
+    else
+      echo -e "${YELLOW}CachyOS detected but no AUR helper found - will install yay.${RESET}"
+      log_warning "CachyOS system detected but no AUR helper available, installing yay"
+      return 1  # Don't skip, install yay
+    fi
   fi
 
   return 1  # Not CachyOS, don't skip

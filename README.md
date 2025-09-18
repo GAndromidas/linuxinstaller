@@ -182,7 +182,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **ZRAM Configuration**: CachyOS has optimized ZRAM setup  
 - **Microcode**: CachyOS handles automatic microcode updates
 - **Bootloader Config**: CachyOS manages GRUB/systemd-boot optimally
-- **AUR Helper Install**: Uses existing CachyOS helper (yay/paru/trizen)
+- **AUR Helper Install**: Replaces paru with yay (archinstaller standard)
 - **Kernel/Repository Changes**: Preserves CachyOS kernels and repos
 
 ### **What Gets Enhanced**
@@ -297,7 +297,7 @@ chmod +x install.sh
 
 **Step 4: AUR Helper Setup** 📦
 - **Arch Linux**: Builds and installs yay from source
-- **CachyOS**: Detects and uses existing AUR helper (yay/paru/trizen)
+- **CachyOS**: Removes paru and installs yay (archinstaller standard)
 
 **Step 5: Programs Installation** 🖥️
 - Installs packages based on selected mode (Standard/Minimal/Custom)

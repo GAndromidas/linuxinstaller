@@ -66,6 +66,12 @@ check_system_requirements
 detect_cachyos
 show_cachyos_info
 
+# Show CachyOS shell choice menu for Fish users (must come before show_menu)
+ensure_cachyos_detection
+if $IS_CACHYOS && is_fish_shell; then
+  show_shell_choice_menu
+fi
+
 # Show shell choice menu for CachyOS Fish users
 show_menu
 export INSTALL_MODE

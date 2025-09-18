@@ -12,6 +12,16 @@ source "$SCRIPTS_DIR/cachyos_support.sh"
 install_yay() {
   step "Installing yay AUR helper"
 
+  # Log AUR helper detection for CachyOS
+  if $IS_CACHYOS; then
+    if command -v paru &>/dev/null; then
+      log_info "CachyOS detected with paru AUR helper - will remove and replace with yay"
+    fi
+    if command -v yay &>/dev/null; then
+      log_info "yay already available on CachyOS"
+    fi
+  fi
+
   # Use centralized CachyOS detection from cachyos_support.sh
   if should_skip_yay_installation; then
     return 0

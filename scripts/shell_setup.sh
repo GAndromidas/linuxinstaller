@@ -8,98 +8,25 @@ source "$SCRIPTS_DIR/common.sh"
 source "$SCRIPTS_DIR/cachyos_support.sh"
 
 setup_shell() {
-  # Handle CachyOS fish/ZSH choice during shell setup step
+  # Handle CachyOS fish/ZSH choice using already-set choice from install.sh
   if $IS_CACHYOS && is_fish_shell; then
-    echo -e "\n${CYAN}═══ CachyOS Shell Configuration ═══${RESET}"
-    echo -e "${YELLOW}CachyOS uses Fish shell by default. Choose your preference:${RESET}"
-    echo ""
+    if [[ "${CACHYOS_SHELL_CHOICE:-}" == "zsh" ]]; then
+      echo -e "\n${CYAN}═══ Converting Fish to ZSH ═══${RESET}"
+      echo -e "${YELLOW}Removing Fish and installing ZSH configuration...${RESET}"
 
-    local choice=""
-    if command -v gum >/dev/null 2>&1; then
-      choice=$(gum choose --cursor "→ " --selected.foreground 51 --cursor.foreground 51 \
-        "Switch to ZSH - Replace Fish with ZSH shell (recommended)" \
-        "Keep Fish - Replace fastfetch config only" \
-        "Cancel - Exit installation")
-    else
-      echo -e "${CYAN}Choose your shell preference:${RESET}"
-      echo ""
-      echo -e "  ${BLUE}1) Switch to ZSH${RESET} - Replace Fish with ZSH shell (recommended)"
-      echo -e "  ${GREEN}2) Keep Fish${RESET} - Replace fastfetch config only"
-      echo -e "  ${RED}3) Cancel${RESET} - Exit installation"
-      echo ""
+      # Remove Fish completely and install ZSH
+      handle_shell_conversion
+      install_zsh_setup
+      return 0
 
-      while true; do
-        read -p "Enter your choice (1-3): " choice
-        case $choice in
-          1)
-            choice="Switch to ZSH - Replace Fish with ZSH shell (recommended)"
-            break
-            ;;
-          2)
-            choice="Keep Fish - Replace fastfetch config only"
-            break
-            ;;
-          3)
-            choice="Cancel - Exit installation"
-            break
-            ;;
-          *)
-            echo -e "${RED}Invalid choice. Please enter 1, 2, or 3.${RESET}"
-            ;;
-        esac
-      done
+    elif [[ "${CACHYOS_SHELL_CHOICE:-}" == "fish" ]]; then
+      echo -e "\n${CYAN}═══ Keeping Fish Shell ═══${RESET}"
+      echo -e "${YELLOW}Preserving Fish configuration, replacing fastfetch config only...${RESET}"
+
+      # Only replace fastfetch config
+      replace_fastfetch_config_only
+      return 0  # Skip ZSH setup entirely
     fi
-
-    case "$choice" in
-      "Switch to ZSH"*)
-        export CACHYOS_SHELL_CHOICE="zsh"
-        if command -v gum >/dev/null 2>&1; then
-          gum style --foreground 51 "✓ Selected: Switch to ZSH shell"
-          echo ""
-          gum style --foreground 226 "⚠️  Fish shell will be completely removed and replaced with ZSH"
-          gum style --foreground 226 "   This includes ALL Fish configurations, history, and customizations"
-          gum style --foreground 226 "   ZSH will be configured with archinstaller optimizations"
-        else
-          echo -e "\n${GREEN}✓ Selected: Switch to ZSH shell${RESET}"
-          echo -e "${YELLOW}⚠️  Fish shell will be completely removed and replaced with ZSH${RESET}"
-          echo -e "${YELLOW}   This includes ALL Fish configurations, history, and customizations${RESET}"
-          echo -e "${YELLOW}   ZSH will be configured with archinstaller optimizations${RESET}"
-        fi
-
-        # Remove Fish completely and install ZSH
-        purge_fish_completely
-        install_zsh_setup
-        ;;
-
-      "Keep Fish"*)
-        export CACHYOS_SHELL_CHOICE="fish"
-        if command -v gum >/dev/null 2>&1; then
-          gum style --foreground 46 "✓ Selected: Keep Fish shell"
-          echo ""
-          gum style --foreground 226 "Fish shell will be enhanced with archinstaller features"
-          gum style --foreground 226 "Your existing Fish configuration will be preserved"
-        else
-          echo -e "\n${GREEN}✓ Selected: Keep Fish shell${RESET}"
-          echo -e "${YELLOW}Fish shell will be enhanced with archinstaller features${RESET}"
-          echo -e "${YELLOW}Your existing Fish configuration will be preserved${RESET}"
-        fi
-
-        # Enhance Fish with archinstaller features
-        enhance_fish_configuration
-        return 0  # Skip ZSH setup entirely
-        ;;
-
-      "Cancel"*)
-        if command -v gum >/dev/null 2>&1; then
-          gum style --foreground 226 "Installation cancelled. You can run this script again anytime."
-        else
-          echo -e "${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
-        fi
-        exit 0
-        ;;
-    esac
-
-    echo -e "${CYAN}═══════════════════════════════════${RESET}\n"
   fi
 
   # Install ZSH setup for non-CachyOS systems or CachyOS users who chose ZSH
