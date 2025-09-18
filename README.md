@@ -23,8 +23,9 @@
 - **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
 - **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
 - **⚡ Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
-- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
+- **📦 Multi-Source Packages**: Pacman, AUR (via Paru), and Flatpak integration with YAML-driven configuration
 - **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
+- **🔒 SSH Security**: Optional SSH hardening with customizable security settings
 - **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
 - **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
 - **🎯 GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
@@ -116,7 +117,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Gaming Mode Packages** (Optional)
 **Pacman**: discord, gamemode, lib32-gamemode, lutris, mangohud, lib32-mangohud, obs-studio, steam, wine  
-**AUR**: heroic-games-launcher-bin  
+**AUR**: heroic-games-launcher-bin (installed via Paru)
 **Flatpak**: com.vysp3r.ProtonPlus
 
 ---
@@ -124,19 +125,20 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 ## 🔧 System Optimizations & Features
 
 ### **Performance Enhancements**
-- **Pacman Optimization**: 10 parallel downloads, color output, ILoveCandy, VerbosePkgLists
+- **Pacman Optimization**: Parallel downloads and color output enabled
 - **Multilib Repository**: Automatically enabled for 32-bit application support
 - **Intelligent ZRAM**: Dynamic sizing based on available RAM with zstd compression
 - **CPU Microcode**: Automatic Intel/AMD detection and installation
-- **Kernel Headers**: Automatic installation for all installed kernels (linux, linux-lts, linux-zen, linux-hardened)
+- **Kernel Headers**: Automatic installation for all installed kernels
+- **AUR Helper**: Modern Paru AUR helper (precompiled binary installation)
 - **Mirror Optimization**: rate-mirrors integration for fastest mirror selection
-- **SSD Optimization**: Automatic fstrim execution on SSD detection
 
 ### **Security Hardening**
 - **Fail2ban**: SSH protection with 30-minute bans after 3 failed attempts
-- **Firewall**: Auto-detects and configures UFW or Firewalld with SSH access
+- **Firewall**: Auto-detects and configures UFW with SSH access
+- **SSH Hardening**: Optional SSH security configuration (disabled root login, connection limits, idle timeouts)
 - **KDE Connect**: Automatic port configuration (1714-1764) if KDE Connect is installed
-- **System Services**: Comprehensive service enablement and configuration
+- **System Services**: Comprehensive service management and configuration
 
 ### **Boot Experience**
 - **Plymouth**: Beautiful boot screen with automatic configuration
@@ -156,7 +158,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **Starship**: Beautiful, fast prompt with system information
 - **Enhanced Navigation**: zoxide for smart directory jumping
 - **System Information**: fastfetch with custom configuration
-- **Aliases**: Comprehensive system maintenance and navigation aliases
+- **Aliases**: Comprehensive system maintenance and navigation aliases (using Paru)
 - **Plugins**: Git integration, FZF fuzzy finding, autosuggestions, syntax highlighting
 
 ### **GPU Driver Intelligence**
@@ -181,7 +183,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 - **Color Coding**: Intuitive color-coded status messages for easy understanding
 
 ### **Installation Process**
-1. **System Requirements**: Checks Arch Linux, internet connectivity, disk space, and user privileges
+1. **System Requirements**: Checks Arch Linux, internet connectivity, disk space, and prerequisites  
 2. **Interactive Menu**: Clean mode selection with descriptions
 3. **10 Installation Steps**: Each step clearly labeled with progress tracking
 4. **Error Recovery**: Non-critical errors don't stop installation; comprehensive error reporting
@@ -202,7 +204,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 ```
 install.sh                    - Main orchestration script with beautiful UI
 scripts/common.sh            - Shared functions, colors, and utilities (enhanced)
-scripts/system_setup.sh      - System updates, core packages, and AUR helper setup
+scripts/system_setup.sh      - System updates, core packages, and Paru AUR helper setup
 scripts/user_environment.sh  - ZSH, Oh-My-Zsh, and shell configuration
 scripts/boot_setup.sh        - Plymouth boot screen and bootloader configuration
 scripts/applications.sh      - Application installation with DE detection
@@ -247,8 +249,9 @@ chmod +x install.sh
 2. **Mode Selection**: Choose your installation approach
 3. **Automated Installation**: Sit back and let the script work (10-20 minutes)
 4. **Gaming Setup**: Optional gaming tools installation
-5. **Final Configuration**: Bootloader, security, and service setup
-6. **System Reboot**: Automatic cleanup and reboot prompt
+5. **Security Configuration**: Optional SSH hardening and firewall setup
+6. **Final Configuration**: Bootloader, services, and system optimization
+7. **System Reboot**: Automatic cleanup and reboot prompt
 
 ---
 
@@ -265,10 +268,10 @@ essential:
 
 ### Modifying Installation Logic
 Each installation step uses consolidated scripts in `scripts/` directory:
-- **System foundation**: `system_setup.sh` (combines system prep + AUR helper)
-- **User experience**: `user_environment.sh` (shell and configs)
-- **Boot configuration**: `boot_setup.sh` (combines Plymouth + bootloader)
-- **Security**: `security_setup.sh` (combines fail2ban + firewall)
+- **System foundation**: `system_setup.sh` (system prep + Paru AUR helper)
+- **User experience**: `user_environment.sh` (ZSH shell and configs)
+- **Boot configuration**: `boot_setup.sh` (Plymouth + bootloader configuration)
+- **Security**: `security_setup.sh` (fail2ban + firewall + optional SSH hardening)
 
 ### Desktop Environment Support
 Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `applications.sh`.
@@ -281,8 +284,10 @@ Modify `scripts/gaming_setup.sh` to add or remove gaming applications and config
 ## ⚠️ Important Notes
 
 - **Run as regular user**: Never run as root - the script will check and exit
-- **Fresh installation recommended**: Designed for post-installation setup
+- **Fresh installation recommended**: Designed for post-installation setup  
 - **Internet required**: All packages are downloaded during installation
+- **Paru AUR helper**: Modern replacement for yay with better performance
+- **SSH hardening**: Optional security feature - prompts before applying
 - **Reboot recommended**: Many optimizations require a restart to take effect
 - **Non-destructive**: Script preserves existing configurations when possible
 
