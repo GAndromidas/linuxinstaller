@@ -200,27 +200,26 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ### **Modular Scripts**
 ```
-install.sh           - Main orchestration script with beautiful UI
-scripts/common.sh    - Shared functions, colors, and utilities
-scripts/system_preparation.sh - System updates and core package installation
-scripts/shell_setup.sh        - ZSH, Oh-My-Zsh, and shell configuration
-scripts/plymouth.sh           - Boot screen setup
-scripts/yay.sh               - AUR helper installation
-scripts/programs.sh          - Application installation with DE detection
-scripts/gaming_mode.sh       - Gaming tools and performance tweaks
-scripts/bootloader_config.sh - Bootloader detection and configuration
-scripts/fail2ban.sh          - SSH security hardening
-scripts/system_services.sh   - Service management and GPU drivers
+install.sh                    - Main orchestration script with beautiful UI
+scripts/common.sh            - Shared functions, colors, and utilities (enhanced)
+scripts/system_setup.sh      - System updates, core packages, and AUR helper setup
+scripts/user_environment.sh  - ZSH, Oh-My-Zsh, and shell configuration
+scripts/boot_setup.sh        - Plymouth boot screen and bootloader configuration
+scripts/applications.sh      - Application installation with DE detection
+scripts/gaming_setup.sh      - Gaming tools and performance tweaks
+scripts/security_setup.sh    - Fail2ban, firewall, and SSH security hardening
+scripts/system_services.sh   - Service management, ZRAM, and GPU drivers
 scripts/maintenance.sh       - Final cleanup and optimization
 ```
 
 ### **Configuration Files**
 ```
-configs/.zshrc          - Custom ZSH configuration with aliases
-configs/starship.toml   - Starship prompt configuration
-configs/MangoHud.conf   - Gaming performance overlay settings
-configs/config.jsonc    - Fastfetch system information display
-configs/kglobalshortcutsrc - KDE global shortcuts
+configs/.zshrc               - Custom ZSH configuration with aliases
+configs/starship.toml        - Starship prompt configuration
+configs/MangoHud.conf        - Gaming performance overlay settings
+configs/config.jsonc         - Fastfetch system information display
+configs/kglobalshortcutsrc   - KDE global shortcuts
+configs/programs.yaml        - YAML-driven package configuration
 ```
 
 ---
@@ -265,13 +264,17 @@ essential:
 ```
 
 ### Modifying Installation Logic
-Each installation step is a separate script in `scripts/` directory. Modify the relevant script for custom behavior.
+Each installation step uses consolidated scripts in `scripts/` directory:
+- **System foundation**: `system_setup.sh` (combines system prep + AUR helper)
+- **User experience**: `user_environment.sh` (shell and configs)
+- **Boot configuration**: `boot_setup.sh` (combines Plymouth + bootloader)
+- **Security**: `security_setup.sh` (combines fail2ban + firewall)
 
 ### Desktop Environment Support
-Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `programs.sh`.
+Add new desktop environments by extending the `desktop_environments` section in `programs.yaml` and updating the detection logic in `applications.sh`.
 
 ### Gaming Mode Customization
-Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configurations.
+Modify `scripts/gaming_setup.sh` to add or remove gaming applications and configurations.
 
 ---
 

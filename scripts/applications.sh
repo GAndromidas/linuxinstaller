@@ -609,7 +609,7 @@ install_flatpak_minimal_generic() {
   install_flatpak_programs_list "${flatpaks[@]}"
 }
 
-print_programs_summary() {
+print_applications_summary() {
   echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
   if [ ${#PROGRAMS_INSTALLED[@]} -gt 0 ]; then
     echo -e "${GREEN}Installed:${RESET} ${PROGRAMS_INSTALLED[*]}"

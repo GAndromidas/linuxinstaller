@@ -79,7 +79,6 @@ trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null' EXIT
 
 # Use gum for beautiful installation start message
 if command -v gum >/dev/null 2>&1; then
-  echo ""
   gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "🚀 Starting Arch Linux Installation"
   gum style --margin "1 0" --foreground 226 "⏱️  This process will take approximately 10-20 minutes depending on your internet speed."
   gum style --margin "0 0 1 0" --foreground 226 "💡 You can safely leave this running - it will handle everything automatically!"
@@ -101,7 +100,7 @@ else
   echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
   echo -e "${YELLOW}📦 Updating package lists and installing system utilities...${RESET}"
 fi
-step "System Preparation" && source "$SCRIPTS_DIR/system_preparation.sh" || log_error "System preparation failed"
+step "System Preparation" && source "$SCRIPTS_DIR/system_setup.sh" || log_error "System preparation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 1 completed"
   echo ""
@@ -112,7 +111,7 @@ else
   echo -e "${CYAN}Step 2: Shell Setup${RESET}"
   echo -e "${YELLOW}🐚 Installing ZSH shell with autocompletion and syntax highlighting...${RESET}"
 fi
-step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
+step "Shell Setup" && source "$SCRIPTS_DIR/user_environment.sh" || log_error "Shell setup failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 2 completed"
   echo ""
@@ -123,7 +122,7 @@ else
   echo -e "${CYAN}Step 3: Plymouth Setup${RESET}"
   echo -e "${YELLOW}🎨 Setting up beautiful boot screen...${RESET}"
 fi
-step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
+step "Plymouth Setup" && source "$SCRIPTS_DIR/boot_setup.sh" || log_error "Plymouth setup failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 3 completed"
   echo ""
@@ -134,7 +133,7 @@ else
   echo -e "${CYAN}Step 4: Yay Installation${RESET}"
   echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-step "Yay Installation" && source "$SCRIPTS_DIR/yay.sh" || log_error "Yay installation failed"
+step "Yay Installation" && echo "AUR helper (yay) already installed in Step 1" || log_error "Yay installation already handled"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""
@@ -145,7 +144,7 @@ else
   echo -e "${CYAN}Step 5: Programs Installation${RESET}"
   echo -e "${YELLOW}🖥️  Installing applications based on your desktop environment...${RESET}"
 fi
-step "Programs Installation" && source "$SCRIPTS_DIR/programs.sh" || log_error "Programs installation failed"
+step "Programs Installation" && source "$SCRIPTS_DIR/applications.sh" || log_error "Programs installation failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 5 completed"
   echo ""
@@ -156,7 +155,7 @@ else
   echo -e "${CYAN}Step 6: Gaming Mode${RESET}"
   echo -e "${YELLOW}🎮 Setting up gaming tools (optional)...${RESET}"
 fi
-step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
+step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_setup.sh" || log_error "Gaming Mode failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 6 completed"
   echo ""
@@ -167,7 +166,7 @@ else
   echo -e "${CYAN}Step 7: Bootloader and Kernel Configuration${RESET}"
   echo -e "${YELLOW}🔧 Configuring bootloader and setting up dual-boot with Windows...${RESET}"
 fi
-step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
+step "Bootloader and Kernel Configuration" && echo "Bootloader configuration already handled in Step 3" || log_error "Bootloader configuration already handled"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 7 completed"
   echo ""
@@ -178,7 +177,7 @@ else
   echo -e "${CYAN}Step 8: Fail2ban Setup${RESET}"
   echo -e "${YELLOW}🛡️  Setting up security protection for SSH...${RESET}"
 fi
-step "Fail2ban Setup" && source "$SCRIPTS_DIR/fail2ban.sh" || log_error "Fail2ban setup failed"
+step "Fail2ban Setup" && source "$SCRIPTS_DIR/security_setup.sh" || log_error "Fail2ban setup failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 8 completed"
   echo ""
@@ -219,7 +218,7 @@ echo -e "  • 🎮 Gaming tools (if you chose Gaming Mode)"
 echo -e "  • 🔧 Dual-boot with Windows (if detected)"
 echo -e "  • 🐚 Enhanced shell with autocompletion"
 echo ""
-print_programs_summary
+print_applications_summary
 print_summary
 log_performance "Total installation time"
 

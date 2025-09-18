@@ -51,8 +51,7 @@ fi
 
 # Install MangoHud for performance monitoring
 step "Installing MangoHud"
-MANGO_PACKAGES=("mangohud" "lib32-mangohud")
-install_packages_quietly "${MANGO_PACKAGES[@]}"
+install_packages_quietly mangohud lib32-mangohud
 
 # Copy MangoHud configuration
 step "Configuring MangoHud"
@@ -72,32 +71,18 @@ fi
 
 # Install GameMode for performance optimization
 step "Installing GameMode"
-GAMEMODE_PACKAGES=("gamemode" "lib32-gamemode")
-install_packages_quietly "${GAMEMODE_PACKAGES[@]}"
+install_packages_quietly gamemode lib32-gamemode
 
 # Install additional gaming utilities
 step "Installing gaming utilities"
-GAMING_PACKAGES=(
-    "discord"
-    "lutris"
-    "obs-studio"
-    "steam"
-    "wine"
-)
-install_packages_quietly "${GAMING_PACKAGES[@]}"
+install_packages_quietly discord lutris obs-studio steam wine
 
 # Install AUR gaming packages
 step "Installing AUR gaming packages"
-GAMING_AUR_PACKAGES=(
-    "heroic-games-launcher-bin"
-)
-install_aur_quietly "${GAMING_AUR_PACKAGES[@]}"
+install_aur_quietly heroic-games-launcher-bin
 
 # Install additional gaming-related Flatpaks
 step "Installing gaming-related Flatpaks"
-GAMING_FLATPAKS=(
-    "com.vysp3r.ProtonPlus"
-)
-install_flatpak_quietly "${GAMING_FLATPAKS[@]}"
+install_flatpak_quietly com.vysp3r.ProtonPlus
 
 log_success "Gaming Mode setup completed."

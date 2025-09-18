@@ -5,45 +5,58 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-cleanup_and_optimize() {
-  step "Performing final cleanup and optimizations"
-  # Check if lsblk is available for SSD detection
-  if command_exists lsblk; then
-    if lsblk -d -o rota | grep -q '^0$'; then
-      run_step "Running fstrim on SSDs" sudo fstrim -v /
-    fi
-  else
-    log_warning "lsblk not available. Skipping SSD optimization."
-  fi
-  run_step "Cleaning /tmp directory" sudo rm -rf /tmp/*
-  run_step "Syncing disk writes" sync
-}
+# Comprehensive system cleanup and optimization
+perform_system_cleanup() {
+  step "Performing comprehensive system cleanup and optimization"
 
-setup_maintenance() {
-  step "Performing comprehensive system cleanup"
+  # Package cache cleanup
   run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
-  run_step "Cleaning yay cache" yay -Sc --noconfirm
-  run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused --noninteractive -y
-  run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+
+  if command -v yay >/dev/null 2>&1; then
+    run_step "Cleaning yay cache" yay -Sc --noconfirm
+    run_step "Cleaning yay build directory" sudo rm -rf /tmp/yay*
+  fi
+
+  # Flatpak cleanup
+  if command -v flatpak >/dev/null 2>&1; then
+    run_step "Removing unused flatpak packages" flatpak uninstall --unused --noninteractive -y
+  fi
+
+  # Orphaned packages cleanup
+  local orphans=$(pacman -Qtdq 2>/dev/null)
+  if [ -n "$orphans" ]; then
+    run_step "Removing orphaned packages" sudo pacman -Rns $orphans --noconfirm
+  else
+    log_success "No orphaned packages found"
+  fi
+
+  # System optimization
+  run_step "Cleaning temporary files" sudo rm -rf /tmp/* /var/tmp/*
+
+  # SSD optimization
+  if command_exists lsblk && lsblk -d -o rota | grep -q '^0$'; then
+    run_step "Running fstrim on SSDs" sudo fstrim -v /
+  fi
+
+  run_step "Syncing filesystem" sync
 }
 
-cleanup_helpers() {
-  run_step "Cleaning yay build dir" sudo rm -rf /tmp/yay
-}
-
-cleanup_and_optimize
-setup_maintenance
-cleanup_helpers
-
-# Update mirrorlist using rate-mirrors if installed
+# Update mirrorlist using rate-mirrors if available
 update_mirrorlist_with_rate_mirrors() {
   step "Updating mirrorlist with rate-mirrors"
   if command -v rate-mirrors >/dev/null 2>&1; then
     run_step "Updating mirrorlist with fastest mirrors" sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch
-    log_success "Mirrorlist updated successfully with rate-mirrors"
   else
-    log_warning "rate-mirrors not found. Mirrorlist update skipped."
+    log_info "rate-mirrors not installed. Skipping mirrorlist update."
   fi
 }
 
-update_mirrorlist_with_rate_mirrors 
+# Main execution
+main() {
+  perform_system_cleanup
+  update_mirrorlist_with_rate_mirrors
+  log_success "System maintenance completed successfully"
+}
+
+# Run main function
+main

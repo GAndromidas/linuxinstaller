@@ -200,11 +200,12 @@ run_step() {
   fi
 }
 
-# Enhanced package installation with gum progress bar and better formatting
+# Unified package installation system with progress tracking
 install_packages_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
+  local failed_packages=()
 
   if [ $total -eq 0 ]; then
     if command -v gum >/dev/null 2>&1; then
@@ -212,7 +213,7 @@ install_packages_quietly() {
     else
       echo -e "${YELLOW}No packages to install${RESET}"
     fi
-    return
+    return 0
   fi
 
   if command -v gum >/dev/null 2>&1; then
@@ -232,10 +233,14 @@ install_packages_quietly() {
       else
         gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
         log_error "Failed to install $pkg"
+        failed_packages+=("$pkg")
       fi
     done
 
     gum style --foreground 46 "✓ Package installation completed (${current}/${total} packages processed)"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      gum style --foreground 226 "Failed packages: ${failed_packages[*]}"
+    fi
   else
     # Fallback to traditional output
     echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
@@ -255,10 +260,270 @@ install_packages_quietly() {
       else
         print_status " [FAIL]" "$RED"
         log_error "Failed to install $pkg"
+        failed_packages+=("$pkg")
       fi
     done
 
-    echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
+    echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
+    fi
+    echo ""
+  fi
+
+  # Return 1 if any packages failed, 0 otherwise
+  [ ${#failed_packages[@]} -eq 0 ]
+}
+
+# AUR package installation with yay
+install_aur_quietly() {
+  local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  local failed_packages=()
+
+  if [ $total -eq 0 ]; then
+    if command -v gum >/dev/null 2>&1; then
+      gum style --foreground 226 "No AUR packages to install"
+    else
+      echo -e "${YELLOW}No AUR packages to install${RESET}"
+    fi
+    return 0
+  fi
+
+  if ! command -v yay >/dev/null 2>&1; then
+    log_error "yay is not installed. Cannot install AUR packages."
+    return 1
+  fi
+
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Installing ${total} AUR packages via yay..."
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if yay -Q "$pkg" &>/dev/null; then
+        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
+        continue
+      fi
+
+      gum style --foreground 15 "[$current/$total] Installing $pkg..."
+      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        gum style --foreground 46 "[$current/$total] $pkg [OK]"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
+        log_error "Failed to install AUR package $pkg"
+        failed_packages+=("$pkg")
+      fi
+    done
+
+    gum style --foreground 46 "✓ AUR package installation completed (${current}/${total} packages processed)"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      gum style --foreground 226 "Failed AUR packages: ${failed_packages[*]}"
+    fi
+  else
+    echo -e "${CYAN}Installing ${total} AUR packages via yay...${RESET}"
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if yay -Q "$pkg" &>/dev/null; then
+        print_progress "$current" "$total" "$pkg"
+        print_status " [SKIP] Already installed" "$YELLOW"
+        continue
+      fi
+
+      print_progress "$current" "$total" "$pkg"
+      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to install AUR package $pkg"
+        failed_packages+=("$pkg")
+      fi
+    done
+
+    echo -e "\n${GREEN}✓ AUR package installation completed (${current}/${total} packages processed)${RESET}"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      echo -e "${YELLOW}Failed AUR packages: ${failed_packages[*]}${RESET}"
+    fi
+    echo ""
+  fi
+
+  # Return 1 if any packages failed, 0 otherwise
+  [ ${#failed_packages[@]} -eq 0 ]
+}
+
+# Flatpak package installation
+install_flatpak_quietly() {
+  local pkgs=("$@")
+  local total=${#pkgs[@]}
+  local current=0
+  local failed_packages=()
+
+  if [ $total -eq 0 ]; then
+    if command -v gum >/dev/null 2>&1; then
+      gum style --foreground 226 "No Flatpak packages to install"
+    else
+      echo -e "${YELLOW}No Flatpak packages to install${RESET}"
+    fi
+    return 0
+  fi
+
+  if ! command -v flatpak >/dev/null 2>&1; then
+    log_error "flatpak is not installed. Cannot install Flatpak packages."
+    return 1
+  fi
+
+  if command -v gum >/dev/null 2>&1; then
+    gum style --foreground 51 "Installing ${total} Flatpak packages..."
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if flatpak list | grep -q "$pkg"; then
+        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
+        continue
+      fi
+
+      gum style --foreground 15 "[$current/$total] Installing $pkg..."
+      if flatpak install -y flathub "$pkg" >/dev/null 2>&1; then
+        gum style --foreground 46 "[$current/$total] $pkg [OK]"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
+        log_error "Failed to install Flatpak package $pkg"
+        failed_packages+=("$pkg")
+      fi
+    done
+
+    gum style --foreground 46 "✓ Flatpak package installation completed (${current}/${total} packages processed)"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      gum style --foreground 226 "Failed Flatpak packages: ${failed_packages[*]}"
+    fi
+  else
+    echo -e "${CYAN}Installing ${total} Flatpak packages...${RESET}"
+
+    for pkg in "${pkgs[@]}"; do
+      ((current++))
+      if flatpak list | grep -q "$pkg"; then
+        print_progress "$current" "$total" "$pkg"
+        print_status " [SKIP] Already installed" "$YELLOW"
+        continue
+      fi
+
+      print_progress "$current" "$total" "$pkg"
+      if flatpak install -y flathub "$pkg" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        INSTALLED_PACKAGES+=("$pkg")
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to install Flatpak package $pkg"
+        failed_packages+=("$pkg")
+      fi
+    done
+
+    echo -e "\n${GREEN}✓ Flatpak package installation completed (${current}/${total} packages processed)${RESET}"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+      echo -e "${YELLOW}Failed Flatpak packages: ${failed_packages[*]}${RESET}"
+    fi
+    echo ""
+  fi
+
+  # Return 1 if any packages failed, 0 otherwise
+  [ ${#failed_packages[@]} -eq 0 ]
+}
+
+# Kernel detection utility function
+get_installed_kernel_types() {
+  local kernel_types=()
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
+}
+
+# Service management utilities
+enable_system_services() {
+  local services=("$@")
+  local total=${#services[@]}
+  local current=0
+  local failed_services=()
+
+  if [ $total -eq 0 ]; then
+    log_warning "No services to enable"
+    return 0
+  fi
+
+  step "Enabling ${total} system services"
+  for service in "${services[@]}"; do
+    ((current++))
+    print_progress "$current" "$total" "$service"
+
+    if systemctl is-enabled "$service" &>/dev/null; then
+      print_status " [SKIP] Already enabled" "$YELLOW"
+    else
+      if sudo systemctl enable --now "$service" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to enable service $service"
+        failed_services+=("$service")
+      fi
+    fi
+  done
+
+  echo -e "\n${GREEN}✓ Service management completed (${current}/${total} services processed)${RESET}"
+  if [ ${#failed_services[@]} -gt 0 ]; then
+    echo -e "${YELLOW}Failed services: ${failed_services[*]}${RESET}"
+  fi
+  echo ""
+
+  # Return 1 if any services failed, 0 otherwise
+  [ ${#failed_services[@]} -eq 0 ]
+}
+
+# System optimization utilities
+optimize_system_config() {
+  local config_file="$1"
+  local setting="$2"
+  local value="$3"
+  local section="${4:-}"
+
+  if [ ! -f "$config_file" ]; then
+    log_error "Configuration file $config_file not found"
+    return 1
+  fi
+
+  # Handle different config file formats
+  if [[ "$config_file" == *"pacman.conf" ]]; then
+    # Pacman config handling
+    if grep -q "^#$setting" "$config_file"; then
+      # Uncomment and set value
+      sudo sed -i "s/^#$setting.*/$setting = $value/" "$config_file"
+      log_success "Uncommented and set $setting = $value in $config_file"
+    elif grep -q "^$setting" "$config_file"; then
+      # Update existing value
+      sudo sed -i "s/^$setting.*/$setting = $value/" "$config_file"
+      log_success "Updated $setting = $value in $config_file"
+    else
+      # Add new setting
+      if [ -n "$section" ]; then
+        sudo sed -i "/^\[$section\]/a $setting = $value" "$config_file"
+      else
+        echo "$setting = $value" | sudo tee -a "$config_file" >/dev/null
+      fi
+      log_success "Added $setting = $value to $config_file"
+    fi
+  else
+    # Generic config handling
+    if grep -q "^$setting" "$config_file"; then
+      sudo sed -i "s/^$setting.*/$setting=$value/" "$config_file"
+      log_success "Updated $setting=$value in $config_file"
+    else
+      echo "$setting=$value" | sudo tee -a "$config_file" >/dev/null
+      log_success "Added $setting=$value to $config_file"
+    fi
   fi
 }
 

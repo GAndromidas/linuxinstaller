@@ -5,90 +5,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-setup_firewall_and_services() {
-  step "Setting up firewall and services"
-  
-  # First handle firewall setup
-  if command -v firewalld >/dev/null 2>&1; then
-    run_step "Configuring Firewalld" configure_firewalld
-  else
-    run_step "Configuring UFW" configure_ufw
-  fi
-  
-  # Then handle services
-  run_step "Enabling system services" enable_services
-}
+setup_system_services() {
+  step "Setting up system services"
 
-configure_firewalld() {
-  # Start and enable firewalld
-  sudo systemctl start firewalld
-  sudo systemctl enable firewalld
-
-  # Set default policies
-  sudo firewall-cmd --set-default-zone=drop
-  log_success "Default policy set to deny all incoming connections."
-
-  sudo firewall-cmd --set-default-zone=public
-  log_success "Default policy set to allow all outgoing connections."
-
-  # Allow SSH
-  if ! sudo firewall-cmd --list-all | grep -q "22/tcp"; then
-    sudo firewall-cmd --add-service=ssh --permanent
-    sudo firewall-cmd --reload
-    log_success "SSH allowed through Firewalld."
-  else
-    log_warning "SSH is already allowed. Skipping SSH service configuration."
-  fi
-
-  # Check if KDE Connect is installed
-  if pacman -Q kdeconnect &>/dev/null; then
-    # Allow specific ports for KDE Connect
-    sudo firewall-cmd --add-port=1714-1764/udp --permanent
-    sudo firewall-cmd --add-port=1714-1764/tcp --permanent
-    sudo firewall-cmd --reload
-    log_success "KDE Connect ports allowed through Firewalld."
-  else
-    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
-  fi
-}
-
-configure_ufw() {
-  # Install UFW if not present
-  if ! command -v ufw >/dev/null 2>&1; then
-    install_packages_quietly ufw
-    log_success "UFW installed successfully."
-  fi
-
-  # Enable UFW
-  sudo ufw enable
-
-  # Set default policies
-  sudo ufw default deny incoming
-  log_success "Default policy set to deny all incoming connections."
-
-  sudo ufw default allow outgoing
-  log_success "Default policy set to allow all outgoing connections."
-
-  # Allow SSH
-  if ! sudo ufw status | grep -q "22/tcp"; then
-    sudo ufw allow ssh
-    log_success "SSH allowed through UFW."
-  else
-    log_warning "SSH is already allowed. Skipping SSH service configuration."
-  fi
-
-  # Check if KDE Connect is installed
-  if pacman -Q kdeconnect &>/dev/null; then
-    # Allow specific ports for KDE Connect
-    sudo ufw allow 1714:1764/udp
-    sudo ufw allow 1714:1764/tcp
-    log_success "KDE Connect ports allowed through UFW."
-  else
-    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
-  fi
-}
-
-enable_services() {
+  # System services using unified function
   local services=(
     bluetooth.service
     cronie.service
@@ -96,23 +16,18 @@ enable_services() {
     paccache.timer
     power-profiles-daemon.service
     sshd.service
-    ufw.service
   )
 
   # Conditionally add rustdesk.service if installed
   if pacman -Q rustdesk-bin &>/dev/null || pacman -Q rustdesk &>/dev/null; then
     services+=(rustdesk.service)
-    log_success "rustdesk.service will be enabled."
-  else
-    log_warning "rustdesk is not installed. Skipping rustdesk.service."
+    log_success "rustdesk detected - service will be enabled"
   fi
 
-  step "Enabling the following system services:"
-  for svc in "${services[@]}"; do
-    echo -e "  - $svc"
-  done
-  sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
+  enable_system_services "${services[@]}"
 }
+
+# Firewall functions moved to security_setup.sh
 
 # Function to get total RAM in GB
 get_ram_gb() {
@@ -139,7 +54,7 @@ get_zram_multiplier() {
     32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
     48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
     64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
-    *) 
+    *)
       # For other sizes, use a dynamic calculation
       if [ $ram_gb -le 4 ]; then
         echo "1.0"
@@ -159,25 +74,25 @@ get_zram_multiplier() {
 setup_zram_swap() {
   step "Setting up ZRAM swap"
 
-  # Check if ZRAM is already enabled
-  if ! systemctl is-active --quiet systemd-zram-setup@zram0; then
-    echo -e "${YELLOW}ZRAM is not enabled or is disabled.${RESET}"
-    if command -v gum >/dev/null 2>&1; then
-      gum confirm --default=false "Would you like to enable and configure ZRAM swap?" || {
-        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
-        return
-      }
-    else
-      read -r -p "Would you like to enable and configure ZRAM swap? [y/N]: " response
-      response=${response,,}
-      if [[ "$response" != "y" && "$response" != "yes" ]]; then
-        echo -e "${YELLOW}ZRAM configuration skipped by user.${RESET}"
-        return
-      fi
-    fi
-    # Enable ZRAM service
-    sudo systemctl enable systemd-zram-setup@zram0
-    sudo systemctl start systemd-zram-setup@zram0
+  # Check if ZRAM is already configured
+  if systemctl is-active --quiet systemd-zram-setup@zram0; then
+    log_success "ZRAM is already active"
+    return 0
+  fi
+
+  # Interactive confirmation
+  local enable_zram=false
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm --default=false "Would you like to enable and configure ZRAM swap?" && enable_zram=true
+  else
+    read -r -p "Would you like to enable and configure ZRAM swap? [y/N]: " response
+    response=${response,,}
+    [[ "$response" =~ ^(y|yes)$ ]] && enable_zram=true
+  fi
+
+  if [ "$enable_zram" = false ]; then
+    log_info "ZRAM configuration skipped by user"
+    return 0
   fi
 
   # Get system RAM and optimal multiplier
@@ -185,10 +100,9 @@ setup_zram_swap() {
   local multiplier=$(get_zram_multiplier $ram_gb)
   local zram_size_gb=$(echo "$ram_gb * $multiplier" | bc -l | cut -d. -f1)
 
-  echo -e "${CYAN}System RAM: ${ram_gb}GB${RESET}"
-  echo -e "${CYAN}ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)${RESET}"
+  log_info "System RAM: ${ram_gb}GB, ZRAM multiplier: ${multiplier} (${zram_size_gb}GB effective)"
 
-  # Create ZRAM config with optimal settings
+  # Create optimized ZRAM configuration
   sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
 [zram0]
 zram-size = ram * ${multiplier}
@@ -196,9 +110,9 @@ compression-algorithm = zstd
 swap-priority = 100
 EOF
 
-  # Enable and start ZRAM
-  sudo systemctl daemon-reexec
-  sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
+  # Enable and start ZRAM services
+  enable_system_services systemd-zram-setup@zram0
+  log_success "ZRAM swap configured and enabled"
 }
 
 detect_and_install_gpu_drivers() {
@@ -328,7 +242,12 @@ detect_and_install_gpu_drivers() {
   fi
 }
 
-# Execute all service and maintenance steps
-setup_firewall_and_services
-setup_zram_swap
-detect_and_install_gpu_drivers
+# Execute all service and system configuration steps
+main() {
+  setup_system_services
+  setup_zram_swap
+  detect_and_install_gpu_drivers
+}
+
+# Run main function
+main
