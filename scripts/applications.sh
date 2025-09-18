@@ -95,8 +95,8 @@ fi
 read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_programs pacman_descriptions
 read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
 read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
-read_yaml_packages "$PROGRAMS_YAML" ".aur.default" yay_programs_default yay_descriptions_default
-read_yaml_packages "$PROGRAMS_YAML" ".aur.minimal" yay_programs_minimal yay_descriptions_minimal
+read_yaml_packages "$PROGRAMS_YAML" ".aur.default" paru_programs_default paru_descriptions_default
+read_yaml_packages "$PROGRAMS_YAML" ".aur.minimal" paru_programs_minimal paru_descriptions_minimal
 
 # Read desktop environment specific packages
 read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.install" kde_install_programs
@@ -177,7 +177,7 @@ custom_package_selection() {
 
 # Custom selection for AUR
 custom_aur_selection() {
-  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
+  local all_pkgs=($(printf "%s\n" "${paru_programs_default[@]}" "${paru_programs_minimal[@]}" | sort -u))
   local choices=()
 
   for pkg in "${all_pkgs[@]}"; do
@@ -185,15 +185,15 @@ custom_aur_selection() {
 
     # Find description for this package
     local description="$pkg"
-    for i in "${!yay_programs_default[@]}"; do
-      if [[ "${yay_programs_default[$i]}" == "$pkg" ]]; then
-        description="${yay_descriptions_default[$i]}"
+    for i in "${!paru_programs_default[@]}"; do
+      if [[ "${paru_programs_default[$i]}" == "$pkg" ]]; then
+        description="${paru_descriptions_default[$i]}"
         break
       fi
     done
-    for i in "${!yay_programs_minimal[@]}"; do
-      if [[ "${yay_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${yay_descriptions_minimal[$i]}"
+    for i in "${!paru_programs_minimal[@]}"; do
+      if [[ "${paru_programs_minimal[$i]}" == "$pkg" ]]; then
+        description="${paru_descriptions_minimal[$i]}"
         break
       fi
     done
@@ -207,10 +207,10 @@ custom_aur_selection() {
 
   local selected
   selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  yay_programs=()
+  paru_programs=()
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
-    yay_programs+=("$pkg")
+    paru_programs+=("$pkg")
   done <<< "$selected"
 }
 
@@ -274,9 +274,9 @@ is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/nu
 
 handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
-check_yay() {
-  if ! command -v yay &>/dev/null; then
-    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped.";
+check_paru() {
+  if ! command -v paru &>/dev/null; then
+    log_warning "paru (AUR helper) is not installed. AUR packages will be skipped.";
     return 1;
   fi;
   return 0;
@@ -387,9 +387,9 @@ install_aur_quietly() {
     echo -e "${YELLOW}All AUR packages are already installed.${RESET}"
     return
   fi
-  echo -e "${CYAN}Installing ${total} packages via AUR (yay, batch)...${RESET}"
+  echo -e "${CYAN}Installing ${total} packages via AUR (paru, batch)...${RESET}"
   echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
-  if yay -S --noconfirm --needed "${to_install[@]}"; then
+  if paru -S --noconfirm --needed "${to_install[@]}"; then
     for pkg in "${to_install[@]}"; do
       pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg (AUR)")
     done
@@ -445,7 +445,7 @@ print_total_packages() {
   local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
 
   # Calculate AUR packages
-  local aur_total=${#yay_programs[@]}
+  local aur_total=${#paru_programs[@]}
 
   # Calculate Flatpak packages (approximate based on DE)
   local flatpak_total=0
@@ -521,18 +521,18 @@ install_pacman_programs() {
 
 install_aur_packages() {
   step "Installing AUR packages"
-  if [ ${#yay_programs[@]} -eq 0 ]; then
+  if [ ${#paru_programs[@]} -eq 0 ]; then
     log_success "No AUR packages to install."
     return
   fi
 
-  if ! check_yay; then
-    log_warning "Skipping AUR package installation due to missing yay."
+  if ! check_paru; then
+    log_warning "Skipping AUR package installation due to missing paru."
     return
   fi
 
   echo -e "${CYAN}=== AUR Installing ===${RESET}"
-  install_aur_quietly "${yay_programs[@]}"
+  install_aur_quietly "${paru_programs[@]}"
 }
 
 install_flatpak_programs_list() {
@@ -638,11 +638,11 @@ print_applications_summary() {
 if [[ "$INSTALL_MODE" == "default" ]]; then
   # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_default[@]}")
-  yay_programs=("${yay_programs_default[@]}")
+  paru_programs=("${paru_programs_default[@]}")
 elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   # Pacman packages are the same for all modes
   essential_programs=("${essential_programs_minimal[@]}")
-  yay_programs=("${yay_programs_minimal[@]}")
+  paru_programs=("${paru_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
   if ! command -v whiptail &>/dev/null; then
     echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"

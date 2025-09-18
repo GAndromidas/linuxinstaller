@@ -275,14 +275,14 @@ install_packages_quietly() {
   [ ${#failed_packages[@]} -eq 0 ]
 }
 
-# Standalone yay installation function that can be called from other scripts
-ensure_yay_installed() {
-  # Check if yay is already installed and working
-  if command -v yay &>/dev/null && yay --version >/dev/null 2>&1; then
+# Standalone paru installation function that can be called from other scripts
+ensure_paru_installed() {
+  # Check if paru is already installed and working
+  if command -v paru &>/dev/null && paru --version >/dev/null 2>&1; then
     return 0
   fi
 
-  log_warning "yay not found or not working - installing it now..."
+  log_warning "paru not found or not working - installing it now..."
 
   # Check dependencies
   local deps_needed=()
@@ -295,9 +295,9 @@ ensure_yay_installed() {
 
   # Install dependencies if needed
   if [[ ${#deps_needed[@]} -gt 0 ]]; then
-    log_info "Installing yay dependencies: ${deps_needed[*]}"
+    log_info "Installing paru dependencies: ${deps_needed[*]}"
     sudo pacman -S --noconfirm --needed "${deps_needed[@]}" || {
-      log_error "Failed to install yay dependencies"
+      log_error "Failed to install paru dependencies"
       return 1
     }
   fi
@@ -305,49 +305,49 @@ ensure_yay_installed() {
   # Store original directory and create temp directory
   local original_dir="$PWD"
   local temp_dir
-  temp_dir=$(mktemp -d -t yay-install-XXXXXX) || {
+  temp_dir=$(mktemp -d -t paru-install-XXXXXX) || {
     log_error "Failed to create temporary directory"
     return 1
   }
 
   # Cleanup function
-  cleanup_yay_install() {
+  cleanup_paru_install() {
     cd "$original_dir" 2>/dev/null
     rm -rf "$temp_dir" 2>/dev/null
   }
-  trap cleanup_yay_install EXIT
+  trap cleanup_paru_install EXIT
 
   cd "$temp_dir" || { log_error "Failed to enter temp directory"; return 1; }
 
-  # Clone and build yay
-  log_info "Downloading yay source..."
-  if ! git clone --depth 1 https://aur.archlinux.org/yay.git . 2>/dev/null; then
-    log_error "Failed to download yay source"
+  # Clone and build paru-bin (precompiled)
+  log_info "Downloading paru-bin source..."
+  if ! git clone --depth 1 https://aur.archlinux.org/paru-bin.git . 2>/dev/null; then
+    log_error "Failed to download paru-bin source"
     return 1
   fi
 
-  log_info "Building yay (this may take a few minutes)..."
-  if ! sudo -u "$USER" makepkg -si --noconfirm --needed --rmdeps 2>/dev/null; then
-    log_error "Failed to build yay"
+  log_info "Installing paru-bin (precompiled)..."
+  if ! makepkg -si --noconfirm --needed 2>/dev/null; then
+    log_error "Failed to install paru-bin"
     return 1
   fi
 
   # Verify installation
-  if command -v yay &>/dev/null && yay --version >/dev/null 2>&1; then
-    log_success "yay installed and verified successfully"
+  if command -v paru &>/dev/null && paru --version >/dev/null 2>&1; then
+    log_success "paru installed and verified successfully"
   else
-    log_error "yay installation verification failed"
+    log_error "paru installation verification failed"
     return 1
   fi
 
   # Cleanup
-  cleanup_yay_install
+  cleanup_paru_install
   trap - EXIT
 
   return 0
 }
 
-# AUR package installation with yay
+# AUR package installation with paru
 install_aur_quietly() {
   local pkgs=("$@")
   local total=${#pkgs[@]}
@@ -363,23 +363,23 @@ install_aur_quietly() {
     return 0
   fi
 
-  if ! command -v yay >/dev/null 2>&1; then
-    log_error "yay is not installed. Cannot install AUR packages."
+  if ! command -v paru >/dev/null 2>&1; then
+    log_error "paru is not installed. Cannot install AUR packages."
     return 1
   fi
 
   if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "Installing ${total} AUR packages via yay..."
+    gum style --foreground 51 "Installing ${total} AUR packages via paru..."
 
     for pkg in "${pkgs[@]}"; do
       ((current++))
-      if yay -Q "$pkg" &>/dev/null; then
+      if paru -Q "$pkg" &>/dev/null; then
         gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
         continue
       fi
 
       gum style --foreground 15 "[$current/$total] Installing $pkg..."
-      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
         gum style --foreground 46 "[$current/$total] $pkg [OK]"
         INSTALLED_PACKAGES+=("$pkg")
       else
@@ -394,18 +394,18 @@ install_aur_quietly() {
       gum style --foreground 226 "Failed AUR packages: ${failed_packages[*]}"
     fi
   else
-    echo -e "${CYAN}Installing ${total} AUR packages via yay...${RESET}"
+    echo -e "${CYAN}Installing ${total} AUR packages via paru...${RESET}"
 
     for pkg in "${pkgs[@]}"; do
       ((current++))
-      if yay -Q "$pkg" &>/dev/null; then
+      if paru -Q "$pkg" &>/dev/null; then
         print_progress "$current" "$total" "$pkg"
         print_status " [SKIP] Already installed" "$YELLOW"
         continue
       fi
 
       print_progress "$current" "$total" "$pkg"
-      if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      if paru -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
         print_status " [OK]" "$GREEN"
         INSTALLED_PACKAGES+=("$pkg")
       else
@@ -688,10 +688,10 @@ prompt_reboot() {
 preload_package_lists() {
   step "Preloading package lists for faster installation"
   sudo pacman -Sy --noconfirm >/dev/null 2>&1
-  if command -v yay >/dev/null; then
-    yay -Sy --noconfirm >/dev/null 2>&1
+  if command -v paru >/dev/null; then
+    paru -Sy --noconfirm >/dev/null 2>&1
   else
-    log_warning "yay not available for AUR package list update"
+    log_warning "paru not available for AUR package list update"
   fi
 }
 
@@ -699,10 +699,10 @@ preload_package_lists() {
 fast_system_update() {
   step "Performing optimized system update"
   sudo pacman -Syu --noconfirm --overwrite="*"
-  if command -v yay >/dev/null; then
-    yay -Syu --noconfirm
+  if command -v paru >/dev/null; then
+    paru -Syu --noconfirm
   else
-    log_warning "yay not available for AUR update"
+    log_warning "paru not available for AUR update"
   fi
 }
 

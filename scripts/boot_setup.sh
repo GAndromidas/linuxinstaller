@@ -285,7 +285,7 @@ configure_grub() {
 install_grub_btrfs_if_needed() {
     if [ "$BOOTLOADER" = "grub" ] && [ "$IS_BTRFS" = true ]; then
         if ! pacman -Q grub-btrfs &>/dev/null; then
-            yay -S --noconfirm grub-btrfs
+            paru -S --noconfirm grub-btrfs
         fi
         # Add Timeshift post-snapshot hook for grub-btrfs
         sudo mkdir -p /etc/timeshift/scripts

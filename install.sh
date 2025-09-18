@@ -126,21 +126,20 @@ step "Plymouth Setup" && source "$SCRIPTS_DIR/boot_setup.sh" || log_error "Plymo
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 3 completed"
   echo ""
-  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step 4: Yay Installation"
+  gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step 4: Paru Installation"
   gum style --foreground 226 "📦 Installing AUR helper for additional software..."
 else
   echo -e "${GREEN}✓ Step 3 completed${RESET}"
-  echo -e "${CYAN}Step 4: Yay Installation${RESET}"
+  echo -e "${CYAN}Step 4: Paru Installation${RESET}"
   echo -e "${YELLOW}📦 Installing AUR helper for additional software...${RESET}"
 fi
-step "Yay Installation" && {
-  if ensure_yay_installed; then
-    log_success "AUR helper (yay) is available and ready"
+step "Paru Installation" && {
+  if command -v paru &>/dev/null && paru --version &>/dev/null; then
+    log_success "AUR helper (paru) is available and ready"
   else
-    log_error "Failed to install or verify yay AUR helper"
-    log_warning "AUR packages will be unavailable for this installation"
+    log_error "paru AUR helper is not available - check system setup"
   fi
-} || log_error "Yay verification/installation failed"
+} || log_error "Paru verification failed"
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 46 "✓ Step 4 completed"
   echo ""

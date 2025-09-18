@@ -205,11 +205,11 @@ detect_and_install_gpu_drivers() {
           2)
             echo -e "${CYAN}Installing legacy proprietary NVIDIA drivers...${RESET}"
             if [[ "$nvidia_family" == "Kepler" ]]; then
-              yay -S --noconfirm --needed nvidia-470xx-dkms
+              paru -S --noconfirm --needed nvidia-470xx-dkms
             elif [[ "$nvidia_family" == "Fermi" ]]; then
-              yay -S --noconfirm --needed nvidia-390xx-dkms
+              paru -S --noconfirm --needed nvidia-390xx-dkms
             elif [[ "$nvidia_family" == "Tesla" ]]; then
-              yay -S --noconfirm --needed nvidia-340xx-dkms
+              paru -S --noconfirm --needed nvidia-340xx-dkms
             fi
             log_success "Legacy proprietary NVIDIA drivers installed."
             break
@@ -224,12 +224,12 @@ detect_and_install_gpu_drivers() {
 
     # If AUR package, warn user
     if [[ "$nvidia_pkg" == *"dkms"* && "$nvidia_pkg" != *"nvidia-open-dkms"* ]]; then
-      log_warning "This is a legacy/unsupported NVIDIA card. The driver will be installed from the AUR if yay is available."
-      if ! command -v yay &>/dev/null; then
-        log_error "yay (AUR helper) is not installed. Cannot install legacy NVIDIA driver."
+      log_warning "This is a legacy/unsupported NVIDIA card. The driver will be installed from the AUR if paru is available."
+      if ! command -v paru &>/dev/null; then
+        log_error "paru (AUR helper) is not installed. Cannot install legacy NVIDIA driver."
         return 1
       fi
-      yay -S --noconfirm --needed $nvidia_pkg
+      paru -S --noconfirm --needed $nvidia_pkg
     else
       install_packages_quietly $nvidia_pkg
     fi

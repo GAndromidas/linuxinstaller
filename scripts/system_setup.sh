@@ -3,66 +3,58 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
 check_prerequisites() {
   step "Checking system prerequisites"
-  if [[ $EUID -eq 0 ]]; then
-    log_error "Do not run this script as root. Please run as a regular user with sudo privileges."
-    return 1
+
+  # Verify running Arch Linux
+  if ! grep -qi arch /etc/os-release 2>/dev/null; then
+    log_error "This installer is designed for Arch Linux only!"
+    log_error "Detected system: $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2 2>/dev/null || echo 'Unknown')"
+    exit 1
   fi
-  if ! command -v pacman >/dev/null; then
-    log_error "This script is intended for Arch Linux systems with pacman."
-    return 1
+
+  # Check for internet connection
+  if ! ping -c 1 archlinux.org >/dev/null 2>&1; then
+    log_error "No internet connection detected!"
+    log_error "Please check your network connection and try again."
+    exit 1
   fi
-  log_success "Prerequisites OK."
+
+  # Check available disk space (at least 2GB)
+  local available_space=$(df / | awk 'NR==2 {print $4}')
+  if [[ $available_space -lt 2097152 ]]; then
+    log_error "Insufficient disk space!"
+    log_error "At least 2GB free space is required."
+    log_error "Available: $((available_space / 1024 / 1024))GB"
+    exit 1
+  fi
+
+  log_success "Prerequisites check completed"
 }
 
 configure_pacman() {
-  step "Configuring pacman optimizations"
+  step "Configuring pacman"
 
-  # Handle ParallelDownloads - works whether commented or uncommented
-  if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-    # Line is commented, uncomment and set value
-    sudo sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Uncommented and set ParallelDownloads = 10"
-  elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-    # Line is uncommented, just update the value
-    sudo sed -i 's/^ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Updated ParallelDownloads = 10"
-  else
-    # Line doesn't exist, add it after [options] section
-    sudo sed -i '/^\[options\]/a ParallelDownloads = 10' /etc/pacman.conf
-    log_success "Added ParallelDownloads = 10"
+  # Enable parallel downloads and color output
+  local pacman_conf="/etc/pacman.conf"
+  if ! grep -q "^ParallelDownloads" "$pacman_conf"; then
+    sudo sed -i 's/^#ParallelDownloads/ParallelDownloads/' "$pacman_conf"
+    log_success "Enabled parallel downloads in pacman"
   fi
 
-  # Handle Color setting
-  if grep -q "^#Color" /etc/pacman.conf; then
-    sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
-    log_success "Uncommented Color setting"
+  if ! grep -q "^Color" "$pacman_conf"; then
+    sudo sed -i 's/^#Color/Color/' "$pacman_conf"
+    log_success "Enabled color output in pacman"
   fi
 
-  # Handle VerbosePkgLists setting
-  if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
-    sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
-    log_success "Uncommented VerbosePkgLists setting"
-  fi
-
-  # Add ILoveCandy if not already present
-  if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
-    sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-    log_success "Added ILoveCandy setting"
-  fi
-
-  # Enable multilib if not already enabled
-  if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+  # Enable multilib repository if not already enabled
+  if ! grep -q "^\[multilib\]" "$pacman_conf"; then
+    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a "$pacman_conf" >/dev/null
     log_success "Enabled multilib repository"
-  else
-    log_success "Multilib repository already enabled"
   fi
-
-  echo ""
 }
 
 install_all_packages() {
@@ -81,56 +73,57 @@ install_all_packages() {
   install_packages_quietly "${all_packages[@]}"
 }
 
-update_mirrorlist() {
-  # Skip mirrorlist update - reflector removed due to issues
-  log_warning "Mirrorlist update skipped - reflector removed from installer"
-}
-
 update_system() {
   run_step "System update" sudo pacman -Syyu --noconfirm
 }
 
 set_sudo_pwfeedback() {
-  if ! sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
-    run_step "Enabling sudo password feedback" bash -c "echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo"
-  else
-    log_warning "sudo pwfeedback already enabled. Skipping."
+  if ! sudo grep -q "Defaults pwfeedback" /etc/sudoers; then
+    echo "Defaults pwfeedback" | sudo EDITOR='tee -a' visudo >/dev/null 2>&1
+    log_success "Enabled sudo password feedback"
   fi
 }
 
 install_cpu_microcode() {
-  step "Detecting CPU and installing appropriate microcode"
+  step "Installing CPU microcode"
+  local cpu_vendor=$(grep -m1 'vendor_id' /proc/cpuinfo | awk '{print $3}')
   local pkg=""
 
-  if grep -q "Intel" /proc/cpuinfo; then
-    pkg="intel-ucode"
-    log_success "Intel CPU detected"
-  elif grep -q "AMD" /proc/cpuinfo; then
-    pkg="amd-ucode"
-    log_success "AMD CPU detected"
-  else
-    log_warning "Unable to determine CPU type. No microcode package will be installed."
-    return 0
+  case "$cpu_vendor" in
+    GenuineIntel) pkg="intel-ucode" ;;
+    AuthenticAMD) pkg="amd-ucode" ;;
+    *) log_warning "Unknown CPU vendor: $cpu_vendor"; return ;;
+  esac
+
+  if ! pacman -Q "$pkg" >/dev/null 2>&1; then
+    log_info "Installing microcode for $cpu_vendor CPU"
   fi
 
   install_packages_quietly "$pkg"
 }
 
 install_kernel_headers_for_all() {
-  step "Installing kernel headers for all installed kernels"
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
+  step "Installing kernel headers"
 
-  if [ "${#kernel_types[@]}" -eq 0 ]; then
-    log_warning "No supported kernel types detected. Please check your system configuration."
-    return 1
+  # Get all installed kernels
+  local kernels=($(pacman -Q | grep '^linux' | grep -E 'linux(-[^[:space:]]+)?[[:space:]]' | awk '{print $1}' | grep -E '^linux(-[^[:space:]]+)?$'))
+  local headers_packages=()
+
+  for kernel in "${kernels[@]}"; do
+    local header_pkg="${kernel}-headers"
+    if ! pacman -Q "$header_pkg" >/dev/null 2>&1; then
+      headers_packages+=("$header_pkg")
+    fi
+  done
+
+  if [[ ${#headers_packages[@]} -eq 0 ]]; then
+    log_success "All kernel headers already installed"
+    return
   fi
 
-  log_info "Detected kernels: ${kernel_types[*]}"
-
-  local headers_packages=()
-  for kernel in "${kernel_types[@]}"; do
-    headers_packages+=("${kernel}-headers")
+  log_info "Installing headers for kernels: ${kernels[*]}"
+  for pkg in "${headers_packages[@]}"; do
+    log_info "Installing $pkg"
   done
 
   install_packages_quietly "${headers_packages[@]}"
@@ -140,134 +133,39 @@ generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
 
-install_yay() {
-  step "Installing yay AUR helper"
+install_paru() {
+  step "Installing paru AUR helper"
 
-  # Check if yay is already installed
-  if command -v yay &>/dev/null; then
-    log_success "yay is already installed"
-    # Test that yay actually works
-    if yay --version >/dev/null 2>&1; then
-      log_success "yay is functional"
-      return 0
-    else
-      log_warning "yay is installed but not functional - reinstalling"
-    fi
+  # Check if paru is already installed and working
+  if command -v paru &>/dev/null && paru --version &>/dev/null; then
+    log_success "paru is already installed and working"
+    return 0
   fi
 
-  # Check if base-devel is installed (required for building packages)
-  if ! pacman -Q base-devel &>/dev/null; then
-    log_warning "base-devel not found - installing it first"
-    if ! sudo pacman -S --noconfirm --needed base-devel; then
-      log_error "Failed to install base-devel package"
-      return 1
-    fi
-  fi
+  # Simple bulletproof paru installation
+  log_info "Installing paru from AUR..."
 
-  # Check if git is installed (required for cloning)
-  if ! command -v git &>/dev/null; then
-    log_warning "git not found - installing it first"
-    if ! sudo pacman -S --noconfirm --needed git; then
-      log_error "Failed to install git"
-      return 1
-    fi
-  fi
+  # Go to tmp directory
+  local temp_dir=$(mktemp -d)
+  cd "$temp_dir"
 
-  # Store original directory
-  local original_dir="$PWD"
-
-  # Create temporary directory for building
-  local temp_dir
-  temp_dir=$(mktemp -d -t yay-build-XXXXXX)
-  if [[ ! -d "$temp_dir" ]]; then
-    log_error "Failed to create temporary directory"
-    return 1
-  fi
-
-  # Ensure cleanup on exit
-  trap "cd '$original_dir' 2>/dev/null; rm -rf '$temp_dir' 2>/dev/null" EXIT
-
-  cd "$temp_dir" || { log_error "Failed to enter temporary directory"; return 1; }
-
-  # Clone yay repository with better error handling
-  print_progress 1 5 "Cloning yay repository"
-  if git clone --depth 1 https://aur.archlinux.org/yay.git . 2>/dev/null; then
-    print_status " [OK]" "$GREEN"
-  else
-    print_status " [FAIL]" "$RED"
-    log_error "Failed to clone yay repository - check internet connection"
-    return 1
-  fi
-
-  # Verify we have the PKGBUILD
-  if [[ ! -f "PKGBUILD" ]]; then
-    log_error "PKGBUILD not found in yay repository"
-    return 1
-  fi
-
-  # Build yay with better error handling
-  print_progress 2 5 "Building yay"
-  log_info "Building yay - this may take a few minutes..."
-
-  # Make sure we have sudo access
-  if ! sudo -n true 2>/dev/null; then
-    echo -e "\n${YELLOW}sudo password required for yay installation:${RESET}"
-    sudo -v || { log_error "sudo access required"; return 1; }
-  fi
-
-  if makepkg -si --noconfirm --needed --rmdeps 2>/dev/null; then
-    print_status " [OK]" "$GREEN"
-  else
-    print_status " [FAIL]" "$RED"
-    log_error "Failed to build yay - checking for common issues..."
-
-    # Try to diagnose the problem
-    if ! pacman -Q base-devel >/dev/null 2>&1; then
-      log_error "base-devel is missing"
-    fi
-    if ! command -v gcc >/dev/null 2>&1; then
-      log_error "gcc compiler is missing"
-    fi
-    if ! command -v make >/dev/null 2>&1; then
-      log_error "make is missing"
-    fi
-
-    return 1
-  fi
-
-  # Verify installation works
-  print_progress 3 5 "Verifying yay installation"
-  sleep 1  # Give system a moment
-  if command -v yay &>/dev/null; then
-    print_status " [OK]" "$GREEN"
-  else
-    print_status " [FAIL]" "$RED"
-    log_error "yay command not found after installation"
-    return 1
-  fi
-
-  # Test yay functionality
-  print_progress 4 5 "Testing yay functionality"
-  if yay --version >/dev/null 2>&1; then
-    print_status " [OK]" "$GREEN"
-  else
-    print_status " [FAIL]" "$RED"
-    log_error "yay is installed but not functional"
-    return 1
-  fi
+  # Download and install paru-bin (precompiled)
+  git clone https://aur.archlinux.org/paru-bin.git
+  cd paru-bin
+  makepkg -si --noconfirm --needed
 
   # Clean up
-  print_progress 5 5 "Cleaning up"
-  cd "$original_dir" >/dev/null 2>&1
-  rm -rf "$temp_dir" 2>/dev/null
-  print_status " [OK]" "$GREEN"
+  cd /
+  rm -rf "$temp_dir"
 
-  # Remove the trap since we're cleaning up manually
-  trap - EXIT
-
-  echo -e "\n${GREEN}✓ yay AUR helper installed and verified successfully${RESET}"
-  log_success "yay AUR helper ready for use"
-  echo ""
+  # Verify installation
+  if command -v paru &>/dev/null && paru --version &>/dev/null; then
+    log_success "paru installed successfully"
+    return 0
+  else
+    log_error "paru installation failed"
+    return 1
+  fi
 }
 
 # Execute system setup steps
@@ -280,7 +178,7 @@ main() {
   install_cpu_microcode
   install_kernel_headers_for_all
   generate_locales
-  install_yay
+  install_paru
 }
 
 # Run main function
