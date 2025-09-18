@@ -46,17 +46,29 @@ check_system_requirements() {
     exit 1
   fi
 
-  # Check available disk space (at least 2GB)
+  # Detect if running in VM and adjust requirements
+  local is_vm=false
+  if grep -q -i 'hypervisor' /proc/cpuinfo || systemd-detect-virt --quiet || [ -d /proc/xen ]; then
+    is_vm=true
+    echo -e "${CYAN}ℹ️  Virtual machine detected - optimizing for VM environment${RESET}"
+  fi
+
+  # Check available disk space (at least 2GB, 1.5GB for VM)
+  local required_space=2097152
+  if [ "$is_vm" = true ]; then
+    required_space=1572864  # 1.5GB for VM
+  fi
+
   local available_space=$(df / | awk 'NR==2 {print $4}')
-  if [[ $available_space -lt 2097152 ]]; then
+  if [[ $available_space -lt $required_space ]]; then
     echo -e "${RED}❌ Error: Insufficient disk space!${RESET}"
-    echo -e "${YELLOW}   At least 2GB free space is required.${RESET}"
+    echo -e "${YELLOW}   At least $((required_space / 1024 / 1024))GB free space is required.${RESET}"
     echo -e "${YELLOW}   Available: $((available_space / 1024 / 1024))GB${RESET}"
     exit 1
   fi
 
-  # Only show success message if we had to check something specific
-  # For now, we'll just silently continue if all requirements are met
+  # Export VM detection for use by other scripts
+  export DETECTED_VM="$is_vm"
 }
 
 check_system_requirements

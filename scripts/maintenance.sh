@@ -41,6 +41,27 @@ perform_system_cleanup() {
   run_step "Syncing filesystem" sync
 }
 
+# Clean up installer-specific utilities
+cleanup_installer_utilities() {
+  step "Cleaning up installer utilities"
+
+  # Remove installer-specific packages that are no longer needed
+  local installer_utils=("gum" "figlet")
+  local to_remove=()
+
+  for util in "${installer_utils[@]}"; do
+    if pacman -Q "$util" >/dev/null 2>&1; then
+      to_remove+=("$util")
+    fi
+  done
+
+  if [ ${#to_remove[@]} -gt 0 ]; then
+    run_step "Removing installer utilities: ${to_remove[*]}" sudo pacman -R "${to_remove[@]}" --noconfirm
+  else
+    log_success "No installer utilities to remove"
+  fi
+}
+
 # Update mirrorlist using rate-mirrors if available
 update_mirrorlist_with_rate_mirrors() {
   step "Updating mirrorlist with rate-mirrors"
@@ -54,6 +75,7 @@ update_mirrorlist_with_rate_mirrors() {
 # Main execution
 main() {
   perform_system_cleanup
+  cleanup_installer_utilities
   update_mirrorlist_with_rate_mirrors
   log_success "System maintenance completed successfully"
 }
