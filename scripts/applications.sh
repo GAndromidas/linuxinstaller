@@ -1,10 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
-# Enhanced Applications Installation with Parallel Engine
-# Features: Batch parallel installation, dynamic progress bars, beautiful transitions
+# Simplified and Efficient Applications Installation
+# Installs packages from programs.yaml in batches for speed and reliability.
 
-# Get the directory where this script is located, resolving symlinks
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -13,16 +12,6 @@ CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 source "$SCRIPT_DIR/common.sh"
 
 export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
-
-# ===== Enhanced Globals =====
-CURRENT_STEP=1
-PROGRAMS_ERRORS=()
-PROGRAMS_INSTALLED=()
-PROGRAMS_REMOVED=()
-WHIPTAIL_INSTALLED_BY_SCRIPT=false
-
-# Initialize parallel installation engine
-init_parallel_engine
 
 # ===== YAML Parsing Functions =====
 
@@ -39,25 +28,55 @@ ensure_yq() {
   return 0
 }
 
-# Function to read packages from YAML with descriptions
+# Function to read packages from YAML
 read_yaml_packages() {
   local yaml_file="$1"
   local yaml_path="$2"
   local -n packages_array="$3"
-  local -n descriptions_array="$4"
-
   packages_array=()
-  descriptions_array=()
-
-  # Use yq to extract packages and descriptions
   local yq_output
-  yq_output=$(yq -r "$yaml_path[] | [.name, .description] | @tsv" "$yaml_file" 2>/dev/null)
+  yq_output=$(#!/bin/bash
+set -uo pipefail
 
+# Simplified and Efficient Applications Installation
+# Installs packages from programs.yaml in batches for speed and reliability.
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
+
+source "$SCRIPT_DIR/common.sh"
+
+export SUDO_ASKPASS=   # Force sudo to prompt in terminal, not via GUI
+
+# ===== YAML Parsing Functions =====
+
+# Function to check if yq is available, install if not
+ensure_yq() {
+  if ! command -v yq &>/dev/null; then
+    echo -e "${YELLOW}yq is required for YAML parsing. Installing...${RESET}"
+    sudo pacman -S --noconfirm yq
+    if ! command -v yq &>/dev/null; then
+      log_error "Failed to install yq. Please install it manually: sudo pacman -S yq"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+# Function to read packages from YAML
+read_yaml_packages() {
+  local yaml_file="$1"
+  local yaml_path="$2"
+  local -n packages_array="$3"
+  packages_array=()
+  local yq_output
+  yq_output=$(yq -r "$yaml_path[].name" "$yaml_file" 2>/dev/null)
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
-    while IFS=$'\t' read -r name description; do
-      [[ -z "$name" ]] && continue
-      packages_array+=("$name")
-      descriptions_array+=("$description")
+    while IFS= read -r package; do
+      [[ -z "$package" ]] && continue
+      packages_array+=("$package")
     done <<< "$yq_output"
   fi
 }
@@ -67,13 +86,9 @@ read_yaml_simple_packages() {
   local yaml_file="$1"
   local yaml_path="$2"
   local -n packages_array="$3"
-
   packages_array=()
-
-  # Use yq to extract simple package names
   local yq_output
   yq_output=$(yq -r "$yaml_path[]" "$yaml_file" 2>/dev/null)
-
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS= read -r package; do
       [[ -z "$package" ]] && continue
@@ -82,13 +97,12 @@ read_yaml_simple_packages() {
   fi
 }
 
-# ===== Program Lists (Loaded from YAML) =====
+# ===== Main Logic =====
 
 # Check if programs.yaml exists
 PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
 if [[ ! -f "$PROGRAMS_YAML" ]]; then
   log_error "Programs configuration file not found: $PROGRAMS_YAML"
-  log_error "Please ensure you have the complete archinstaller repository with configs/programs.yaml."
   return 1
 fi
 
@@ -97,540 +111,156 @@ if ! ensure_yq; then
   return 1
 fi
 
-# Read package lists from YAML
-read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_programs pacman_descriptions
-read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
-read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
-read_yaml_packages "$PROGRAMS_YAML" ".aur.default" paru_programs_default paru_descriptions_default
-read_yaml_packages "$PROGRAMS_YAML" ".aur.minimal" paru_programs_minimal paru_descriptions_minimal
-
-# Read desktop environment specific packages
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.install" kde_install_programs
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.remove" kde_remove_programs
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.gnome.install" gnome_install_programs
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.gnome.remove" gnome_remove_programs
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.install" cosmic_install_programs
-read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.remove" cosmic_remove_programs
-
-# ===== Custom Selection Functions =====
-
-# Helper: Show whiptail checklist for a package list
-show_checklist() {
-  local title="$1"
-  shift
-  local choices=("$@")
-  # Echo the instruction to stderr so it doesn't interfere with the output
-  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}" >&2
-  local selected
-  selected=$(whiptail --separate-output --checklist "$title" 22 76 16 \
-    "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
-  local status=$?
-  if [[ $status -ne 0 ]]; then
-    echo -e "${RED}Selection cancelled. Exiting.${RESET}" >&2
-    [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm newt
-    exit 1
-  fi
-  echo "$selected"
-}
-
-# Custom selection for Pacman/Essential
-custom_package_selection() {
-  # Pacman packages are auto-selected (same for all modes)
-  pacman_programs=("${pacman_programs[@]}")
-  log_info "Pacman packages auto-selected (same for all installation modes)"
-
-  # Essential packages selection
-  local all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
-  local choices=()
-
-  for pkg in "${all_pkgs[@]}"; do
-    [[ -z "$pkg" ]] && continue
-
-    # Find description for this package
-    local description="$pkg"
-    for i in "${!essential_programs_default[@]}"; do
-      if [[ "${essential_programs_default[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_default[$i]}"
-        break
-      fi
-    done
-    for i in "${!essential_programs_minimal[@]}"; do
-      if [[ "${essential_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_minimal[$i]}"
-        break
-      fi
-    done
-
-    # Create display text: "package_name - description"
-    local display_text="$pkg - $description"
-
-    # Only pre-select minimal packages, not default packages
-    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$display_text" "on")
-    else
-      choices+=("$pkg" "$display_text" "off")
-    fi
-  done
-
-  local selected
-  selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  essential_programs=()
-  while IFS= read -r pkg; do
-    [[ -z "$pkg" ]] && continue
-    essential_programs+=("$pkg")
-  done <<< "$selected"
-}
-
-# Custom selection for AUR
-custom_aur_selection() {
-  local all_pkgs=($(printf "%s\n" "${paru_programs_default[@]}" "${paru_programs_minimal[@]}" | sort -u))
-  local choices=()
-
-  for pkg in "${all_pkgs[@]}"; do
-    [[ -z "$pkg" ]] && continue
-
-    # Find description for this package
-    local description="$pkg"
-    for i in "${!paru_programs_default[@]}"; do
-      if [[ "${paru_programs_default[$i]}" == "$pkg" ]]; then
-        description="${paru_descriptions_default[$i]}"
-        break
-      fi
-    done
-    for i in "${!paru_programs_minimal[@]}"; do
-      if [[ "${paru_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${paru_descriptions_minimal[$i]}"
-        break
-      fi
-    done
-
-    # Create display text: "package_name - description"
-    local display_text="$pkg - $description"
-
-    # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$display_text" "off")
-  done
-
-  local selected
-  selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  paru_programs=()
-  while IFS= read -r pkg; do
-    [[ -z "$pkg" ]] && continue
-    paru_programs+=("$pkg")
-  done <<< "$selected"
-}
-
-# Custom selection for Flatpaks
-custom_flatpak_selection() {
-  # Get flatpak packages from YAML based on detected DE
-  local flatpak_data=()
-  local de_lower=""
-
-  case "$XDG_CURRENT_DESKTOP" in
-    KDE) de_lower="kde" ;;
-    GNOME) de_lower="gnome" ;;
-    COSMIC) de_lower="cosmic" ;;
-    *) de_lower="generic" ;;
-  esac
-
-  echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
-
-  # Read flatpak packages from YAML - use 'default' section which contains all flatpaks
-  local yq_output
-  yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
-
-  if [[ $? -eq 0 && -n "$yq_output" ]]; then
-    while IFS=$'\t' read -r name description; do
-      [[ -z "$name" ]] && continue
-      flatpak_data+=("$name|$description")
-    done <<< "$yq_output"
-  fi
-
-  echo -e "${CYAN}Available flatpak packages: ${#flatpak_data[@]}${RESET}"
-
-  local choices=()
-  for flatpak_entry in "${flatpak_data[@]}"; do
-    [[ -z "$flatpak_entry" ]] && continue
-
-    # Extract package name and description
-    local pkg=$(echo "$flatpak_entry" | cut -d'|' -f1)
-    local description=$(echo "$flatpak_entry" | cut -d'|' -f2-)
-
-    # Create display text: "package_name - description"
-    local display_text="$pkg - $description"
-
-    # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$display_text" "off")
-  done
-
-  local selected
-  selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  flatpak_programs=()
-  while IFS= read -r pkg; do
-    [[ -z "$pkg" ]] && continue
-    flatpak_programs+=("$pkg")
-  done <<< "$selected"
-
-  echo -e "${CYAN}User selected flatpak packages: ${flatpak_programs[*]}${RESET}"
-}
-
-# ===== Helper Functions =====
-
-is_package_installed() { command -v "$1" &>/dev/null || pacman -Q "$1" &>/dev/null; }
-
-handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
-
-check_paru() {
-  if ! command -v paru &>/dev/null; then
-    log_warning "paru (AUR helper) is not installed. AUR packages will be skipped.";
-    return 1;
-  fi;
-  return 0;
-}
-
-check_flatpak() {
-  if ! command -v flatpak &>/dev/null; then
-    log_warning "flatpak is not installed. Flatpak packages will be skipped."
+# Determine installation mode
+if [[ -z "${INSTALL_MODE-}" ]]; then
+    log_error "INSTALL_MODE is not set. Please run the installer from the main menu."
     return 1
-  fi
-  if ! flatpak remote-list | grep -q flathub; then
-    step "Adding Flathub remote"
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    handle_error "Failed to add Flathub remote."
-  fi
-  step "Updating Flatpak remotes"
-  flatpak update -y
+fi
 
-  # Update desktop database to ensure Flatpak apps appear in menus
-  step "Updating desktop database for Flatpak integration"
-  if command -v update-desktop-database &>/dev/null; then
-    # Update system-wide desktop database
-    sudo update-desktop-database /usr/share/applications/ 2>/dev/null || true
+log_info "Starting application installation in '$INSTALL_MODE' mode."
 
-    # Update user-specific desktop database
-    if [[ -d "$HOME/.local/share/applications" ]]; then
-      update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
-    fi
+# --- Gather all packages to be installed ---
 
-    # Update Flatpak-specific desktop databases
-    if [[ -d "/var/lib/flatpak/exports/share/applications" ]]; then
-      sudo update-desktop-database /var/lib/flatpak/exports/share/applications 2>/dev/null || true
-    fi
-    if [[ -d "$HOME/.local/share/flatpak/exports/share/applications" ]]; then
-      update-desktop-database "$HOME/.local/share/flatpak/exports/share/applications" 2>/dev/null || true
-    fi
+pacman_packages=()
+aur_packages=()
+flatpak_packages=()
+remove_packages=()
 
-    log_success "Desktop database updated for Flatpak integration"
-  else
-    log_warning "update-desktop-database not found. Flatpak apps may not appear in menus until session restart."
-  fi
+# Pacman packages
+read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_base
+pacman_packages+=("${pacman_base[@]}")
 
-  return 0
-}
+# Essential packages
+read_yaml_packages "$PROGRAMS_YAML" ".essential.$INSTALL_MODE" essential_mode
+pacman_packages+=("${essential_mode[@]}")
 
-# ===== Improved Quiet Install Functions =====
+# AUR packages
+read_yaml_packages "$PROGRAMS_YAML" ".aur.$INSTALL_MODE" aur_mode
+aur_packages+=("${aur_mode[@]}")
 
-# Use the unified clean installation function from common.sh
-install_pacman_quietly() {
-  install_packages_quietly "$@"
-}
+# Desktop environment specific packages
+de_lower=""
+case "$XDG_CURRENT_DESKTOP" in
+  KDE) de_lower="kde" ;;
+  GNOME) de_lower="gnome" ;;
+  COSMIC) de_lower="cosmic" ;;
+  *) de_lower="generic" ;;
+esac
 
-install_flatpak_quietly() {
-  local pkgs=("$@")
-  local packages_to_install=()
-  local skipped_count=0
-  local installed_count=0
-  local failed_packages=()
+if [[ "$de_lower" != "generic" ]]; then
+    read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.$de_lower.install" de_install
+    pacman_packages+=("${de_install[@]}")
 
-  if [ ${#pkgs[@]} -eq 0 ]; then
-    if command -v gum >/dev/null 2>&1; then
-      gum style --foreground 226 "No Flatpak packages to install"
+    read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.$de_lower.remove" de_remove
+    remove_packages+=("${de_remove[@]}")
+fi
+
+# Flatpak packages
+read_yaml_packages "$PROGRAMS_YAML" ".flatpak.$de_lower.$INSTALL_MODE" flatpak_mode
+flatpak_packages+=("${flatpak_mode[@]}")
+
+
+# --- Installation Process ---
+
+# 1. Remove unwanted packages
+if [ ${#remove_packages[@]} -gt 0 ]; then
+    step "Removing conflicting or unnecessary packages..."
+    # Filter out packages that are not installed
+    packages_to_remove=()
+    for pkg in "${remove_packages[@]}"; do
+        if pacman -Q "$pkg" &>/dev/null; then
+            packages_to_remove+=("$pkg")
+        fi
+    done
+
+    if [ ${#packages_to_remove[@]} -gt 0 ]; then
+        log_info "Removing: ${packages_to_remove[*]}"
+        sudo pacman -Rns --noconfirm "${packages_to_remove[@]}"
     else
-      echo -e "${YELLOW}No Flatpak packages to install${RESET}"
+        log_success "No packages to remove."
     fi
-    return 0
-  fi
+else
+    log_success "No packages slated for removal."
+fi
 
-  # Filter out already installed packages
-  for pkg in "${pkgs[@]}"; do
-    if flatpak list --app | grep -qw "$pkg"; then
-      ((skipped_count++))
+# 2. Install Pacman packages
+if [ ${#pacman_packages[@]} -gt 0 ]; then
+    step "Installing Pacman packages..."
+    install_pacman_packages "${pacman_packages[@]}"
+else
+    log_success "No Pacman packages to install."
+fi
+
+# 3. Install AUR packages
+if [ ${#aur_packages[@]} -gt 0 ]; then
+    step "Installing AUR packages..."
+    if check_paru; then
+        install_aur_packages "${aur_packages[@]}"
     else
-      packages_to_install+=("$pkg")
+        log_warning "paru (AUR helper) is not installed. Skipping AUR packages."
     fi
-  done
+else
+    log_success "No AUR packages to install."
+fi
 
-  if command -v gum >/dev/null 2>&1; then
-    if [ ${#packages_to_install[@]} -gt 0 ]; then
-      gum style --foreground 51 "📱 Installing ${#packages_to_install[@]} Flatpak packages..."
-
-      if flatpak install -y --noninteractive flathub "${packages_to_install[@]}" >/dev/null 2>&1; then
-        installed_count=${#packages_to_install[@]}
-        for pkg in "${packages_to_install[@]}"; do
-          PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-        done
-        gum style --foreground 46 "✓ Successfully installed ${installed_count} Flatpak packages"
-      else
-        # If batch install fails, try one by one to identify failures
-        for pkg in "${packages_to_install[@]}"; do
-          if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-            ((installed_count++))
-            PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-          else
-            failed_packages+=("$pkg")
-          fi
-        done
-        gum style --foreground 196 "⚠️  Some Flatpak packages failed to install"
-      fi
-    fi
-
-    if [ $skipped_count -gt 0 ]; then
-      gum style --foreground 226 "⏭️  Skipped ${skipped_count} already installed Flatpak packages"
-    fi
-
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-      gum style --foreground 196 "❌ Failed Flatpak packages: ${failed_packages[*]}"
-    fi
-  else
-    # Fallback to traditional output
-    if [ ${#packages_to_install[@]} -gt 0 ]; then
-      echo -e "${CYAN}📱 Installing ${#packages_to_install[@]} Flatpak packages...${RESET}"
-
-      if flatpak install -y --noninteractive flathub "${packages_to_install[@]}" >/dev/null 2>&1; then
-        installed_count=${#packages_to_install[@]}
-        for pkg in "${packages_to_install[@]}"; do
-          PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-        done
-        echo -e "${GREEN}✓ Successfully installed ${installed_count} Flatpak packages${RESET}"
-      else
-        # If batch install fails, try one by one to identify failures
-        for pkg in "${packages_to_install[@]}"; do
-          if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
-            ((installed_count++))
-            PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-          else
-            failed_packages+=("$pkg")
-          fi
-        done
-        echo -e "${RED}⚠️  Some Flatpak packages failed to install${RESET}"
-      fi
-    fi
-
-    if [ $skipped_count -gt 0 ]; then
-      echo -e "${YELLOW}⏭️  Skipped ${skipped_count} already installed Flatpak packages${RESET}"
-    fi
-
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-      echo -e "${RED}❌ Failed Flatpak packages: ${failed_packages[*]}${RESET}"
-    fi
-  fi
-
-  # Return 1 if any packages failed, 0 otherwise
-  [ ${#failed_packages[@]} -eq 0 ]
-}
-
-# Use the unified clean AUR installation function from common.sh
-install_aur_quietly() {
-  install_aur_packages_quietly "$@"
-}
-
-detect_desktop_environment() {
-  case "$XDG_CURRENT_DESKTOP" in
-    KDE)
-      log_success "KDE detected."
-      specific_install_programs=("${kde_install_programs[@]}")
-      specific_remove_programs=("${kde_remove_programs[@]}")
-      flatpak_install_function="install_flatpak_programs_kde"
-      flatpak_minimal_function="install_flatpak_minimal_kde"
-      ;;
-    GNOME)
-      log_success "GNOME detected."
-      specific_install_programs=("${gnome_install_programs[@]}")
-      specific_remove_programs=("${gnome_remove_programs[@]}")
-      flatpak_install_function="install_flatpak_programs_gnome"
-      flatpak_minimal_function="install_flatpak_minimal_gnome"
-      ;;
-    COSMIC)
-      log_success "Cosmic DE detected."
-      specific_install_programs=("${cosmic_install_programs[@]}")
-      specific_remove_programs=("${cosmic_remove_programs[@]}")
-      flatpak_install_function="install_flatpak_programs_cosmic"
-      flatpak_minimal_function="install_flatpak_minimal_cosmic"
-      ;;
-    *)
-      log_warning "No KDE, GNOME, or Cosmic detected."
-      specific_install_programs=()
-      specific_remove_programs=()
-      log_warning "Falling back to minimal set for unsupported DE/WM."
-      pacman_programs=("${pacman_programs_minimal[@]}")
-      essential_programs=("${essential_programs_minimal[@]}")
-      flatpak_install_function="install_flatpak_minimal_generic"
-      flatpak_minimal_function="install_flatpak_minimal_generic"
-      ;;
-  esac
-}
-
-print_total_packages() {
-  step "Calculating total packages to install"
-
-  # Defensive initialization of arrays
-  [[ -z "${pacman_programs+x}" ]] && pacman_programs=()
-  [[ -z "${essential_programs+x}" ]] && essential_programs=()
-  [[ -z "${specific_install_programs+x}" ]] && specific_install_programs=()
-  [[ -z "${paru_programs+x}" ]] && paru_programs=()
-
-  # Calculate Pacman packages
-  local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
-
-  # Calculate AUR packages
-  local aur_total=${#paru_programs[@]}
-
-  # Calculate Flatpak packages (approximate based on DE)
-  local flatpak_total=0
-  if [[ "$INSTALL_MODE" == "default" ]]; then
-    case "$XDG_CURRENT_DESKTOP" in
-      KDE) flatpak_total=3 ;;
-      GNOME) flatpak_total=4 ;;
-      COSMIC) flatpak_total=4 ;;
-      *) flatpak_total=1 ;;
-    esac
-  else
-    case "$XDG_CURRENT_DESKTOP" in
-      KDE) flatpak_total=1 ;;
-      GNOME) flatpak_total=2 ;;
-      COSMIC) flatpak_total=2 ;;
-      *) flatpak_total=1 ;;
-    esac
-  fi
-
-  # Calculate total
-  local total_packages=$((pacman_total + aur_total + flatpak_total))
-
-  echo -e "${CYAN}Total packages to install: ${total_packages}${RESET}"
-  echo -e "  ${GREEN}Pacman: ${pacman_total}${RESET}"
-  echo -e "  ${YELLOW}AUR: ${aur_total}${RESET}"
-  echo -e "  ${BLUE}Flatpak: ${flatpak_total}${RESET}"
-  echo ""
-}
-
-remove_programs() {
-  step "Removing DE-specific programs"
-  if [ ${#specific_remove_programs[@]} -eq 0 ]; then
-    log_success "No specific programs to remove."
-    return
-  fi
-
-  local total=${#specific_remove_programs[@]}
-  local current=0
-
-  echo -e "${CYAN}Removing ${total} DE-specific programs...${RESET}"
-
-  for program in "${specific_remove_programs[@]}"; do
-    ((current++))
-    print_progress "$current" "$total" "$program"
-
-    if is_package_installed "$program"; then
-      if sudo pacman -Rns --noconfirm "$program" >/dev/null 2>&1; then
-        print_status " [OK]" "$GREEN"
-        PROGRAMS_REMOVED+=("$program")
-      else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to remove $program"
-      fi
+# 4. Install Flatpak packages
+if [ ${#flatpak_packages[@]} -gt 0 ]; then
+    step "Installing Flatpak applications..."
+    if check_flatpak; then
+        install_flatpak_packages "${flatpak_packages[@]}"
     else
-      print_status " [SKIP] Not installed" "$YELLOW"
+        log_warning "flatpak is not installed. Skipping Flatpak applications."
     fi
-  done
+else
+    log_success "No Flatpak applications to install."
+fi
 
-  echo -e "\n${GREEN}✓ Program removal completed (${current}/${total} programs processed)${RESET}\n"
-}
 
-install_pacman_programs() {
-  step "Installing Pacman programs"
+# --- Final Summary ---
+print_applications_summary
+log_success "Application installation process completed."
+echo -e "${GREEN}Your system is now ready to use! Enjoy your new Arch Linux setup.${RESET}"
+echo -e "${YELLOW}It is recommended to reboot your system for all changes to take effect.${RESET}"
+echo ""
+echo -e "${YELLOW}Press ENTER to return to the main menu...${RESET}"
+read -r
+return 0
 
-  # Defensive initialization of arrays to prevent unbound variable errors
-  [[ -z "${pacman_programs+x}" ]] && pacman_programs=()
-  [[ -z "${essential_programs+x}" ]] && essential_programs=()
-  [[ -z "${specific_install_programs+x}" ]] && specific_install_programs=()
+# --- Installation Functions ---
 
-  # Install pacman packages
-  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
-  if [ "${#specific_install_programs[@]}" -gt 0 ]; then
-    pkgs+=("${specific_install_programs[@]}")
-  fi
-
-  if [ ${#pkgs[@]} -gt 0 ]; then
-    # Show step transition with beautiful animation
-    show_step_transition "$CURRENT_STEP" "10" "Installing System Packages" "📦"
-    ((CURRENT_STEP++))
-
-    # Use parallel installation engine for 10x faster installation
-    install_category_parallel "System Packages" "${pkgs[@]}"
-
-    # Add installed packages to tracking
-    PROGRAMS_INSTALLED+=("${pkgs[@]}")
-  else
-    log_success "No pacman packages to install."
-  fi
-
-  # Install AUR packages
-  [[ -z "${paru_programs+x}" ]] && paru_programs=()
-  if [[ "$INSTALL_MODE" != "minimal" ]] || [[ ${#paru_programs[@]} -gt 0 ]]; then
-    if [ ${#paru_programs[@]} -gt 0 ]; then
-      if ! check_paru; then
-        log_warning "Skipping AUR package installation due to missing paru."
-        return
-      fi
-
-      # Show step transition with beautiful animation
-      show_step_transition "$CURRENT_STEP" "10" "Installing AUR Packages" "🔧"
-      ((CURRENT_STEP++))
-
-      # Use parallel installation engine for AUR packages too
-      install_category_parallel "AUR Packages" "${paru_programs[@]}"
-
-      # Add installed packages to tracking
-      for pkg in "${paru_programs[@]}"; do
-        PROGRAMS_INSTALLED+=("$pkg (AUR)")
-      done
+# Installs a list of packages using pacman
+install_pacman_packages() {
+    local packages_to_install=("$@")
+    log_info "Installing ${#packages_to_install[@]} Pacman packages..."
+    if ! sudo pacman -S --noconfirm --needed "${packages_to_install[@]}"; then
+        log_error "Failed to install some Pacman packages."
     else
-      log_success "No AUR packages to install."
+        log_success "All Pacman packages installed successfully."
     fi
-  fi
 }
 
-install_flatpak_programs_list() {
-  local flatpaks=("$@")
-
-  if [ ${#flatpaks[@]} -eq 0 ]; then
-    return
-  fi
-
-  # Show step transition
-  show_step_transition "$CURRENT_STEP" "10" "Installing Flatpak Applications" "📱"
-  ((CURRENT_STEP++))
-
-  # Enhanced flatpak installation with progress tracking
-  install_category_parallel "Flatpak Applications" "${flatpaks[@]}"
-
-  # Add to tracking
-  for pkg in "${flatpaks[@]}"; do
-    PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-  done
+# Installs a list of AUR packages using paru
+install_aur_packages() {
+    local packages_to_install=("$@")
+    log_info "Installing ${#packages_to_install[@]} AUR packages..."
+    if ! paru -S --noconfirm --needed "${packages_to_install[@]}"; then
+        log_error "Failed to install some AUR packages."
+    else
+        log_success "All AUR packages installed successfully."
+    fi
 }
 
-# Function to get flatpak packages from YAML
-get_flatpak_packages() {
-  local de="$1"
-  local mode="$2"
-  local -n packages_array="$3"
-
-  packages_array=()
-
-  # Use yq to extract flatpak package names
-  local yq_output
-  yq_output=$(yq -r ".flatpak.$de.$mode[].name" "$PROGRAMS_YAML" 2>/dev/null)
-
+# Installs a list of Flatpak applications
+install_flatpak_packages() {
+    local packages_to_install=("$@")
+    log_info "Installing ${#packages_to_install[@]} Flatpak applications..."
+    if ! flatpak install -y --non-interactive "${packages_to_install[@]}"; then
+        log_error "Failed to install some Flatpak applications."
+    else
+        log_success "All Flatpak applications installed successfully."
+    fi
+}
+)
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
     while IFS= read -r package; do
       [[ -z "$package" ]] && continue
@@ -639,176 +269,147 @@ get_flatpak_packages() {
   fi
 }
 
-install_flatpak_programs_kde() {
-  local flatpaks
-  get_flatpak_packages "kde" "default" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "🎨 Preparing KDE Flatpak applications..."
-  else
-    echo -e "${CYAN}🎨 Preparing KDE Flatpak applications...${RESET}"
+# Function to read simple package lists (without descriptions)
+read_yaml_simple_packages() {
+  local yaml_file="$1"
+  local yaml_path="$2"
+  local -n packages_array="$3"
+  packages_array=()
+  local yq_output
+  yq_output=$(yq -r "$yaml_path[]" "$yaml_file" 2>/dev/null)
+  if [[ $? -eq 0 && -n "$yq_output" ]]; then
+    while IFS= read -r package; do
+      [[ -z "$package" ]] && continue
+      packages_array+=("$package")
+    done <<< "$yq_output"
   fi
-  install_flatpak_programs_list "${flatpaks[@]}"
 }
 
-install_flatpak_programs_gnome() {
-  local flatpaks
-  get_flatpak_packages "gnome" "default" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "🌟 Preparing GNOME Flatpak applications..."
-  else
-    echo -e "${CYAN}🌟 Preparing GNOME Flatpak applications...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
+# ===== Main Logic =====
 
-install_flatpak_programs_cosmic() {
-  local flatpaks
-  get_flatpak_packages "cosmic" "default" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 51 "🚀 Preparing Cosmic Flatpak applications..."
-  else
-    echo -e "${CYAN}🚀 Preparing Cosmic Flatpak applications...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
-
-install_flatpak_minimal_kde() {
-  local flatpaks
-  get_flatpak_packages "kde" "minimal" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 226 "⚡ Installing minimal KDE Flatpaks..."
-  else
-    echo -e "${YELLOW}⚡ Installing minimal KDE Flatpaks...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
-
-install_flatpak_minimal_gnome() {
-  local flatpaks
-  get_flatpak_packages "gnome" "minimal" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 226 "⚡ Installing minimal GNOME Flatpaks..."
-  else
-    echo -e "${YELLOW}⚡ Installing minimal GNOME Flatpaks...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
-
-install_flatpak_minimal_cosmic() {
-  local flatpaks
-  get_flatpak_packages "cosmic" "minimal" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 226 "⚡ Installing minimal Cosmic Flatpaks..."
-  else
-    echo -e "${YELLOW}⚡ Installing minimal Cosmic Flatpaks...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
-
-install_flatpak_minimal_generic() {
-  local flatpaks
-  get_flatpak_packages "generic" "minimal" flatpaks
-  if command -v gum >/dev/null 2>&1; then
-    gum style --foreground 226 "⚡ Installing minimal generic Flatpaks..."
-  else
-    echo -e "${YELLOW}⚡ Installing minimal generic Flatpaks...${RESET}"
-  fi
-  install_flatpak_programs_list "${flatpaks[@]}"
-}
-
-print_applications_summary() {
-  echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
-  if [ ${#PROGRAMS_INSTALLED[@]} -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${PROGRAMS_INSTALLED[*]}"
-  else
-    echo -e "${YELLOW}No new packages were installed.${RESET}"
-  fi
-  if [ ${#PROGRAMS_REMOVED[@]} -gt 0 ]; then
-    echo -e "${RED}Removed:${RESET} ${PROGRAMS_REMOVED[*]}"
-  else
-    echo -e "${GREEN}No packages were removed.${RESET}"
-  fi
-  if [ ${#PROGRAMS_ERRORS[@]} -gt 0 ]; then
-    echo -e "${RED}Errors:${RESET}"
-    for err in "${PROGRAMS_ERRORS[@]}"; do
-      echo -e "  - ${YELLOW}$err${RESET}"
-    done
-  else
-    echo -e "${GREEN}All steps completed successfully!${RESET}"
-  fi
-  echo -e "${CYAN}===============================${RESET}"
-}
-
-# ===== MAIN LOGIC =====
-
-# Use INSTALL_MODE from menu instead of command-line flags
-if [[ "$INSTALL_MODE" == "default" ]]; then
-  # Pacman packages are the same for all modes
-  essential_programs=("${essential_programs_default[@]}")
-  paru_programs=("${paru_programs_default[@]}")
-elif [[ "$INSTALL_MODE" == "minimal" ]]; then
-  # Pacman packages are the same for all modes
-  essential_programs=("${essential_programs_minimal[@]}")
-  paru_programs=("${paru_programs_minimal[@]}")
-elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  if ! command -v whiptail &>/dev/null; then
-    echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"
-    sudo pacman -S --noconfirm newt
-    WHIPTAIL_INSTALLED_BY_SCRIPT=true
-  fi
-  custom_package_selection
-  custom_aur_selection
-  custom_flatpak_selection
-else
-  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
+# Check if programs.yaml exists
+PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
+if [[ ! -f "$PROGRAMS_YAML" ]]; then
+  log_error "Programs configuration file not found: $PROGRAMS_YAML"
   return 1
 fi
 
-if ! check_flatpak; then
-  log_warning "Flatpak packages will be skipped."
+# Ensure yq is available
+if ! ensure_yq; then
+  return 1
 fi
 
-detect_desktop_environment
-print_total_packages
-remove_programs
-install_pacman_programs
-
-if [[ "$INSTALL_MODE" == "default" ]]; then
-  if [ -n "$flatpak_install_function" ]; then
-    $flatpak_install_function
-  else
-    log_warning "No Flatpak install function for your DE."
-  fi
-elif [[ "$INSTALL_MODE" == "minimal" ]]; then
-  if [ -n "$flatpak_minimal_function" ]; then
-    $flatpak_minimal_function
-  else
-    install_flatpak_minimal_generic
-  fi
-elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  # Use user's custom flatpak selections
-  if [ ${#flatpak_programs[@]} -gt 0 ]; then
-    step "Installing custom selected Flatpak programs"
-    echo -e "${CYAN}Selected flatpak packages: ${flatpak_programs[*]}${RESET}"
-    install_flatpak_quietly "${flatpak_programs[@]}"
-  else
-    log_success "No Flatpak packages selected for installation."
-  fi
+# Determine installation mode
+if [[ -z "${INSTALL_MODE-}" ]]; then
+    log_error "INSTALL_MODE is not set. Please run the installer from the main menu."
+    return 1
 fi
 
+log_info "Starting application installation in '$INSTALL_MODE' mode."
+
+# --- Gather all packages to be installed ---
+
+pacman_packages=()
+aur_packages=()
+flatpak_packages=()
+remove_packages=()
+
+# Pacman packages
+read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_base
+pacman_packages+=("${pacman_base[@]}")
+
+# Essential packages
+read_yaml_packages "$PROGRAMS_YAML" ".essential.$INSTALL_MODE" essential_mode
+pacman_packages+=("${essential_mode[@]}")
+
+# AUR packages
+read_yaml_packages "$PROGRAMS_YAML" ".aur.$INSTALL_MODE" aur_mode
+aur_packages+=("${aur_mode[@]}")
+
+# Desktop environment specific packages
+de_lower=""
+case "$XDG_CURRENT_DESKTOP" in
+  KDE) de_lower="kde" ;;
+  GNOME) de_lower="gnome" ;;
+  COSMIC) de_lower="cosmic" ;;
+  *) de_lower="generic" ;;
+esac
+
+if [[ "$de_lower" != "generic" ]]; then
+    read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.$de_lower.install" de_install
+    pacman_packages+=("${de_install[@]}")
+
+    read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.$de_lower.remove" de_remove
+    remove_packages+=("${de_remove[@]}")
+fi
+
+# Flatpak packages
+read_yaml_packages "$PROGRAMS_YAML" ".flatpak.$de_lower.$INSTALL_MODE" flatpak_mode
+flatpak_packages+=("${flatpak_mode[@]}")
 
 
-# Show final completion with cleanup
-if command -v gum >/dev/null 2>&1; then
-  gum style --foreground 46 "🧹 Cleaning up parallel installation engine..."
+# --- Installation Process ---
+
+# 1. Remove unwanted packages
+if [ ${#remove_packages[@]} -gt 0 ]; then
+    step "Removing conflicting or unnecessary packages..."
+    # Filter out packages that are not installed
+    packages_to_remove=()
+    for pkg in "${remove_packages[@]}"; do
+        if pacman -Q "$pkg" &>/dev/null; then
+            packages_to_remove+=("$pkg")
+        fi
+    done
+
+    if [ ${#packages_to_remove[@]} -gt 0 ]; then
+        log_info "Removing: ${packages_to_remove[*]}"
+        sudo pacman -Rns --noconfirm "${packages_to_remove[@]}"
+    else
+        log_success "No packages to remove."
+    fi
 else
-  echo -e "${GREEN}🧹 Cleaning up parallel installation engine...${RESET}"
+    log_success "No packages slated for removal."
 fi
 
-# Cleanup parallel engine
-stop_parallel_engine
-
-if [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]]; then
-  echo -e "${YELLOW}Removing 'whiptail' (newt) package as it is no longer needed...${RESET}"
-  sudo pacman -Rns --noconfirm newt
+# 2. Install Pacman packages
+if [ ${#pacman_packages[@]} -gt 0 ]; then
+    step "Installing Pacman packages..."
+    install_packages_quietly "${pacman_packages[@]}"
+else
+    log_success "No Pacman packages to install."
 fi
+
+# 3. Install AUR packages
+if [ ${#aur_packages[@]} -gt 0 ]; then
+    step "Installing AUR packages..."
+    if check_paru; then
+        install_aur_packages_quietly "${aur_packages[@]}"
+    else
+        log_warning "paru (AUR helper) is not installed. Skipping AUR packages."
+    fi
+else
+    log_success "No AUR packages to install."
+fi
+
+# 4. Install Flatpak packages
+if [ ${#flatpak_packages[@]} -gt 0 ]; then
+    step "Installing Flatpak applications..."
+    if check_flatpak; then
+        install_flatpak_quietly "${flatpak_packages[@]}"
+    else
+        log_warning "flatpak is not installed. Skipping Flatpak applications."
+    fi
+else
+    log_success "No Flatpak applications to install."
+fi
+
+
+# --- Final Summary ---
+print_applications_summary
+log_success "Application installation process completed."
+echo -e "${GREEN}Your system is now ready to use! Enjoy your new Arch Linux setup.${RESET}"
+echo -e "${YELLOW}It is recommended to reboot your system for all changes to take effect.${RESET}"
+echo ""
+echo -e "${YELLOW}Press ENTER to return to the main menu...${RESET}"
+read -r
+return 0

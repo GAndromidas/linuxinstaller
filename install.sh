@@ -233,24 +233,6 @@ else
 fi
 log_performance "Total installation time"
 
-# Enhanced final summary with parallel installation stats
-if command -v gum >/dev/null 2>&1; then
-  gum style --border double --margin "1 2" --padding "1 4" --foreground 46 --border-foreground 46 "📊 PARALLEL INSTALLATION STATS"
-  gum style --foreground 226 "⚡ Packages installed in parallel batches of $BATCH_SIZE"
-  gum style --foreground 226 "🚀 Maximum concurrent installations: $PARALLEL_LIMIT"
-  gum style --foreground 226 "⏱️  Total installation time: $(format_duration $(($(date +%s) - START_TIME)))"
-  echo ""
-else
-  echo -e "${CYAN}"
-  echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║             📊 PARALLEL INSTALLATION STATS                  ║"
-  echo "╚══════════════════════════════════════════════════════════════╝"
-  echo -e "${YELLOW}⚡ Packages installed in parallel batches of $BATCH_SIZE${RESET}"
-  echo -e "${YELLOW}🚀 Maximum concurrent installations: $PARALLEL_LIMIT${RESET}"
-  echo -e "${YELLOW}⏱️  Total installation time: $(format_duration $(($(date +%s) - START_TIME)))${RESET}"
-  echo ""
-fi
-
 print_comprehensive_summary
 
 # Stop parallel installation engine and cleanup
