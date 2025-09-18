@@ -2,14 +2,14 @@
 set -uo pipefail
 
 # Gaming and performance tweaks installation for Arch Linux
-# Get the directory where this script is located, resolving symlinks
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="$SCRIPT_DIR"
 ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
 
-source "$SCRIPT_DIR/common.sh"
-source "$ARCHINSTALLER_ROOT/scripts/cachyos_support.sh"
+source "$SCRIPTS_DIR/common.sh"
+source "$SCRIPTS_DIR/cachyos_support.sh"
 
 # Initialize CachyOS detection
 detect_cachyos >/dev/null 2>&1 || true

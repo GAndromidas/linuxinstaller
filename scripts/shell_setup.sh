@@ -3,8 +3,9 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
-source "$SCRIPT_DIR/cachyos_support.sh"
+SCRIPTS_DIR="$SCRIPT_DIR"
+source "$SCRIPTS_DIR/common.sh"
+source "$SCRIPTS_DIR/cachyos_support.sh"
 
 setup_shell() {
   # Check if we're on CachyOS and handle complete fish removal

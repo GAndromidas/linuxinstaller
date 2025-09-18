@@ -3,9 +3,9 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+SCRIPTS_DIR="$SCRIPT_DIR"
 source "$SCRIPT_DIR/common.sh"
-source "$SCRIPT_DIR/cachyos_support.sh"
+source "$SCRIPTS_DIR/cachyos_support.sh"
 
 # Check if we're running in CachyOS compatibility mode
 CACHYOS_MODE=${CACHYOS_MODE:-false}

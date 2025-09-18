@@ -3,8 +3,11 @@
 # yay.sh - Install yay AUR helper
 # This script installs yay, which is required for AUR package installation
 
-source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/cachyos_support.sh"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="$SCRIPT_DIR"
+source "$SCRIPTS_DIR/common.sh"
+source "$SCRIPTS_DIR/cachyos_support.sh"
 
 install_yay() {
   step "Installing yay AUR helper"
