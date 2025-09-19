@@ -25,6 +25,7 @@ setup_maintenance() {
   run_step "Cleaning yay cache" yay -Sc --noconfirm
   run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused --noninteractive -y
   run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+  run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm || true
 }
 
 cleanup_helpers() {
