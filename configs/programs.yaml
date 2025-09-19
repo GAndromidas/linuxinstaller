@@ -34,6 +34,8 @@ pacman:
       description: "Disk usage analyzer with interactive interface"
     - name: "net-tools"
       description: "Network utilities (ifconfig, netstat, etc.)"
+    - name: "nmap"
+      description: "Network scanner and security auditing tool"
     - name: "noto-fonts-extra"
       description: "Additional Google Noto fonts"
     - name: "samba"
