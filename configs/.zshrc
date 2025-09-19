@@ -29,8 +29,8 @@ alias mirror='sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arc
 alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo flatpak uninstall --unused && sudo pacman -Rns $(pacman -Qtdq)'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
-alias sr='sudo reboot'
-alias ss='sudo poweroff'
+alias sr='echo "Rebooting the system...\n" && sudo reboot'
+alias ss='echo "Shutting down the system...\n" && sudo poweroff'
 alias jctl='journalctl -p 3 -xb'
 
 # Replace ls with eza
@@ -48,11 +48,15 @@ alias -- -='cd -'
 
 # Networking
 alias ip='ip addr'
+alias myip='curl ifconfig.me'
 alias ports='netstat -tulanp'
+alias listenports='sudo lsof -i -P -n | grep LISTEN'
+alias scanports='nmap -p 1-1000'
 alias ping='ping -c 5'
 
 # System Monitoring
 alias top='btop'
+alias htop='btop'
 alias hw='hwinfo --short'
 alias cpu='lscpu'
 alias mem="free -mt"
@@ -73,6 +77,8 @@ alias unzip='unzip'
 # Miscellaneous aliases
 alias zshconfig="nano ~/.zshrc"
 alias unlock="sudo rm /var/lib/pacman/db.lck"
+alias cat='bat'
+alias weather='curl wttr.in'
 
 # Recent installed packages
 alias rip="expac --timefmt='%d-%m-%Y %T' '%l\t%n %v' | sort | tail -200 | nl"
