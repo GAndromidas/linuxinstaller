@@ -96,7 +96,7 @@ show_gum_menu() {
   gum style --margin "1 0" --foreground 226 "This script will transform your fresh Arch Linux installation into a"
   gum style --margin "0 0 1 0" --foreground 226 "fully configured, optimized system with all the tools you need!"
 
-  local choice=$(gum choose --cursor "-> " --selected.foreground 51 --cursor.foreground 51 \
+  local choice=$(gum choose --cursor="-> " --selected.foreground 51 --cursor.foreground 51 \
     "Standard - Complete setup with all packages (intermediate users)" \
     "Minimal - Essential tools only (recommended for new users)" \
     "Custom - Interactive selection (choose what to install) (advanced users)" \
