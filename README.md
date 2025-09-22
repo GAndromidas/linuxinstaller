@@ -6,34 +6,34 @@
 
 ---
 
-## 🎬 Demo
+## Demo
 
 ![archinstaller](https://github.com/user-attachments/assets/7a2d86b9-5869-4113-818e-50b3039d6685)
 
 ---
 
-## 🚀 Overview
+## Overview
 
 **Archinstaller** is a comprehensive, automated post-installation script for Arch Linux that transforms your fresh installation into a fully configured, optimized system. It handles everything from system preparation to desktop environment customization, security hardening, and robust dual-boot support.
 
-### ✨ Key Features
+### Key Features
 
-- **🔧 Three Installation Modes**: Standard (complete setup), Minimal (essential tools), Custom (interactive selection)
-- **🖥️ Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
-- **🎮 Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
-- **🔒 Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
-- **⚡ Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
-- **📦 Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
-- **🎨 Beautiful UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
-- **🧭 Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
-- **🪟 Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
-- **🎯 GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
+- **Three Installation Modes**: Standard (complete setup), Minimal (essential tools), Custom (interactive selection)
+- **Smart DE Detection**: Automatic detection and optimization for KDE, GNOME, Cosmic, and fallback support
+- **Optional Gaming Mode**: Interactive setup for comprehensive gaming tools and performance optimization
+- **Security Hardening**: Fail2ban, UFW/Firewalld, and comprehensive system service configuration
+- **Performance Tuning**: Intelligent ZRAM setup, Plymouth boot screen, and system optimizations
+- **Multi-Source Packages**: Pacman, AUR (via YAY), and Flatpak integration with YAML-driven configuration
+- **Clean UI**: Custom terminal interface with gum styling, progress tracking, and comprehensive error handling
+- **Dual Bootloader Support**: Automatically detects and configures both GRUB and systemd-boot with Windows dual-boot automation
+- **Windows Dual-Boot Intelligence**: Detects Windows installations, manages EFI files, configures boot entries, and ensures compatibility
+- **GPU Auto-Detection**: Intelligent AMD/Intel/NVIDIA driver installation with Vulkan support and VM detection
 
 ---
 
-## 🛠️ Installation Modes
+## Installation Modes
 
-### 1. **Standard Mode** 🎯 (Complete Setup)
+### 1. **Standard Mode** (Complete Setup)
 Full-featured installation with all recommended packages and optimizations:
 - **Pacman**: 25+ core packages (browsers, utilities, fonts, development tools)
 - **Essential**: 7 productivity applications (GIMP, KDENlive, OpenRGB, Timeshift, VLC, etc.)
@@ -41,7 +41,7 @@ Full-featured installation with all recommended packages and optimizations:
 - **Flatpaks**: Desktop environment-specific applications
 - **Perfect for**: Users who want a complete, ready-to-use system
 
-### 2. **Minimal Mode** ⚡ (Essential Only)
+### 2. **Minimal Mode** (Essential Only)
 Lightweight setup with core utilities only:
 - **Pacman**: Same 25+ core packages as Standard
 - **Essential**: 3 essential applications (Timeshift, VLC, VLC plugins)
@@ -49,7 +49,7 @@ Lightweight setup with core utilities only:
 - **Flatpaks**: Minimal DE-specific applications
 - **Perfect for**: Users who prefer a clean, essential setup or have limited resources
 
-### 3. **Custom Mode** 🎛️ (Interactive Selection)
+### 3. **Custom Mode** (Interactive Selection)
 Interactive package selection with detailed descriptions:
 - **Whiptail GUI**: User-friendly interface for package selection
 - **Smart Categories**: Auto-selected core packages + optional selections
@@ -59,34 +59,34 @@ Interactive package selection with detailed descriptions:
 
 ---
 
-## 🖥️ Desktop Environment Support
+## Desktop Environment Support
 
-### **KDE Plasma** 🟦
+### **KDE Plasma**
 - **Installs**: KDE-specific utilities (KDE Connect, Spectacle, Okular, QBittorrent, Kvantum)
 - **Removes**: Conflicting packages (htop - replaced by btop)
 - **Flatpaks**: Desktop environment integration, GearLever
 - **Shortcuts**: Custom global shortcuts configuration
 
-### **GNOME** 🟪
+### **GNOME**
 - **Installs**: GNOME utilities (GNOME Tweaks, Transmission GTK, Seahorse, dconf-editor)
 - **Removes**: Bloatware (Epiphany, GNOME Contacts, Maps, Music, Tour, Totem, Snapshot)
 - **Flatpaks**: Extension Manager, Desktop environment, GearLever
 - **Theme**: ADW GTK theme integration
 
-### **Cosmic** 🟨
+### **Cosmic**
 - **Installs**: Cosmic-specific utilities and power management
 - **Removes**: Conflicting packages (htop)
 - **Flatpaks**: CosmicTweaks, Desktop environment, GearLever
 - **Optimization**: Basic Cosmic desktop optimization
 
-### **Other DEs/WMs** 🔧
+### **Other DEs/WMs**
 - **Generic Support**: Works with any desktop environment or window manager
 - **Minimal Packages**: Essential utilities without DE-specific conflicts
 - **Flatpak Support**: GearLever for application management
 
 ---
 
-## 📦 Complete Package Breakdown
+## Complete Package Breakdown
 
 ### **Core Pacman Packages** (All Modes)
 ```
@@ -121,7 +121,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ---
 
-## 🔧 System Optimizations & Features
+## System Optimizations & Features
 
 ### **Performance Enhancements**
 - **Pacman Optimization**: 10 parallel downloads, color output, ILoveCandy, VerbosePkgLists
@@ -171,10 +171,10 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ---
 
-## 🎨 User Experience
+## User Experience
 
-### **Beautiful Interface**
-- **gum Integration**: Modern terminal UI with styled prompts and progress indicators
+### **Interface**
+- **gum Integration**: Terminal UI with styled prompts and progress indicators
 - **Progress Tracking**: Real-time installation progress with step-by-step feedback
 - **Error Handling**: Comprehensive error collection with detailed reporting
 - **ASCII Art**: Beautiful Arch Linux branding throughout the installation
@@ -190,7 +190,7 @@ zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, zram-generator
 
 ---
 
-## 🧩 Modular Architecture
+## Modular Architecture
 
 ### **YAML-Driven Configuration**
 - **programs.yaml**: All package lists, descriptions, and desktop environment mappings
@@ -225,7 +225,7 @@ configs/kglobalshortcutsrc - KDE global shortcuts
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Fresh Arch Linux installation
@@ -253,7 +253,7 @@ chmod +x install.sh
 
 ---
 
-## 🔧 Customization
+## Customization
 
 ### Adding Packages
 Edit `configs/programs.yaml` to add packages to any mode or desktop environment:
@@ -275,7 +275,7 @@ Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configu
 
 ---
 
-## ⚠️ Important Notes
+## Important Notes
 
 - **Run as regular user**: Never run as root - the script will check and exit
 - **Fresh installation recommended**: Designed for post-installation setup
@@ -285,7 +285,7 @@ Modify `scripts/gaming_mode.sh` to add or remove gaming applications and configu
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 This project is designed to be easily extensible. To contribute:
 
@@ -296,10 +296,10 @@ This project is designed to be easily extensible. To contribute:
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
 
 ---
 
-**Transform your Arch Linux installation into a powerhouse! 🚀**
+**Transform your Arch Linux installation into a powerful setup.**

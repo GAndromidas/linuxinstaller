@@ -65,7 +65,7 @@ install_yay() {
   cd - >/dev/null && rm -rf "$temp_dir"
   print_status " [OK]" "$GREEN"
   
-  echo -e "\n${GREEN}✓ yay AUR helper installed successfully${RESET}"
+  echo -e "\n${GREEN}yay AUR helper installed successfully${RESET}"
   log_success "yay AUR helper installed"
   echo ""
 }

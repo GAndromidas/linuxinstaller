@@ -106,7 +106,7 @@ install_all_packages() {
     fi
   done
   
-  echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}"
+  echo -e "\n${GREEN}Package installation completed (${current}/${total} packages processed)${RESET}"
   
   if [ ${#failed_packages[@]} -gt 0 ]; then
     echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
@@ -214,7 +214,7 @@ install_kernel_headers_for_all() {
     fi
   done
   
-  echo -e "\n${GREEN}✓ Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
+  echo -e "\n${GREEN}Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
 }
 
 generate_locales() {

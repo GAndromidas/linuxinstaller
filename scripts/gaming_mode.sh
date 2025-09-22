@@ -28,7 +28,7 @@ else
     # Fallback to traditional prompts
     echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
     echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
-    echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${RESET}"
+    echo -e "${YELLOW}----------------------------------------------------------------${RESET}"
     while true; do
         read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
         response=${response,,}

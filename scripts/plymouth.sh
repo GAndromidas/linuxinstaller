@@ -57,7 +57,7 @@ rebuild_initramfs() {
     fi
   done
   
-  echo -e "\n${GREEN}✓ Initramfs rebuild completed for all kernels${RESET}\n"
+  echo -e "\n${GREEN}Initramfs rebuild completed for all kernels${RESET}\n"
 }
 
 set_plymouth_theme() {
@@ -149,7 +149,7 @@ add_kernel_parameters() {
         log_warning "'splash' already set in $entry_name"
       fi
     done
-    echo -e "\n${GREEN}✓ Kernel parameters updated for all boot entries (${modified_count} modified)${RESET}\n"
+    echo -e "\n${GREEN}Kernel parameters updated for all boot entries (${modified_count} modified)${RESET}\n"
   elif [ -d /boot/grub ] || [ -f /etc/default/grub ]; then
     # GRUB logic
     if grep -q 'splash' /etc/default/grub; then

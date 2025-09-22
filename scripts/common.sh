@@ -91,12 +91,12 @@ show_menu() {
 }
 
 show_gum_menu() {
-  gum style --border double --margin "1 2" --padding "2 4" --foreground 51 --border-foreground 51 "🚀 ARCH INSTALLER"
+  gum style --border double --margin "1 2" --padding "2 4" --foreground 51 --border-foreground 51 "ARCH INSTALLER"
 
   gum style --margin "1 0" --foreground 226 "This script will transform your fresh Arch Linux installation into a"
   gum style --margin "0 0 1 0" --foreground 226 "fully configured, optimized system with all the tools you need!"
 
-  local choice=$(gum choose --cursor "→ " --selected.foreground 51 --cursor.foreground 51 \
+  local choice=$(gum choose --cursor "-> " --selected.foreground 51 --cursor.foreground 51 \
     "Standard - Complete setup with all packages (intermediate users)" \
     "Minimal - Essential tools only (recommended for new users)" \
     "Custom - Interactive selection (choose what to install) (advanced users)" \
@@ -105,15 +105,15 @@ show_gum_menu() {
   case "$choice" in
     "Standard"*)
       INSTALL_MODE="default"
-      gum style --foreground 51 "✓ Selected: Standard installation (intermediate users)"
+      gum style --foreground 51 "Selected: Standard installation (intermediate users)"
       ;;
     "Minimal"*)
       INSTALL_MODE="minimal"
-      gum style --foreground 46 "✓ Selected: Minimal installation (recommended for new users)"
+      gum style --foreground 46 "Selected: Minimal installation (recommended for new users)"
       ;;
     "Custom"*)
       INSTALL_MODE="custom"
-      gum style --foreground 226 "✓ Selected: Custom installation (advanced users)"
+      gum style --foreground 226 "Selected: Custom installation (advanced users)"
       ;;
     "Exit"*)
       gum style --foreground 226 "Installation cancelled. You can run this script again anytime."
@@ -123,13 +123,13 @@ show_gum_menu() {
 }
 
 show_traditional_menu() {
-  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
-  echo -e "${CYAN}🚀 WELCOME TO ARCH INSTALLER${RESET}"
-  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+  echo -e "${CYAN}----------------------------------------------------------------${RESET}"
+  echo -e "${CYAN}WELCOME TO ARCH INSTALLER${RESET}"
+  echo -e "${CYAN}----------------------------------------------------------------${RESET}"
   echo -e "${YELLOW}This script will transform your fresh Arch Linux installation into a${RESET}"
   echo -e "${YELLOW}fully configured, optimized system with all the tools you need!${RESET}"
   echo ""
-  echo -e "${CYAN}🎯 Choose your installation mode:${RESET}"
+  echo -e "${CYAN}Choose your installation mode:${RESET}"
   echo ""
   printf "${BLUE}  1) Standard${RESET}%-12s - Complete setup with all packages (intermediate users)\n" ""
   printf "${GREEN}  2) Minimal${RESET}%-13s - Essential tools only (recommended for new users)\n" ""
@@ -142,17 +142,17 @@ show_traditional_menu() {
           case "$menu_choice" in
         1)
           INSTALL_MODE="default"
-          echo -e "\n${BLUE}✓ Selected: Standard installation (intermediate users)${RESET}"
+          echo -e "\n${BLUE}Selected: Standard installation (intermediate users)${RESET}"
           break
           ;;
         2)
           INSTALL_MODE="minimal"
-          echo -e "\n${GREEN}✓ Selected: Minimal installation (recommended for new users)${RESET}"
+          echo -e "\n${GREEN}Selected: Minimal installation (recommended for new users)${RESET}"
           break
           ;;
         3)
           INSTALL_MODE="custom"
-          echo -e "\n${YELLOW}✓ Selected: Custom installation (advanced users)${RESET}"
+          echo -e "\n${YELLOW}Selected: Custom installation (advanced users)${RESET}"
           break
           ;;
       4)
@@ -160,21 +160,21 @@ show_traditional_menu() {
         exit 0
         ;;
       *)
-        echo -e "\n${RED}❌ Invalid choice! Please enter 1, 2, 3, or 4.${RESET}\n"
+        echo -e "\n${RED}Invalid choice! Please enter 1, 2, 3, or 4.${RESET}\n"
         ;;
     esac
   done
 }
 
 step() {
-  echo -e "\n${CYAN}→ $1${RESET}"
+  echo -e "\n${CYAN}> $1${RESET}"
   ((CURRENT_STEP++))
 }
 
-log_success() { echo -e "${GREEN}✓ $1${RESET}"; }
+log_success() { echo -e "${GREEN}$1${RESET}"; }
 log_warning() { echo -e "${YELLOW}! $1${RESET}"; }
-log_error()   { echo -e "${RED}✗ $1${RESET}"; ERRORS+=("$1"); }
-log_info()    { echo -e "${CYAN}ℹ $1${RESET}"; }
+log_error()   { echo -e "${RED}$1${RESET}"; ERRORS+=("$1"); }
+log_info()    { echo -e "${CYAN}$1${RESET}"; }
 
 run_step() {
   local description="$1"
@@ -235,7 +235,7 @@ install_packages_quietly() {
       fi
     done
 
-    gum style --foreground 46 "✓ Package installation completed (${current}/${total} packages processed)"
+    gum style --foreground 46 "Package installation completed (${current}/${total} packages processed)"
   else
     # Fallback to traditional output
     echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
@@ -258,7 +258,7 @@ install_packages_quietly() {
       fi
     done
 
-    echo -e "\n${GREEN}✓ Package installation completed (${current}/${total} packages processed)${RESET}\n"
+    echo -e "\n${GREEN}Package installation completed (${current}/${total} packages processed)${RESET}\n"
   fi
 }
 
@@ -310,36 +310,36 @@ print_summary() {
 
 prompt_reboot() {
   figlet_banner "Reboot System"
-  echo -e "${YELLOW}🎉 Congratulations! Your Arch Linux system is now fully configured!${RESET}"
+  echo -e "${YELLOW}Congratulations! Your Arch Linux system is now fully configured!${RESET}"
   echo ""
-  echo -e "${CYAN}📋 What happens after reboot:${RESET}"
-  echo -e "  • 🎨 Beautiful boot screen will appear"
-  echo -e "  • 🖥️  Your desktop environment will be ready to use"
-  echo -e "  • 🛡️  Security features will be active"
-  echo -e "  • ⚡ Performance optimizations will be enabled"
-  echo -e "  • 🎮 Gaming tools will be available (if installed)"
+  echo -e "${CYAN}What happens after reboot:${RESET}"
+  echo -e "  - Boot screen will appear"
+  echo -e "  - Your desktop environment will be ready to use"
+  echo -e "  - Security features will be active"
+  echo -e "  - Performance optimizations will be enabled"
+  echo -e "  - Gaming tools will be available (if installed)"
   echo ""
-  echo -e "${YELLOW}💡 It's strongly recommended to reboot now to apply all changes.\n"
+  echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.\n"
   while true; do
     read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
     reboot_ans=${reboot_ans,,}
     case "$reboot_ans" in
       ""|y|yes)
-        echo -e "\n${CYAN}🔄 Rebooting your system...${RESET}"
-        echo -e "${YELLOW}   Thank you for using Arch Installer! 🚀${RESET}\n"
+        echo -e "\n${CYAN}Rebooting your system...${RESET}"
+        echo -e "${YELLOW}   Thank you for using Arch Installer!${RESET}\n"
         # Silently uninstall figlet and gum before reboot
         sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
         sudo reboot
         break
         ;;
       n|no)
-        echo -e "\n${YELLOW}⏸️  Reboot skipped. You can reboot manually at any time using:${RESET}"
+        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
         echo -e "${CYAN}   sudo reboot${RESET}"
         echo -e "${YELLOW}   Or simply restart your computer.${RESET}\n"
         break
         ;;
       *)
-        echo -e "\n${RED}❌ Please answer Y (yes) or N (no).${RESET}\n"
+        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
         ;;
     esac
   done

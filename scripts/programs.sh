@@ -341,7 +341,7 @@ install_pacman_quietly() {
     for pkg in "${to_install[@]}"; do
       pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg")
     done
-    echo -e "${GREEN}✓ Pacman batch installation completed.${RESET}"
+    echo -e "${GREEN}Pacman batch installation completed.${RESET}"
   else
     echo -e "${RED}Some Pacman packages failed to install.${RESET}"
     for pkg in "${to_install[@]}"; do
@@ -367,7 +367,7 @@ install_flatpak_quietly() {
     for pkg in "${to_install[@]}"; do
       flatpak list --app | grep -qw "$pkg" && PROGRAMS_INSTALLED+=("$pkg (flatpak)")
     done
-    echo -e "${GREEN}✓ Flatpak batch installation completed.${RESET}"
+    echo -e "${GREEN}Flatpak batch installation completed.${RESET}"
   else
     echo -e "${RED}Some Flatpak packages failed to install.${RESET}"
     for pkg in "${to_install[@]}"; do
@@ -393,7 +393,7 @@ install_aur_quietly() {
     for pkg in "${to_install[@]}"; do
       pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg (AUR)")
     done
-    echo -e "${GREEN}✓ AUR batch installation completed.${RESET}"
+    echo -e "${GREEN}AUR batch installation completed.${RESET}"
   else
     echo -e "${RED}Some AUR packages failed to install.${RESET}"
     for pkg in "${to_install[@]}"; do
@@ -504,7 +504,7 @@ remove_programs() {
     fi
   done
 
-  echo -e "\n${GREEN}✓ Program removal completed (${current}/${total} programs processed)${RESET}\n"
+  echo -e "\n${GREEN}Program removal completed (${current}/${total} programs processed)${RESET}\n"
 }
 
 install_pacman_programs() {
