@@ -91,8 +91,6 @@ show_menu() {
 }
 
 show_gum_menu() {
-  gum style --border double --margin "1 2" --padding "2 4" --foreground 51 --border-foreground 51 "ARCH INSTALLER"
-
   gum style --margin "1 0" --foreground 226 "This script will transform your fresh Arch Linux installation into a"
   gum style --margin "0 0 1 0" --foreground 226 "fully configured, optimized system with all the tools you need!"
 
