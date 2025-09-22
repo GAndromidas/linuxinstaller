@@ -18,6 +18,10 @@ CURRENT_STEP=1           # Tracks current step for progress display
 INSTALLED_PACKAGES=()    # Tracks installed packages
 REMOVED_PACKAGES=()      # Tracks removed packages
 
+# UI/Flow configuration
+TOTAL_STEPS=10
+: "${VERBOSE:=false}"   # Can be overridden/exported by caller
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script directory
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
@@ -58,6 +62,74 @@ print_status() {
 }
 
 # Utility/Helper Functions
+supports_gum() {
+  command -v gum >/dev/null 2>&1
+}
+
+ui_info() {
+  local message="$1"
+  if supports_gum; then
+    gum style --foreground 226 "$message"
+  else
+    echo -e "${YELLOW}$message${RESET}"
+  fi
+}
+
+ui_success() {
+  local message="$1"
+  if supports_gum; then
+    gum style --foreground 46 "$message"
+  else
+    echo -e "${GREEN}$message${RESET}"
+  fi
+}
+
+ui_warn() {
+  local message="$1"
+  if supports_gum; then
+    gum style --foreground 226 "$message"
+  else
+    echo -e "${YELLOW}$message${RESET}"
+  fi
+}
+
+ui_error() {
+  local message="$1"
+  if supports_gum; then
+    gum style --foreground 196 "$message"
+  else
+    echo -e "${RED}$message${RESET}"
+  fi
+}
+
+print_header() {
+  local title="$1"; shift
+  if supports_gum; then
+    gum style --border double --margin "1 2" --padding "1 4" --foreground 51 --border-foreground 51 "$title"
+    while (( "$#" )); do
+      gum style --margin "1 0 0 0" --foreground 226 "$1"
+      shift
+    done
+  else
+    echo -e "${CYAN}----------------------------------------------------------------${RESET}"
+    echo -e "${CYAN}$title${RESET}"
+    echo -e "${CYAN}----------------------------------------------------------------${RESET}"
+    while (( "$#" )); do
+      echo -e "${YELLOW}$1${RESET}"
+      shift
+    done
+  fi
+}
+
+print_step_header() {
+  local step_num="$1"; local total="$2"; local title="$3"
+  if supports_gum; then
+    echo ""
+    gum style --border normal --margin "1 0" --padding "0 2" --foreground 51 --border-foreground 51 "Step ${step_num}/${total}: ${title}"
+  else
+    echo -e "${CYAN}Step ${step_num}/${total}: ${title}${RESET}"
+  fi
+}
 figlet_banner() {
   local title="$1"
   echo -e "${CYAN}\n============================================================${RESET}"
@@ -213,26 +285,25 @@ install_packages_quietly() {
     return
   fi
 
-  if command -v gum >/dev/null 2>&1; then
+  if supports_gum; then
     gum style --foreground 51 "Installing ${total} packages via Pacman..."
 
     for pkg in "${pkgs[@]}"; do
       ((current++))
       if pacman -Q "$pkg" &>/dev/null; then
-        gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
+        $VERBOSE && gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
         continue
       fi
 
-      gum style --foreground 15 "[$current/$total] Installing $pkg..."
+      $VERBOSE && gum style --foreground 15 "[$current/$total] Installing $pkg..."
       if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        gum style --foreground 46 "[$current/$total] $pkg [OK]"
+        $VERBOSE && gum style --foreground 46 "[$current/$total] $pkg [OK]"
         INSTALLED_PACKAGES+=("$pkg")
       else
         gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
         log_error "Failed to install $pkg"
       fi
     done
-
     gum style --foreground 46 "Package installation completed (${current}/${total} packages processed)"
   else
     # Fallback to traditional output
@@ -241,14 +312,14 @@ install_packages_quietly() {
     for pkg in "${pkgs[@]}"; do
       ((current++))
       if pacman -Q "$pkg" &>/dev/null; then
-        print_progress "$current" "$total" "$pkg"
-        print_status " [SKIP] Already installed" "$YELLOW"
+        $VERBOSE && print_progress "$current" "$total" "$pkg"
+        $VERBOSE && print_status " [SKIP] Already installed" "$YELLOW"
         continue
       fi
 
-      print_progress "$current" "$total" "$pkg"
+      $VERBOSE && print_progress "$current" "$total" "$pkg"
       if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        print_status " [OK]" "$GREEN"
+        $VERBOSE && print_status " [OK]" "$GREEN"
         INSTALLED_PACKAGES+=("$pkg")
       else
         print_status " [FAIL]" "$RED"
