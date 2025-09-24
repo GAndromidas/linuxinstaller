@@ -75,6 +75,14 @@ step "Installing GameMode"
 GAMEMODE_PACKAGES=("gamemode" "lib32-gamemode")
 install_packages_quietly "${GAMEMODE_PACKAGES[@]}"
 
+# Enable and start GameMode user service for automatic performance optimizations
+step "Enabling GameMode service"
+if systemctl --user daemon-reload &>/dev/null && systemctl --user enable --now gamemoded &>/dev/null; then
+    log_success "GameMode service enabled and started successfully."
+else
+    log_warning "Failed to enable or start GameMode service. It may require manual configuration."
+fi
+
 # Install additional gaming utilities
 step "Installing gaming utilities"
 GAMING_PACKAGES=(
