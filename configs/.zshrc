@@ -77,7 +77,6 @@ alias unzip='unzip'
 # Miscellaneous aliases
 alias zshconfig="nano ~/.zshrc"
 alias unlock="sudo rm /var/lib/pacman/db.lck"
-alias cat='bat'
 alias weather='curl wttr.in'
 
 # Recent installed packages
