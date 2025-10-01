@@ -1,4 +1,3 @@
-# Arch Linux Installer - Programs Configuration
 # This file contains all package lists for different installation modes and desktop environments
 
 # Pacman packages (same for all installation modes)
@@ -18,6 +17,8 @@ pacman:
       description: "Matrix-style terminal screensaver"
     - name: "dosfstools"
       description: "DOS filesystem utilities"
+    - name: "duf"
+      description: "Disk Usage/Free Utility"
     - name: "expac"
       description: "Pacman database extraction utility"
     - name: "firefox"
