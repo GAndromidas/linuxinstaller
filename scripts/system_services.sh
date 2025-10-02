@@ -271,6 +271,17 @@ setup_zram_swap() {
       log_success "ZRAM not configured - system has sufficient RAM"
     fi
 
+    # Remove zram-generator package and dependencies if installed
+    if pacman -Q zram-generator &>/dev/null; then
+      log_info "Removing zram-generator package and dependencies..."
+      if sudo pacman -Rns --noconfirm zram-generator >/dev/null 2>&1; then
+        log_success "zram-generator package removed"
+        REMOVED_PACKAGES+=("zram-generator")
+      else
+        log_warning "Failed to remove zram-generator package (may have dependent packages)"
+      fi
+    fi
+
     log_info "Swap usage will be minimal with this amount of memory"
     return
   fi
