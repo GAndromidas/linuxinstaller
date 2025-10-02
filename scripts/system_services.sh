@@ -134,41 +134,55 @@ enable_services() {
   fi
 }
 
-# Function to get total RAM in GB
+# Function to get total RAM in GB (rounded to common consumer sizes)
+# Accounts for kernel memory reservation (e.g., 32GB shows as ~31GB, 8GB as ~7.5GB, etc.)
+# Only returns: 2GB, 4GB, 8GB, 16GB, or 32GB
 get_ram_gb() {
   local ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-  echo $((ram_kb / 1024 / 1024))
+
+  # Convert to MB for better precision
+  local ram_mb=$((ram_kb / 1024))
+
+  # Calculate actual GB with decimal precision
+  local ram_gb_precise=$(echo "scale=2; $ram_mb / 1024" | bc -l)
+
+  # Round to common consumer RAM sizes: 2GB, 4GB, 8GB, 16GB, 32GB+
+  local rounded_gb
+
+  if (( $(echo "$ram_gb_precise < 3" | bc -l) )); then
+    rounded_gb=2
+  elif (( $(echo "$ram_gb_precise < 6" | bc -l) )); then
+    rounded_gb=4
+  elif (( $(echo "$ram_gb_precise < 12" | bc -l) )); then
+    rounded_gb=8
+  elif (( $(echo "$ram_gb_precise < 24" | bc -l) )); then
+    rounded_gb=16
+  else
+    # Anything 24GB+ is treated as 32GB
+    rounded_gb=32
+  fi
+
+  echo $rounded_gb
 }
 
 # Function to get optimal ZRAM size multiplier based on RAM
+# Only handles common consumer sizes: 2GB, 4GB, 8GB, 16GB, 32GB+
 get_zram_multiplier() {
   local ram_gb=$1
   case $ram_gb in
-    1) echo "2.0" ;;      # 1GB RAM -> 200% ZRAM (2GB)
     2) echo "1.5" ;;      # 2GB RAM -> 150% ZRAM (3GB)
-    3) echo "1.33" ;;     # 3GB RAM -> 133% ZRAM (4GB)
     4) echo "1.0" ;;      # 4GB RAM -> 100% ZRAM (4GB)
-    6) echo "0.83" ;;     # 6GB RAM -> 83% ZRAM (5GB)
     8) echo "0.75" ;;     # 8GB RAM -> 75% ZRAM (6GB)
-    10) echo "0.6" ;;     # 10GB RAM -> 60% ZRAM (6GB)
-    12) echo "0.5" ;;     # 12GB RAM -> 50% ZRAM (6GB)
-    15) echo "0.5" ;;     # 15GB RAM -> 50% ZRAM (8GB) - treat as 16GB
     16) echo "0.5" ;;     # 16GB RAM -> 50% ZRAM (8GB)
-    24) echo "0.33" ;;    # 24GB RAM -> 33% ZRAM (8GB)
-    31) echo "0.25" ;;    # 31GB RAM -> 25% ZRAM (8GB) - treat as 32GB
-    32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
-    48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
-    64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
+    32) echo "0.25" ;;    # 32GB+ RAM -> 25% ZRAM (8GB)
     *)
-      # For other sizes, use a dynamic calculation
+      # Fallback (should not happen with smart rounding)
       if [ $ram_gb -le 4 ]; then
         echo "1.0"
       elif [ $ram_gb -le 8 ]; then
         echo "0.75"
       elif [ $ram_gb -le 16 ]; then
         echo "0.5"
-      elif [ $ram_gb -le 32 ]; then
-        echo "0.33"
       else
         echo "0.25"
       fi
@@ -245,6 +259,7 @@ setup_zram_swap() {
   local ram_gb=$(get_ram_gb)
 
   # Handle ZRAM on very high memory systems (32GB+)
+  # Note: get_ram_gb() now intelligently rounds to nearest common RAM size
   if [ $ram_gb -ge 32 ]; then
     log_info "High memory system detected (${ram_gb}GB RAM)"
 

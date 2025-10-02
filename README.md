@@ -28,7 +28,7 @@ Archinstaller transforms a fresh Arch Linux installation into a fully configured
 **Intelligent Detection Systems**
 1. **CPU Detection**: Vendor (Intel/AMD) and generation-specific optimizations
 2. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers
-3. **Memory Size**: Adaptive swappiness based on RAM (1GB-32GB+)
+3. **Memory Size**: Smart RAM detection (2/4/8/16/32GB+) with adaptive swappiness
 4. **Network Speed**: Download optimization based on connection speed
 5. **Filesystem**: Btrfs/ext4/XFS/F2FS with specific optimizations
 6. **Audio System**: PipeWire vs PulseAudio detection
@@ -111,12 +111,17 @@ Automatic detection and optimization for:
 
 ### 3. Memory Size Adaptation
 
+**Intelligent RAM Detection**
+- Smart rounding to common consumer sizes: 2GB, 4GB, 8GB, 16GB, 32GB+
+- Accounts for kernel memory reservation (e.g., 32GB shows as ~31GB, 8GB as ~7.5GB)
+- Systems are correctly categorized regardless of kernel reserved memory
+
 **RAM-Based Optimizations**
-- **< 4GB**: Swappiness 60 (aggressive swap), reduced cache pressure
-- **4-8GB**: Swappiness 30 (moderate swap usage)
-- **8-16GB**: Swappiness 10 (minimal swap usage)
-- **16GB+**: Swappiness 1 (almost no swap)
-- **32GB+**: Option to disable swap entirely
+- **2GB**: Swappiness 60 (aggressive swap), reduced cache pressure, automatic ZRAM
+- **4GB**: Swappiness 30 (moderate swap usage), automatic ZRAM
+- **8GB**: Swappiness 10 (minimal swap usage), optional ZRAM
+- **16GB**: Swappiness 1 (almost no swap), optional ZRAM
+- **32GB+**: Swappiness 1 (minimal), ZRAM automatically removed, option to disable swap entirely
 
 ### 4. Network Speed Detection
 
@@ -260,7 +265,8 @@ Automatic detection and optimization for:
 
 ### Performance
 - Pacman parallel downloads and optimization (10 concurrent, color output)
-- Intelligent ZRAM configuration based on system RAM (dynamic sizing with zstd)
+- Intelligent ZRAM configuration based on system RAM (automatic ≤4GB, optional 8-16GB, removed 32GB+)
+- Smart RAM detection with kernel reservation handling (detects 32GB even when reported as 31GB)
 - Automatic traditional swap detection and disable option
 - CPU microcode installation (Intel/AMD auto-detected)
 - Kernel headers for all installed kernels
@@ -520,7 +526,7 @@ Add desktop environment support by extending `programs.yaml` and updating detect
 ### 15 Intelligent Detection Systems (Latest)
 1. **CPU Detection**: Intel/AMD with generation-specific optimizations (Intel 6th gen+, AMD Ryzen 1000-5000+)
 2. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers (none/mq-deadline/bfq)
-3. **Memory Size**: RAM-based swappiness (≤4GB: 60, 8GB: 10, 32GB+: 1)
+3. **Memory Size**: Smart RAM detection (2/4/8/16/32GB) with swappiness (2-4GB: 30-60, 8GB: 10, 16GB+: 1)
 4. **Network Speed**: Connection-based parallel downloads (3-15 parallel based on Mbit/s)
 5. **Filesystem**: Btrfs/ext4/XFS/F2FS optimization, LUKS encryption detection
 6. **Audio System**: PipeWire vs PulseAudio automatic configuration
@@ -539,8 +545,9 @@ Add desktop environment support by extending `programs.yaml` and updating detect
 - Intel thermald for thermal management on Intel laptops
 - AMD Radeon GPU power management for Vega iGPU
 - **Dynamic power profile daemon**: tuned-ppd for older CPUs (Atom, Ryzen 1000-4000), power-profiles-daemon for modern (Ryzen 5000+, Intel 6th gen+)
+- **Smart RAM detection**: Rounds to common sizes (2/4/8/16/32GB) accounting for kernel reservation
 - Traditional swap detection and management with ZRAM
-- Memory-based swappiness adjustment (1GB-32GB+ adaptive)
+- Memory-based swappiness adjustment (2GB-32GB+ adaptive)
 - **Hibernation detection**: Preserves disk swap if hibernation configured
 
 ### System Optimizations
@@ -549,7 +556,7 @@ Add desktop environment support by extending `programs.yaml` and updating detect
 - **Filesystem-specific tuning**: ext4 reserved blocks reduced to 1%, Btrfs snapshot support, LUKS detection
 - **Audio system compatibility**: PipeWire or PulseAudio packages based on detection
 - **VM hypervisor guest tools**: Automatic installation for VMware, VirtualBox, Hyper-V
-- **ZRAM intelligence**: Automatic for ≤4GB, optional for 4-32GB, skipped/removed for 32GB+
+- **ZRAM intelligence**: Automatic for 2-4GB, optional for 8-16GB, skipped/removed for 32GB+
 
 ### Enhanced Features
 - **Btrfs snapshots** with Snapper (replaces Timeshift completely)
@@ -598,7 +605,7 @@ Contributions are welcome. To extend functionality:
 **Yes!** The installer detects hibernation configuration and preserves disk swap when needed. ZRAM conflicts with hibernation are automatically handled.
 
 ### What if I have 32GB+ RAM?
-**Optimized!** ZRAM is automatically skipped (not needed) or removed if already configured. Swappiness is set to 1 (minimal).
+**Optimized!** The smart detection correctly identifies 32GB systems (even when kernel reports ~31GB). ZRAM is automatically skipped or removed if already configured. Swappiness is set to 1 (minimal). All high-memory systems (48GB, 64GB, etc.) are treated as 32GB+ for optimization purposes.
 
 ### Will it work with my Intel Atom laptop?
 **Yes!** Atom CPUs get tuned-ppd, optimized power management, and PS/2 touchpad detection with appropriate warnings.
