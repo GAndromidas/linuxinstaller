@@ -1240,21 +1240,38 @@ setup_laptop_optimizations() {
   # Install TLP for power management
   step "Installing TLP power management"
   log_info "TLP provides automatic power management for laptops"
-  install_packages_quietly tlp tlp-rdw
 
-  # Enable and start TLP
-  log_info "Enabling TLP service..."
-  sudo systemctl enable tlp.service 2>/dev/null
-  sudo systemctl start tlp.service 2>/dev/null
+  # Ensure package database is synced before installation
+  log_info "Syncing package database..."
+  if ! sudo pacman -Sy --noconfirm >/dev/null 2>&1; then
+    log_warning "Failed to sync package database"
+    log_info "Attempting to refresh mirrors and sync again..."
+    sudo pacman -Syy --noconfirm >/dev/null 2>&1
+  fi
 
-  # Mask systemd-rfkill services (conflicts with TLP)
-  sudo systemctl mask systemd-rfkill.service 2>/dev/null
-  sudo systemctl mask systemd-rfkill.socket 2>/dev/null
+  # Install TLP packages
+  if install_packages_quietly tlp tlp-rdw; then
+    log_success "TLP packages installed successfully"
 
-  if systemctl is-active --quiet tlp.service; then
-    log_success "TLP power management is active"
+    # Enable and start TLP
+    log_info "Enabling TLP service..."
+    sudo systemctl enable tlp.service 2>/dev/null
+    sudo systemctl start tlp.service 2>/dev/null
+
+    # Mask systemd-rfkill services (conflicts with TLP)
+    sudo systemctl mask systemd-rfkill.service 2>/dev/null
+    sudo systemctl mask systemd-rfkill.socket 2>/dev/null
+
+    if systemctl is-active --quiet tlp.service; then
+      log_success "TLP power management is active"
+    else
+      log_warning "TLP service may require a reboot to start"
+    fi
   else
-    log_warning "TLP service may require a reboot to start"
+    log_error "Failed to install TLP packages"
+    log_warning "Power management will use default system settings"
+    log_info "You can manually install TLP later with: sudo pacman -S tlp tlp-rdw"
+    log_info "Continuing with installation..."
   fi
 
   # Setup power profile daemon (CPU generation-aware)
@@ -1361,7 +1378,25 @@ EOF
     fi
 
     log_info "Installing libinput-gestures..."
-    install_packages_quietly libinput-gestures xdotool wmctrl
+
+    # Check if yay is available for AUR installation
+    if ! command -v yay &>/dev/null; then
+      log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
+      log_warning "Touchpad gestures require libinput-gestures from AUR"
+      log_info "Please install yay first, then run: yay -S libinput-gestures"
+      log_info "Continuing with installation..."
+      return
+    fi
+
+    # libinput-gestures is in AUR, not official repos
+    if ! install_aur_quietly libinput-gestures; then
+      log_error "Failed to install libinput-gestures from AUR"
+      log_warning "Touchpad gestures will not be available"
+      log_info "You can try manually later with: yay -S libinput-gestures"
+    fi
+
+    # xdotool and wmctrl are in official repos
+    install_packages_quietly xdotool wmctrl
 
     # Add user to input group
     sudo usermod -a -G input "$USER"
@@ -1434,7 +1469,25 @@ EOF
     fi
 
     log_info "Installing libinput-gestures..."
-    install_packages_quietly libinput-gestures xdotool wmctrl
+
+    # Check if yay is available for AUR installation
+    if ! command -v yay &>/dev/null; then
+      log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
+      log_warning "Touchpad gestures require libinput-gestures from AUR"
+      log_info "Please install yay first, then run: yay -S libinput-gestures"
+      log_info "Continuing with installation..."
+      return
+    fi
+
+    # libinput-gestures is in AUR, not official repos
+    if ! install_aur_quietly libinput-gestures; then
+      log_error "Failed to install libinput-gestures from AUR"
+      log_warning "Touchpad gestures will not be available"
+      log_info "You can try manually later with: yay -S libinput-gestures"
+    fi
+
+    # xdotool and wmctrl are in official repos
+    install_packages_quietly xdotool wmctrl
 
     # Add user to input group
     sudo usermod -a -G input "$USER"
