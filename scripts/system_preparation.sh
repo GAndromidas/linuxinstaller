@@ -1,9 +1,107 @@
 #!/bin/bash
-set -uo pipefail
+set -euo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+
+# Function to detect display server
+detect_display_server() {
+  if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    echo "wayland"
+  elif [ -n "${DISPLAY:-}" ]; then
+    echo "x11"
+  else
+    # Check what's installed/running
+    if command -v wayland-scanner >/dev/null 2>&1 || pgrep -x "wayland" >/dev/null 2>&1; then
+      echo "wayland"
+    elif command -v xrandr >/dev/null 2>&1 || [ -f /usr/bin/Xorg ]; then
+      echo "x11"
+    else
+      echo "unknown"
+    fi
+  fi
+}
+
+# Function to install display server specific packages
+install_display_server_packages() {
+  step "Detecting display server and installing appropriate packages"
+
+  local display_server=$(detect_display_server)
+
+  case "$display_server" in
+    wayland)
+      log_success "Wayland display server detected"
+      log_info "Installing Wayland-specific packages..."
+      install_packages_quietly wl-clipboard grim slurp xdg-desktop-portal-wlr
+      log_success "Wayland packages installed (clipboard, screenshot tools)"
+      ;;
+    x11)
+      log_success "X11 display server detected"
+      log_info "Installing X11-specific packages..."
+      install_packages_quietly xclip xorg-xrandr
+      log_success "X11 packages installed (clipboard, display tools)"
+      ;;
+    *)
+      log_warning "Display server not detected or not running"
+      log_info "Installing both Wayland and X11 packages for compatibility..."
+      install_packages_quietly wl-clipboard grim slurp xclip xorg-xrandr
+      ;;
+  esac
+}
+
+# Function to detect network speed and optimize downloads
+detect_network_speed() {
+  step "Testing network speed and optimizing download settings"
+
+  # Check if speedtest-cli is available
+  if ! command -v speedtest-cli >/dev/null 2>&1; then
+    log_warning "speedtest-cli not available - skipping network speed test"
+    return
+  fi
+
+  log_info "Testing internet speed (this may take a moment)..."
+
+  # Run speedtest and capture download speed
+  local speed_test_output=$(speedtest-cli --simple 2>/dev/null)
+
+  if [ $? -eq 0 ]; then
+    local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
+
+    if [ -n "$download_speed" ]; then
+      log_success "Download speed: ${download_speed} Mbit/s"
+
+      # Convert to integer for comparison
+      local speed_int=$(echo "$download_speed" | cut -d. -f1)
+
+      # Adjust parallel downloads based on speed
+      if [ "$speed_int" -lt 5 ]; then
+        log_warning "Slow connection detected (< 5 Mbit/s)"
+        log_info "Reducing parallel downloads to 3 for stability"
+        log_info "Installation will take longer - consider using ethernet"
+        export PACMAN_PARALLEL=3
+      elif [ "$speed_int" -lt 25 ]; then
+        log_info "Moderate connection speed (5-25 Mbit/s)"
+        log_info "Using standard parallel downloads (10)"
+        export PACMAN_PARALLEL=10
+      elif [ "$speed_int" -lt 100 ]; then
+        log_success "Good connection speed (25-100 Mbit/s)"
+        log_info "Using standard parallel downloads (10)"
+        export PACMAN_PARALLEL=10
+      else
+        log_success "Excellent connection speed (100+ Mbit/s)"
+        log_info "Increasing parallel downloads to 15 for faster installation"
+        export PACMAN_PARALLEL=15
+      fi
+    else
+      log_warning "Could not parse speed test results"
+      export PACMAN_PARALLEL=10
+    fi
+  else
+    log_warning "Speed test failed - using default settings"
+    export PACMAN_PARALLEL=10
+  fi
+}
 
 check_prerequisites() {
   step "Checking system prerequisites"
@@ -20,40 +118,43 @@ check_prerequisites() {
 
 configure_pacman() {
   step "Configuring pacman optimizations"
-  
+
+  # Use network-speed-based parallel downloads value (default 10 if not set)
+  local parallel_downloads="${PACMAN_PARALLEL:-10}"
+
   # Handle ParallelDownloads - works whether commented or uncommented
   if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
     # Line is commented, uncomment and set value
-    sudo sed -i 's/^#ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Uncommented and set ParallelDownloads = 10"
+    sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+    log_success "Uncommented and set ParallelDownloads = $parallel_downloads"
   elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-    # Line is uncommented, just update the value
-    sudo sed -i 's/^ParallelDownloads.*/ParallelDownloads = 10/' /etc/pacman.conf
-    log_success "Updated ParallelDownloads = 10"
+    # Line exists and is active, update value
+    sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+    log_success "Updated ParallelDownloads = $parallel_downloads"
   else
-    # Line doesn't exist, add it after [options] section
-    sudo sed -i '/^\[options\]/a ParallelDownloads = 10' /etc/pacman.conf
-    log_success "Added ParallelDownloads = 10"
+    # Line doesn't exist at all, add it
+    sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
+    log_success "Added ParallelDownloads = $parallel_downloads"
   fi
-  
+
   # Handle Color setting
   if grep -q "^#Color" /etc/pacman.conf; then
     sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
     log_success "Uncommented Color setting"
   fi
-  
+
   # Handle VerbosePkgLists setting
   if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
     sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
     log_success "Uncommented VerbosePkgLists setting"
   fi
-  
+
   # Add ILoveCandy if not already present
   if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
     sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
     log_success "Added ILoveCandy setting"
   fi
-  
+
   # Enable multilib if not already enabled
   if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
     echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
@@ -61,7 +162,7 @@ configure_pacman() {
   else
     log_success "Multilib repository already enabled"
   fi
-  
+
   echo ""
 }
 
@@ -76,24 +177,24 @@ install_all_packages() {
     # ZRAM
     zram-generator
   )
-  
+
   step "Installing all packages"
   echo -e "${CYAN}Installing ${#HELPER_UTILS[@]} helper utilities + ${#all_packages[@]} total packages via Pacman...${RESET}"
-  
+
   local total=${#all_packages[@]}
   local current=0
   local failed_packages=()
-  
+
   for pkg in "${all_packages[@]}"; do
     ((current++))
-    
+
     # Check if already installed
     if pacman -Q "$pkg" &>/dev/null; then
       print_progress "$current" "$total" "$pkg"
       print_status " [SKIP] Already installed" "$YELLOW"
       continue
     fi
-    
+
     # Try to install
     print_progress "$current" "$total" "$pkg"
     if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
@@ -105,14 +206,14 @@ install_all_packages() {
       failed_packages+=("$pkg")
     fi
   done
-  
+
   echo -e "\n${GREEN}Package installation completed (${current}/${total} packages processed)${RESET}"
-  
+
   if [ ${#failed_packages[@]} -gt 0 ]; then
     echo -e "${YELLOW}Failed packages: ${failed_packages[*]}${RESET}"
     log_warning "Some packages failed to install. Continuing with installation..."
   fi
-  
+
   echo ""
 }
 
@@ -137,9 +238,9 @@ set_sudo_pwfeedback() {
 install_cpu_microcode() {
   step "Detecting CPU and installing appropriate microcode"
   local pkg=""
-  
+
   print_progress 1 3 "Detecting CPU type"
-  
+
   if grep -q "Intel" /proc/cpuinfo; then
     print_status " [Intel CPU detected]" "$GREEN"
     pkg="intel-ucode"
@@ -165,7 +266,7 @@ install_cpu_microcode() {
       fi
     fi
   fi
-  
+
   print_progress 3 3 "CPU microcode installation complete"
   print_status " [DONE]" "$GREEN"
   echo ""
@@ -184,23 +285,23 @@ install_kernel_headers_for_all() {
   step "Installing kernel headers for all installed kernels"
   local kernel_types
   kernel_types=($(get_installed_kernel_types))
-  
+
   if [ "${#kernel_types[@]}" -eq 0 ]; then
     log_warning "No supported kernel types detected. Please check your system configuration."
     return
   fi
-  
+
   echo -e "${CYAN}Detected kernels: ${kernel_types[*]}${RESET}"
-  
+
   local total=${#kernel_types[@]}
   local current=0
-  
+
   for kernel in "${kernel_types[@]}"; do
     ((current++))
     local headers_package="${kernel}-headers"
-    
+
     print_progress "$current" "$total" "$headers_package"
-    
+
     if pacman -Q "$headers_package" &>/dev/null; then
       print_status " [SKIP] Already installed" "$YELLOW"
     else
@@ -213,7 +314,7 @@ install_kernel_headers_for_all() {
       fi
     fi
   done
-  
+
   echo -e "\n${GREEN}Kernel headers installation completed (${current}/${total} kernels processed)${RESET}\n"
 }
 
@@ -223,10 +324,12 @@ generate_locales() {
 
 # Execute ultra-fast preparation
 check_prerequisites
+detect_network_speed
 configure_pacman
 install_all_packages
 update_system
 set_sudo_pwfeedback
 install_cpu_microcode
 install_kernel_headers_for_all
-generate_locales 
+generate_locales
+install_display_server_packages
