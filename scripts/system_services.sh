@@ -1286,29 +1286,100 @@ setup_laptop_optimizations() {
   if install_packages_quietly tlp tlp-rdw; then
     log_success "TLP packages installed successfully"
 
+    # Mask conflicting services before enabling TLP
+    log_info "Masking services that conflict with TLP..."
+    sudo systemctl mask systemd-rfkill.service 2>/dev/null
+    sudo systemctl mask systemd-rfkill.socket 2>/dev/null
+
     # Enable and start TLP
     log_info "Enabling TLP service..."
     sudo systemctl enable tlp.service 2>/dev/null
     sudo systemctl start tlp.service 2>/dev/null
-
-    # Mask systemd-rfkill services (conflicts with TLP)
-    sudo systemctl mask systemd-rfkill.service 2>/dev/null
-    sudo systemctl mask systemd-rfkill.socket 2>/dev/null
 
     if systemctl is-active --quiet tlp.service; then
       log_success "TLP power management is active"
     else
       log_warning "TLP service may require a reboot to start"
     fi
+
+    # Setup power profile daemon in compatibility mode with TLP
+    log_info "Setting up power profile daemon (compatible with TLP)..."
+    setup_power_profile_daemon
+
+    # Configure TLP for compatibility with power-profiles-daemon/tuned
+    log_info "Configuring TLP compatibility mode..."
+    if ! grep -q "TLP_ENABLE=1" /etc/tlp.conf 2>/dev/null; then
+      sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
+
+# =============================================================================
+# TLP Compatibility Mode with power-profiles-daemon/tuned-ppd
+# =============================================================================
+# TLP handles: USB, disk, PCI, audio, WiFi, battery thresholds
+# Power profile daemon handles: CPU governor switching via desktop UI
+# This gives best of both worlds: comprehensive power saving + easy switching
+
+# Enable TLP
+TLP_ENABLE=1
+
+# Let power-profiles-daemon/tuned control CPU governor
+# TLP will not touch CPU scaling governor
+TLP_DEFAULT_MODE=AC
+TLP_PERSISTENT_DEFAULT=0
+
+# Disable TLP's CPU scaling control (let power profile daemon handle it)
+CPU_SCALING_GOVERNOR_ON_AC=""
+CPU_SCALING_GOVERNOR_ON_BAT=""
+
+# But keep TLP's other CPU power features
+CPU_BOOST_ON_AC=1
+CPU_BOOST_ON_BAT=0
+CPU_HWP_DYN_BOOST_ON_AC=1
+CPU_HWP_DYN_BOOST_ON_BAT=0
+
+# TLP still manages all other power features
+DISK_DEVICES="nvme0n1 sda"
+DISK_APM_LEVEL_ON_AC="254 254"
+DISK_APM_LEVEL_ON_BAT="128 128"
+
+SATA_LINKPWR_ON_AC="med_power_with_dipm max_performance"
+SATA_LINKPWR_ON_BAT="med_power_with_dipm min_power"
+
+USB_AUTOSUSPEND=1
+USB_EXCLUDE_AUDIO=1
+USB_EXCLUDE_BTUSB=0
+USB_EXCLUDE_PHONE=0
+USB_EXCLUDE_PRINTER=1
+USB_EXCLUDE_WWAN=0
+
+WIFI_PWR_ON_AC=off
+WIFI_PWR_ON_BAT=on
+
+WOL_DISABLE=Y
+
+SOUND_POWER_SAVE_ON_AC=0
+SOUND_POWER_SAVE_ON_BAT=1
+
+PCIE_ASPM_ON_AC=default
+PCIE_ASPM_ON_BAT=powersupersave
+
+RUNTIME_PM_ON_AC=on
+RUNTIME_PM_ON_BAT=auto
+
+EOF
+      log_success "TLP configured for compatibility mode"
+      log_info "TLP manages: USB, disk, PCI, audio, WiFi, battery"
+      log_info "Power profile daemon manages: CPU governor (switchable from desktop)"
+    fi
   else
     log_error "Failed to install TLP packages"
     log_warning "Power management will use default system settings"
     log_info "You can manually install TLP later with: sudo pacman -S tlp tlp-rdw"
     log_info "Continuing with installation..."
-  fi
 
-  # Setup power profile daemon (CPU generation-aware)
-  setup_power_profile_daemon
+    # Only setup power profile daemon if TLP failed to install
+    log_info "Since TLP failed, setting up alternative power management..."
+    setup_power_profile_daemon
+  fi
 
   # Apply CPU-specific optimizations
   case "$cpu_vendor" in
