@@ -346,14 +346,6 @@ log_performance "Total installation time"
 if [ ${#ERRORS[@]} -eq 0 ]; then
   ui_success "All steps completed successfully"
   ui_info "Installation log saved to: $INSTALL_LOG"
-  ui_info "Cleaning up installer files..."
-
-  # Remove state file on success
-  rm -f "$STATE_FILE"
-
-  cd "$SCRIPT_DIR/.."
-  rm -rf "$(basename "$SCRIPT_DIR")"
-  ui_success "Installer files cleaned up"
 else
   ui_warn "Some errors occurred during installation:"
   if command -v gum >/dev/null 2>&1; then

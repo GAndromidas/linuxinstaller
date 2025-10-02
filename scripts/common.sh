@@ -480,8 +480,17 @@ prompt_reboot() {
       ""|y|yes)
         echo -e "\n${CYAN}Rebooting your system...${RESET}"
         echo -e "${YELLOW}   Thank you for using Arch Installer!${RESET}\n"
-        # Silently uninstall figlet and gum before reboot
-        sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
+
+        # Cleanup if no errors occurred
+        if [ ${#ERRORS[@]} -eq 0 ]; then
+          # Silently uninstall figlet and gum
+          sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
+
+          # Remove state file, log file, and archinstaller folder
+          rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
+          cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
+        fi
+
         sudo reboot
         break
         ;;
@@ -489,6 +498,20 @@ prompt_reboot() {
         echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
         echo -e "${CYAN}   sudo reboot${RESET}"
         echo -e "${YELLOW}   Or simply restart your computer.${RESET}\n"
+
+        # Cleanup if no errors occurred
+        if [ ${#ERRORS[@]} -eq 0 ]; then
+          echo -e "${CYAN}Cleaning up installer files...${RESET}"
+
+          # Silently uninstall figlet and gum
+          sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
+
+          # Remove state file, log file, and archinstaller folder
+          rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
+          cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
+
+          echo -e "${GREEN}✓ Installer files cleaned up${RESET}\n"
+        fi
         break
         ;;
       *)
