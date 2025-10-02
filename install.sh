@@ -16,6 +16,7 @@ OPTIONS:
     -h, --help      Show this help message and exit
     -v, --verbose   Enable verbose output (show all package installation details)
     -q, --quiet     Quiet mode (minimal output)
+    -d, --dry-run   Preview what will be installed without making changes
 
 DESCRIPTION:
     Archinstaller transforms a fresh Arch Linux installation into a fully
@@ -86,6 +87,7 @@ START_TIME=$(date +%s)
 
 # Parse flags
 VERBOSE=false
+DRY_RUN=false
 for arg in "$@"; do
   case "$arg" in
     -h|--help)
@@ -97,6 +99,10 @@ for arg in "$@"; do
     --quiet|-q)
       VERBOSE=false
       ;;
+    --dry-run|-d)
+      DRY_RUN=true
+      VERBOSE=true
+      ;;
     *)
       echo "Unknown option: $arg"
       echo "Use --help for usage information"
@@ -105,6 +111,7 @@ for arg in "$@"; do
   esac
 done
 export VERBOSE
+export DRY_RUN
 export INSTALL_LOG
 
 arch_ascii
@@ -157,14 +164,35 @@ check_system_requirements
 show_menu
 export INSTALL_MODE
 
-# Prompt for sudo using UI helpers
-ui_info "Please enter your sudo password to begin the installation:"
-sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
+# Dry-run mode banner
+if [ "$DRY_RUN" = true ]; then
+  echo ""
+  echo -e "${YELLOW}========================================${RESET}"
+  echo -e "${YELLOW}         DRY-RUN MODE ENABLED${RESET}"
+  echo -e "${YELLOW}========================================${RESET}"
+  echo -e "${CYAN}Preview mode: No changes will be made${RESET}"
+  echo -e "${CYAN}Package installations will be simulated${RESET}"
+  echo -e "${CYAN}System configurations will be previewed${RESET}"
+  echo ""
+  sleep 2
+fi
 
-# Keep sudo alive
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-SUDO_KEEPALIVE_PID=$!
-trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null; save_log_on_exit' EXIT INT TERM
+# Prompt for sudo using UI helpers
+if [ "$DRY_RUN" = false ]; then
+  ui_info "Please enter your sudo password to begin the installation:"
+  sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
+else
+  ui_info "Dry-run mode: Skipping sudo authentication"
+fi
+
+# Keep sudo alive (skip in dry-run mode)
+if [ "$DRY_RUN" = false ]; then
+  while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+  SUDO_KEEPALIVE_PID=$!
+  trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null; save_log_on_exit' EXIT INT TERM
+else
+  trap 'save_log_on_exit' EXIT INT TERM
+fi
 
 # State tracking for error recovery
 STATE_FILE="$HOME/.archinstaller.state"
@@ -304,7 +332,17 @@ if ! is_step_complete "maintenance"; then
 else
   ui_info "Step 10 (Maintenance) already completed - skipping"
 fi
-print_header "Installation Completed Successfully"
+if [ "$DRY_RUN" = true ]; then
+  print_header "Dry-Run Preview Completed"
+  echo ""
+  echo -e "${YELLOW}This was a preview run. No changes were made to your system.${RESET}"
+  echo ""
+  echo -e "${CYAN}To perform the actual installation, run:${RESET}"
+  echo -e "${GREEN}  ./install.sh${RESET}"
+  echo ""
+else
+  print_header "Installation Completed Successfully"
+fi
 echo ""
 echo -e "${YELLOW}What's been set up for you:${RESET}"
 echo -e "  - Desktop environment with essential applications"

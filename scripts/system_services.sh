@@ -599,41 +599,36 @@ is_laptop() {
 # Function to detect CPU generation and recommend power profile daemon
 detect_power_profile_daemon() {
   local cpu_vendor=$(detect_cpu_vendor)
-  local recommended_daemon=""
+  local recommended_daemon="tuned-ppd"  # Default to safer choice
+  local cpu_model=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | xargs)
+
+  # Simple logic: Check kernel version and CPU family for modern support
+  # power-profiles-daemon requires kernel 5.17+ and modern CPU (Zen 3+ or Skylake+)
+  local kernel_major=$(uname -r | cut -d. -f1)
+  local kernel_minor=$(uname -r | cut -d. -f2)
 
   if [ "$cpu_vendor" = "intel" ]; then
-    # Check Intel generation
-    local cpu_model=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | xargs)
-
-    # Intel Atom, Celeron, Pentium - use tuned-ppd
+    # Budget Intel CPUs - always use tuned-ppd
     if echo "$cpu_model" | grep -qiE "Atom|Celeron|Pentium"; then
       recommended_daemon="tuned-ppd"
-      log_info "Intel Atom/Celeron/Pentium detected - tuned-ppd recommended"
-    # 6th gen and newer (Skylake+) - power-profiles-daemon works
-    elif echo "$cpu_model" | grep -qiE "i[3579]-[6789][0-9]{3}|i[3579]-1[0-9]{4}"; then
+      log_info "Intel budget CPU detected - tuned-ppd recommended"
+    # Modern kernel + Core i-series = likely 6th gen+ = power-profiles-daemon OK
+    elif [ "$kernel_major" -ge 6 ] && echo "$cpu_model" | grep -qiE "Core.*i[3579]"; then
       recommended_daemon="power-profiles-daemon"
-      log_info "Modern Intel CPU (6th gen+) - power-profiles-daemon supported"
+      log_info "Modern Intel CPU with recent kernel - power-profiles-daemon supported"
     else
-      # Older Intel (pre-Skylake) - use tuned-ppd
       recommended_daemon="tuned-ppd"
-      log_info "Older Intel CPU - tuned-ppd recommended"
+      log_info "Older Intel CPU or kernel - tuned-ppd recommended"
     fi
   elif [ "$cpu_vendor" = "amd" ]; then
-    # Check AMD generation
-    local cpu_model=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | xargs)
-
-    # Ryzen 5000 series and newer - power-profiles-daemon works
-    if echo "$cpu_model" | grep -qiE "Ryzen.*[5-9][0-9]{3}"; then
+    # Simple check: Ryzen with 5 or higher first digit = likely 5000+ series
+    # Modern kernel required for proper AMD P-State support
+    if [ "$kernel_major" -ge 6 ] && echo "$cpu_model" | grep -qiE "Ryzen.*(5[0-9]{3}|[6-9][0-9]{3})"; then
       recommended_daemon="power-profiles-daemon"
-      log_info "Modern AMD Ryzen (5000+) - power-profiles-daemon supported"
-    # Ryzen 1000-4000 series (includes 2500U, 2600, 3500U, etc.) - use tuned-ppd
-    elif echo "$cpu_model" | grep -qiE "Ryzen.*[1-4][0-9]{3}"; then
-      recommended_daemon="tuned-ppd"
-      log_info "AMD Ryzen 1st-4th gen (1000-4000 series) - tuned-ppd recommended"
+      log_info "Modern AMD Ryzen (5000+ series) - power-profiles-daemon supported"
     else
-      # Other AMD (older) - use tuned-ppd
       recommended_daemon="tuned-ppd"
-      log_info "Older AMD CPU - tuned-ppd recommended"
+      log_info "AMD CPU (Ryzen 1st-4th gen or older) - tuned-ppd recommended"
     fi
   else
     # Unknown CPU - default to tuned-ppd (safer choice)
@@ -680,7 +675,7 @@ setup_power_profile_daemon() {
       fi
     else
       log_warning "yay not available - cannot install tuned-ppd from AUR"
-      log_info "Will use TLP for power management instead"
+      log_info "Using kernel's built-in power management"
     fi
   fi
 }
@@ -1089,40 +1084,16 @@ setup_intel_laptop_optimizations() {
   sudo systemctl start thermald.service 2>/dev/null
 
   if systemctl is-active --quiet thermald.service; then
-    log_success "Intel thermald is active (automatic thermal management)"
+    log_success "thermald is active for thermal management"
   else
-    log_warning "thermald service may require a reboot to start"
+    log_warning "thermald may require a reboot"
   fi
 
-  # Configure Intel P-State driver if available
+  # Check if Intel P-State driver is available
   if [ -d /sys/devices/system/cpu/intel_pstate ]; then
-    log_info "Intel P-State driver detected"
-
-    # Create TLP configuration for Intel
-    sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
-
-# Intel-specific power management settings
-CPU_SCALING_GOVERNOR_ON_AC=powersave
-CPU_SCALING_GOVERNOR_ON_BAT=powersave
-CPU_ENERGY_PERF_POLICY_ON_AC=balance_performance
-CPU_ENERGY_PERF_POLICY_ON_BAT=power
-CPU_BOOST_ON_AC=1
-CPU_BOOST_ON_BAT=0
-CPU_HWP_DYN_BOOST_ON_AC=1
-CPU_HWP_DYN_BOOST_ON_BAT=0
-
-# Intel GPU power management
-INTEL_GPU_MIN_FREQ_ON_AC=0
-INTEL_GPU_MIN_FREQ_ON_BAT=0
-INTEL_GPU_MAX_FREQ_ON_AC=0
-INTEL_GPU_MAX_FREQ_ON_BAT=0
-INTEL_GPU_BOOST_FREQ_ON_AC=0
-INTEL_GPU_BOOST_FREQ_ON_BAT=0
-EOF
-
-    log_success "Intel P-State and GPU power management configured"
+    log_success "Intel P-State driver detected - kernel will manage CPU power"
   else
-    log_info "Intel P-State driver not available (using generic CPU scaling)"
+    log_info "Using ACPI CPUfreq driver for CPU power management"
   fi
 
   log_success "Intel-specific optimizations completed"
@@ -1134,57 +1105,12 @@ setup_amd_laptop_optimizations() {
 
   # Check for AMD P-State driver
   if [ -d /sys/devices/system/cpu/amd_pstate ]; then
-    log_info "AMD P-State driver detected"
-
-    # Create TLP configuration for AMD
-    sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
-
-# AMD-specific power management settings
-CPU_SCALING_GOVERNOR_ON_AC=schedutil
-CPU_SCALING_GOVERNOR_ON_BAT=schedutil
-CPU_ENERGY_PERF_POLICY_ON_AC=balance_performance
-CPU_ENERGY_PERF_POLICY_ON_BAT=power
-CPU_BOOST_ON_AC=1
-CPU_BOOST_ON_BAT=0
-
-# AMD GPU power management (for integrated graphics)
-RADEON_DPM_PERF_LEVEL_ON_AC=auto
-RADEON_DPM_PERF_LEVEL_ON_BAT=low
-RADEON_DPM_STATE_ON_AC=performance
-RADEON_DPM_STATE_ON_BAT=battery
-RADEON_POWER_PROFILE_ON_AC=default
-RADEON_POWER_PROFILE_ON_BAT=low
-EOF
-
-    log_success "AMD P-State and GPU power management configured"
+    log_success "AMD P-State driver detected - kernel will manage CPU power efficiently"
+    log_info "Modern Ryzen CPUs (5000+ series) have excellent power management built-in"
   else
     log_info "AMD P-State driver not available (using ACPI CPUfreq driver)"
     log_info "This is normal for Ryzen 1st-3rd gen mobile CPUs (2000-3000 series)"
-
-    # Enhanced fallback configuration for older AMD CPUs (Ryzen 1st-3rd gen)
-    sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
-
-# AMD Ryzen 1st-3rd gen power management settings
-# Optimized for Ryzen 2000/3000 series mobile (2500U, 3500U, etc.)
-CPU_SCALING_GOVERNOR_ON_AC=ondemand
-CPU_SCALING_GOVERNOR_ON_BAT=powersave
-
-# CPU Boost (Precision Boost for Ryzen)
-CPU_BOOST_ON_AC=1
-CPU_BOOST_ON_BAT=0
-
-# CPU performance vs energy
-CPU_MIN_PERF_ON_AC=0
-CPU_MAX_PERF_ON_AC=100
-CPU_MIN_PERF_ON_BAT=0
-CPU_MAX_PERF_ON_BAT=30
-
-# Turbo boost management
-SCHED_POWERSAVE_ON_AC=0
-SCHED_POWERSAVE_ON_BAT=1
-EOF
-
-    log_success "AMD ACPI CPUfreq configuration applied (suitable for Ryzen 2000/3000 series)"
+    log_success "Kernel ACPI CPUfreq driver will handle power management"
   fi
 
   log_success "AMD-specific optimizations completed"
@@ -1209,10 +1135,9 @@ setup_laptop_optimizations() {
   if command -v gum >/dev/null 2>&1; then
     echo ""
     gum style --foreground 226 "Laptop-specific optimizations available:"
-    gum style --margin "0 2" --foreground 15 "• TLP for advanced power management"
+    gum style --margin "0 2" --foreground 15 "• Power profile management (tuned-ppd or power-profiles-daemon)"
     gum style --margin "0 2" --foreground 15 "• Touchpad tap-to-click and gestures"
-    gum style --margin "0 2" --foreground 15 "• Battery threshold configuration"
-    gum style --margin "0 2" --foreground 15 "• Automatic screen brightness"
+    gum style --margin "0 2" --foreground 15 "• CPU-specific optimizations"
     echo ""
     if gum confirm --default=true "Enable laptop optimizations?"; then
       enable_laptop_opts=true
@@ -1220,10 +1145,9 @@ setup_laptop_optimizations() {
   else
     echo ""
     echo -e "${YELLOW}Laptop-specific optimizations available:${RESET}"
-    echo -e "  • TLP for advanced power management"
+    echo -e "  • Power profile management (tuned-ppd or power-profiles-daemon)"
     echo -e "  • Touchpad tap-to-click and gestures"
-    echo -e "  • Battery threshold configuration"
-    echo -e "  • Automatic screen brightness"
+    echo -e "  • CPU-specific optimizations"
     echo ""
     read -r -p "Enable laptop optimizations? [Y/n]: " response
     response=${response,,}
@@ -1237,149 +1161,12 @@ setup_laptop_optimizations() {
     return 0
   fi
 
-  # Install TLP for power management
-  step "Installing TLP power management"
-  log_info "TLP provides automatic power management for laptops"
+  # Setup power profile management (kernel + power-profiles-daemon/tuned-ppd)
+  step "Setting up power profile management"
+  log_info "Modern kernels handle power management well"
+  log_info "Adding user-friendly profile switching via power-profiles-daemon or tuned-ppd"
 
-  # Ensure package database is fully synced before installation
-  log_info "Syncing package database..."
-
-  # Wait for any existing pacman processes to complete
-  local wait_count=0
-  while sudo fuser /var/lib/pacman/db.lck >/dev/null 2>&1; do
-    if [ $wait_count -eq 0 ]; then
-      log_warning "Pacman database is locked. Waiting for other pacman processes to finish..."
-    fi
-    sleep 2
-    ((wait_count++))
-    if [ $wait_count -gt 30 ]; then
-      log_error "Pacman lock timeout after 60 seconds"
-      log_warning "If no pacman process is running, unlock with: sudo rm /var/lib/pacman/db.lck"
-      log_info "Or use the 'unlock' alias if configured in your shell"
-      break
-    fi
-  done
-
-  # Force a full database refresh
-  if ! sudo pacman -Syy --noconfirm 2>&1 | tee -a "$INSTALL_LOG"; then
-    log_error "Failed to sync package database"
-    log_warning "This may cause package installation failures"
-  else
-    log_success "Package database synced successfully"
-  fi
-
-  # Verify TLP packages are available in repositories
-  log_info "Verifying TLP availability..."
-  if ! pacman -Ss "^tlp$" | grep -q "extra/tlp"; then
-    log_error "TLP package not found in repositories"
-    log_warning "Your mirrors may be out of date or incorrectly configured"
-    log_info "Try running: sudo pacman -Syy"
-    log_info "Or update your mirrorlist with rate-mirrors: sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch && sudo pacman -Syy"
-    log_warning "Skipping TLP installation"
-    return
-  fi
-  if ! pacman -Ss "^tlp-rdw$" | grep -q "extra/tlp-rdw"; then
-    log_warning "tlp-rdw package not found, but will try to install tlp alone"
-  fi
-
-  # Install TLP packages
-  if install_packages_quietly tlp tlp-rdw; then
-    log_success "TLP packages installed successfully"
-
-    # Mask conflicting services before enabling TLP
-    log_info "Masking services that conflict with TLP..."
-    sudo systemctl mask systemd-rfkill.service 2>/dev/null
-    sudo systemctl mask systemd-rfkill.socket 2>/dev/null
-
-    # Enable and start TLP
-    log_info "Enabling TLP service..."
-    sudo systemctl enable tlp.service 2>/dev/null
-    sudo systemctl start tlp.service 2>/dev/null
-
-    if systemctl is-active --quiet tlp.service; then
-      log_success "TLP power management is active"
-    else
-      log_warning "TLP service may require a reboot to start"
-    fi
-
-    # Setup power profile daemon in compatibility mode with TLP
-    log_info "Setting up power profile daemon (compatible with TLP)..."
-    setup_power_profile_daemon
-
-    # Configure TLP for compatibility with power-profiles-daemon/tuned
-    log_info "Configuring TLP compatibility mode..."
-    if ! grep -q "TLP_ENABLE=1" /etc/tlp.conf 2>/dev/null; then
-      sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
-
-# =============================================================================
-# TLP Compatibility Mode with power-profiles-daemon/tuned-ppd
-# =============================================================================
-# TLP handles: USB, disk, PCI, audio, WiFi, battery thresholds
-# Power profile daemon handles: CPU governor switching via desktop UI
-# This gives best of both worlds: comprehensive power saving + easy switching
-
-# Enable TLP
-TLP_ENABLE=1
-
-# Let power-profiles-daemon/tuned control CPU governor
-# TLP will not touch CPU scaling governor
-TLP_DEFAULT_MODE=AC
-TLP_PERSISTENT_DEFAULT=0
-
-# Disable TLP's CPU scaling control (let power profile daemon handle it)
-CPU_SCALING_GOVERNOR_ON_AC=""
-CPU_SCALING_GOVERNOR_ON_BAT=""
-
-# But keep TLP's other CPU power features
-CPU_BOOST_ON_AC=1
-CPU_BOOST_ON_BAT=0
-CPU_HWP_DYN_BOOST_ON_AC=1
-CPU_HWP_DYN_BOOST_ON_BAT=0
-
-# TLP still manages all other power features
-DISK_DEVICES="nvme0n1 sda"
-DISK_APM_LEVEL_ON_AC="254 254"
-DISK_APM_LEVEL_ON_BAT="128 128"
-
-SATA_LINKPWR_ON_AC="med_power_with_dipm max_performance"
-SATA_LINKPWR_ON_BAT="med_power_with_dipm min_power"
-
-USB_AUTOSUSPEND=1
-USB_EXCLUDE_AUDIO=1
-USB_EXCLUDE_BTUSB=0
-USB_EXCLUDE_PHONE=0
-USB_EXCLUDE_PRINTER=1
-USB_EXCLUDE_WWAN=0
-
-WIFI_PWR_ON_AC=off
-WIFI_PWR_ON_BAT=on
-
-WOL_DISABLE=Y
-
-SOUND_POWER_SAVE_ON_AC=0
-SOUND_POWER_SAVE_ON_BAT=1
-
-PCIE_ASPM_ON_AC=default
-PCIE_ASPM_ON_BAT=powersupersave
-
-RUNTIME_PM_ON_AC=on
-RUNTIME_PM_ON_BAT=auto
-
-EOF
-      log_success "TLP configured for compatibility mode"
-      log_info "TLP manages: USB, disk, PCI, audio, WiFi, battery"
-      log_info "Power profile daemon manages: CPU governor (switchable from desktop)"
-    fi
-  else
-    log_error "Failed to install TLP packages"
-    log_warning "Power management will use default system settings"
-    log_info "You can manually install TLP later with: sudo pacman -S tlp tlp-rdw"
-    log_info "Continuing with installation..."
-
-    # Only setup power profile daemon if TLP failed to install
-    log_info "Since TLP failed, setting up alternative power management..."
-    setup_power_profile_daemon
-  fi
+  setup_power_profile_daemon
 
   # Apply CPU-specific optimizations
   case "$cpu_vendor" in
@@ -1390,13 +1177,7 @@ EOF
       setup_amd_laptop_optimizations
       ;;
     *)
-      log_warning "Unknown CPU vendor. Applying generic TLP configuration."
-      sudo tee -a /etc/tlp.conf >/dev/null << 'EOF'
-
-# Generic power management settings
-CPU_SCALING_GOVERNOR_ON_AC=ondemand
-CPU_SCALING_GOVERNOR_ON_BAT=powersave
-EOF
+      log_info "Unknown CPU vendor - using kernel defaults for power management"
       ;;
   esac
 
@@ -1422,6 +1203,15 @@ EOF
 
   log_success "Touchpad configured (tap-to-click, natural scrolling, disable-while-typing)"
 
+  # Install touchpad gestures
+  install_touchpad_gestures
+
+  # Show summary
+  show_laptop_summary
+}
+
+# Function to install touchpad gesture support
+install_touchpad_gestures() {
   # Detect touchpad type and capabilities before installing gestures
   step "Detecting touchpad hardware"
 
@@ -1638,7 +1428,10 @@ EOF
       echo ""
     fi
   fi
+}
 
+# Continue setup_laptop_optimizations function
+show_laptop_summary() {
   # Display battery information
   step "Battery information"
   if [ -d /sys/class/power_supply/BAT0 ]; then
@@ -1648,31 +1441,36 @@ EOF
     log_info "Battery Capacity: ${battery_capacity}%"
   fi
 
-  # Show TLP status
-  if command -v tlp-stat >/dev/null 2>&1; then
-    log_info "TLP is managing power. View status with: sudo tlp-stat"
-    log_info "TLP configuration file: /etc/tlp.conf"
+  # Show power management info
+  if command -v tuned-adm >/dev/null 2>&1; then
+    log_info "Power profiles managed by tuned-ppd. Use: tuned-adm list"
+  elif command -v powerprofilesctl >/dev/null 2>&1; then
+    log_info "Power profiles managed by power-profiles-daemon. Use: powerprofilesctl"
   fi
 
   echo ""
   log_success "Laptop optimizations completed successfully"
   echo ""
   echo -e "${CYAN}Laptop features configured:${RESET}"
-  echo -e "  • TLP power management (automatic battery optimization)"
+  echo -e "  • Kernel-based power management (automatic)"
+  if command -v tuned-adm >/dev/null 2>&1; then
+    echo -e "  • tuned-ppd for power profile switching"
+  elif command -v powerprofilesctl >/dev/null 2>&1; then
+    echo -e "  • power-profiles-daemon for power profile switching"
+  fi
   case "$cpu_vendor" in
     intel)
       echo -e "  • Intel thermald (thermal management)"
-      echo -e "  • Intel P-State power management"
-      echo -e "  • Intel GPU power optimization"
+      if [ -d /sys/devices/system/cpu/intel_pstate ]; then
+        echo -e "  • Intel P-State driver (efficient CPU scaling)"
+      fi
       ;;
     amd)
       if [ -d /sys/devices/system/cpu/amd_pstate ]; then
-        echo -e "  • AMD P-State power management (Ryzen 5000+)"
+        echo -e "  • AMD P-State driver (Ryzen 5000+ efficient scaling)"
       else
-        echo -e "  • AMD ACPI CPUfreq scaling (Ryzen 1st-3rd gen)"
-        echo -e "  • Optimized for Ryzen Mobile 2000/3000 series"
+        echo -e "  • ACPI CPUfreq driver (Ryzen 1st-4th gen)"
       fi
-      echo -e "  • AMD Radeon GPU power optimization (Vega iGPU)"
       ;;
   esac
   echo -e "  • Touchpad tap-to-click enabled"
@@ -1683,10 +1481,15 @@ EOF
   fi
   echo ""
   echo -e "${YELLOW}Tips:${RESET}"
-  echo -e "  • Check power stats: ${CYAN}sudo tlp-stat${RESET}"
-  echo -e "  • Battery info: ${CYAN}sudo tlp-stat -b${RESET}"
-  echo -e "  • CPU info: ${CYAN}sudo tlp-stat -p${RESET}"
-  echo -e "  • Edit TLP config: ${CYAN}sudo nano /etc/tlp.conf${RESET}"
+  if command -v tuned-adm >/dev/null 2>&1; then
+    echo -e "  • List power profiles: ${CYAN}tuned-adm list${RESET}"
+    echo -e "  • Switch to powersave: ${CYAN}tuned-adm profile powersave${RESET}"
+    echo -e "  • Switch to performance: ${CYAN}tuned-adm profile performance${RESET}"
+    echo -e "  • Check active profile: ${CYAN}tuned-adm active${RESET}"
+  elif command -v powerprofilesctl >/dev/null 2>&1; then
+    echo -e "  • List power profiles: ${CYAN}powerprofilesctl list${RESET}"
+    echo -e "  • Switch profile: ${CYAN}powerprofilesctl set performance${RESET}"
+  fi
   if [ "$cpu_vendor" = "intel" ]; then
     echo -e "  • Thermal status: ${CYAN}sudo systemctl status thermald${RESET}"
   fi
