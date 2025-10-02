@@ -971,7 +971,7 @@ detect_de_version() {
       ;;
     *KDE*|*Plasma*)
       if command -v plasmashell >/dev/null 2>&1; then
-        local plasma_version=$(plasmashell --version | grep -oP '\d+' | head -1)
+        local plasma_version=$(plasmashell --version 2>/dev/null | grep -oP '\d+' | head -1)
         log_success "KDE Plasma version: $plasma_version"
         if [ "$plasma_version" -ge 6 ]; then
           log_info "KDE Plasma 6 detected (Qt6-based)"

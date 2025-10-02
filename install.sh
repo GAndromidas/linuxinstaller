@@ -356,7 +356,7 @@ else
   ui_warn "Some errors occurred during installation:"
   if command -v gum >/dev/null 2>&1; then
     for error in "${ERRORS[@]}"; do
-      gum style --margin "0 2" --foreground 196 "- $error"
+      echo "   - $error" | gum style --foreground 196
     done
   else
     for error in "${ERRORS[@]}"; do
