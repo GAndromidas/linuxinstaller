@@ -1363,25 +1363,25 @@ gesture pinch in xdotool key ctrl+minus
 gesture pinch out xdotool key ctrl+plus
 EOF
 
-      log_success "Touchpad gestures configured"
-      log_info "Gestures will be available after next login"
-      log_info "To customize: edit ~/.config/libinput-gestures.conf"
+    log_success "Touchpad gestures configured"
+    log_info "Gestures will be available after next login"
+    log_info "To customize: edit ~/.config/libinput-gestures.conf"
 
-      # Provide troubleshooting info if touchpad has limitations
-      if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
-        echo ""
-        log_warning "Touchpad gesture troubleshooting:"
-        log_info "If gestures don't work after reboot, try:"
-        log_info "  1. Check device: libinput list-devices"
-        log_info "  2. Test touchpad: sudo libinput debug-events"
-        log_info "  3. Check logs: journalctl -xe | grep libinput"
-        log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
-        log_info ""
-        log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
-        log_info "which may only support 2-finger gestures, not 3-finger."
-        echo ""
-      fi
+    # Provide troubleshooting info if touchpad has limitations
+    if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
+      echo ""
+      log_warning "Touchpad gesture troubleshooting:"
+      log_info "If gestures don't work after reboot, try:"
+      log_info "  1. Check device: libinput list-devices"
+      log_info "  2. Test touchpad: sudo libinput debug-events"
+      log_info "  3. Check logs: journalctl -xe | grep libinput"
+      log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
+      log_info ""
+      log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
+      log_info "which may only support 2-finger gestures, not 3-finger."
+      echo ""
     fi
+  fi
   else
     if [ "$touchpad_detected" = false ]; then
       log_warning "No touchpad detected. Gesture support may not work on this device."
@@ -1437,24 +1437,23 @@ gesture pinch in xdotool key ctrl+minus
 gesture pinch out xdotool key ctrl+plus
 EOF
 
-      log_success "Touchpad gestures configured"
-      log_info "Gestures will be available after next login"
-      log_info "To customize: edit ~/.config/libinput-gestures.conf"
+    log_success "Touchpad gestures configured"
+    log_info "Gestures will be available after next login"
+    log_info "To customize: edit ~/.config/libinput-gestures.conf"
 
-      # Provide troubleshooting info if touchpad has limitations
-      if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
-        echo ""
-        log_warning "Touchpad gesture troubleshooting:"
-        log_info "If gestures don't work after reboot, try:"
-        log_info "  1. Check device: libinput list-devices"
-        log_info "  2. Test touchpad: sudo libinput debug-events"
-        log_info "  3. Check logs: journalctl -xe | grep libinput"
-        log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
-        log_info ""
-        log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
-        log_info "which may only support 2-finger gestures, not 3-finger."
-        echo ""
-      fi
+    # Provide troubleshooting info if touchpad has limitations
+    if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
+      echo ""
+      log_warning "Touchpad gesture troubleshooting:"
+      log_info "If gestures don't work after reboot, try:"
+      log_info "  1. Check device: libinput list-devices"
+      log_info "  2. Test touchpad: sudo libinput debug-events"
+      log_info "  3. Check logs: journalctl -xe | grep libinput"
+      log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
+      log_info ""
+      log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
+      log_info "which may only support 2-finger gestures, not 3-finger."
+      echo ""
     fi
   fi
 
