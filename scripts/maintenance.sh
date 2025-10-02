@@ -40,7 +40,10 @@ setup_maintenance() {
     log_info "No orphaned packages found"
   fi
 
-  run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm || true
+  # Only attempt to remove yay-debug if it's actually installed
+  if pacman -Q yay-debug &>/dev/null; then
+    run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm
+  fi
 }
 
 cleanup_helpers() {
