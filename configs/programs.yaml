@@ -15,6 +15,8 @@ pacman:
       description: "Open-source web browser"
     - name: "cmatrix"
       description: "Matrix-style terminal screensaver"
+    - name: "cpupower"
+      description: "CPU frequency and power management utilities"
     - name: "dosfstools"
       description: "DOS filesystem utilities"
     - name: "duf"
