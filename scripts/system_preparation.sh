@@ -5,12 +5,27 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+# Function to install speedtest-cli silently if not available
+install_speedtest_cli() {
+  if ! command -v speedtest-cli >/dev/null 2>&1; then
+    log_info "Installing speedtest-cli for network speed detection..."
+    if sudo pacman -S --noconfirm --needed speedtest-cli >/dev/null 2>&1; then
+      log_success "speedtest-cli installed successfully"
+      return 0
+    else
+      log_warning "Failed to install speedtest-cli - will skip network speed test"
+      return 1
+    fi
+  fi
+  return 0
+}
+
 # Function to detect network speed and optimize downloads
 detect_network_speed() {
   step "Testing network speed and optimizing download settings"
 
-  # Check if speedtest-cli is available
-  if ! command -v speedtest-cli >/dev/null 2>&1; then
+  # Install speedtest-cli if not available
+  if ! install_speedtest_cli; then
     log_warning "speedtest-cli not available - skipping network speed test"
     return
   fi
@@ -279,7 +294,7 @@ generate_locales() {
 
 # Execute ultra-fast preparation
 check_prerequisites
-detect_network_speed
+detect_network_speed  # This now installs speedtest-cli silently before testing
 configure_pacman
 install_all_packages
 update_system
