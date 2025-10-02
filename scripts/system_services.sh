@@ -1241,12 +1241,45 @@ setup_laptop_optimizations() {
   step "Installing TLP power management"
   log_info "TLP provides automatic power management for laptops"
 
-  # Ensure package database is synced before installation
+  # Ensure package database is fully synced before installation
   log_info "Syncing package database..."
-  if ! sudo pacman -Sy --noconfirm >/dev/null 2>&1; then
-    log_warning "Failed to sync package database"
-    log_info "Attempting to refresh mirrors and sync again..."
-    sudo pacman -Syy --noconfirm >/dev/null 2>&1
+
+  # Wait for any existing pacman processes to complete
+  local wait_count=0
+  while sudo fuser /var/lib/pacman/db.lck >/dev/null 2>&1; do
+    if [ $wait_count -eq 0 ]; then
+      log_warning "Pacman database is locked. Waiting for other pacman processes to finish..."
+    fi
+    sleep 2
+    ((wait_count++))
+    if [ $wait_count -gt 30 ]; then
+      log_error "Pacman lock timeout after 60 seconds"
+      log_warning "If no pacman process is running, unlock with: sudo rm /var/lib/pacman/db.lck"
+      log_info "Or use the 'unlock' alias if configured in your shell"
+      break
+    fi
+  done
+
+  # Force a full database refresh
+  if ! sudo pacman -Syy --noconfirm 2>&1 | tee -a "$INSTALL_LOG"; then
+    log_error "Failed to sync package database"
+    log_warning "This may cause package installation failures"
+  else
+    log_success "Package database synced successfully"
+  fi
+
+  # Verify TLP packages are available in repositories
+  log_info "Verifying TLP availability..."
+  if ! pacman -Ss "^tlp$" | grep -q "extra/tlp"; then
+    log_error "TLP package not found in repositories"
+    log_warning "Your mirrors may be out of date or incorrectly configured"
+    log_info "Try running: sudo pacman -Syy"
+    log_info "Or update your mirrorlist with rate-mirrors: sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch && sudo pacman -Syy"
+    log_warning "Skipping TLP installation"
+    return
+  fi
+  if ! pacman -Ss "^tlp-rdw$" | grep -q "extra/tlp-rdw"; then
+    log_warning "tlp-rdw package not found, but will try to install tlp alone"
   fi
 
   # Install TLP packages

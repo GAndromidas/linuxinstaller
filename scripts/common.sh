@@ -388,13 +388,22 @@ install_package_generic() {
         ;;
     esac
 
-    if eval "$install_cmd" >>"$INSTALL_LOG" 2>&1; then
+    # Capture both stdout and stderr for better error diagnostics
+    local error_output
+    if error_output=$(eval "$install_cmd" 2>&1); then
       $VERBOSE && ui_success "[$current/$total] $pkg [OK]"
       INSTALLED_PACKAGES+=("$pkg")
     else
       ui_error "[$current/$total] $pkg [FAIL]"
       FAILED_PACKAGES+=("$pkg")
       log_error "Failed to install $pkg via $manager_name"
+      # Log the actual error for debugging
+      echo "$error_output" >> "$INSTALL_LOG"
+      # Show last line of error if verbose or if it's a critical error
+      if $VERBOSE || [[ "$error_output" == *"error:"* ]]; then
+        local last_error=$(echo "$error_output" | grep -i "error" | tail -1)
+        [ -n "$last_error" ] && log_warning "  Error: $last_error"
+      fi
       ((failed++))
     fi
   done
