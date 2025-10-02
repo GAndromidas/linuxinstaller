@@ -1381,7 +1381,6 @@ EOF
       log_info "which may only support 2-finger gestures, not 3-finger."
       echo ""
     fi
-  fi
   else
     if [ "$touchpad_detected" = false ]; then
       log_warning "No touchpad detected. Gesture support may not work on this device."
