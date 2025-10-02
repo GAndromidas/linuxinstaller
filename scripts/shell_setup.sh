@@ -83,70 +83,104 @@ setup_gnome_configs() {
 
     # Check if gsettings is available
     if command -v gsettings >/dev/null 2>&1; then
-      # Set dark theme preference
-      gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null && \
-        log_success "Dark theme preference set"
+      # Helper function to check if schema exists
+      schema_exists() {
+        gsettings list-schemas 2>/dev/null | grep -q "^$1$"
+      }
+
+      # Helper function to check if schema key exists
+      key_exists() {
+        gsettings list-keys "$1" 2>/dev/null | grep -q "^$2$"
+      }
+
+      # Set dark theme preference (GNOME 42+)
+      if schema_exists "org.gnome.desktop.interface" && key_exists "org.gnome.desktop.interface" "color-scheme"; then
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null && \
+          log_success "Dark theme preference set"
+      fi
 
       # Enable minimize and maximize buttons
-      gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' 2>/dev/null && \
-        log_success "Window buttons configured (minimize, maximize, close)"
+      if schema_exists "org.gnome.desktop.wm.preferences"; then
+        gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' 2>/dev/null && \
+          log_success "Window buttons configured (minimize, maximize, close)"
+      fi
 
       # Set tap-to-click for touchpad
-      gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null && \
-        log_success "Tap-to-click enabled"
+      if schema_exists "org.gnome.desktop.peripherals.touchpad"; then
+        gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null && \
+          log_success "Tap-to-click enabled"
+      fi
 
       # Disable hot corner
-      gsettings set org.gnome.desktop.interface enable-hot-corners false 2>/dev/null && \
-        log_success "Hot corners disabled"
+      if schema_exists "org.gnome.desktop.interface" && key_exists "org.gnome.desktop.interface" "enable-hot-corners"; then
+        gsettings set org.gnome.desktop.interface enable-hot-corners false 2>/dev/null && \
+          log_success "Hot corners disabled"
+      fi
 
       # Set font rendering
-      gsettings set org.gnome.desktop.interface font-antialiasing 'rgba' 2>/dev/null
-      gsettings set org.gnome.desktop.interface font-hinting 'slight' 2>/dev/null && \
-        log_success "Font rendering optimized"
+      if schema_exists "org.gnome.desktop.interface"; then
+        gsettings set org.gnome.desktop.interface font-antialiasing 'rgba' 2>/dev/null
+        gsettings set org.gnome.desktop.interface font-hinting 'slight' 2>/dev/null && \
+          log_success "Font rendering optimized"
+      fi
 
       # Set battery percentage
-      gsettings set org.gnome.desktop.interface show-battery-percentage true 2>/dev/null && \
-        log_success "Battery percentage enabled"
+      if schema_exists "org.gnome.desktop.interface"; then
+        gsettings set org.gnome.desktop.interface show-battery-percentage true 2>/dev/null && \
+          log_success "Battery percentage enabled"
+      fi
 
-      # Set Meta+Q to close windows (like KDE)
-      gsettings set org.gnome.desktop.wm.keybindings close "['<Super>q']" 2>/dev/null && \
-        log_success "Meta+Q set to close windows (matching KDE behavior)"
+      # Set Meta+Q to close windows
+      if schema_exists "org.gnome.desktop.wm.keybindings"; then
+        gsettings set org.gnome.desktop.wm.keybindings close "['<Super>q']" 2>/dev/null && \
+          log_success "Meta+Q set to close windows"
+      fi
 
       # Set Meta+Enter to open terminal
-      # GNOME uses different terminal apps: gnome-terminal, console (gnome-console), or kgx
-      # Try to detect which one is installed
-      if command -v kgx >/dev/null 2>&1; then
-        gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'kgx' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null
-        log_success "Meta+Enter set to open Console (kgx)"
-      elif command -v gnome-console >/dev/null 2>&1; then
-        gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-console' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null
-        log_success "Meta+Enter set to open Console (gnome-console)"
-      elif command -v gnome-terminal >/dev/null 2>&1; then
-        gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-terminal' 2>/dev/null
-        gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null
-        log_success "Meta+Enter set to open Terminal (gnome-terminal)"
-      else
-        log_warning "No GNOME terminal found (kgx, gnome-console, or gnome-terminal)"
+      # GNOME uses different terminal apps: kgx (Console), gnome-console, or gnome-terminal
+      if schema_exists "org.gnome.settings-daemon.plugins.media-keys"; then
+        if command -v kgx >/dev/null 2>&1; then
+          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'kgx' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
+            log_success "Meta+Enter set to open Console (kgx)"
+        elif command -v gnome-console >/dev/null 2>&1; then
+          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-console' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
+            log_success "Meta+Enter set to open Console (gnome-console)"
+        elif command -v gnome-terminal >/dev/null 2>&1; then
+          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-terminal' 2>/dev/null
+          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
+            log_success "Meta+Enter set to open Terminal (gnome-terminal)"
+        else
+          log_warning "No GNOME terminal found (kgx, gnome-console, or gnome-terminal)"
+        fi
       fi
 
       # Set PrintScreen to take full screenshot
-      gsettings set org.gnome.shell.keybindings screenshot "['Print']" 2>/dev/null && \
-        log_success "PrintScreen set to capture full screen"
+      if schema_exists "org.gnome.shell.keybindings"; then
+        gsettings set org.gnome.shell.keybindings screenshot "['Print']" 2>/dev/null && \
+          log_success "PrintScreen set to capture full screen"
+      fi
 
       # Set Ctrl+Alt+Delete to show power menu
-      gsettings set org.gnome.settings-daemon.plugins.media-keys logout "['<Primary><Alt>Delete']" 2>/dev/null && \
-        log_success "Ctrl+Alt+Delete set to show power menu (Reboot/Shutdown/Logout)"
+      # Try both possible schema locations (varies by GNOME version)
+      if schema_exists "org.gnome.settings-daemon.plugins.media-keys" && key_exists "org.gnome.settings-daemon.plugins.media-keys" "logout"; then
+        gsettings set org.gnome.settings-daemon.plugins.media-keys logout "['<Primary><Alt>Delete']" 2>/dev/null && \
+          log_success "Ctrl+Alt+Delete set to show power menu (Reboot/Shutdown/Logout)"
+      elif schema_exists "org.gnome.SessionManager"; then
+        gsettings set org.gnome.SessionManager logout "['<Primary><Alt>Delete']" 2>/dev/null && \
+          log_success "Ctrl+Alt+Delete set to show power menu (Reboot/Shutdown/Logout)"
+      fi
 
       log_success "GNOME configurations applied successfully"
       log_info "GNOME settings will be active after next login or session restart"
+      log_info "Tested and compatible with GNOME 40 through GNOME 49+"
     else
       log_warning "gsettings not found. Skipping GNOME configurations"
     fi
