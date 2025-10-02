@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uo pipefail
+set -euo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,8 +23,23 @@ setup_maintenance() {
   step "Performing comprehensive system cleanup"
   run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
   run_step "Cleaning yay cache" yay -Sc --noconfirm
-  run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused --noninteractive -y
-  run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+
+  # Flatpak cleanup - remove unused packages and runtimes
+  if command -v flatpak >/dev/null 2>&1; then
+    run_step "Removing unused flatpak packages" sudo flatpak uninstall --unused --noninteractive -y
+    run_step "Removing unused flatpak runtimes" sudo flatpak uninstall --unused --noninteractive -y
+    log_success "Flatpak cleanup completed"
+  else
+    log_info "Flatpak not installed, skipping flatpak cleanup"
+  fi
+
+  # Remove orphaned packages if any exist
+  if pacman -Qtdq &>/dev/null; then
+    run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+  else
+    log_info "No orphaned packages found"
+  fi
+
   run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm || true
 }
 
@@ -352,3 +367,8 @@ setup_maintenance
 cleanup_helpers
 update_mirrorlist_with_rate_mirrors
 setup_btrfs_snapshots
+
+# Final message
+echo ""
+log_success "Maintenance and optimization completed"
+log_info "System is ready for use"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Color variables for output formatting
 RED='\033[0;31m'
@@ -13,10 +14,11 @@ TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
 TERM_HEIGHT=$(tput lines 2>/dev/null || echo 24)
 
 # Global arrays and variables
-ERRORS=()                # Collects error messages for summary
-CURRENT_STEP=1           # Tracks current step for progress display
-INSTALLED_PACKAGES=()    # Tracks installed packages
-REMOVED_PACKAGES=()      # Tracks removed packages
+ERRORS=()                   # Collects error messages for summary
+CURRENT_STEP=1              # Tracks current step for progress display
+INSTALLED_PACKAGES=()       # Tracks installed packages
+REMOVED_PACKAGES=()         # Tracks removed packages
+FAILED_PACKAGES=()          # Tracks packages that failed to install
 
 # UI/Flow configuration
 TOTAL_STEPS=10
@@ -34,6 +36,14 @@ HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch figlet flatpak
 : "${HOME:=/home/$USER}"
 : "${USER:=$(whoami)}"
 : "${XDG_CURRENT_DESKTOP:=}"
+: "${INSTALL_LOG:=$HOME/.archinstaller.log}"
+
+# ===== Logging Functions =====
+
+# Log to both console and log file
+log_to_file() {
+  echo "$1" >> "$INSTALL_LOG" 2>/dev/null || true
+}
 
 # Improved terminal output functions
 clear_line() {
@@ -236,24 +246,62 @@ show_traditional_menu() {
   done
 }
 
+# Function: step
+# Description: Prints a step header and increments step counter
+# Parameters: $1 - Step description
 step() {
-  echo -e "\n${CYAN}> $1${RESET}"
+  local msg="\n${CYAN}> $1${RESET}"
+  echo -e "$msg"
+  log_to_file "STEP: $1"
   ((CURRENT_STEP++))
 }
 
-log_success() { echo -e "${GREEN}$1${RESET}"; }
-log_warning() { echo -e "${YELLOW}! $1${RESET}"; }
-log_error()   { echo -e "${RED}$1${RESET}"; ERRORS+=("$1"); }
-log_info()    { echo -e "${CYAN}$1${RESET}"; }
+# Function: log_success
+# Description: Prints success message in green
+# Parameters: $1 - Success message
+log_success() {
+  echo -e "${GREEN}$1${RESET}"
+  log_to_file "SUCCESS: $1"
+}
 
+# Function: log_warning
+# Description: Prints warning message in yellow
+# Parameters: $1 - Warning message
+log_warning() {
+  echo -e "${YELLOW}! $1${RESET}"
+  log_to_file "WARNING: $1"
+}
+
+# Function: log_error
+# Description: Prints error message in red and adds to error array
+# Parameters: $1 - Error message
+log_error() {
+  echo -e "${RED}$1${RESET}"
+  ERRORS+=("$1")
+  log_to_file "ERROR: $1"
+}
+
+# Function: log_info
+# Description: Prints info message in cyan
+# Parameters: $1 - Info message
+log_info() {
+  echo -e "${CYAN}$1${RESET}"
+  log_to_file "INFO: $1"
+}
+
+# Function: run_step
+# Description: Runs a command with step logging and error handling
+# Parameters: $1 - Step description, $@ - Command to execute
+# Returns: 0 on success, non-zero on failure
 run_step() {
   local description="$1"
   shift
   step "$description"
-  "$@"
-  local status=$?
-  if [ $status -eq 0 ]; then
+
+  if "$@" 2>&1 | tee -a "$INSTALL_LOG" >/dev/null; then
     log_success "$description"
+
+    # Track installed packages
     if [[ "$description" == "Installing helper utilities" ]]; then
       INSTALLED_PACKAGES+=("${HELPER_UTILS[@]}")
     elif [[ "$description" == "Installing UFW firewall" ]]; then
@@ -265,70 +313,106 @@ run_step() {
     elif [[ "$description" == "Removing figlet and gum" ]]; then
       REMOVED_PACKAGES+=("figlet" "gum")
     fi
+    return 0
   else
-    log_error "$description"
+    log_error "$description failed"
+    return 1
   fi
 }
 
-# Enhanced package installation with gum progress bar and better formatting
-install_packages_quietly() {
+# Function: install_package_generic
+# Description: Generic package installer for pacman, AUR, or flatpak
+# Parameters: $1 - Package manager type (pacman|aur|flatpak), $@ - Packages to install
+# Returns: 0 on success, 1 if some packages failed
+install_package_generic() {
+  local pkg_manager="$1"
+  shift
   local pkgs=("$@")
   local total=${#pkgs[@]}
   local current=0
+  local failed=0
 
   if [ $total -eq 0 ]; then
-    if command -v gum >/dev/null 2>&1; then
-      gum style --foreground 226 "No packages to install"
-    else
-      echo -e "${YELLOW}No packages to install${RESET}"
-    fi
-    return
+    ui_info "No packages to install"
+    return 0
   fi
+
+  local manager_name
+  case "$pkg_manager" in
+    pacman) manager_name="Pacman" ;;
+    aur) manager_name="AUR" ;;
+    flatpak) manager_name="Flatpak" ;;
+    *) manager_name="Unknown" ;;
+  esac
 
   if supports_gum; then
-    gum style --foreground 51 "Installing ${total} packages via Pacman..."
-
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if pacman -Q "$pkg" &>/dev/null; then
-        $VERBOSE && gum style --foreground 226 "[$current/$total] $pkg [SKIP] Already installed"
-        continue
-      fi
-
-      $VERBOSE && gum style --foreground 15 "[$current/$total] Installing $pkg..."
-      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        $VERBOSE && gum style --foreground 46 "[$current/$total] $pkg [OK]"
-        INSTALLED_PACKAGES+=("$pkg")
-      else
-        gum style --foreground 196 "[$current/$total] $pkg [FAIL]"
-        log_error "Failed to install $pkg"
-      fi
-    done
-    gum style --foreground 46 "Package installation completed (${current}/${total} packages processed)"
+    gum style --foreground 51 "Installing ${total} packages via ${manager_name}..."
   else
-    # Fallback to traditional output
-    echo -e "${CYAN}Installing ${total} packages via Pacman...${RESET}"
-
-    for pkg in "${pkgs[@]}"; do
-      ((current++))
-      if pacman -Q "$pkg" &>/dev/null; then
-        $VERBOSE && print_progress "$current" "$total" "$pkg"
-        $VERBOSE && print_status " [SKIP] Already installed" "$YELLOW"
-        continue
-      fi
-
-      $VERBOSE && print_progress "$current" "$total" "$pkg"
-      if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
-        $VERBOSE && print_status " [OK]" "$GREEN"
-        INSTALLED_PACKAGES+=("$pkg")
-      else
-        print_status " [FAIL]" "$RED"
-        log_error "Failed to install $pkg"
-      fi
-    done
-
-    echo -e "\n${GREEN}Package installation completed (${current}/${total} packages processed)${RESET}\n"
+    echo -e "${CYAN}Installing ${total} packages via ${manager_name}...${RESET}"
   fi
+
+  for pkg in "${pkgs[@]}"; do
+    ((current++))
+
+    # Check if already installed
+    local already_installed=false
+    case "$pkg_manager" in
+      pacman)
+        pacman -Q "$pkg" &>/dev/null && already_installed=true
+        ;;
+      aur)
+        pacman -Q "$pkg" &>/dev/null && already_installed=true
+        ;;
+      flatpak)
+        flatpak list | grep -q "$pkg" &>/dev/null && already_installed=true
+        ;;
+    esac
+
+    if [ "$already_installed" = true ]; then
+      $VERBOSE && ui_info "[$current/$total] $pkg [SKIP] Already installed"
+      continue
+    fi
+
+    $VERBOSE && ui_info "[$current/$total] Installing $pkg..."
+
+    local install_cmd
+    case "$pkg_manager" in
+      pacman)
+        install_cmd="sudo pacman -S --noconfirm --needed $pkg"
+        ;;
+      aur)
+        install_cmd="yay -S --noconfirm --needed $pkg"
+        ;;
+      flatpak)
+        install_cmd="sudo flatpak install --noninteractive -y $pkg"
+        ;;
+    esac
+
+    if eval "$install_cmd" >>"$INSTALL_LOG" 2>&1; then
+      $VERBOSE && ui_success "[$current/$total] $pkg [OK]"
+      INSTALLED_PACKAGES+=("$pkg")
+    else
+      ui_error "[$current/$total] $pkg [FAIL]"
+      FAILED_PACKAGES+=("$pkg")
+      log_error "Failed to install $pkg via $manager_name"
+      ((failed++))
+    fi
+  done
+
+  if [ $failed -eq 0 ]; then
+    ui_success "Package installation completed (${current}/${total} packages processed)"
+    return 0
+  else
+    ui_warn "Package installation completed with $failed failures (${current}/${total} packages processed)"
+    return 1
+  fi
+}
+
+# Function: install_packages_quietly
+# Description: Install packages via pacman (wrapper for generic installer)
+# Parameters: $@ - Packages to install
+install_packages_quietly() {
+  install_package_generic "pacman" "$@"
 }
 
 # Batch install helper for multiple package groups
@@ -463,11 +547,14 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-# Validate file system operations
+# Function: validate_file_operation
+# Description: Validates file system operations before performing them
+# Parameters: $1 - Operation type (read|write), $2 - File path, $3 - Description
+# Returns: 0 if valid, 1 if invalid
 validate_file_operation() {
-  local operation="$1"
-  local file="$2"
-  local description="$3"
+  local operation="${1:?Operation type required}"
+  local file="${2:?File path required}"
+  local description="${3:-File operation}"
 
   # Check if file exists (for read operations)
   if [[ "$operation" == "read" ]] && [ ! -f "$file" ]; then
@@ -488,4 +575,26 @@ validate_file_operation() {
   fi
 
   return 0
+}
+
+# Function: install_aur_quietly
+# Description: Install packages via AUR helper (wrapper for generic installer)
+# Parameters: $@ - Packages to install
+install_aur_quietly() {
+  if ! command -v yay &>/dev/null; then
+    log_error "AUR helper (yay) not found. Cannot install AUR packages."
+    return 1
+  fi
+  install_package_generic "aur" "$@"
+}
+
+# Function: install_flatpak_quietly
+# Description: Install packages via Flatpak (wrapper for generic installer)
+# Parameters: $@ - Packages to install
+install_flatpak_quietly() {
+  if ! command -v flatpak &>/dev/null; then
+    log_error "Flatpak not found. Cannot install Flatpak packages."
+    return 1
+  fi
+  install_package_generic "flatpak" "$@"
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uo pipefail
+set -euo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -7,14 +7,14 @@ source "$SCRIPT_DIR/common.sh"
 
 setup_firewall_and_services() {
   step "Setting up firewall and services"
-  
+
   # First handle firewall setup
   if command -v firewalld >/dev/null 2>&1; then
     run_step "Configuring Firewalld" configure_firewalld
   else
     run_step "Configuring UFW" configure_ufw
   fi
-  
+
   # Then handle services
   run_step "Enabling system services" enable_services
 }
@@ -112,6 +112,26 @@ enable_services() {
     echo -e "  - $svc"
   done
   sudo systemctl enable --now "${services[@]}" 2>/dev/null || true
+
+  # Verify services started correctly
+  log_info "Verifying service status..."
+  local failed_services=()
+  for svc in "${services[@]}"; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      log_success "$svc is active"
+    elif systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+      log_warning "$svc is enabled but not running (may require reboot)"
+    else
+      log_warning "$svc failed to start or enable"
+      failed_services+=("$svc")
+    fi
+  done
+
+  if [ ${#failed_services[@]} -eq 0 ]; then
+    log_success "All services verified successfully"
+  else
+    log_warning "Some services may need attention: ${failed_services[*]}"
+  fi
 }
 
 # Function to get total RAM in GB
@@ -139,7 +159,7 @@ get_zram_multiplier() {
     32) echo "0.25" ;;    # 32GB RAM -> 25% ZRAM (8GB)
     48) echo "0.25" ;;    # 48GB RAM -> 25% ZRAM (12GB)
     64) echo "0.2" ;;     # 64GB RAM -> 20% ZRAM (12.8GB)
-    *) 
+    *)
       # For other sizes, use a dynamic calculation
       if [ $ram_gb -le 4 ]; then
         echo "1.0"
@@ -154,6 +174,52 @@ get_zram_multiplier() {
       fi
       ;;
   esac
+}
+
+# Function to check and manage traditional swap
+check_traditional_swap() {
+  step "Checking for traditional swap partitions/files"
+
+  # Check if any swap is active
+  if swapon --show | grep -q '/'; then
+    log_info "Traditional swap detected"
+    swapon --show
+
+    if command -v gum >/dev/null 2>&1; then
+      if gum confirm --default=true "Disable traditional swap in favor of ZRAM?"; then
+        log_info "Disabling traditional swap..."
+        sudo swapoff -a
+
+        # Comment out swap entries in fstab
+        if grep -q '^[^#].*swap' /etc/fstab; then
+          sudo sed -i.bak '/^[^#].*swap/s/^/# /' /etc/fstab
+          log_success "Traditional swap disabled and fstab updated (backup saved)"
+        fi
+      else
+        log_warning "Traditional swap kept active alongside ZRAM"
+        return 1
+      fi
+    else
+      read -r -p "Disable traditional swap in favor of ZRAM? [Y/n]: " response
+      response=${response,,}
+      if [[ "$response" != "n" && "$response" != "no" ]]; then
+        log_info "Disabling traditional swap..."
+        sudo swapoff -a
+
+        # Comment out swap entries in fstab
+        if grep -q '^[^#].*swap' /etc/fstab; then
+          sudo sed -i.bak '/^[^#].*swap/s/^/# /' /etc/fstab
+          log_success "Traditional swap disabled and fstab updated (backup saved)"
+        fi
+      else
+        log_warning "Traditional swap kept active alongside ZRAM"
+        return 1
+      fi
+    fi
+  else
+    log_info "No traditional swap detected - good for ZRAM setup"
+  fi
+  return 0
 }
 
 setup_zram_swap() {
@@ -175,6 +241,10 @@ setup_zram_swap() {
         return
       fi
     fi
+
+    # Check and manage traditional swap first
+    check_traditional_swap
+
     # Enable ZRAM service
     sudo systemctl enable systemd-zram-setup@zram0
     sudo systemctl start systemd-zram-setup@zram0
@@ -199,6 +269,19 @@ EOF
   # Enable and start ZRAM
   sudo systemctl daemon-reexec
   sudo systemctl enable --now systemd-zram-setup@zram0 2>/dev/null || true
+
+  # Verify ZRAM is active
+  if systemctl is-active --quiet systemd-zram-setup@zram0; then
+    log_success "ZRAM swap is active and configured"
+
+    # Show ZRAM status
+    if command -v zramctl >/dev/null 2>&1; then
+      echo -e "${CYAN}ZRAM Status:${RESET}"
+      zramctl
+    fi
+  else
+    log_warning "ZRAM service may not have started correctly"
+  fi
 }
 
 detect_and_install_gpu_drivers() {
@@ -228,11 +311,13 @@ detect_and_install_gpu_drivers() {
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
     echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "AMD drivers and Vulkan support installed."
+    log_success "AMD drivers and Vulkan support installed"
+    log_info "AMD GPU will use AMDGPU driver after reboot"
   elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
     echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa vulkan-intel lib32-vulkan-intel mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
-    log_success "Intel drivers and Vulkan support installed."
+    log_success "Intel drivers and Vulkan support installed"
+    log_info "Intel GPU will use i915 or xe driver after reboot"
   elif lspci | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
 
@@ -325,6 +410,35 @@ detect_and_install_gpu_drivers() {
   else
     echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
     install_packages_quietly mesa
+  fi
+
+  # Verify GPU driver is loaded
+  verify_gpu_driver
+}
+
+# Function to verify GPU driver is loaded correctly
+verify_gpu_driver() {
+  step "Verifying GPU driver installation"
+
+  # Check which driver is in use
+  if lspci -k | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
+    log_info "GPU driver status:"
+    lspci -k | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
+    log_success "GPU driver is loaded and in use"
+  else
+    log_warning "Could not verify GPU driver status"
+    log_info "Run 'lspci -k | grep -A 3 -iE \"vga|3d|display\"' after reboot to check driver"
+  fi
+
+  # Check for Vulkan support
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    if vulkaninfo --summary &>/dev/null; then
+      log_success "Vulkan support verified"
+    else
+      log_warning "Vulkan may not be properly configured"
+    fi
+  else
+    log_info "Install vulkan-tools to verify Vulkan support: sudo pacman -S vulkan-tools"
   fi
 }
 
