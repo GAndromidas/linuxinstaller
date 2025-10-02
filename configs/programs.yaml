@@ -67,16 +67,12 @@ essential:
       description: "Video editing software"
     - name: "openrgb"
       description: "RGB lighting control software"
-    - name: "timeshift"
-      description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
     - name: "vlc-plugins-all"
       description: "All VLC plugins (required for VLC functionality)"
 
   minimal:
-    - name: "timeshift"
-      description: "System restore and backup tool"
     - name: "vlc"
       description: "Media player"
     - name: "vlc-plugins-all"
