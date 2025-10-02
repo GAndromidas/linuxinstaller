@@ -1,54 +1,9 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
-
-# Function to detect display server
-detect_display_server() {
-  if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    echo "wayland"
-  elif [ -n "${DISPLAY:-}" ]; then
-    echo "x11"
-  else
-    # Check what's installed/running
-    if command -v wayland-scanner >/dev/null 2>&1 || pgrep -x "wayland" >/dev/null 2>&1; then
-      echo "wayland"
-    elif command -v xrandr >/dev/null 2>&1 || [ -f /usr/bin/Xorg ]; then
-      echo "x11"
-    else
-      echo "unknown"
-    fi
-  fi
-}
-
-# Function to install display server specific packages
-install_display_server_packages() {
-  step "Detecting display server and installing appropriate packages"
-
-  local display_server=$(detect_display_server)
-
-  case "$display_server" in
-    wayland)
-      log_success "Wayland display server detected"
-      log_info "Installing Wayland-specific packages..."
-      install_packages_quietly wl-clipboard grim slurp xdg-desktop-portal-wlr
-      log_success "Wayland packages installed (clipboard, screenshot tools)"
-      ;;
-    x11)
-      log_success "X11 display server detected"
-      log_info "Installing X11-specific packages..."
-      install_packages_quietly xclip xorg-xrandr
-      log_success "X11 packages installed (clipboard, display tools)"
-      ;;
-    *)
-      log_warning "Display server not detected or not running"
-      log_info "Installing both Wayland and X11 packages for compatibility..."
-      install_packages_quietly wl-clipboard grim slurp xclip xorg-xrandr
-      ;;
-  esac
-}
 
 # Function to detect network speed and optimize downloads
 detect_network_speed() {
@@ -332,4 +287,3 @@ set_sudo_pwfeedback
 install_cpu_microcode
 install_kernel_headers_for_all
 generate_locales
-install_display_server_packages

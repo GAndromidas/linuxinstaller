@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Installation log file
 INSTALL_LOG="$HOME/.archinstaller.log"

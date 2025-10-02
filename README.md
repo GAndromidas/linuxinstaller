@@ -27,21 +27,20 @@ Archinstaller transforms a fresh Arch Linux installation into a fully configured
 
 **Intelligent Detection Systems**
 1. **CPU Detection**: Vendor (Intel/AMD) and generation-specific optimizations
-2. **Display Server**: Wayland vs X11 with appropriate packages
-3. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers
-4. **Memory Size**: Adaptive swappiness based on RAM (1GB-32GB+)
-5. **Network Speed**: Download optimization based on connection speed
-6. **Filesystem**: Btrfs/ext4/XFS/F2FS with specific optimizations
-7. **Audio System**: PipeWire vs PulseAudio detection
-8. **Hybrid Graphics**: Multi-GPU detection (NVIDIA Optimus)
-9. **Kernel Type**: Standard/LTS/Zen/Hardened detection
-10. **VM Hypervisor**: KVM/VMware/VirtualBox/Hyper-V specific tools
-11. **Desktop Environment**: Version detection (GNOME 45+, Plasma 5/6)
-12. **Battery Status**: Low battery warnings during installation
-13. **Bluetooth Hardware**: Install only if hardware present
-14. **Laptop Detection**: Automatic power management and touchpad optimization
-15. **GPU Drivers**: AMD/Intel/NVIDIA with generation detection
-16. **Touchpad Hardware**: PS/2 vs I2C with capability assessment
+2. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers
+3. **Memory Size**: Adaptive swappiness based on RAM (1GB-32GB+)
+4. **Network Speed**: Download optimization based on connection speed
+5. **Filesystem**: Btrfs/ext4/XFS/F2FS with specific optimizations
+6. **Audio System**: PipeWire vs PulseAudio detection
+7. **Hybrid Graphics**: Multi-GPU detection (NVIDIA Optimus)
+8. **Kernel Type**: Standard/LTS/Zen/Hardened detection
+9. **VM Hypervisor**: KVM/VMware/VirtualBox/Hyper-V specific tools
+10. **Desktop Environment**: Version detection (GNOME 45+, Plasma 5/6)
+11. **Battery Status**: Low battery warnings during installation
+12. **Bluetooth Hardware**: Install only if hardware present
+13. **Laptop Detection**: Automatic power management and touchpad optimization
+14. **GPU Drivers**: AMD/Intel/NVIDIA with generation detection
+15. **Touchpad Hardware**: PS/2 vs I2C with capability assessment
 
 ---
 
@@ -102,19 +101,7 @@ Automatic detection and optimization for:
 - **Laptop-specific**: Radeon GPU power management (Vega iGPU optimization)
 - **Power profiles**: power-profiles-daemon for 5000+, tuned-ppd for 1000-4000
 
-### 2. Display Server Detection
-
-**Wayland**
-- wl-clipboard for clipboard management
-- grim + slurp for screenshots
-- xdg-desktop-portal-wlr for desktop integration
-
-**X11**
-- xclip for clipboard operations
-- xorg-xrandr for display configuration
-- Traditional X11 tools
-
-### 3. Storage Type Detection
+### 2. Storage Type Detection
 
 **Automatic I/O Scheduler Optimization**
 - **NVMe SSD**: none (multi-queue, best for NVMe)
@@ -122,7 +109,7 @@ Automatic detection and optimization for:
 - **HDD**: bfq (best for rotational drives)
 - Persistent udev rules created
 
-### 4. Memory Size Adaptation
+### 3. Memory Size Adaptation
 
 **RAM-Based Optimizations**
 - **< 4GB**: Swappiness 60 (aggressive swap), reduced cache pressure
@@ -131,7 +118,7 @@ Automatic detection and optimization for:
 - **16GB+**: Swappiness 1 (almost no swap)
 - **32GB+**: Option to disable swap entirely
 
-### 5. Network Speed Detection
+### 4. Network Speed Detection
 
 **Adaptive Download Configuration**
 - Tests connection speed with speedtest-cli
@@ -140,7 +127,7 @@ Automatic detection and optimization for:
 - **25-100 Mbit/s**: 10 parallel downloads
 - **100+ Mbit/s**: 15 parallel downloads (faster installation)
 
-### 6. Filesystem Detection
+### 5. Filesystem Detection
 
 **Type-Specific Optimizations**
 - **Btrfs**: Snapshot support, compression available
@@ -149,14 +136,14 @@ Automatic detection and optimization for:
 - **F2FS**: Recognized as flash-optimized
 - **LUKS**: Encryption detected, TRIM support noted
 
-### 7. Audio System Detection
+### 6. Audio System Detection
 
 **Automatic Configuration**
 - **PipeWire**: Installs pipewire-alsa, pipewire-jack, pipewire-pulse
 - **PulseAudio**: Installs pulseaudio-bluetooth if Bluetooth present
 - Detects active audio system automatically
 
-### 8. Hybrid Graphics Detection
+### 7. Hybrid Graphics Detection
 
 **Multi-GPU Systems**
 - Detects NVIDIA + Intel/AMD combinations
@@ -164,7 +151,7 @@ Automatic detection and optimization for:
 - Suggests optimus-manager or nvidia-prime
 - Provides manual configuration guidance
 
-### 9. Kernel Type Detection
+### 8. Kernel Type Detection
 
 **Kernel-Specific Recognition**
 - **linux-lts**: Long-term support kernel (stability focused)
@@ -172,7 +159,7 @@ Automatic detection and optimization for:
 - **linux-hardened**: Security-focused kernel
 - **linux**: Standard balanced kernel
 
-### 10. VM Hypervisor Detection
+### 9. VM Hypervisor Detection
 
 **Hypervisor-Specific Tools**
 - **KVM/QEMU**: qemu-guest-agent (already installed)
@@ -181,7 +168,7 @@ Automatic detection and optimization for:
 - **Hyper-V**: hyperv utilities
 - Automatic installation and service enablement
 
-### 11. Desktop Environment Version
+### 10. Desktop Environment Version
 
 **Version Detection**
 - **GNOME**: Detects version number (45, 46, 47+)
@@ -189,7 +176,7 @@ Automatic detection and optimization for:
 - **Cosmic**: Recognizes alpha/beta status
 - Future-proofs configurations
 
-### 12. Battery Status Check
+### 11. Battery Status Check
 
 **Installation Safety**
 - Checks battery level before installation
@@ -197,7 +184,7 @@ Automatic detection and optimization for:
 - Prompts to connect AC adapter
 - Prevents installation interruption from power loss
 
-### 13. Bluetooth Hardware Detection
+### 12. Bluetooth Hardware Detection
 
 **Smart Package Management**
 - Detects Bluetooth hardware presence (USB/PCI/class)
@@ -205,7 +192,7 @@ Automatic detection and optimization for:
 - Installs packages but won't start unused services
 - Saves resources on systems without Bluetooth
 
-### 14. Laptop Detection & Optimization
+### 13. Laptop Detection & Optimization
 
 **Automatic Detection Methods**
 - Battery presence check (/sys/class/power_supply/BAT*)
@@ -232,7 +219,7 @@ Automatic detection and optimization for:
 - Radeon DPM (Dynamic Power Management)
 - Vega iGPU power profiles
 
-### 15. Touchpad Intelligence
+### 14. Touchpad Intelligence
 
 **Hardware Detection**
 - Checks xinput device presence
@@ -253,7 +240,7 @@ Automatic detection and optimization for:
 - Disable-while-typing
 - Click-finger method
 
-### 16. GPU Driver Intelligence
+### 15. GPU Driver Intelligence
 
 **Automatic Detection & Installation**
 - AMD: Mesa, AMDGPU, Vulkan with 32-bit libraries
@@ -530,23 +517,22 @@ Add desktop environment support by extending `programs.yaml` and updating detect
 
 ### Recent Major Updates
 
-### 16 Intelligent Detection Systems (Latest)
+### 15 Intelligent Detection Systems (Latest)
 1. **CPU Detection**: Intel/AMD with generation-specific optimizations (Intel 6th gen+, AMD Ryzen 1000-5000+)
-2. **Display Server**: Wayland vs X11 with appropriate packages (wl-clipboard vs xclip)
-3. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers (none/mq-deadline/bfq)
-4. **Memory Size**: RAM-based swappiness (≤4GB: 60, 8GB: 10, 32GB+: 1)
-5. **Network Speed**: Connection-based parallel downloads (3-15 parallel based on Mbit/s)
-6. **Filesystem**: Btrfs/ext4/XFS/F2FS optimization, LUKS encryption detection
-7. **Audio System**: PipeWire vs PulseAudio automatic configuration
-8. **Hybrid Graphics**: Multi-GPU detection with NVIDIA Optimus warnings
-9. **Kernel Type**: LTS/Zen/Hardened detection and identification
-10. **VM Hypervisor**: KVM/VMware/VirtualBox/Hyper-V specific guest tools
-11. **Desktop Environment**: Version detection (GNOME 45+, Plasma 5/6)
-12. **Battery Status**: Low battery warnings during installation (prevents power loss)
-13. **Bluetooth Hardware**: Service enabled only if hardware present
-14. **Laptop Detection**: Complete power management suite (TLP, power profiles, touchpad)
-15. **GPU Drivers**: Generation-specific detection and verification
-16. **Touchpad Hardware**: PS/2 vs I2C with multi-touch capability assessment
+2. **Storage Type**: NVMe/SSD/HDD with optimal I/O schedulers (none/mq-deadline/bfq)
+3. **Memory Size**: RAM-based swappiness (≤4GB: 60, 8GB: 10, 32GB+: 1)
+4. **Network Speed**: Connection-based parallel downloads (3-15 parallel based on Mbit/s)
+5. **Filesystem**: Btrfs/ext4/XFS/F2FS optimization, LUKS encryption detection
+6. **Audio System**: PipeWire vs PulseAudio automatic configuration
+7. **Hybrid Graphics**: Multi-GPU detection with NVIDIA Optimus warnings
+8. **Kernel Type**: LTS/Zen/Hardened detection and identification
+9. **VM Hypervisor**: KVM/VMware/VirtualBox/Hyper-V specific guest tools
+10. **Desktop Environment**: Version detection (GNOME 45+, Plasma 5/6)
+11. **Battery Status**: Low battery warnings during installation (prevents power loss)
+12. **Bluetooth Hardware**: Service enabled only if hardware present
+13. **Laptop Detection**: Complete power management suite (TLP, power profiles, touchpad)
+14. **GPU Drivers**: Generation-specific detection and verification
+15. **Touchpad Hardware**: PS/2 vs I2C with multi-touch capability assessment
 
 ### Power Management Intelligence
 - CPU-specific TLP configuration (Intel P-State, AMD P-State, or ACPI fallback)
@@ -577,7 +563,6 @@ Add desktop environment support by extending `programs.yaml` and updating detect
 - **Battery check** prevents installation on low battery (<30%)
 - **Hibernation awareness** (preserves disk swap if hibernation configured)
 - **ZRAM intelligence** (automatic removal on 32GB+, hibernation conflict detection)
-- **Display server packages** (Wayland: wl-clipboard/grim/slurp, X11: xclip/xrandr)
 
 ### Code Improvements
 - Consistent error handling across all scripts (set -euo pipefail)
