@@ -317,7 +317,9 @@ echo -e "  - Btrfs snapshots (if Btrfs filesystem detected)"
 echo -e "  - Dual-boot with Windows (if detected)"
 echo -e "  - Enhanced shell with 50+ aliases and SSH shortcuts"
 echo ""
-print_programs_summary
+if declare -f print_programs_summary >/dev/null 2>&1; then
+  print_programs_summary
+fi
 print_summary
 log_performance "Total installation time"
 
