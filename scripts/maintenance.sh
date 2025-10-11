@@ -109,63 +109,207 @@ configure_snapper() {
   log_success "Snapper configuration completed (2 hourly, 2 daily, 1 weekly, max 50 snapshots)"
 }
 
+# Configure btrfs-assistant GUI settings
+configure_btrfs_assistant_gui() {
+  step "Configuring btrfs-assistant GUI settings"
+
+  # btrfs-assistant uses /etc/btrfs-assistant.conf for system-wide config
+  local BA_CONFIG="/etc/btrfs-assistant.conf"
+
+  # Backup existing config if present
+  if [ -f "$BA_CONFIG" ]; then
+    sudo cp "$BA_CONFIG" "${BA_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+  fi
+
+  # Check if config exists and append or create
+  if [ -f "$BA_CONFIG" ]; then
+    log_info "Updating existing btrfs-assistant configuration..."
+    # Append snapshot location if not already present
+    if ! grep -q "snapshot_location_root" "$BA_CONFIG" 2>/dev/null; then
+      echo "snapshot_location_root = /.snapshots" | sudo tee -a "$BA_CONFIG" >/dev/null
+    fi
+  else
+    log_info "Creating new btrfs-assistant configuration..."
+    # Create basic config with snapshot location
+    echo "snapshot_location_root = /.snapshots" | sudo tee "$BA_CONFIG" >/dev/null
+  fi
+
+  log_success "btrfs-assistant configuration updated at $BA_CONFIG"
+  log_info "Maintenance tab will read settings from /etc/default/btrfsmaintenance"
+  log_info "After reboot, open btrfs-assistant to see maintenance schedule"
+}
+
 # Configure btrfsmaintenance settings
 configure_btrfsmaintenance() {
   step "Configuring btrfsmaintenance services"
 
-  # Create or update configuration file
-  sudo mkdir -p /etc/sysconfig
+  # Arch Linux uses /etc/default/btrfsmaintenance
+  local BTRMAINT_CONFIG="/etc/default/btrfsmaintenance"
 
   # Backup existing config if present
-  if [ -f /etc/sysconfig/btrfsmaintenance ]; then
-    sudo cp /etc/sysconfig/btrfsmaintenance /etc/sysconfig/btrfsmaintenance.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+  if [ -f "$BTRMAINT_CONFIG" ]; then
+    sudo cp "$BTRMAINT_CONFIG" "${BTRMAINT_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
   fi
 
   # Create comprehensive maintenance configuration
-  cat << 'EOF' | sudo tee /etc/sysconfig/btrfsmaintenance >/dev/null
+  cat << 'EOF' | sudo tee "$BTRMAINT_CONFIG" >/dev/null
+## Path:        System/File systems/btrfs
+## Type:        string(none,stdout,journal,syslog)
+## Default:     "stdout"
+#
+# Output target for messages. Journal and syslog messages are tagged by the task name like
+# 'btrfs-scrub' etc.
+BTRFS_LOG_OUTPUT="stdout"
+
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     ""
+#
+# Run periodic defrag on selected paths. The files from a given path do not
+# cross mount points or other subvolumes/snapshots. If you want to defragment
+# nested subvolumes, all have to be listed in this variable.
+# (Colon separated paths)
+BTRFS_DEFRAG_PATHS="/:/home"
+
 ## Path:           System/File systems/btrfs
-## Description:    Configuration for btrfs maintenance scripts
-## Type:           string(none,weekly,monthly)
-## Default:        "monthly"
-## ServiceRestart: btrfs-scrub.timer btrfs-balance.timer btrfs-defrag.timer
+## Type:           string(none,daily,weekly,monthly)
+## Default:        "none"
+## ServiceRestart: btrfsmaintenance-refresh
+#
+# Frequency of defrag.
+BTRFS_DEFRAG_PERIOD="weekly"
 
-# Scrub - verify data integrity
-BTRFS_SCRUB_PERIOD="monthly"
-BTRFS_SCRUB_MOUNTPOINTS="/ /home /var/log"
-BTRFS_SCRUB_PRIORITY="idle"
-BTRFS_SCRUB_READ_ONLY="false"
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     "+1M"
+#
+# Minimal file size to consider for defragmentation
+BTRFS_DEFRAG_MIN_SIZE="+1M"
 
-# Balance - redistribute data across devices
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     "/"
+#
+# Which mountpoints/filesystems to balance periodically. This may reclaim unused
+# portions of the filesystem and make the rest more compact.
+# (Colon separated paths)
+# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# filesystems
+BTRFS_BALANCE_MOUNTPOINTS="/:/home:/var/log"
+
+## Path:           System/File systems/btrfs
+## Type:           string(none,daily,weekly,monthly)
+## Default:        "weekly"
+## ServiceRestart: btrfsmaintenance-refresh
+#
+# Frequency of periodic balance.
+#
+# The frequency may be specified using one of the listed values or
+# in the format documented in the "Calendar Events" section of systemd.time(7),
+# if available.
 BTRFS_BALANCE_PERIOD="weekly"
-BTRFS_BALANCE_MOUNTPOINTS="/ /home /var/log"
-BTRFS_BALANCE_DUSAGE="5"
+
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     "5 10"
+#
+# The usage percent for balancing data block groups.
+#
+# Note: default values should not disturb normal work but may not reclaim
+# enough block groups. If you observe that, add higher values but beware that
+# this will increase IO load on the system.
+BTRFS_BALANCE_DUSAGE="5 10"
+
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     "5"
+#
+# The usage percent for balancing metadata block groups. The values are also
+# used in case the filesystem has mixed blockgroups.
+#
+# Note: default values should not disturb normal work but may not reclaim
+# enough block groups. If you observe that, add higher values but beware that
+# this will increase IO load on the system.
 BTRFS_BALANCE_MUSAGE="5"
 
-# Defrag - defragment files
-BTRFS_DEFRAG_PERIOD="weekly"
-BTRFS_DEFRAG_MOUNTPOINTS="/ /home"
-BTRFS_DEFRAG_FLUSH_DATA="true"
-BTRFS_DEFRAG_MIN_SIZE="64M"
-BTRFS_DEFRAG_TARGET=""
+## Path:        System/File systems/btrfs
+## Type:        string
+## Default:     "/"
+#
+# Which mountpoints/filesystems to scrub periodically.
+# (Colon separated paths)
+# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# filesystems
+BTRFS_SCRUB_MOUNTPOINTS="/:/home:/var/log"
 
-# Trim - discard unused blocks (handled separately by fstrim)
+## Path:        System/File systems/btrfs
+## Type:        string(none,weekly,monthly)
+## Default:     "monthly"
+## ServiceRestart: btrfsmaintenance-refresh
+#
+# Frequency of periodic scrub.
+#
+# The frequency may be specified using one of the listed values or
+# in the format documented in the "Calendar Events" section of systemd.time(7),
+# if available.
+BTRFS_SCRUB_PERIOD="monthly"
+
+## Path:        System/File systems/btrfs
+## Type:        string(idle,normal)
+## Default:     "idle"
+#
+# Priority of IO at which the scrub process will run. Idle should not degrade
+# performance but may take longer to finish.
+BTRFS_SCRUB_PRIORITY="idle"
+
+## Path:        System/File systems/btrfs
+## Type:        boolean
+## Default:     "false"
+#
+# Do read-only scrub and don't try to repair anything.
+BTRFS_SCRUB_READ_ONLY="false"
+
+## Path:           System/File systems/btrfs
+## Description:    Configuration for periodic fstrim
+## Type:           string(none,daily,weekly,monthly)
+## Default:        "none"
+## ServiceRestart: btrfsmaintenance-refresh
+#
+# Frequency of periodic trim. Off by default so it does not collide with
+# fstrim.timer . If you do not use the timer, turn it on here. The recommended
+# period is 'weekly'.
+#
+# The frequency may be specified using one of the listed values or
+# in the format documented in the "Calendar Events" section of systemd.time(7),
+# if available.
 BTRFS_TRIM_PERIOD="none"
-BTRFS_TRIM_MOUNTPOINTS=""
+
+## Path:        System/File systems/btrfs
+## Description: Configuration for periodic fstrim - mountpoints
+## Type:        string
+## Default:     "/"
+#
+# Which mountpoints/filesystems to trim periodically.
+# (Colon separated paths)
+# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# filesystems
+BTRFS_TRIM_MOUNTPOINTS="/"
+
+## Path:	System/File systems/btrfs
+## Description:	Configuration to allow concurrent jobs
+## Type: 	boolean
+## Default:	"false"
+#
+# These maintenance tasks may compete for resources with each other, blocking
+# out other tasks from using the file systems.  This option will force
+# these jobs to run in FIFO order when scheduled at overlapping times.  This
+# may include tasks scheduled to run when a system resumes or boots when
+# the timer for these tasks(s) elapsed while the system was suspended
+# or powered off.
+BTRFS_ALLOW_CONCURRENCY="false"
 EOF
 
-  log_success "btrfsmaintenance configuration created"
-
-  # Reload systemd to pick up the new configuration
-  log_info "Reloading systemd daemon..."
-  sudo systemctl daemon-reload 2>/dev/null || true
-
-  # Enable and start btrfsmaintenance timers
-  log_info "Enabling btrfsmaintenance systemd timers..."
-
-  local timers_enabled=true
-
-  if sudo systemctl enable btrfs-scrub@-.timer 2>/dev/null && \
-     sudo systemctl enable btrfs-scrub@home.timer 2>/dev/null && \
+ && \
      sudo systemctl enable btrfs-scrub@var-log.timer 2>/dev/null; then
     log_success "btrfs-scrub timers enabled (monthly integrity checks)"
   else
@@ -411,6 +555,9 @@ setup_btrfs_snapshots() {
   # Configure btrfsmaintenance
   configure_btrfsmaintenance || log_warning "btrfsmaintenance configuration had issues but continuing"
 
+  # Configure btrfs-assistant GUI
+  configure_btrfs_assistant_gui || log_warning "btrfs-assistant GUI configuration had issues but continuing"
+
   # Enable Btrfs quotas
   enable_btrfs_quotas || log_warning "Quota setup had issues but continuing"
 
@@ -491,9 +638,15 @@ setup_btrfs_snapshots() {
       echo -e "  • GRUB auto-updates when new snapshots are created"
     fi
     echo -e "  • Restore via GUI: Launch 'btrfs-assistant'"
-    echo -e "  • Check maintenance: ${YELLOW}systemctl status btrfs-scrub.timer${RESET}"
+    echo -e "  • Check maintenance timers: ${YELLOW}systemctl list-timers 'btrfs-*'${RESET}"
+    echo -e "  • View maintenance config: ${YELLOW}cat /etc/default/btrfsmaintenance${RESET}"
     echo -e "  • Emergency fallback: Boot 'Arch Linux (LTS Kernel)'"
     echo -e "  • Snapshots stored in: ${YELLOW}/.snapshots/${RESET}"
+    echo ""
+    echo -e "${CYAN}btrfs-assistant Maintenance tab:${RESET}"
+    echo -e "  • The Maintenance tab shows enabled timers (checkboxes)"
+    echo -e "  • If unchecked, click them to enable - this will activate the timers"
+    echo -e "  • Configuration is stored in ${YELLOW}/etc/default/btrfsmaintenance${RESET}"
     echo ""
   else
     log_warning "Btrfs snapshot setup completed with some warnings"
