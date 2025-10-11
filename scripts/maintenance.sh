@@ -155,34 +155,43 @@ EOF
 
   log_success "btrfsmaintenance configuration created"
 
+  # Reload systemd to pick up the new configuration
+  log_info "Reloading systemd daemon..."
+  sudo systemctl daemon-reload 2>/dev/null || true
+
   # Enable and start btrfsmaintenance timers
   log_info "Enabling btrfsmaintenance systemd timers..."
 
   local timers_enabled=true
 
-  if sudo systemctl enable --now btrfs-scrub.timer 2>/dev/null; then
-    log_success "btrfs-scrub.timer enabled (monthly integrity checks)"
+  if sudo systemctl enable btrfs-scrub@-.timer 2>/dev/null && \
+     sudo systemctl enable btrfs-scrub@home.timer 2>/dev/null && \
+     sudo systemctl enable btrfs-scrub@var-log.timer 2>/dev/null; then
+    log_success "btrfs-scrub timers enabled (monthly integrity checks)"
   else
-    log_warning "Failed to enable btrfs-scrub.timer"
+    log_warning "Some btrfs-scrub timers failed to enable"
     timers_enabled=false
   fi
 
-  if sudo systemctl enable --now btrfs-balance.timer 2>/dev/null; then
-    log_success "btrfs-balance.timer enabled (weekly space optimization)"
+  if sudo systemctl enable btrfs-balance@-.timer 2>/dev/null && \
+     sudo systemctl enable btrfs-balance@home.timer 2>/dev/null && \
+     sudo systemctl enable btrfs-balance@var-log.timer 2>/dev/null; then
+    log_success "btrfs-balance timers enabled (weekly space optimization)"
   else
-    log_warning "Failed to enable btrfs-balance.timer"
+    log_warning "Some btrfs-balance timers failed to enable"
     timers_enabled=false
   fi
 
-  if sudo systemctl enable --now btrfs-defrag.timer 2>/dev/null; then
-    log_success "btrfs-defrag.timer enabled (weekly defragmentation)"
+  if sudo systemctl enable btrfs-defrag@-.timer 2>/dev/null && \
+     sudo systemctl enable btrfs-defrag@home.timer 2>/dev/null; then
+    log_success "btrfs-defrag timers enabled (weekly defragmentation)"
   else
-    log_warning "Failed to enable btrfs-defrag.timer"
+    log_warning "Some btrfs-defrag timers failed to enable"
     timers_enabled=false
   fi
 
   if [ "$timers_enabled" = true ]; then
-    log_success "All btrfsmaintenance timers are active"
+    log_success "All btrfsmaintenance timers are enabled"
   else
     log_warning "Some btrfsmaintenance timers failed to enable"
   fi
@@ -190,9 +199,7 @@ EOF
   # Display timer status
   echo ""
   log_info "Maintenance timer status:"
-  systemctl status btrfs-scrub.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
-  systemctl status btrfs-balance.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
-  systemctl status btrfs-defrag.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
+  systemctl list-timers 'btrfs-*' --no-pager 2>/dev/null | head -n 20 || true
   echo ""
 }
 
@@ -450,7 +457,7 @@ setup_btrfs_snapshots() {
     verification_passed=false
   fi
 
-  if systemctl is-active --quiet btrfs-scrub.timer && systemctl is-active --quiet btrfs-balance.timer; then
+  if systemctl is-active --quiet btrfs-scrub@-.timer && systemctl is-active --quiet btrfs-balance@-.timer; then
     log_success "Btrfs maintenance timers are active"
   else
     log_warning "Some btrfs maintenance timers may not be running correctly"
