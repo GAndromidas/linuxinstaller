@@ -309,24 +309,21 @@ BTRFS_TRIM_MOUNTPOINTS="/"
 BTRFS_ALLOW_CONCURRENCY="false"
 EOF
 
-  if sudo systemctl enable btrfs-scrub@var-log.timer 2>/dev/null; then
+  if sudo systemctl enable btrfs-scrub.timer 2>/dev/null; then
     log_success "btrfs-scrub timers enabled (monthly integrity checks)"
   else
     log_warning "Some btrfs-scrub timers failed to enable"
     timers_enabled=false
   fi
 
-  if sudo systemctl enable btrfs-balance@-.timer 2>/dev/null && \
-     sudo systemctl enable btrfs-balance@home.timer 2>/dev/null && \
-     sudo systemctl enable btrfs-balance@var-log.timer 2>/dev/null; then
+  if sudo systemctl enable btrfs-balance.timer 2>/dev/null; then
     log_success "btrfs-balance timers enabled (weekly space optimization)"
   else
     log_warning "Some btrfs-balance timers failed to enable"
     timers_enabled=false
   fi
 
-  if sudo systemctl enable btrfs-defrag@-.timer 2>/dev/null && \
-     sudo systemctl enable btrfs-defrag@home.timer 2>/dev/null; then
+  if sudo systemctl enable btrfs-defrag.timer 2>/dev/null; then
     log_success "btrfs-defrag timers enabled (weekly defragmentation)"
   else
     log_warning "Some btrfs-defrag timers failed to enable"
