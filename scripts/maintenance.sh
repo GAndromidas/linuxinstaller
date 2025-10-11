@@ -309,6 +309,8 @@ BTRFS_TRIM_MOUNTPOINTS="/"
 BTRFS_ALLOW_CONCURRENCY="false"
 EOF
 
+  local timers_enabled=true
+
   if sudo systemctl enable btrfs-scrub.timer 2>/dev/null; then
     log_success "btrfs-scrub timers enabled (monthly integrity checks)"
   else
