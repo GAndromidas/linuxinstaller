@@ -544,8 +544,7 @@ setup_btrfs_snapshots() {
 
   # Enable Snapper timers
   step "Enabling Snapper automatic snapshot timers"
-  if sudo systemctl enable --now snapper-timeline.timer 2>/dev/null && \
-     sudo systemctl enable --now snapper-cleanup.timer 2>/dev/null; then
+  if sudo systemctl enable --now snapper-timeline.timer 2>/dev/null && sudo systemctl enable --now snapper-cleanup.timer 2>/dev/null; then
     log_success "Snapper timers enabled and started"
   else
     log_error "Failed to enable Snapper timers"
