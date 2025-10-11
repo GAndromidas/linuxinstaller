@@ -94,17 +94,127 @@ configure_snapper() {
     fi
   fi
 
-  # Configure Snapper settings for reasonable snapshot retention
+  # Configure Snapper settings with optimized retention policy
   sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="5"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="2"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="2"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="1"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
+  sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="50"/' /etc/snapper/configs/root
+  sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' /etc/snapper/configs/root
 
-  log_success "Snapper configuration completed (5 hourly, 7 daily snapshots)"
+  log_success "Snapper configuration completed (2 hourly, 2 daily, 1 weekly, max 50 snapshots)"
+}
+
+# Configure btrfsmaintenance settings
+configure_btrfsmaintenance() {
+  step "Configuring btrfsmaintenance services"
+
+  # Create or update configuration file
+  sudo mkdir -p /etc/sysconfig
+
+  # Backup existing config if present
+  if [ -f /etc/sysconfig/btrfsmaintenance ]; then
+    sudo cp /etc/sysconfig/btrfsmaintenance /etc/sysconfig/btrfsmaintenance.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+  fi
+
+  # Create comprehensive maintenance configuration
+  cat << 'EOF' | sudo tee /etc/sysconfig/btrfsmaintenance >/dev/null
+## Path:           System/File systems/btrfs
+## Description:    Configuration for btrfs maintenance scripts
+## Type:           string(none,weekly,monthly)
+## Default:        "monthly"
+## ServiceRestart: btrfs-scrub.timer btrfs-balance.timer btrfs-defrag.timer
+
+# Scrub - verify data integrity
+BTRFS_SCRUB_PERIOD="monthly"
+BTRFS_SCRUB_MOUNTPOINTS="/ /home /var/log"
+BTRFS_SCRUB_PRIORITY="idle"
+BTRFS_SCRUB_READ_ONLY="false"
+
+# Balance - redistribute data across devices
+BTRFS_BALANCE_PERIOD="weekly"
+BTRFS_BALANCE_MOUNTPOINTS="/ /home /var/log"
+BTRFS_BALANCE_DUSAGE="5"
+BTRFS_BALANCE_MUSAGE="5"
+
+# Defrag - defragment files
+BTRFS_DEFRAG_PERIOD="weekly"
+BTRFS_DEFRAG_MOUNTPOINTS="/ /home"
+BTRFS_DEFRAG_FLUSH_DATA="true"
+BTRFS_DEFRAG_MIN_SIZE="64M"
+BTRFS_DEFRAG_TARGET=""
+
+# Trim - discard unused blocks (handled separately by fstrim)
+BTRFS_TRIM_PERIOD="none"
+BTRFS_TRIM_MOUNTPOINTS=""
+EOF
+
+  log_success "btrfsmaintenance configuration created"
+
+  # Enable and start btrfsmaintenance timers
+  log_info "Enabling btrfsmaintenance systemd timers..."
+
+  local timers_enabled=true
+
+  if sudo systemctl enable --now btrfs-scrub.timer 2>/dev/null; then
+    log_success "btrfs-scrub.timer enabled (monthly integrity checks)"
+  else
+    log_warning "Failed to enable btrfs-scrub.timer"
+    timers_enabled=false
+  fi
+
+  if sudo systemctl enable --now btrfs-balance.timer 2>/dev/null; then
+    log_success "btrfs-balance.timer enabled (weekly space optimization)"
+  else
+    log_warning "Failed to enable btrfs-balance.timer"
+    timers_enabled=false
+  fi
+
+  if sudo systemctl enable --now btrfs-defrag.timer 2>/dev/null; then
+    log_success "btrfs-defrag.timer enabled (weekly defragmentation)"
+  else
+    log_warning "Failed to enable btrfs-defrag.timer"
+    timers_enabled=false
+  fi
+
+  if [ "$timers_enabled" = true ]; then
+    log_success "All btrfsmaintenance timers are active"
+  else
+    log_warning "Some btrfsmaintenance timers failed to enable"
+  fi
+
+  # Display timer status
+  echo ""
+  log_info "Maintenance timer status:"
+  systemctl status btrfs-scrub.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
+  systemctl status btrfs-balance.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
+  systemctl status btrfs-defrag.timer --no-pager -n 0 2>/dev/null | grep -E "(Loaded|Active)" || true
+  echo ""
+}
+
+# Enable Btrfs quotas if beneficial
+enable_btrfs_quotas() {
+  step "Configuring Btrfs quotas"
+
+  # Check if quotas are already enabled
+  if sudo btrfs qgroup show / &>/dev/null; then
+    log_info "Btrfs quotas already enabled"
+    return 0
+  fi
+
+  log_info "Enabling Btrfs quotas for snapshot space tracking..."
+
+  if sudo btrfs quota enable / 2>/dev/null; then
+    log_success "Btrfs quotas enabled successfully"
+    log_info "Quotas allow tracking snapshot space usage via snapper and btrfs-assistant"
+  else
+    log_warning "Failed to enable Btrfs quotas (non-critical)"
+    log_info "Snapshots will still work, but space tracking may be limited"
+  fi
 }
 
 # Setup GRUB bootloader for snapshots
@@ -221,8 +331,9 @@ setup_btrfs_snapshots() {
     echo ""
     gum style --foreground 226 "Btrfs snapshot setup available:"
     gum style --margin "0 2" --foreground 15 "• Automatic snapshots before/after package operations"
-    gum style --margin "0 2" --foreground 15 "• Retention: 5 hourly, 7 daily snapshots"
+    gum style --margin "0 2" --foreground 15 "• Retention: 2 hourly, 2 daily, 1 weekly (max 50 total)"
     gum style --margin "0 2" --foreground 15 "• LTS kernel fallback for recovery"
+    gum style --margin "0 2" --foreground 15 "• Automated maintenance: scrub, balance, defrag"
     gum style --margin "0 2" --foreground 15 "• GUI tool (btrfs-assistant) for snapshot management"
     echo ""
     if gum confirm --default=false "Would you like to set up automatic Btrfs snapshots?"; then
@@ -232,8 +343,9 @@ setup_btrfs_snapshots() {
     echo ""
     echo -e "${YELLOW}Btrfs snapshot setup available:${RESET}"
     echo -e "  • Automatic snapshots before/after package operations"
-    echo -e "  • Retention: 5 hourly, 7 daily snapshots"
+    echo -e "  • Retention: 2 hourly, 2 daily, 1 weekly (max 50 total)"
     echo -e "  • LTS kernel fallback for recovery"
+    echo -e "  • Automated maintenance: scrub, balance, defrag"
     echo -e "  • GUI tool (btrfs-assistant) for snapshot management"
     echo ""
     read -r -p "Would you like to set up automatic Btrfs snapshots? [y/N]: " response
@@ -268,13 +380,13 @@ setup_btrfs_snapshots() {
 
   # Install required packages
   step "Installing snapshot management packages"
-  log_info "Installing: snapper, snap-pac, btrfs-assistant, linux-lts"
+  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts"
 
   # Update package database first
   sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
 
-  # Install packages
-  install_packages_quietly snapper snap-pac btrfs-assistant linux-lts linux-lts-headers
+  # Install packages including btrfsmaintenance
+  install_packages_quietly snapper snap-pac btrfs-assistant btrfsmaintenance linux-lts linux-lts-headers
 
   # Configure Snapper
   configure_snapper || { log_error "Snapper configuration failed"; return 1; }
@@ -288,6 +400,12 @@ setup_btrfs_snapshots() {
     log_error "Failed to enable Snapper timers"
     return 1
   fi
+
+  # Configure btrfsmaintenance
+  configure_btrfsmaintenance || log_warning "btrfsmaintenance configuration had issues but continuing"
+
+  # Enable Btrfs quotas
+  enable_btrfs_quotas || log_warning "Quota setup had issues but continuing"
 
   # Configure bootloader
   case "$BOOTLOADER" in
@@ -332,6 +450,12 @@ setup_btrfs_snapshots() {
     verification_passed=false
   fi
 
+  if systemctl is-active --quiet btrfs-scrub.timer && systemctl is-active --quiet btrfs-balance.timer; then
+    log_success "Btrfs maintenance timers are active"
+  else
+    log_warning "Some btrfs maintenance timers may not be running correctly"
+  fi
+
   # Display current snapshots
   echo ""
   log_info "Current snapshots:"
@@ -344,8 +468,13 @@ setup_btrfs_snapshots() {
     echo ""
     echo -e "${CYAN}Snapshot system configured:${RESET}"
     echo -e "  • Automatic snapshots before/after package operations"
-    echo -e "  • Retention: 5 hourly, 7 daily snapshots"
+    echo -e "  • Retention: 2 hourly, 2 daily, 1 weekly (max 50 snapshots)"
     echo -e "  • LTS kernel fallback: Available in boot menu"
+    echo -e "  • Automated maintenance:"
+    echo -e "    - Scrub (monthly): /, /home, /var/log"
+    echo -e "    - Balance (weekly): /, /home, /var/log"
+    echo -e "    - Defrag (weekly): /, /home"
+    echo -e "  • Quotas enabled for space tracking"
     echo -e "  • GUI management: Launch 'btrfs-assistant' from your menu"
     echo ""
     echo -e "${CYAN}How to use:${RESET}"
@@ -355,6 +484,7 @@ setup_btrfs_snapshots() {
       echo -e "  • GRUB auto-updates when new snapshots are created"
     fi
     echo -e "  • Restore via GUI: Launch 'btrfs-assistant'"
+    echo -e "  • Check maintenance: ${YELLOW}systemctl status btrfs-scrub.timer${RESET}"
     echo -e "  • Emergency fallback: Boot 'Arch Linux (LTS Kernel)'"
     echo -e "  • Snapshots stored in: ${YELLOW}/.snapshots/${RESET}"
     echo ""
