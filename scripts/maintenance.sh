@@ -193,7 +193,7 @@ BTRFS_DEFRAG_MIN_SIZE="+1M"
 # Which mountpoints/filesystems to balance periodically. This may reclaim unused
 # portions of the filesystem and make the rest more compact.
 # (Colon separated paths)
-# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# The special word/mountpoint "auto" will evaluate all mapped btrfs
 # filesystems
 BTRFS_BALANCE_MOUNTPOINTS="/:/home:/var/log"
 
@@ -238,7 +238,7 @@ BTRFS_BALANCE_MUSAGE="5"
 #
 # Which mountpoints/filesystems to scrub periodically.
 # (Colon separated paths)
-# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# The special word/mountpoint "auto" will evaluate all mapped btrfs
 # filesystems
 BTRFS_SCRUB_MOUNTPOINTS="/:/home:/var/log"
 
@@ -291,7 +291,7 @@ BTRFS_TRIM_PERIOD="none"
 #
 # Which mountpoints/filesystems to trim periodically.
 # (Colon separated paths)
-# The special word/mountpoint "auto" will evaluate all mounted btrfs
+# The special word/mountpoint "auto" will evaluate all mapped btrfs
 # filesystems
 BTRFS_TRIM_MOUNTPOINTS="/"
 
@@ -345,24 +345,117 @@ EOF
   echo ""
 }
 
-# Enable Btrfs quotas if beneficial
-enable_btrfs_quotas() {
-  step "Configuring Btrfs quotas"
+# Check if system meets requirements for Btrfs quotas
+should_enable_quotas() {
+  # Get total RAM in GB (using awk to handle the value properly)
+  local total_ram_gb=$(free -g | awk '/^Mem:/ {print $2}')
 
-  # Check if quotas are already enabled
-  if sudo btrfs qgroup show / &>/dev/null; then
-    log_info "Btrfs quotas already enabled"
+  # Fallback to MB if free -g returns 0 (system has less than 1GB shown in -g)
+  if [ "$total_ram_gb" -eq 0 ]; then
+    local total_ram_mb=$(free -m | awk '/^Mem:/ {print $2}')
+    total_ram_gb=$((total_ram_mb / 1024))
+  fi
+
+  # Get CPU core count
+  local cpu_cores=$(nproc)
+
+  # Get disk size in GB
+  local disk_size_gb=$(df -BG / | awk 'NR==2 {print $2}' | sed 's/G//')
+
+  # Check if system is using SSD (faster I/O helps with quota overhead)
+  local is_ssd=false
+  if command_exists lsblk; then
+    # Check the root device for rotational disk
+    local root_device=$(df / | awk 'NR==2 {print $1}' | sed 's/[0-9]*$//' | xargs basename 2>/dev/null)
+    if [ -n "$root_device" ]; then
+      local rota=$(cat /sys/block/${root_device}/queue/rotational 2>/dev/null || echo "1")
+      if [ "$rota" = "0" ]; then
+        is_ssd=true
+      fi
+    fi
+  fi
+
+  log_info "System specs: ${total_ram_gb}GB RAM, ${cpu_cores} CPU cores, ${disk_size_gb}GB disk, SSD: ${is_ssd}"
+
+  # Decision logic based on Btrfs quota performance characteristics:
+  # - Quotas cause write amplification and increased metadata operations
+  # - Performance impact scales with number of snapshots and write frequency
+  # - Low RAM systems struggle with quota overhead during heavy I/O
+  # - Slow CPUs can't keep up with quota accounting during snapshot operations
+  # - HDD systems feel the impact more due to additional seeks
+
+  # Don't enable on very low-end systems (significant performance impact)
+  if [ "$total_ram_gb" -lt 4 ]; then
+    log_info "System has less than 4GB RAM - quotas would cause significant slowdowns"
+    return 1
+  fi
+
+  if [ "$cpu_cores" -lt 2 ]; then
+    log_info "System has less than 2 CPU cores - quotas would impact responsiveness"
+    return 1
+  fi
+
+  # Marginal systems (4-6GB RAM or 2-4 cores) - only enable on SSDs
+  if [ "$total_ram_gb" -le 6 ] || [ "$cpu_cores" -le 4 ]; then
+    if [ "$is_ssd" = false ]; then
+      log_info "Mid-range system with HDD detected"
+      log_info "Quotas can cause freezes and lag on HDD systems during snapshot operations"
+      return 1
+    fi
+    log_info "Mid-range system with SSD - quotas should work acceptably"
     return 0
   fi
 
-  log_info "Enabling Btrfs quotas for snapshot space tracking..."
+  # Modern systems (8GB+ RAM, 6+ cores) - quotas are safe to enable
+  log_info "System exceeds recommended specs - quotas will work well"
+  return 0
+}
+
+# Enable Btrfs quotas if system can handle it
+enable_btrfs_quotas() {
+  step "Evaluating Btrfs quotas for your system"
+
+  # Check if quotas are already enabled
+  if sudo btrfs qgroup show / &>/dev/null; then
+    log_success "Btrfs quotas already enabled"
+    return 0
+  fi
+
+  # Check system capabilities
+  if ! should_enable_quotas; then
+    echo ""
+    log_warning "Quotas NOT enabled - your system specs indicate high risk of performance issues"
+    log_info "Quotas can cause system freezes and lag on lower-end hardware"
+    log_info ""
+    log_info "What you're missing without quotas:"
+    log_info "  - Accurate space usage tracking per snapshot in btrfs-assistant"
+    log_info "  - Snapshot size information in 'snapper list'"
+    log_info ""
+    log_info "What still works perfectly:"
+    log_info "  ✓ All snapshot creation and deletion"
+    log_info "  ✓ Snapshot browsing and restoration"
+    log_info "  ✓ Boot from snapshots"
+    log_info "  ✓ All btrfs-assistant features (except precise space tracking)"
+    log_info ""
+    log_info "If you want to try enabling quotas anyway (not recommended):"
+    log_info "  sudo btrfs quota enable /"
+    log_info "  (Disable if system becomes laggy: sudo btrfs quota disable /)"
+    echo ""
+    return 0
+  fi
+
+  log_info "Your system can handle quotas - enabling for enhanced space tracking"
+  log_info "Note: Quotas add some overhead but provide accurate snapshot size information"
 
   if sudo btrfs quota enable / 2>/dev/null; then
     log_success "Btrfs quotas enabled successfully"
-    log_info "Quotas allow tracking snapshot space usage via snapper and btrfs-assistant"
+    log_info "Benefits: Accurate space usage tracking in snapper and btrfs-assistant"
+    log_info ""
+    log_info "If you notice any slowdowns during snapshot operations, you can disable with:"
+    log_info "  sudo btrfs quota disable /"
   else
     log_warning "Failed to enable Btrfs quotas (non-critical)"
-    log_info "Snapshots will still work, but space tracking may be limited"
+    log_info "Snapshots will still work perfectly, just without detailed space tracking"
   fi
 }
 
@@ -555,8 +648,8 @@ setup_btrfs_snapshots() {
   # Configure btrfs-assistant GUI
   configure_btrfs_assistant_gui || log_warning "btrfs-assistant GUI configuration had issues but continuing"
 
-  # Enable Btrfs quotas
-  enable_btrfs_quotas || log_warning "Quota setup had issues but continuing"
+  # Enable Btrfs quotas (with smart detection)
+  enable_btrfs_quotas || log_warning "Quota setup skipped or had issues but continuing"
 
   # Configure bootloader
   case "$BOOTLOADER" in
@@ -625,7 +718,14 @@ setup_btrfs_snapshots() {
     echo -e "    - Scrub (monthly): /, /home, /var/log"
     echo -e "    - Balance (weekly): /, /home, /var/log"
     echo -e "    - Defrag (weekly): /, /home"
-    echo -e "  • Quotas enabled for space tracking"
+
+    # Check if quotas were enabled
+    if sudo btrfs qgroup show / &>/dev/null; then
+      echo -e "  • Quotas enabled for space tracking"
+    else
+      echo -e "  • Quotas disabled (performance optimization for your system)"
+    fi
+
     echo -e "  • GUI management: Launch 'btrfs-assistant' from your menu"
     echo ""
     echo -e "${CYAN}How to use:${RESET}"
