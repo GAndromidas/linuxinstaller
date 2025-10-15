@@ -58,8 +58,8 @@ fi
 setup_fastfetch_config
 
 # --- Bootloader and Btrfs detection variables (using centralized functions) ---
-local BOOTLOADER=$(detect_bootloader)
-local IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or "false" for easier scripting
+BOOTLOADER=$(detect_bootloader)
+IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or "false" for easier scripting
 
 
 # --- GRUB configuration ---
