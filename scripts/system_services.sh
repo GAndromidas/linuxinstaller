@@ -88,6 +88,31 @@ configure_ufw() {
   fi
 }
 
+# Function to provide instructions for virt-manager guest integration
+configure_virt_manager_guest_integration() {
+  step "Checking for Virt-Manager and providing guest integration instructions"
+  if command -v virt-manager >/dev/null 2>&1; then
+    ui_info "Virt-Manager detected. For optimal virtual machine experience (copy/paste, file sharing, display resizing), you need to install guest agents inside your VMs."
+    echo ""
+    gum style --foreground 226 "Recommended packages for Linux guest VMs:"
+    gum style --margin "0 2" --foreground 15 "• spice-vdagent: Enables clipboard sharing (copy/paste), automatic display resizing, and cursor integration."
+    gum style --margin "0 2" --foreground 15 "• qemu-guest-agent: Allows the host to send commands to the guest (e.g., graceful shutdown) and retrieve information."
+    echo ""
+    gum style --foreground 226 "Installation steps inside your Linux guest VM (e.g., for Arch Linux guests):"
+    gum style --margin "0 2" --foreground 15 "1. Open a terminal in your guest VM."
+    gum style --margin "0 2" --foreground 15 "2. Run: ${GREEN}sudo pacman -S spice-vdagent qemu-guest-agent${RESET}"
+    gum style --margin "0 2" --foreground 15 "3. Enable the QEMU guest agent service: ${GREEN}sudo systemctl enable --now qemu-guest-agent${RESET}"
+    echo ""
+    gum style --foreground 226 "Ensure your VM configuration in Virt-Manager includes:"
+    gum style --margin "0 2" --foreground 15 "• A 'Channel' device with 'Spice agent (qemu-ga)' type."
+    gum style --margin "0 2" --foreground 15 "• A 'Video' device with 'QXL' or 'Virtio' model and a 'Spice server' display."
+    echo ""
+    log_success "Virt-Manager guest integration instructions provided."
+  else
+    log_info "Virt-Manager not installed. Skipping guest integration instructions."
+  fi
+}
+
 enable_services() {
   local services=(
     bluetooth.service
@@ -98,6 +123,9 @@ enable_services() {
     sshd.service
     ufw.service
   )
+
+  # Check and configure virt-manager guest integration
+  configure_virt_manager_guest_integration
 
   # Conditionally add rustdesk.service if installed
   if pacman -Q rustdesk-bin &>/dev/null || pacman -Q rustdesk &>/dev/null; then
