@@ -134,7 +134,8 @@ configure_grub() {
         default_entry=""
 
         # Priority 1: Default 'Arch Linux' kernel (e.g., linux, not lts/zen)
-        default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | grep -v "linux-lts" | grep -v "linux-zen" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+        # Use negative lookahead to ensure it's specifically the default 'Arch Linux' without 'linux-lts' or 'linux-zen' suffixes.
+        default_entry=$(grep -P "menuentry 'Arch Linux'(?!, with Linux (linux-lts|linux-zen))" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
 
         # Priority 2: 'Arch Linux, with Linux linux-lts' kernel
         if [ -z "$default_entry" ]; then
