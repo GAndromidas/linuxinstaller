@@ -64,12 +64,14 @@ IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or 
 
 # --- GRUB configuration ---
 configure_grub() {
-    step "Configuring GRUB for default kernel priority"
+    step "Configuring GRUB for default kernel priority (Visual Reorder)"
 
     # 1. Configure /etc/default/grub
-    log_info "Updating /etc/default/grub settings..."
+    log_info "Updating /etc/default/grub settings for visual reordering..."
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub
-    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
+    # Fix: Correct GRUB_SAVEDAFAULT typo and ensure it's set to false
+    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub || sudo sed -i 's/^GRUB_SAVEDAFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
+
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
     sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"/' /etc/default/grub
 
@@ -97,53 +99,55 @@ configure_grub() {
     sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null || true
     log_success "Fallback initramfs images removed."
 
-    # 2. Regenerate grub config initially to ensure all modules/settings are active
-    # This also populates /boot/grub/grub.cfg with standard entries we can use for reference
-    log_info "Generating initial GRUB configuration..."
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
-    log_success "Initial GRUB configuration generated."
-
-    # 3. Extract necessary information for custom menuentry
+    # 2. Extract necessary information for custom menuentry
     log_info "Extracting system information for custom GRUB entry..."
-    local ROOT_UUID
-    ROOT_UUID=$(findmnt -no UUID /)
+    local ROOT_UUID=$(findmnt -no UUID /)
     if [ -z "$ROOT_UUID" ]; then
         log_error "Failed to determine root partition UUID. Cannot create custom GRUB entry for ordering."
         return 1
     fi
+    log_success "Root UUID: $ROOT_UUID"
 
-    local ROOT_DEV
-    ROOT_DEV=$(findmnt -no SOURCE /) # e.g., /dev/sda2 or /dev/nvme0n1p2
+    local ROOT_DEV_FULL=$(findmnt -no SOURCE /) # e.g., /dev/vda2[/@]
+    log_info "Full root device path: $ROOT_DEV_FULL"
 
-    local ROOT_PART_DEV # e.g., sda2 or nvme0n1p2
-    ROOT_PART_DEV=$(basename "$ROOT_DEV")
+    # Fix: Correctly strip [/@] or any [...] suffix from Btrfs paths
+    local ROOT_DEV_STRIPPED=$(echo "$ROOT_DEV_FULL" | cut -d '[' -f1) # e.g., /dev/vda2
+    log_info "Stripped root device path: $ROOT_DEV_STRIPPED"
+
+    local ROOT_PART_DEV=$(basename "$ROOT_DEV_STRIPPED") # e.g., vda2
+    log_info "Root partition device name: $ROOT_PART_DEV"
 
     local ROOT_PART_NUM
-    # Handle different partition naming schemes (e.g., sda1, nvme0n1p1)
-    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z])[0-9]+$ ]]; then
+    # Handle different partition naming schemes (e.g., sda1, vda1, nvme0n1p1, mmcblk0p1)
+    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z]|vd[a-z])[0-9]+$ ]]; then
         ROOT_PART_NUM=$(echo "$ROOT_PART_DEV" | grep -o '[0-9]*$')
     elif [[ "$ROOT_PART_DEV" =~ ^nvme[0-9]n[0-9]p[0-9]+$ ]]; then
         ROOT_PART_NUM=$(echo "$ROOT_PART_DEV" | grep -o 'p[0-9]*$' | sed 's/p//')
+    elif [[ "$ROOT_PART_DEV" =~ ^mmcblk[0-9]p[0-9]+$ ]]; then # Added eMMC support
+        ROOT_PART_NUM=$(echo "$ROOT_PART_DEV" | grep -o 'p[0-9]*$' | sed 's/p//')
     else
-        log_error "Could not determine root partition number from $ROOT_DEV. Cannot create custom GRUB entry."
+        log_error "Could not determine root partition number from \"$ROOT_PART_DEV\". Cannot create custom GRUB entry."
         return 1
     fi
+    log_success "Root Partition Number: $ROOT_PART_NUM"
 
-    local ROOT_DISK # e.g., sda or nvme0n1
-    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z])[0-9]+$ ]]; then
+    local ROOT_DISK # e.g., sda or nvme0n1 or vda or mmcblk0
+    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z]|vd[a-z])[0-9]+$ ]]; then
         ROOT_DISK=$(echo "$ROOT_PART_DEV" | sed 's/[0-9]*$//')
     elif [[ "$ROOT_PART_DEV" =~ ^nvme[0-9]n[0-9]p[0-9]+$ ]]; then
         ROOT_DISK=$(echo "$ROOT_PART_DEV" | sed 's/p[0-9]*$//')
+    elif [[ "$ROOT_PART_DEV" =~ ^(mmcblk[0-9])p[0-9]+$ ]]; then # Added eMMC support
+        ROOT_DISK=$(echo "$ROOT_PART_DEV" | sed 's/p[0-9]*$//')
     else
-        log_error "Could not determine root disk from $ROOT_DEV. Cannot create custom GRUB entry."
+        log_error "Could not determine root disk from \"$ROOT_PART_DEV\". Cannot create custom GRUB entry."
         return 1
     fi
+    log_success "Root Disk (device prefix): $ROOT_DISK"
 
     local GRUB_DISK_NUM=-1
     # Loop through detected disks to find matching device for GRUB's hdX naming
-    # /dev/disk/by-id/ symlinks often point to /dev/sdX or /dev/nvmeX
     local DISK_DEVS=()
-    # Find block devices that are disks (not partitions)
     mapfile -t DISK_DEVS < <(lsblk -o KNAME,TYPE | awk '$2=="disk" {print $1}')
 
     for i in "${!DISK_DEVS[@]}"; do
@@ -154,20 +158,24 @@ configure_grub() {
     done
 
     if [ "$GRUB_DISK_NUM" -eq -1 ]; then
-        log_error "Failed to determine GRUB disk number for $ROOT_DISK. Cannot create custom GRUB entry."
+        log_error "Failed to determine GRUB disk number for \"$ROOT_DISK\". Cannot create custom GRUB entry."
         return 1
     fi
+    log_success "GRUB Disk Number (hdX): $GRUB_DISK_NUM"
 
-    local FSTYPE
-    FSTYPE=$(findmnt -no FSTYPE /)
-    local GRUB_FSM="insmod part_gpt" # Default assumption for modern systems, will add specific if needed
+    local FSTYPE=$(findmnt -no FSTYPE /)
+    local GRUB_FSM="" # Initialize, will build with insmod commands
     local PART_TABLE_TYPE="gpt" # Default partition table type
 
-    if sudo parted -s "$ROOT_DEV" print | grep -q "Partition Table: msdos"; then
+    # Use parted to check partition table type
+    if sudo parted -s "$ROOT_DEV_STRIPPED" print | grep -q "Partition Table: msdos"; then
         GRUB_FSM="insmod part_msdos"
         PART_TABLE_TYPE="msdos"
+    else
+        GRUB_FSM="insmod part_gpt" # Assume GPT if not msdos
     fi
 
+    # Add filesystem specific insmod
     if [ "$FSTYPE" = "btrfs" ]; then
         GRUB_FSM="$GRUB_FSM insmod btrfs"
     elif [ "$FSTYPE" = "ext4" ] || [ "$FSTYPE" = "ext3" ] || [ "$FSTYPE" = "ext2" ]; then
@@ -180,39 +188,31 @@ configure_grub() {
         log_warning "Unsupported root filesystem type '$FSTYPE'. Defaulting to basic GRUB filesystem modules."
         GRUB_FSM="$GRUB_FSM insmod linux" # Generic for other types
     fi
-    GRUB_FSM=$(echo "$GRUB_FSM" | xargs) # Trim whitespace
+    GRUB_FSM=$(echo "$GRUB_FSM" | xargs) # Trim whitespace and multiple spaces
+    log_success "GRUB Filesystem Modules: $GRUB_FSM"
 
-    local GRUB_CMDLINE_LINUX_DEFAULT_VAL
-    GRUB_CMDLINE_LINUX_DEFAULT_VAL=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | cut -d'"' -f2)
-    local GRUB_CMDLINE_LINUX_VAL
-    GRUB_CMDLINE_LINUX_VAL=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "") # May not exist
+    local GRUB_CMDLINE_LINUX_DEFAULT_VAL=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | cut -d'"' -f2)
+    local GRUB_CMDLINE_LINUX_VAL=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | sed -n 's/^GRUB_CMDLINE_LINUX="\([^"]*\)"/\1/p' || echo "") # Robust extraction
 
-    # Combine cmdline options, adding root=UUID if not already present
+    # Combine cmdline options, ensuring root=UUID is explicitly included and not duplicated.
     local FULL_CMDLINE="${GRUB_CMDLINE_LINUX_DEFAULT_VAL} ${GRUB_CMDLINE_LINUX_VAL}"
     FULL_CMDLINE=$(echo "$FULL_CMDLINE" | xargs) # Trim whitespace
 
-    # Ensure "root=UUID=..." is explicitly included and not duplicated, prioritizing it.
     if [[ ! "$FULL_CMDLINE" =~ root=UUID= ]]; then
         FULL_CMDLINE="root=UUID=$ROOT_UUID $FULL_CMDLINE"
     fi
     # Remove any potential duplicate root=UUID entries if they exist
     FULL_CMDLINE=$(echo "$FULL_CMDLINE" | sed -E 's/(root=UUID=[a-f0-9-]{36}).*\1/\1/' | xargs)
 
-
-    log_success "Root UUID: $ROOT_UUID"
-    log_success "Root Partition Number: $ROOT_PART_NUM"
-    log_success "GRUB Disk Number: $GRUB_DISK_NUM"
-    log_success "GRUB Filesystem Modules: $GRUB_FSM"
     log_success "Combined Kernel Cmdline: $FULL_CMDLINE"
 
-
-    # 4. Create a custom GRUB script (09_arch_linux_default_kernel) with higher priority
+    # 3. Create a custom GRUB script (09_arch_linux_default_kernel) with higher priority
     local grub_script_path="/etc/grub.d/09_arch_linux_default_kernel"
     log_info "Creating custom GRUB script '$grub_script_path' to prioritize 'Arch Linux, with Linux linux'..."
 
     # Use a here document with literal content and dynamic variable expansion
     # Note: Variables like $ROOT_UUID, $GRUB_DISK_NUM etc. are expanded here when the script is written.
-    # $0 within the heredoc itself is escaped (\$0) so it refers to the 09_ script, not the parent script.
+    # $0 within the heredoc itself is escaped (\$) so it refers to the 09_ script, not the parent script.
     sudo bash -c "cat << 'GRUB_ENTRY_EOF' > '$grub_script_path'
 #!/bin/sh
 exec tail -n +3 \$0
@@ -237,25 +237,31 @@ menuentry 'Arch Linux, with Linux linux' --class arch --class gnu-linux --class 
     initrd /boot/initramfs-linux.img
 }
 GRUB_ENTRY_EOF"
-
     sudo chmod +x "$grub_script_path"
     log_success "Custom GRUB script created and made executable."
 
-    # Remove fallback kernel entries again, just to be sure
-    # This also helps clean up any standard 10_linux generated entries for the "linux" kernel
-    # which will now be superseded by our 09_ script.
-    log_info "Removing GRUB fallback and duplicate kernel entries from /boot/grub/grub.cfg (pre-final-config)..."
-    # Delete the default 'Arch Linux, with Linux linux' entry generated by 10_linux
-    sudo sed -i '/^menuentry '\''Arch Linux, with Linux linux'\''/,/^}/{/^}/!d; /^}/p;}' /boot/grub/grub.cfg || true
-    # Delete any fallback entries
-    sudo sed -i '/^menuentry / { N; /\\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
-    sudo sed -i '/initrd \\/boot\\/initramfs-.*-fallback.img/d/' /boot/grub/grub.cfg || true
+    # 4. Generate initial GRUB configuration (needed to get a full grub.cfg before deleting entries from it)
+    log_info "Generating initial GRUB configuration (to ensure a base grub.cfg exists for cleanup)..."
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    log_success "Initial GRUB configuration generated."
+
+    # 5. Remove fallback kernel entries and the default 'Arch Linux, with Linux linux' entry from 10_linux script
+    log_info "Cleaning up /boot/grub/grub.cfg: Removing fallback entries and the duplicate 'Arch Linux, with Linux linux'..."
+    # Delete the standard 'Arch Linux, with Linux linux' entry generated by 10_linux
+    # This sed command is designed to delete the entire menuentry block.
+    # It finds the line starting with "menuentry 'Arch Linux, with Linux linux'",
+    # then deletes until the closing brace '}' for that entry.
+    sudo sed -i "/^menuentry 'Arch Linux, with Linux linux'/,/^}/d" /boot/grub/grub.cfg || true
+
+    # Delete any other fallback entries or similar
+    sudo sed -i '/^menuentry / { N; /\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
+    sudo sed -i '/initrd \/boot\/initramfs-.*-fallback.img/d/' /boot/grub/grub.cfg || true
     sudo sed -i '/title .*fallback/d/' /boot/grub/grub.cfg || true
-    log_success "Fallback and duplicate entries cleaned up (pre-final-config)."
+    log_success "Fallback and duplicate entries cleaned up."
 
 
-    # 5. Final grub-mkconfig to apply the custom script
-    log_info "Generating final GRUB configuration with custom entry..."
+    # 6. Final grub-mkconfig to apply the custom script
+    log_info "Generating final GRUB configuration with custom entry... This may take a moment."
     sudo grub-mkconfig -o /boot/grub/grub.cfg
     log_success "GRUB configuration complete: 'Arch Linux, with Linux linux' should now appear first."
     log_success "Please reboot to verify the changes."
@@ -295,16 +301,16 @@ find_windows_efi_partition() {
     for partition in "${partitions[@]}"; do
         local temp_mount="/tmp/windows_efi_check"
         mkdir -p "$temp_mount"
-        if mount "$partition" "$temp_mount" 2>/dev/null; then
+        if sudo mount "$partition" "$temp_mount" 2>/dev/null; then
             if [ -d "$temp_mount/EFI/Microsoft" ]; then
-                umount "$temp_mount"
-                rm -rf "$temp_mount"
+                sudo umount "$temp_mount"
+                sudo rm -rf "$temp_mount"
                 echo "$partition"
                 return 0
             fi
-            umount "$temp_mount"
+            sudo umount "$temp_mount"
         fi
-        rm -rf "$temp_mount"
+        sudo rm -rf "$temp_mount"
     done
     return 1
 }
@@ -321,7 +327,7 @@ add_windows_to_systemdboot() {
         fi
         local mount_point="/mnt/winefi"
         mkdir -p "$mount_point"
-        if mount "$windows_partition" "$mount_point"; then
+        if sudo mount "$windows_partition" "$mount_point"; then
             if [ -d "$mount_point/EFI/Microsoft" ]; then
                 sudo cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
                 log_success "Copied Microsoft EFI files to /boot/EFI/Microsoft."
