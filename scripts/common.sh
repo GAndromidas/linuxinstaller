@@ -618,6 +618,22 @@ validate_file_operation() {
 
 # Function: install_aur_quietly
 # Description: Install packages via AUR helper (wrapper for generic installer)
+
+# Check if system uses Btrfs filesystem
+is_btrfs_system() {
+  findmnt -no FSTYPE / | grep -q btrfs
+}
+
+# Detect bootloader type
+detect_bootloader() {
+  if [ -d "/boot/grub" ] || [ -d "/boot/grub2" ] || [ -d "/boot/efi/EFI/grub" ] || command -v grub-mkconfig &>/dev/null || pacman -Q grub &>/dev/null 2>&1; then
+    echo "grub"
+  elif [ -d "/boot/loader/entries" ] || [ -d "/efi/loader/entries" ] || command -v bootctl &>/dev/null; then
+    echo "systemd-boot"
+  else
+    echo "unknown"
+  fi
+}
 # Parameters: $@ - Packages to install
 install_aur_quietly() {
   if ! command -v yay &>/dev/null; then

@@ -61,22 +61,6 @@ update_mirrorlist_with_rate_mirrors() {
   fi
 }
 
-# Check if system uses Btrfs filesystem
-is_btrfs_system() {
-  findmnt -no FSTYPE / | grep -q btrfs
-}
-
-# Detect bootloader type
-detect_bootloader() {
-  if [ -d "/boot/grub" ] || [ -d "/boot/grub2" ] || [ -d "/boot/efi/EFI/grub" ] || command -v grub-mkconfig &>/dev/null || pacman -Q grub &>/dev/null 2>&1; then
-    echo "grub"
-  elif [ -d "/boot/loader/entries" ] || [ -d "/efi/loader/entries" ] || command -v bootctl &>/dev/null; then
-    echo "systemd-boot"
-  else
-    echo "unknown"
-  fi
-}
-
 # Configure Snapper settings
 configure_snapper() {
   step "Configuring Snapper for root filesystem"
@@ -360,7 +344,16 @@ setup_grub_bootloader() {
   # Enable grub-btrfsd daemon for automatic menu updates
   if command -v grub-btrfsd &>/dev/null; then
     log_info "Enabling grub-btrfsd service for automatic snapshot detection..."
-    sudo systemctl enable --now grub-btrfsd.service 2>/dev/null || log_warning "Failed to enable grub-btrfsd service"
+    if sudo systemctl enable --now grub-btrfsd.service; then
+      log_success "grub-btrfsd service enabled and started."
+      # Check service status and logs for debugging if it's not working
+      if ! sudo systemctl is-active --quiet grub-btrfsd.service; then
+        log_error "grub-btrfsd.service is not active despite being enabled. Checking logs..."
+        sudo journalctl -u grub-btrfsd.service --since "10 minutes ago" --no-pager || true
+      fi
+    else
+      log_error "Failed to enable grub-btrfsd service. Please check manually."
+    fi
   fi
 
   # Regenerate GRUB configuration

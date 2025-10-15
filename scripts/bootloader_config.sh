@@ -4,9 +4,9 @@ set -uo pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/common.sh" # Source common functions like detect_bootloader and is_btrfs_system
 
-# Apply all boot configurations at once
+# Apply all boot configurations at once for systemd-boot
 configure_boot() {
   # Make systemd-boot silent
   find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
@@ -51,26 +51,16 @@ setup_fastfetch_config() {
   fi
 }
 
-# Execute ultra-fast boot configuration
+# Execute ultra-fast boot configuration (for systemd-boot)
 if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
     configure_boot
 fi
 setup_fastfetch_config
 
-# --- Bootloader and Btrfs detection ---
-if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
-    BOOTLOADER="systemd-boot"
-elif [ -d /boot/grub ] || [ -f /etc/default/grub ]; then
-    BOOTLOADER="grub"
-else
-    BOOTLOADER="unknown"
-fi
+# --- Bootloader and Btrfs detection variables (using centralized functions) ---
+local BOOTLOADER=$(detect_bootloader)
+local IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or "false" for easier scripting
 
-if findmnt -n -o FSTYPE / | grep -q btrfs; then
-    IS_BTRFS=true
-else
-    IS_BTRFS=false
-fi
 
 # --- GRUB configuration ---
 configure_grub() {
@@ -81,20 +71,20 @@ configure_grub() {
     if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
     else
-        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub
+        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     fi
     if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
     else
-        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub
+        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
     # Set timeout to 3 seconds
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
 
     # Set console mode (gfxmode)
-    grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub
-    grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub
+    grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
+    grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
     # Remove all fallback initramfs images
     sudo rm -f /boot/initramfs-*-fallback.img
@@ -103,15 +93,16 @@ configure_grub() {
     if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
     else
-        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub
+        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
     # Show Btrfs snapshots in main menu if grub-btrfs is installed
+    # This check is here for consistency with default config, but grub-btrfs installation is in maintenance.sh
     if pacman -Q grub-btrfs &>/dev/null; then
         if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
             sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
         else
-            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub
+            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub >/dev/null
         fi
     fi
 
@@ -119,37 +110,32 @@ configure_grub() {
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
     # Remove fallback kernel entries from grub.cfg for a cleaner menu
-    # This specifically targets menuentries that include "fallback" in their title
-    # or that are clearly related to fallback initramfs images, to avoid showing them.
-    # We do this after grub-mkconfig generates the file.
     log_info "Removing GRUB fallback kernel entries for a cleaner boot menu..."
     sudo sed -i '/^menuentry / { N; /\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
-    # Additionally, remove any remaining lines that might be part of a fallback entry structure if the above missed some
     sudo sed -i '/initrd \/boot\/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
     sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
 
 
-    # Set default to preferred kernel on first run only (if grubenv doesn\'t exist yet)
+    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
     if [ ! -f /boot/grub/grubenv ]; then
-        default_entry=""
+        local default_entry=""
 
         # Priority 1: Default 'Arch Linux' kernel (e.g., linux, not lts/zen)
-        # Use negative lookahead to ensure it's specifically the default 'Arch Linux' without 'linux-lts' or 'linux-zen' suffixes.
-        default_entry=$(grep -P "menuentry 'Arch Linux'(?!, with Linux (linux-lts|linux-zen))" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+        default_entry=$(grep -P "menuentry 'Arch Linux'(?!, with Linux (linux-lts|linux-zen))" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
 
         # Priority 2: 'Arch Linux, with Linux linux-lts' kernel
         if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux, with Linux linux-lts'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+            default_entry=$(grep -P "menuentry 'Arch Linux, with Linux linux-lts'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
         fi
 
         # Priority 3: 'Arch Linux, with Linux linux-zen' kernel (if lts not found)
         if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+            default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
         fi
 
         # Final Fallback: Any generic 'Arch Linux' entry
         if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
         fi
 
         if [ -n "$default_entry" ]; then
@@ -162,6 +148,7 @@ configure_grub() {
         echo "GRUB environment exists, preserving @saved configuration"
     fi
 }
+
 
 # --- Windows Dual-Boot Detection and Configuration ---
 
@@ -178,12 +165,12 @@ detect_windows() {
 }
 
 add_windows_to_grub() {
-    sudo pacman -S --noconfirm os-prober
+    sudo pacman -S --noconfirm os-prober >/dev/null 2>&1
     # Ensure GRUB_DISABLE_OS_PROBER is not set to true
     if grep -q '^GRUB_DISABLE_OS_PROBER=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
     else
-        echo 'GRUB_DISABLE_OS_PROBER=false' | sudo tee -a /etc/default/grub
+        echo 'GRUB_DISABLE_OS_PROBER=false' | sudo tee -a /etc/default/grub >/dev/null
     fi
     sudo grub-mkconfig -o /boot/grub/grub.cfg
     echo "Windows entry added to GRUB (if detected by os-prober)."
@@ -238,7 +225,7 @@ add_windows_to_systemdboot() {
     # Create loader entry if not present
     local entry="/boot/loader/entries/windows.conf"
     if [ ! -f "$entry" ]; then
-        cat <<EOF | sudo tee "$entry"
+        cat <<EOF | sudo tee "$entry" >/dev/null
 title   Windows
 efi     /EFI/Microsoft/Boot/bootmgfw.efi
 EOF
@@ -264,7 +251,7 @@ fi
 if detect_windows; then
     echo "Windows installation detected. Configuring dual-boot..."
     # Always install ntfs-3g for NTFS access
-    sudo pacman -S --noconfirm ntfs-3g
+    sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
 
     if [ "$BOOTLOADER" = "grub" ]; then
         add_windows_to_grub
