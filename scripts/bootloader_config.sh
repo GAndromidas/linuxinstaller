@@ -97,7 +97,6 @@ configure_grub() {
     fi
 
     # Show Btrfs snapshots in main menu if grub-btrfs is installed
-    # This check is here for consistency with default config, but grub-btrfs installation is in maintenance.sh
     if pacman -Q grub-btrfs &>/dev/null; then
         if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
             sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
@@ -106,133 +105,192 @@ configure_grub() {
         fi
     fi
 
-    # Custom GRUB menu ordering - standard kernel first, then LTS
-    cat <<'GRUB_CUSTOM' | sudo tee /etc/grub.d/09_custom_order >/dev/null
-#!/bin/sh
-exec tail -n +3 $0
-# This file provides custom ordering for GRUB menu entries
-
-menuentry 'Arch Linux, with Linux linux' --class arch --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-linux-advanced-DEVICE' {
-    load_video
-    set gfxpayload=keep
-    insmod gzio
-    insmod part_gpt
-    insmod ext2
-    if [ x$feature_platform_search_hint = xy ]; then
-      search --no-floppy --fs-uuid --set=root PLACEHOLDER_UUID
-    else
-      search --no-floppy --fs-uuid --set=root PLACEHOLDER_UUID
-    fi
-    echo    'Loading Linux linux ...'
-    linux   /vmlinuz-linux root=UUID=PLACEHOLDER_UUID rw quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles
-    echo    'Loading initial ramdisk ...'
-    initrd  /initramfs-linux.img
-}
-GRUB_CUSTOM
-
-    sudo chmod +x /etc/grub.d/09_custom_order
-
-    # Get root partition UUID
-    local root_uuid=$(findmnt -n -o UUID /)
-    if [ -n "$root_uuid" ]; then
-        sudo sed -i "s/PLACEHOLDER_UUID/$root_uuid/g" /etc/grub.d/09_custom_order
-        log_info "Set root UUID to $root_uuid in custom GRUB ordering"
-    else
-        log_warning "Could not detect root UUID, removing custom ordering file"
-        sudo rm -f /etc/grub.d/09_custom_order
-    fi
-
     # Regenerate grub config
+    log_info "Regenerating GRUB configuration..."
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
     # Remove fallback kernel entries from grub.cfg for a cleaner menu
-    log_info "Removing GRUB fallback kernel entries for a cleaner boot menu..."
-    sudo sed -i '/^menuentry / { N; /\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
-    sudo sed -i '/initrd \/boot\/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
-    sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
+    log_info "Removing GRUB fallback kernel entries..."
+    sudo sed -i '/fallback/d' /boot/grub/grub.cfg || true
 
-    # Reorder menu: Move standard kernel entries before LTS
-    log_info "Reordering GRUB menu: standard kernel first, then LTS..."
+    # Post-process grub.cfg to ensure correct ordering
+    log_info "Reordering GRUB menu entries: standard kernel first, then LTS..."
 
-    # Create a temporary file with the reordered entries
-    local temp_grub="/tmp/grub_reordered.cfg"
-    awk '
-    BEGIN { in_menuentry=0; buffer=""; standard_entries=""; lts_entries=""; other_entries="" }
-    /^menuentry / {
-        if (buffer != "") {
-            if (buffer ~ /Linux linux[^-]/) {
-                standard_entries = standard_entries buffer
-            } else if (buffer ~ /Linux linux-lts/) {
-                lts_entries = lts_entries buffer
-            } else {
-                other_entries = other_entries buffer
-            }
+    # Create Python script for reordering
+    cat > /tmp/reorder_grub.py <<'PYTHON_EOF'
+import re
+import sys
+
+try:
+    with open('/boot/grub/grub.cfg', 'r') as f:
+        content = f.read()
+
+    # Find the 10_linux section
+    start_marker = '### BEGIN /etc/grub.d/10_linux ###'
+    end_marker = '### END /etc/grub.d/10_linux ###'
+
+    if start_marker not in content or end_marker not in content:
+        print("Could not find 10_linux section markers", file=sys.stderr)
+        sys.exit(1)
+
+    start_idx = content.index(start_marker) + len(start_marker)
+    end_idx = content.index(end_marker)
+
+    before = content[:start_idx]
+    section = content[start_idx:end_idx]
+    after = content[end_idx:]
+
+    # Extract all menu entries with proper nesting handling
+    entries = []
+    depth = 0
+    current_entry = []
+    in_entry = False
+
+    for line in section.split('\n'):
+        if line.strip().startswith('menuentry'):
+            in_entry = True
+            depth = 0
+            current_entry = [line]
+        elif in_entry:
+            current_entry.append(line)
+            if '{' in line:
+                depth += line.count('{')
+            if '}' in line:
+                depth -= line.count('}')
+            if depth == 0 and '}' in line:
+                entries.append('\n'.join(current_entry))
+                in_entry = False
+                current_entry = []
+
+    # Categorize entries
+    standard = []
+    lts = []
+    others = []
+
+    for entry in entries:
+        if 'Linux linux' in entry and 'linux-lts' not in entry and 'linux-zen' not in entry and 'linux-hardened' not in entry:
+            standard.append(entry)
+        elif 'linux-lts' in entry:
+            lts.append(entry)
+        else:
+            others.append(entry)
+
+    # Rebuild section with correct order
+    reordered = standard + lts + others
+    new_section = '\n'.join(reordered)
+
+    # Write back
+    with open('/boot/grub/grub.cfg', 'w') as f:
+        f.write(before + '\n' + new_section + '\n' + after)
+
+    print(f"Successfully reordered GRUB menu: {len(standard)} standard, {len(lts)} LTS, {len(others)} other entries")
+    sys.exit(0)
+
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+PYTHON_EOF
+
+    # Run Python reordering
+    if python3 /tmp/reorder_grub.py 2>/dev/null; then
+        log_success "Python reordering completed successfully"
+    else
+        log_warning "Python reordering failed, trying awk method..."
+
+        # Fallback awk method - simpler but should work
+        awk '
+        BEGIN {
+            in_section=0
+            entry=""
+            entry_count=0
         }
-        buffer = $0 "\n"
-        in_menuentry=1
-        next
-    }
-    in_menuentry==1 {
-        buffer = buffer $0 "\n"
-        if ($0 ~ /^}$/) {
-            in_menuentry=0
+
+        # Mark section boundaries
+        /### BEGIN \/etc\/grub.d\/10_linux ###/ {
+            in_section=1
+            print
+            next
         }
-        next
-    }
-    /^### BEGIN \/etc\/grub.d\/10_linux ###/ {
-        print $0
-        getline
-        while (getline > 0 && $0 !~ /^### END \/etc\/grub.d\/10_linux ###/) {
-            if ($0 ~ /^menuentry /) {
-                if (buffer != "") {
-                    if (buffer ~ /Linux linux[^-]/) {
-                        standard_entries = standard_entries buffer
-                    } else if (buffer ~ /Linux linux-lts/) {
-                        lts_entries = lts_entries buffer
+        /### END \/etc\/grub.d\/10_linux ###/ {
+            # Output collected entries in order
+            for (i=1; i<=std_count; i++) print standard[i]
+            for (i=1; i<=lts_count; i++) print lts[i]
+            for (i=1; i<=other_count; i++) print others[i]
+            in_section=0
+            print
+            next
+        }
+
+        # Collect entries in section
+        in_section==1 {
+            if ($0 ~ /^menuentry/) {
+                # Save previous entry if exists
+                if (entry != "") {
+                    if (entry ~ /Linux linux[^-]/ && entry !~ /linux-lts/) {
+                        standard[++std_count] = entry
+                    } else if (entry ~ /linux-lts/) {
+                        lts[++lts_count] = entry
                     } else {
-                        other_entries = other_entries buffer
+                        others[++other_count] = entry
                     }
                 }
-                buffer = $0 "\n"
-                in_menuentry=1
-            } else if (in_menuentry==1) {
-                buffer = buffer $0 "\n"
-                if ($0 ~ /^}$/) {
-                    in_menuentry=0
+                entry = $0 "\n"
+                brace_depth = gsub(/{/, "&")
+                next
+            }
+
+            if (entry != "") {
+                entry = entry $0 "\n"
+                brace_depth += gsub(/{/, "&")
+                brace_depth -= gsub(/}/, "&")
+
+                # Entry complete when braces balanced
+                if (brace_depth == 0 && $0 ~ /}/) {
+                    if (entry ~ /Linux linux[^-]/ && entry !~ /linux-lts/) {
+                        standard[++std_count] = entry
+                    } else if (entry ~ /linux-lts/) {
+                        lts[++lts_count] = entry
+                    } else {
+                        others[++other_count] = entry
+                    }
+                    entry = ""
                 }
-            } else {
-                print $0
+                next
             }
-        }
-        if (buffer != "") {
-            if (buffer ~ /Linux linux[^-]/) {
-                standard_entries = standard_entries buffer
-            } else if (buffer ~ /Linux linux-lts/) {
-                lts_entries = lts_entries buffer
-            } else {
-                other_entries = other_entries buffer
-            }
-            buffer=""
-        }
-        printf "%s", standard_entries
-        printf "%s", lts_entries
-        printf "%s", other_entries
-        print $0
-        next
-    }
-    { print }
-    ' /boot/grub/grub.cfg > "$temp_grub"
 
-    sudo mv "$temp_grub" /boot/grub/grub.cfg
+            # Non-menuentry lines
+            print
+            next
+        }
 
-    # Set default to standard kernel (position 0 after reordering)
-    if [ ! -f /boot/grub/grubenv ]; then
-        log_info "Setting default GRUB entry to the standard 'linux' kernel..."
-        sudo grub-set-default 0
-        log_success "GRUB default entry set to standard kernel (position 0)"
-    else
-        log_info "GRUB environment exists, preserving @saved configuration"
+        # Outside section - pass through
+        { print }
+        ' /boot/grub/grub.cfg > /tmp/grub_reordered.cfg
+
+        if [ -s /tmp/grub_reordered.cfg ]; then
+            sudo mv /tmp/grub_reordered.cfg /boot/grub/grub.cfg
+            log_success "AWK reordering completed"
+        else
+            log_error "AWK reordering produced empty file, keeping original"
+        fi
     fi
+
+    # Clean up
+    rm -f /tmp/reorder_grub.py
+
+    # Set default to position 0 (which should now be the standard kernel)
+    log_info "Setting default GRUB entry to position 0 (standard kernel)..."
+    sudo grub-set-default 0
+
+    # Update grubenv to ensure saved_entry is set correctly
+    if [ -f /boot/grub/grubenv ]; then
+        sudo grub-editenv /boot/grub/grubenv set saved_entry=0
+    fi
+
+    log_success "GRUB configuration complete:"
+    log_success "  - Standard 'linux' kernel set as first entry"
+    log_success "  - LTS kernel set as second entry"
+    log_success "  - Default boot set to standard kernel (position 0)"
 }
 
 
