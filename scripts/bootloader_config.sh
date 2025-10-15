@@ -69,14 +69,14 @@ configure_grub() {
 
     # Set default entry to saved and enable save default
     if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub
     else
-        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
+        echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
     fi
     if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
+        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
     else
-        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
+        echo 'GRUB_SAVEDEFAULT=false' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
     # Set timeout to 3 seconds
@@ -116,37 +116,8 @@ configure_grub() {
     sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
 
 
-    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
-    if [ ! -f /boot/grub/grubenv ]; then
-        local default_entry=""
-
-        # Priority 1: Default 'Arch Linux' kernel (e.g., linux, not lts/zen)
-        default_entry=$(grep -P "menuentry 'Arch Linux'(?!, with Linux (linux-lts|linux-zen))" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-
-        # Priority 2: 'Arch Linux, with Linux linux-lts' kernel
-        if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux, with Linux linux-lts'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-        fi
-
-        # Priority 3: 'Arch Linux, with Linux linux-zen' kernel (if lts not found)
-        if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-        fi
-
-        # Final Fallback: Any generic 'Arch Linux' entry
-        if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
-        fi
-
-        if [ -n "$default_entry" ]; then
-            sudo grub-set-default "$default_entry"
-            echo "Set GRUB default to: $default_entry"
-        else
-            ui_warn "Could not find a preferred kernel entry to set as GRUB default. GRUB will use its default ordering."
-        fi
-    else
-        echo "GRUB environment exists, preserving @saved configuration"
-    fi
+    # With GRUB_DEFAULT=0 and GRUB_SAVEDEFAULT=false, GRUB will always boot the first entry.
+    # The explicit setting of a default entry via grub-set-default is not needed and can conflict.
 }
 
 
