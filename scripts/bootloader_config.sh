@@ -3,7 +3,7 @@ set -uo pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+CONFIGS_DIR="$SCRIPT_DIR/../configs" # Assuming configs are in archinstaller/configs
 source "$SCRIPT_DIR/common.sh" # Source common functions like detect_bootloader and is_btrfs_system
 
 # Apply all boot configurations at once for systemd-boot
@@ -64,39 +64,25 @@ IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or 
 
 # --- GRUB configuration ---
 configure_grub() {
-    # Set kernel parameters for Plymouth and quiet boot
+    step "Configuring GRUB for default kernel priority"
+
+    # 1. Configure /etc/default/grub
+    log_info "Updating /etc/default/grub settings..."
+    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub
+    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
     sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"/' /etc/default/grub
 
-    # Set default entry to saved and enable save default
-    if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
-    else
-        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
-    fi
-    if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
-    else
-        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
-    fi
-
-    # Set timeout to 3 seconds
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
-
-    # Set console mode (gfxmode)
+    # Ensure other common GRUB settings are present or updated
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
-    # Remove all fallback initramfs images
-    sudo rm -f /boot/initramfs-*-fallback.img
-
-    # Show all kernels and fallback entries in main menu
     if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
     else
         echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
-    # Show Btrfs snapshots in main menu if grub-btrfs is installed
     if pacman -Q grub-btrfs &>/dev/null; then
         if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
             sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
@@ -104,193 +90,175 @@ configure_grub() {
             echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub >/dev/null
         fi
     fi
+    log_success "Updated /etc/default/grub."
 
-    # Regenerate grub config
-    log_info "Regenerating GRUB configuration..."
+    # Remove all fallback initramfs images from /boot (this makes grub.cfg cleaner as well)
+    log_info "Removing fallback initramfs images from /boot..."
+    sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null || true
+    log_success "Fallback initramfs images removed."
+
+    # 2. Regenerate grub config initially to ensure all modules/settings are active
+    # This also populates /boot/grub/grub.cfg with standard entries we can use for reference
+    log_info "Generating initial GRUB configuration..."
     sudo grub-mkconfig -o /boot/grub/grub.cfg
+    log_success "Initial GRUB configuration generated."
 
-    # Remove fallback kernel entries from grub.cfg for a cleaner menu
-    log_info "Removing GRUB fallback kernel entries..."
-    sudo sed -i '/fallback/d' /boot/grub/grub.cfg || true
+    # 3. Extract necessary information for custom menuentry
+    log_info "Extracting system information for custom GRUB entry..."
+    local ROOT_UUID
+    ROOT_UUID=$(findmnt -no UUID /)
+    if [ -z "$ROOT_UUID" ]; then
+        log_error "Failed to determine root partition UUID. Cannot create custom GRUB entry for ordering."
+        return 1
+    fi
 
-    # Post-process grub.cfg to ensure correct ordering
-    log_info "Reordering GRUB menu entries: standard kernel first, then LTS..."
+    local ROOT_DEV
+    ROOT_DEV=$(findmnt -no SOURCE /) # e.g., /dev/sda2 or /dev/nvme0n1p2
 
-    # Create Python script for reordering
-    cat > /tmp/reorder_grub.py <<'PYTHON_EOF'
-import re
-import sys
+    local ROOT_PART_DEV # e.g., sda2 or nvme0n1p2
+    ROOT_PART_DEV=$(basename "$ROOT_DEV")
 
-try:
-    with open('/boot/grub/grub.cfg', 'r') as f:
-        content = f.read()
-
-    # Find the 10_linux section
-    start_marker = '### BEGIN /etc/grub.d/10_linux ###'
-    end_marker = '### END /etc/grub.d/10_linux ###'
-
-    if start_marker not in content or end_marker not in content:
-        print("Could not find 10_linux section markers", file=sys.stderr)
-        sys.exit(1)
-
-    start_idx = content.index(start_marker) + len(start_marker)
-    end_idx = content.index(end_marker)
-
-    before = content[:start_idx]
-    section = content[start_idx:end_idx]
-    after = content[end_idx:]
-
-    # Extract all menu entries with proper nesting handling
-    entries = []
-    depth = 0
-    current_entry = []
-    in_entry = False
-
-    for line in section.split('\n'):
-        if line.strip().startswith('menuentry'):
-            in_entry = True
-            depth = 0
-            current_entry = [line]
-        elif in_entry:
-            current_entry.append(line)
-            if '{' in line:
-                depth += line.count('{')
-            if '}' in line:
-                depth -= line.count('}')
-            if depth == 0 and '}' in line:
-                entries.append('\n'.join(current_entry))
-                in_entry = False
-                current_entry = []
-
-    # Categorize entries
-    standard = []
-    lts = []
-    others = []
-
-    for entry in entries:
-        if 'Linux linux' in entry and 'linux-lts' not in entry and 'linux-zen' not in entry and 'linux-hardened' not in entry:
-            standard.append(entry)
-        elif 'linux-lts' in entry:
-            lts.append(entry)
-        else:
-            others.append(entry)
-
-    # Rebuild section with correct order
-    reordered = standard + lts + others
-    new_section = '\n'.join(reordered)
-
-    # Write back
-    with open('/boot/grub/grub.cfg', 'w') as f:
-        f.write(before + '\n' + new_section + '\n' + after)
-
-    print(f"Successfully reordered GRUB menu: {len(standard)} standard, {len(lts)} LTS, {len(others)} other entries")
-    sys.exit(0)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYTHON_EOF
-
-    # Run Python reordering
-    if python3 /tmp/reorder_grub.py 2>/dev/null; then
-        log_success "Python reordering completed successfully"
+    local ROOT_PART_NUM
+    # Handle different partition naming schemes (e.g., sda1, nvme0n1p1)
+    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z])[0-9]+$ ]]; then
+        ROOT_PART_NUM=$(echo "$ROOT_PART_DEV" | grep -o '[0-9]*$')
+    elif [[ "$ROOT_PART_DEV" =~ ^nvme[0-9]n[0-9]p[0-9]+$ ]]; then
+        ROOT_PART_NUM=$(echo "$ROOT_PART_DEV" | grep -o 'p[0-9]*$' | sed 's/p//')
     else
-        log_warning "Python reordering failed, trying awk method..."
+        log_error "Could not determine root partition number from $ROOT_DEV. Cannot create custom GRUB entry."
+        return 1
+    fi
 
-        # Fallback awk method - simpler but should work
-        awk '
-        BEGIN {
-            in_section=0
-            entry=""
-            entry_count=0
-        }
+    local ROOT_DISK # e.g., sda or nvme0n1
+    if [[ "$ROOT_PART_DEV" =~ ^(sd[a-z]|hd[a-z])[0-9]+$ ]]; then
+        ROOT_DISK=$(echo "$ROOT_PART_DEV" | sed 's/[0-9]*$//')
+    elif [[ "$ROOT_PART_DEV" =~ ^nvme[0-9]n[0-9]p[0-9]+$ ]]; then
+        ROOT_DISK=$(echo "$ROOT_PART_DEV" | sed 's/p[0-9]*$//')
+    else
+        log_error "Could not determine root disk from $ROOT_DEV. Cannot create custom GRUB entry."
+        return 1
+    fi
 
-        # Mark section boundaries
-        /### BEGIN \/etc\/grub.d\/10_linux ###/ {
-            in_section=1
-            print
-            next
-        }
-        /### END \/etc\/grub.d\/10_linux ###/ {
-            # Output collected entries in order
-            for (i=1; i<=std_count; i++) print standard[i]
-            for (i=1; i<=lts_count; i++) print lts[i]
-            for (i=1; i<=other_count; i++) print others[i]
-            in_section=0
-            print
-            next
-        }
+    local GRUB_DISK_NUM=-1
+    # Loop through detected disks to find matching device for GRUB's hdX naming
+    # /dev/disk/by-id/ symlinks often point to /dev/sdX or /dev/nvmeX
+    local DISK_DEVS=()
+    # Find block devices that are disks (not partitions)
+    mapfile -t DISK_DEVS < <(lsblk -o KNAME,TYPE | awk '$2=="disk" {print $1}')
 
-        # Collect entries in section
-        in_section==1 {
-            if ($0 ~ /^menuentry/) {
-                # Save previous entry if exists
-                if (entry != "") {
-                    if (entry ~ /Linux linux[^-]/ && entry !~ /linux-lts/) {
-                        standard[++std_count] = entry
-                    } else if (entry ~ /linux-lts/) {
-                        lts[++lts_count] = entry
-                    } else {
-                        others[++other_count] = entry
-                    }
-                }
-                entry = $0 "\n"
-                brace_depth = gsub(/{/, "&")
-                next
-            }
-
-            if (entry != "") {
-                entry = entry $0 "\n"
-                brace_depth += gsub(/{/, "&")
-                brace_depth -= gsub(/}/, "&")
-
-                # Entry complete when braces balanced
-                if (brace_depth == 0 && $0 ~ /}/) {
-                    if (entry ~ /Linux linux[^-]/ && entry !~ /linux-lts/) {
-                        standard[++std_count] = entry
-                    } else if (entry ~ /linux-lts/) {
-                        lts[++lts_count] = entry
-                    } else {
-                        others[++other_count] = entry
-                    }
-                    entry = ""
-                }
-                next
-            }
-
-            # Non-menuentry lines
-            print
-            next
-        }
-
-        # Outside section - pass through
-        { print }
-        ' /boot/grub/grub.cfg > /tmp/grub_reordered.cfg
-
-        if [ -s /tmp/grub_reordered.cfg ]; then
-            sudo mv /tmp/grub_reordered.cfg /boot/grub/grub.cfg
-            log_success "AWK reordering completed"
-        else
-            log_error "AWK reordering produced empty file, keeping original"
+    for i in "${!DISK_DEVS[@]}"; do
+        if [[ "${DISK_DEVS[$i]}" == "$ROOT_DISK" ]]; then
+            GRUB_DISK_NUM="$i"
+            break
         fi
+    done
+
+    if [ "$GRUB_DISK_NUM" -eq -1 ]; then
+        log_error "Failed to determine GRUB disk number for $ROOT_DISK. Cannot create custom GRUB entry."
+        return 1
     fi
 
-    # Clean up
-    rm -f /tmp/reorder_grub.py
+    local FSTYPE
+    FSTYPE=$(findmnt -no FSTYPE /)
+    local GRUB_FSM="insmod part_gpt" # Default assumption for modern systems, will add specific if needed
+    local PART_TABLE_TYPE="gpt" # Default partition table type
 
-    # Set default to position 0 (which should now be the standard kernel)
-    log_info "Setting default GRUB entry to position 0 (standard kernel)..."
-    sudo grub-set-default 0
-
-    # Update grubenv to ensure saved_entry is set correctly
-    if [ -f /boot/grub/grubenv ]; then
-        sudo grub-editenv /boot/grub/grubenv set saved_entry=0
+    if sudo parted -s "$ROOT_DEV" print | grep -q "Partition Table: msdos"; then
+        GRUB_FSM="insmod part_msdos"
+        PART_TABLE_TYPE="msdos"
     fi
 
-    log_success "GRUB configuration complete:"
-    log_success "  - Standard 'linux' kernel set as first entry"
-    log_success "  - LTS kernel set as second entry"
-    log_success "  - Default boot set to standard kernel (position 0)"
+    if [ "$FSTYPE" = "btrfs" ]; then
+        GRUB_FSM="$GRUB_FSM insmod btrfs"
+    elif [ "$FSTYPE" = "ext4" ] || [ "$FSTYPE" = "ext3" ] || [ "$FSTYPE" = "ext2" ]; then
+        GRUB_FSM="$GRUB_FSM insmod ext2"
+    elif [ "$FSTYPE" = "xfs" ]; then
+        GRUB_FSM="$GRUB_FSM insmod xfs"
+    elif [ "$FSTYPE" = "vfat" ]; then # For EFI system partition, unlikely to be root
+        GRUB_FSM="$GRUB_FSM insmod fat"
+    else
+        log_warning "Unsupported root filesystem type '$FSTYPE'. Defaulting to basic GRUB filesystem modules."
+        GRUB_FSM="$GRUB_FSM insmod linux" # Generic for other types
+    fi
+    GRUB_FSM=$(echo "$GRUB_FSM" | xargs) # Trim whitespace
+
+    local GRUB_CMDLINE_LINUX_DEFAULT_VAL
+    GRUB_CMDLINE_LINUX_DEFAULT_VAL=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | cut -d'"' -f2)
+    local GRUB_CMDLINE_LINUX_VAL
+    GRUB_CMDLINE_LINUX_VAL=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "") # May not exist
+
+    # Combine cmdline options, adding root=UUID if not already present
+    local FULL_CMDLINE="${GRUB_CMDLINE_LINUX_DEFAULT_VAL} ${GRUB_CMDLINE_LINUX_VAL}"
+    FULL_CMDLINE=$(echo "$FULL_CMDLINE" | xargs) # Trim whitespace
+
+    # Ensure "root=UUID=..." is explicitly included and not duplicated, prioritizing it.
+    if [[ ! "$FULL_CMDLINE" =~ root=UUID= ]]; then
+        FULL_CMDLINE="root=UUID=$ROOT_UUID $FULL_CMDLINE"
+    fi
+    # Remove any potential duplicate root=UUID entries if they exist
+    FULL_CMDLINE=$(echo "$FULL_CMDLINE" | sed -E 's/(root=UUID=[a-f0-9-]{36}).*\1/\1/' | xargs)
+
+
+    log_success "Root UUID: $ROOT_UUID"
+    log_success "Root Partition Number: $ROOT_PART_NUM"
+    log_success "GRUB Disk Number: $GRUB_DISK_NUM"
+    log_success "GRUB Filesystem Modules: $GRUB_FSM"
+    log_success "Combined Kernel Cmdline: $FULL_CMDLINE"
+
+
+    # 4. Create a custom GRUB script (09_arch_linux_default_kernel) with higher priority
+    local grub_script_path="/etc/grub.d/09_arch_linux_default_kernel"
+    log_info "Creating custom GRUB script '$grub_script_path' to prioritize 'Arch Linux, with Linux linux'..."
+
+    # Use a here document with literal content and dynamic variable expansion
+    # Note: Variables like $ROOT_UUID, $GRUB_DISK_NUM etc. are expanded here when the script is written.
+    # $0 within the heredoc itself is escaped (\$0) so it refers to the 09_ script, not the parent script.
+    sudo bash -c "cat << 'GRUB_ENTRY_EOF' > '$grub_script_path'
+#!/bin/sh
+exec tail -n +3 \$0
+# This custom entry ensures 'Arch Linux, with Linux linux' appears first in GRUB menu.
+menuentry 'Arch Linux, with Linux linux' --class arch --class gnu-linux --class gnu --class os \$menuentry_id_option 'gnulinux-simple-$(findmnt -no UUID /)' {
+    load_video
+    set gfxpayload=keep
+    insmod gzio
+    $GRUB_FSM
+
+    # Set root based on disk and partition number (e.g., hd0,gpt2 or hd0,msdos2)
+    # This is a more direct approach for GRUB to find the root partition.
+    set root='hd$GRUB_DISK_NUM,$PART_TABLE_TYPE$ROOT_PART_NUM'
+
+    # Fallback search by UUID for robustness, especially if partition order changes
+    if [ x\$feature_platform_search_hint = xy ]; then
+      search --no-floppy --fs-uuid --set=root $ROOT_UUID
+    fi
+    echo 'Loading Linux linux ...'
+    linux /boot/vmlinuz-linux $FULL_CMDLINE
+    echo 'Loading initial ramdisk ...'
+    initrd /boot/initramfs-linux.img
+}
+GRUB_ENTRY_EOF"
+
+    sudo chmod +x "$grub_script_path"
+    log_success "Custom GRUB script created and made executable."
+
+    # Remove fallback kernel entries again, just to be sure
+    # This also helps clean up any standard 10_linux generated entries for the "linux" kernel
+    # which will now be superseded by our 09_ script.
+    log_info "Removing GRUB fallback and duplicate kernel entries from /boot/grub/grub.cfg (pre-final-config)..."
+    # Delete the default 'Arch Linux, with Linux linux' entry generated by 10_linux
+    sudo sed -i '/^menuentry '\''Arch Linux, with Linux linux'\''/,/^}/{/^}/!d; /^}/p;}' /boot/grub/grub.cfg || true
+    # Delete any fallback entries
+    sudo sed -i '/^menuentry / { N; /\\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
+    sudo sed -i '/initrd \\/boot\\/initramfs-.*-fallback.img/d/' /boot/grub/grub.cfg || true
+    sudo sed -i '/title .*fallback/d/' /boot/grub/grub.cfg || true
+    log_success "Fallback and duplicate entries cleaned up (pre-final-config)."
+
+
+    # 5. Final grub-mkconfig to apply the custom script
+    log_info "Generating final GRUB configuration with custom entry..."
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+    log_success "GRUB configuration complete: 'Arch Linux, with Linux linux' should now appear first."
+    log_success "Please reboot to verify the changes."
 }
 
 
@@ -309,7 +277,9 @@ detect_windows() {
 }
 
 add_windows_to_grub() {
-    sudo pacman -S --noconfirm os-prober >/dev/null 2>&1
+    step "Adding Windows to GRUB menu"
+    sudo pacman -S --noconfirm os-prober >/dev/null 2>&1 || log_warning "Failed to install os-prober"
+
     # Ensure GRUB_DISABLE_OS_PROBER is not set to true
     if grep -q '^GRUB_DISABLE_OS_PROBER=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
@@ -317,7 +287,7 @@ add_windows_to_grub() {
         echo 'GRUB_DISABLE_OS_PROBER=false' | sudo tee -a /etc/default/grub >/dev/null
     fi
     sudo grub-mkconfig -o /boot/grub/grub.cfg
-    echo "Windows entry added to GRUB (if detected by os-prober)."
+    log_success "Windows entry added to GRUB (if detected by os-prober)."
 }
 
 find_windows_efi_partition() {
@@ -340,48 +310,50 @@ find_windows_efi_partition() {
 }
 
 add_windows_to_systemdboot() {
+    step "Adding Windows to systemd-boot menu"
     # Only copy EFI files if not already present
     if [ ! -d "/boot/EFI/Microsoft" ]; then
         local windows_partition
         windows_partition=$(find_windows_efi_partition)
         if [ -z "$windows_partition" ]; then
-            echo "Error: Could not find Windows EFI partition"
+            log_error "Could not find Windows EFI partition"
             return 1
         fi
         local mount_point="/mnt/winefi"
         mkdir -p "$mount_point"
         if mount "$windows_partition" "$mount_point"; then
             if [ -d "$mount_point/EFI/Microsoft" ]; then
-                cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
-                echo "Copied Microsoft EFI files to /boot/EFI/Microsoft."
+                sudo cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
+                log_success "Copied Microsoft EFI files to /boot/EFI/Microsoft."
             else
-                echo "Error: Microsoft EFI files not found in $windows_partition"
+                log_error "Microsoft EFI files not found in $windows_partition"
             fi
-            umount "$mount_point"
+            sudo umount "$mount_point"
         else
-            echo "Error: Failed to mount Windows EFI partition"
+            log_error "Failed to mount Windows EFI partition"
         fi
-        rm -rf "$mount_point"
+        sudo rm -rf "$mount_point"
     else
-        echo "Microsoft EFI files already present in /boot/EFI/Microsoft."
+        log_success "Microsoft EFI files already present in /boot/EFI/Microsoft."
     fi
 
     # Create loader entry if not present
     local entry="/boot/loader/entries/windows.conf"
     if [ ! -f "$entry" ]; then
-        cat <<EOF | sudo tee "$entry" >/dev/null
+        sudo bash -c "cat <<EOF > \"$entry\"
 title   Windows
 efi     /EFI/Microsoft/Boot/bootmgfw.efi
-EOF
-        echo "Added Windows entry to systemd-boot."
+EOF"
+        log_success "Added Windows entry to systemd-boot."
     else
-        echo "Windows entry already exists in systemd-boot."
+        log_success "Windows entry already exists in systemd-boot."
     fi
 }
 
 set_localtime_for_windows() {
+    step "Adjusting hardware clock for Windows compatibility"
     sudo timedatectl set-local-rtc 1 --adjust-system-clock
-    echo "Set hardware clock to local time for Windows compatibility."
+    log_success "Set hardware clock to local time for Windows compatibility."
 }
 
 # --- Main Execution ---
@@ -393,9 +365,9 @@ fi
 
 # Windows dual-boot configuration
 if detect_windows; then
-    echo "Windows installation detected. Configuring dual-boot..."
+    log_info "Windows installation detected. Configuring dual-boot..."
     # Always install ntfs-3g for NTFS access
-    sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
+    run_step "Installing ntfs-3g for Windows partition access" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
 
     if [ "$BOOTLOADER" = "grub" ]; then
         add_windows_to_grub
