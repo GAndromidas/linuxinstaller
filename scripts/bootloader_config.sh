@@ -69,14 +69,14 @@ configure_grub() {
 
     # Set default entry to saved and enable save default
     if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub
+        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
     else
         echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
     fi
     if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
+        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
     else
-        echo 'GRUB_SAVEDEFAULT=false' | sudo tee -a /etc/default/grub >/dev/null
+        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
     # Set timeout to 3 seconds
@@ -116,8 +116,17 @@ configure_grub() {
     sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
 
 
-    # With GRUB_DEFAULT=0 and GRUB_SAVEDEFAULT=false, GRUB will always boot the first entry.
-    # The explicit setting of a default entry via grub-set-default is not needed and can conflict.
+    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
+    if [ ! -f /boot/grub/grubenv ]; then
+        log_info "Setting default GRUB entry to 'Arch Linux, with Linux linux'..."
+        if sudo grub-set-default "Arch Linux, with Linux linux"; then
+            log_success "GRUB default entry set to 'Arch Linux, with Linux linux'"
+        else
+            log_error "Failed to set GRUB default to 'Arch Linux, with Linux linux'. Check if the entry exists."
+        fi
+    else
+        log_info "GRUB environment exists, preserving @saved configuration"
+    fi
 }
 
 
