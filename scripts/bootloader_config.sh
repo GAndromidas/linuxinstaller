@@ -71,7 +71,7 @@ configure_grub() {
     if grep -q '^GRUB_DEFAULT=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
     else
-        echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
+        echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     fi
     if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub
@@ -106,6 +106,42 @@ configure_grub() {
         fi
     fi
 
+    # Custom GRUB menu ordering - standard kernel first, then LTS
+    cat <<'GRUB_CUSTOM' | sudo tee /etc/grub.d/09_custom_order >/dev/null
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides custom ordering for GRUB menu entries
+
+menuentry 'Arch Linux, with Linux linux' --class arch --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-linux-advanced-DEVICE' {
+    load_video
+    set gfxpayload=keep
+    insmod gzio
+    insmod part_gpt
+    insmod ext2
+    if [ x$feature_platform_search_hint = xy ]; then
+      search --no-floppy --fs-uuid --set=root PLACEHOLDER_UUID
+    else
+      search --no-floppy --fs-uuid --set=root PLACEHOLDER_UUID
+    fi
+    echo    'Loading Linux linux ...'
+    linux   /vmlinuz-linux root=UUID=PLACEHOLDER_UUID rw quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles
+    echo    'Loading initial ramdisk ...'
+    initrd  /initramfs-linux.img
+}
+GRUB_CUSTOM
+
+    sudo chmod +x /etc/grub.d/09_custom_order
+
+    # Get root partition UUID
+    local root_uuid=$(findmnt -n -o UUID /)
+    if [ -n "$root_uuid" ]; then
+        sudo sed -i "s/PLACEHOLDER_UUID/$root_uuid/g" /etc/grub.d/09_custom_order
+        log_info "Set root UUID to $root_uuid in custom GRUB ordering"
+    else
+        log_warning "Could not detect root UUID, removing custom ordering file"
+        sudo rm -f /etc/grub.d/09_custom_order
+    fi
+
     # Regenerate grub config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
@@ -115,15 +151,85 @@ configure_grub() {
     sudo sed -i '/initrd \/boot\/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
     sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
 
+    # Reorder menu: Move standard kernel entries before LTS
+    log_info "Reordering GRUB menu: standard kernel first, then LTS..."
 
-    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
+    # Create a temporary file with the reordered entries
+    local temp_grub="/tmp/grub_reordered.cfg"
+    awk '
+    BEGIN { in_menuentry=0; buffer=""; standard_entries=""; lts_entries=""; other_entries="" }
+    /^menuentry / {
+        if (buffer != "") {
+            if (buffer ~ /Linux linux[^-]/) {
+                standard_entries = standard_entries buffer
+            } else if (buffer ~ /Linux linux-lts/) {
+                lts_entries = lts_entries buffer
+            } else {
+                other_entries = other_entries buffer
+            }
+        }
+        buffer = $0 "\n"
+        in_menuentry=1
+        next
+    }
+    in_menuentry==1 {
+        buffer = buffer $0 "\n"
+        if ($0 ~ /^}$/) {
+            in_menuentry=0
+        }
+        next
+    }
+    /^### BEGIN \/etc\/grub.d\/10_linux ###/ {
+        print $0
+        getline
+        while (getline > 0 && $0 !~ /^### END \/etc\/grub.d\/10_linux ###/) {
+            if ($0 ~ /^menuentry /) {
+                if (buffer != "") {
+                    if (buffer ~ /Linux linux[^-]/) {
+                        standard_entries = standard_entries buffer
+                    } else if (buffer ~ /Linux linux-lts/) {
+                        lts_entries = lts_entries buffer
+                    } else {
+                        other_entries = other_entries buffer
+                    }
+                }
+                buffer = $0 "\n"
+                in_menuentry=1
+            } else if (in_menuentry==1) {
+                buffer = buffer $0 "\n"
+                if ($0 ~ /^}$/) {
+                    in_menuentry=0
+                }
+            } else {
+                print $0
+            }
+        }
+        if (buffer != "") {
+            if (buffer ~ /Linux linux[^-]/) {
+                standard_entries = standard_entries buffer
+            } else if (buffer ~ /Linux linux-lts/) {
+                lts_entries = lts_entries buffer
+            } else {
+                other_entries = other_entries buffer
+            }
+            buffer=""
+        }
+        printf "%s", standard_entries
+        printf "%s", lts_entries
+        printf "%s", other_entries
+        print $0
+        next
+    }
+    { print }
+    ' /boot/grub/grub.cfg > "$temp_grub"
+
+    sudo mv "$temp_grub" /boot/grub/grub.cfg
+
+    # Set default to standard kernel (position 0 after reordering)
     if [ ! -f /boot/grub/grubenv ]; then
-        log_info "Setting default GRUB entry to 'Arch Linux, with Linux linux'..."
-        if sudo grub-set-default "Arch Linux, with Linux linux"; then
-            log_success "GRUB default entry set to 'Arch Linux, with Linux linux'"
-        else
-            log_error "Failed to set GRUB default to 'Arch Linux, with Linux linux'. Check if the entry exists."
-        fi
+        log_info "Setting default GRUB entry to the standard 'linux' kernel..."
+        sudo grub-set-default 0
+        log_success "GRUB default entry set to standard kernel (position 0)"
     else
         log_info "GRUB environment exists, preserving @saved configuration"
     fi
