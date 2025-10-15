@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/../configs" # Assuming configs are in archinstaller/configs
 source "$SCRIPT_DIR/common.sh" # Source common functions like detect_bootloader and is_btrfs_system
 
-# Apply all boot configurations at once for systemd-boot
+# --- systemd-boot handling (left as you originally had) ---
 configure_boot() {
   # Make systemd-boot silent
   find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
@@ -30,6 +30,7 @@ configure_boot() {
   sudo rm -f /boot/loader/entries/*fallback.conf 2>/dev/null || true
 }
 
+# --- fastfetch config setup (unchanged) ---
 setup_fastfetch_config() {
   if command -v fastfetch >/dev/null; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
@@ -51,7 +52,7 @@ setup_fastfetch_config() {
   fi
 }
 
-# Execute ultra-fast boot configuration (for systemd-boot)
+# Execute systemd-boot config if present
 if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
     configure_boot
 fi
@@ -61,67 +62,43 @@ setup_fastfetch_config
 BOOTLOADER=$(detect_bootloader)
 IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false") # Store as "true" or "false" for easier scripting
 
+# --- Helper: backup paths to timestamped folder ---
+_backup_paths() {
+    local ts
+    ts="$(date +%Y%m%d_%H%M%S)"
+    local dest="/root/grub_backup_${ts}"
+    sudo mkdir -p "$dest"
+    # backup common items if present
+    [ -f /etc/default/grub ] && sudo cp -a /etc/default/grub "$dest/" || true
+    [ -f /etc/mkinitcpio.conf ] && sudo cp -a /etc/mkinitcpio.conf "$dest/" || true
+    sudo cp -a /etc/grub.d "$dest/" 2>/dev/null || true
+    [ -f /boot/grub/grub.cfg ] && sudo cp -a /boot/grub/grub.cfg "$dest/" || true
+    # return backup dir
+    echo "$dest"
+}
 
-# --- GRUB configuration ---
+# --- GRUB configuration (full robust implementation) ---
 configure_grub() {
-    step "Configuring GRUB for desired kernel order (Visual Reorder & Cleanup)"
+    step "Configuring GRUB for desired kernel order, cleaning stale entries (auto mode)"
 
-    # Helper: ensure plymouth hook is in mkinitcpio HOOKS (backup first)
-    ensure_plymouth_hook() {
-        local mkconf="/etc/mkinitcpio.conf"
-        if [ ! -f "$mkconf" ]; then
-            log_warning "mkinitcpio.conf not found; skipping plymouth hook insertion."
-            return 0
-        fi
-        sudo cp -a "$mkconf" "${mkconf}.bak.$(date +%s)" || true
+    log_info "Backing up current grub/mkinitcpio configs..."
+    BACKUP_DIR=$(_backup_paths)
+    log_info "Backups stored at: $BACKUP_DIR"
 
-        # If plymouth already present, nothing to do
-        if grep -q '^[[:space:]]*HOOKS=.*plymouth' "$mkconf"; then
-            log_info "plymouth already present in HOOKS."
-            return 0
-        fi
+    # Normalize /etc/default/grub (make conservative replacements, append missing ones)
+    log_info "Updating /etc/default/grub..."
+    sudo cp -a /etc/default/grub "/etc/default/grub.bak.$(date +%s)" || true
 
-        # Try to insert 'plymouth' before 'filesystems' if present; otherwise append before closing quote
-        if grep -q 'filesystems' "$mkconf"; then
-            sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" "$mkconf"
-            log_success "Inserted 'plymouth' into HOOKS before 'filesystems' in $mkconf."
-        else
-            # append 'plymouth' before the final quote of HOOKS line
-            sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" "$mkconf"
-            log_success "Appended 'plymouth' into HOOKS in $mkconf."
-        fi
-    }
-
-    # Helper: regenerate initramfs for all presets using mkinitcpio -P
-    regenerate_initramfs_all() {
-        if ! command -v mkinitcpio >/dev/null 2>&1; then
-            log_warning "mkinitcpio not found; skipping initramfs regeneration."
-            return 0
-        fi
-
-        log_info "Regenerating initramfs for all presets (mkinitcpio -P)..."
-        if sudo mkinitcpio -P >/dev/null 2>&1; then
-            log_success "Initramfs regenerated for all presets."
-        else
-            log_error "mkinitcpio -P failed; you may need to run it manually."
-        fi
-    }
-
-    # 1) Update /etc/default/grub settings (robustly, backup first)
-    log_info "Updating /etc/default/grub settings..."
-    sudo cp -a /etc/default/grub /etc/default/grub.bak.$(date +%s) || true
-
+    # Set primary options
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub || sudo bash -c 'echo "GRUB_DEFAULT=0" >> /etc/default/grub'
-
     if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
         sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
     else
         echo 'GRUB_SAVEDEFAULT=false' | sudo tee -a /etc/default/grub >/dev/null
     fi
-
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || sudo bash -c 'echo "GRUB_TIMEOUT=3" >> /etc/default/grub'
 
-    # Ensure kernel cmdline matches what you used in systemd-boot
+    # sync kernel cmdline with your systemd-boot settings
     if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
         sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub
     else
@@ -137,6 +114,7 @@ configure_grub() {
         echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
     fi
 
+    # If grub-btrfs present, prefer showing snapshots as root entries
     if pacman -Q grub-btrfs &>/dev/null; then
         if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
             sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
@@ -148,215 +126,311 @@ configure_grub() {
 
     log_success "Updated /etc/default/grub."
 
-    # 2) Ensure plymouth hook present and rebuild initramfs for all kernels
-    if command -v plymouthd >/dev/null 2>&1 || pacman -Q plymouth &>/dev/null; then
-        ensure_plymouth_hook
-        regenerate_initramfs_all
+    # Ensure plymouth is in mkinitcpio HOOKS — backup already done
+    if [ -f /etc/mkinitcpio.conf ]; then
+        if ! grep -q 'plymouth' /etc/mkinitcpio.conf; then
+            log_info "Inserting 'plymouth' into HOOKS of /etc/mkinitcpio.conf"
+            # try to insert before filesystems if present, fallback to appending
+            if grep -q 'filesystems' /etc/mkinitcpio.conf; then
+                sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" /etc/mkinitcpio.conf || true
+            else
+                sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" /etc/mkinitcpio.conf || true
+            fi
+            log_success "plymouth added to HOOKS (backup exists)."
+        else
+            log_info "plymouth already present in HOOKS."
+        fi
     else
-        log_warning "plymouth not installed; skipping plymouth hooks and initramfs adjustments."
+        log_warning "/etc/mkinitcpio.conf not found; skipping plymouth hook changes."
     fi
 
-    # 3) Remove fallback initramfs images from /boot
+    # Rebuild initramfs for all kernels (mkinitcpio -P)
+    if command -v mkinitcpio >/dev/null 2>&1; then
+        log_info "Regenerating initramfs for all presets (mkinitcpio -P)..."
+        if sudo mkinitcpio -P >/dev/null 2>&1; then
+            log_success "Initramfs regenerated for all presets."
+        else
+            log_error "mkinitcpio -P failed. You may need to regenerate initramfs manually."
+        fi
+    else
+        log_warning "mkinitcpio not found; skipping initramfs regeneration."
+    fi
+
+    # Remove fallback initramfs images to avoid stale references
     log_info "Removing fallback initramfs images from /boot..."
     sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null || true
     log_success "Fallback initramfs images removed."
 
-    # 4) Generate initial grub.cfg so canonical entries exist
-    log_info "Generating initial GRUB configuration (grub-mkconfig)..."
-    if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-        log_success "Initial GRUB configuration generated."
-    else
-        log_error "grub-mkconfig failed; ensure grub is installed and run 'sudo grub-mkconfig -o /boot/grub/grub.cfg' manually."
+    # Backup and remove user-custom grub fragments that can cause different experiences
+    # (safe: everything is backed up to $BACKUP_DIR)
+    log_info "Checking for custom grub fragments to normalize experience..."
+    if [ -f /boot/grub/custom.cfg ]; then
+        sudo cp -a /boot/grub/custom.cfg "$BACKUP_DIR/" || true
+        sudo rm -f /boot/grub/custom.cfg || true
+        log_info "Backed up and removed /boot/grub/custom.cfg"
+    fi
+    if [ -f /etc/grub.d/40_custom ]; then
+        sudo cp -a /etc/grub.d/40_custom "$BACKUP_DIR/" || true
+        sudo rm -f /etc/grub.d/40_custom || true
+        log_info "Backed up and removed /etc/grub.d/40_custom"
+    fi
+    if [ -f /etc/grub.d/41_custom ]; then
+        sudo cp -a /etc/grub.d/41_custom "$BACKUP_DIR/" || true
+        sudo rm -f /etc/grub.d/41_custom || true
+        log_info "Backed up and removed /etc/grub.d/41_custom"
     fi
 
-    # 5) Post-process /boot/grub/grub.cfg: remove broken entries, deduplicate, reorder
-    log_info "Post-processing /boot/grub/grub.cfg to remove broken entries, deduplicate and reorder..."
+    # Generate initial grub.cfg using distro scripts (ensures canonical entries)
+    log_info "Generating GRUB config (grub-mkconfig -o /boot/grub/grub.cfg)..."
+    if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+        log_success "Initial grub.cfg generated."
+    else
+        log_error "grub-mkconfig failed. Aborting post-processing."
+        return 1
+    fi
 
-    # create a Python script that validates menuentries by checking referenced kernel/initrd file existence
+    # Python post-processing: remove broken kernel entries, dedupe, reorder
+    log_info "Running post-processing to remove broken entries, deduplicate, and reorder GRUB menu..."
+
     sudo bash -c "cat > /tmp/reorder_and_filter_grub.py <<'PY'
 #!/usr/bin/env python3
-import re,os,sys
+import os, re, sys
 
-GRUB_CFG='/boot/grub/grub.cfg'
-TMP='/tmp/grub_filtered_reordered.cfg'
+GRUB_CFG = '/boot/grub/grub.cfg'
+TMP_OUT = '/tmp/grub_cleaned.cfg'
 
-def readf(p):
-    with open(p,'r',encoding='utf-8',errors='ignore') as f:
+def read_file(path):
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
         return f.read()
 
-def writef(p,txt):
-    with open(p,'w',encoding='utf-8',errors='ignore') as f:
-        f.write(txt)
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8', errors='replace') as f:
+        f.write(content)
 
-if not os.path.exists(GRUB_CFG):
-    print('ERROR: grub.cfg not found',file=sys.stderr); sys.exit(1)
+def extract_blocks(content):
+    """
+    Return a list where each element is either a string (non-menuentry text)
+    or a block starting with menuentry/submenu and ending with the matching closing brace.
+    """
+    blocks = []
+    i = 0
+    n = len(content)
+    menu_re = re.compile(r'^\s*(menuentry|submenu)\b', re.MULTILINE)
+    last = 0
+    for m in menu_re.finditer(content):
+        start = m.start()
+        if start > last:
+            blocks.append(content[last:start])
+        # find matching closing brace for this block
+        # naive brace counting: count '{' and '}' starting from m.start()
+        brace_count = 0
+        j = start
+        while j < n:
+            if content[j] == '{':
+                brace_count += 1
+            elif content[j] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    # include up to j (inclusive) and the following newline if present
+                    end = j + 1
+                    # append block
+                    blocks.append(content[start:end])
+                    last = end
+                    break
+            j += 1
+        else:
+            # if loop finishes without break, just take rest and stop
+            blocks.append(content[start:])
+            last = n
+            break
+    if last < n:
+        blocks.append(content[last:])
+    return blocks
 
-content = readf(GRUB_CFG)
-
-start_marker = '### BEGIN /etc/grub.d/10_linux ###'
-end_marker = '### END /etc/grub.d/10_linux ###'
-
-if start_marker in content and end_marker in content:
-    pre,rest = content.split(start_marker,1)
-    mid,post = rest.split(end_marker,1)
-    mid = start_marker + mid + end_marker
-else:
-    pre=''; mid=content; post=''
-
-# Extract all menuentry/submenu blocks
-pattern = re.compile(r'((?:menuentry|submenu)[\\s\\S]*?\\n\\})', re.MULTILINE)
-blocks = pattern.findall(mid)
-
-def title_of(b):
-    m = re.search(r'(?:menuentry|submenu)\\s+\\'([^\\']+)\\'', b)
+def get_title(block):
+    m = re.search(r"(?:menuentry|submenu)\s+'([^']+)'", block)
     return m.group(1).strip() if m else ''
 
-def referenced_files_exist(block):
-    # Look for linux/linuxefi lines and initrd lines.
-    # Accept both relative (/vmlinuz-...) and absolute (/boot/...) references.
-    # If a linux line has a path starting with /boot, use as-is; otherwise prepend /boot when necessary.
-    found_any_kernel=False
-    all_exist=True
+def block_has_kernel_refs(block):
+    # heuristics: look for linux/linuxefi/linux16 lines and initrd lines
+    linux_re = re.compile(r'^\s*(?:linux(?:efi|16)?)[ \t]+([^\\n\\s]+)', re.MULTILINE)
+    initrd_re = re.compile(r'^\s*initrd[ \t]+([^\\n\\s]+)', re.MULTILINE)
+    linux_matches = linux_re.findall(block)
+    initrd_matches = initrd_re.findall(block)
+    return bool(linux_matches or initrd_matches), linux_matches, initrd_matches
 
-    # linux lines: linux, linux16, linuxefi
-    for m in re.finditer(r'^[ \\t]*(linux(?:efi|16)?)[ \\t]+([^\\n\\s]+)', block, re.MULTILINE):
-        found_any_kernel=True
-        kpath = m.group(2)
-        if not kpath.startswith('/'):
-            # common in grub.cfg: /vmlinuz-linux (already absolute), but just in case make safe
-            kcheck = os.path.join('/boot', kpath.lstrip('/'))
-        else:
-            kcheck = kpath
-            # if kernel path points to /vmlinuz-* (rooted at /), ensure /boot prefix
-            if os.path.exists(os.path.join('/boot', os.path.basename(kpath))) and not os.path.exists(kpath):
-                kcheck = os.path.join('/boot', os.path.basename(kpath))
-        if not os.path.exists(kcheck):
-            # try basename in /boot
-            if not os.path.exists(os.path.join('/boot', os.path.basename(kpath))):
-                all_exist=False
-    # initrd lines
-    for m in re.finditer(r'^[ \\t]*initrd[ \\t]+([^\\n\\s]+)', block, re.MULTILINE):
-        ipath = m.group(1)
-        if not ipath.startswith('/'):
-            icheck = os.path.join('/boot', ipath.lstrip('/'))
-        else:
-            icheck = ipath
-            if os.path.exists(os.path.join('/boot', os.path.basename(ipath))) and not os.path.exists(ipath):
-                icheck = os.path.join('/boot', os.path.basename(ipath))
-        if not os.path.exists(icheck):
-            # sometimes initrd in grub.cfg uses relative path; try basename in /boot
-            if not os.path.exists(os.path.join('/boot', os.path.basename(ipath))):
-                all_exist=False
-
-    # If there are no linux lines found, treat as non-kernel entry (UEFI/Windows/other) and keep it
-    if not found_any_kernel:
+def path_exists_try(path):
+    if os.path.isabs(path) and os.path.exists(path):
         return True
-    return all_exist
+    # try /boot basename fallback
+    b = os.path.basename(path)
+    if os.path.exists(os.path.join('/boot', b)):
+        return True
+    # try exact basename under /boot if path contains /vmlinuz- or /initramfs- pattern
+    if os.path.exists(os.path.join('/boot', path)):
+        return True
+    return False
 
-# Filter out blocks that reference missing files or obvious fallback/recovery titles
-valid_blocks = []
-seen_titles = set()
-for b in blocks:
-    t = title_of(b)
-    tl = t.lower()
-    # remove fallback/recovery entries explicitly
-    if 'fallback' in tl or 'recovery' in tl or 'rescue' in tl:
-        # skip
-        continue
-    if not referenced_files_exist(b):
-        # skip broken kernel entry
-        continue
-    # deduplicate by title (first occurrence kept)
-    if t in seen_titles:
-        continue
-    seen_titles.add(t)
-    valid_blocks.append((t,b))
+def kernel_refs_valid(linux_matches, initrd_matches):
+    # if there are linux matches, ensure at least one linux + one initrd exists
+    # if no initrd lines present, still accept linux if matching initramfs file exists by naming convention
+    linux_ok = True
+    initrd_ok = True
+    if linux_matches:
+        linux_ok = any(path_exists_try(p) for p in linux_matches)
+    if initrd_matches:
+        initrd_ok = any(path_exists_try(p) for p in initrd_matches)
+    # if both present require both; if only linux lines present require linux_ok
+    if linux_matches and initrd_matches:
+        return linux_ok and initrd_ok
+    if linux_matches:
+        return linux_ok
+    return True
 
-# Categorize and reorder: primary (non-lts) kernel first, then lts, then other kernels, snapshots, windows, uefi, others
-primary=None
-lts=None
-others=[]
-snapshots=[]
-windows=None
-uefi=None
-misc=[]
+def is_snapshot_title(title):
+    return 'snapshot' in title.lower() or 'snapshots' in title.lower()
 
-for t,b in valid_blocks:
-    tl = t.lower()
-    if 'with linux linux' in t or ('with linux' in t and 'lts' not in tl):
-        if primary is None:
-            primary=(t,b)
+def is_windows_title(title):
+    return 'windows' in title.lower()
+
+def is_uefi_title(title):
+    return 'uefi' in title.lower() or 'firmware' in title.lower()
+
+def is_lts_title(title):
+    return 'lts' in title.lower() or 'linux-lts' in title.lower()
+
+def is_primary_linux_title(title):
+    # common menuentry title for Arch default: "Arch Linux, with Linux linux"
+    return ('arch linux' in title.lower() and 'linux' in title.lower() and 'lts' not in title.lower())
+
+try:
+    orig = read_file(GRUB_CFG)
+    blocks = extract_blocks(orig)
+
+    kept_nonblocks = []
+    kernel_blocks = []  # tuples (title, block)
+    snapshot_blocks = []
+    windows_blocks = []
+    uefi_blocks = []
+    misc_blocks = []
+
+    seen_titles = set()
+
+    for blk in blocks:
+        # classify non-menu text (blks that don't start with menuentry/submenu)
+        if not blk.strip().startswith('menuentry') and not blk.strip().startswith('submenu'):
+            kept_nonblocks.append(blk)
+            continue
+
+        title = get_title(blk)
+        if not title:
+            # treat as misc if title couldn't be parsed
+            misc_blocks.append((title or 'UNKNOWN', blk))
+            continue
+
+        # skip generic fallback/recovery entries by name
+        tl = title.lower()
+        if 'fallback' in tl or 'recovery' in tl or 'rescue' in tl:
+            continue
+
+        has_kernel, linux_matches, initrd_matches = block_has_kernel_refs(blk)
+        if has_kernel:
+            if not kernel_refs_valid(linux_matches, initrd_matches):
+                # broken kernel entry -> skip
+                continue
+
+        # deduplicate by title
+        if title in seen_titles:
+            continue
+        seen_titles.add(title)
+
+        # categorize
+        if is_snapshot_title(title):
+            snapshot_blocks.append((title, blk))
+        elif is_windows_title(title):
+            windows_blocks.append((title, blk))
+        elif is_uefi_title(title):
+            uefi_blocks.append((title, blk))
+        elif is_lts_title(title):
+            kernel_blocks.append((title, blk, 'lts'))
+        elif is_primary_linux_title(title):
+            kernel_blocks.insert(0, (title, blk, 'primary'))  # prefer primary at front
+        elif 'zen' in tl or 'hardened' in tl or 'rt' in tl:
+            kernel_blocks.append((title, blk, 'other'))
         else:
-            others.append((t,b))
-    elif 'linux-lts' in t or 'lts' in tl:
-        if lts is None:
-            lts=(t,b)
-        else:
-            others.append((t,b))
-    elif 'snapshot' in tl or 'snapshots' in tl:
-        snapshots.append((t,b))
-    elif 'windows' in tl or 'windows boot manager' in tl:
-        if windows is None:
-            windows=(t,b)
-        else:
-            others.append((t,b))
-    elif 'uefi firmware' in tl:
-        if uefi is None:
-            uefi=(t,b)
-        else:
-            others.append((t,b))
-    else:
-        misc.append((t,b))
+            # if it had kernel refs but wasn't caught by above, add to kernel list
+            if has_kernel:
+                kernel_blocks.append((title, blk, 'other'))
+            else:
+                misc_blocks.append((title, blk))
 
-# Reconstruct mid section content: keep original header of mid (everything before first menuentry) if present
-# Find first menuentry index to preserve top non-10_linux lines
-first_menu_match = re.search(r'(?:menuentry|submenu)', mid)
-mid_prefix = ''
-if first_menu_match:
-    mid_prefix = mid[:first_menu_match.start()]
+    # Build new content: non-block header + kernel order (primary, lts, others) + snapshots + windows + uefi + misc
+    new_parts = []
+    # non-block header
+    new_parts.extend(kept_nonblocks)
 
-new_mid = mid_prefix
-if primary:
-    new_mid += primary[1]
-if lts and (not primary or lts[0] != primary[0]):
-    new_mid += lts[1]
-for t,b in others:
-    new_mid += b
-for t,b in snapshots:
-    new_mid += b
-if windows:
-    new_mid += windows[1]
-if uefi:
-    new_mid += uefi[1]
-for t,b in misc:
-    new_mid += b
+    # kernels: primary first, then lts, then others
+    primary_added = False
+    for t,b,kind in kernel_blocks:
+        if kind == 'primary' and not primary_added:
+            new_parts.append(b); primary_added = True
 
-out = pre + new_mid + post
+    # add first LTS if present
+    for t,b,kind in kernel_blocks:
+        if kind == 'lts':
+            new_parts.append(b)
 
-writef(TMP,out)
-# atomic move
-os.replace(TMP, GRUB_CFG)
-print('OK',file=sys.stderr)
+    # add remaining kernels that are not primary/lts
+    for t,b,kind in kernel_blocks:
+        if kind not in ('primary','lts'):
+            new_parts.append(b)
+
+    # snapshots
+    for t,b in snapshot_blocks:
+        new_parts.append(b)
+
+    # windows
+    for t,b in windows_blocks:
+        new_parts.append(b)
+
+    # uefi/firmware
+    for t,b in uefi_blocks:
+        new_parts.append(b)
+
+    # misc
+    for t,b in misc_blocks:
+        new_parts.append(b)
+
+    final = "".join(new_parts)
+    write_file(TMP_OUT, final)
+    # atomic move
+    os.replace(TMP_OUT, GRUB_CFG)
+    print('[+] grub.cfg cleaned and reordered')
+    sys.exit(0)
+
+except Exception as e:
+    print('[!] error in grub post-processing:', e, file=sys.stderr)
+    sys.exit(1)
 PY"
 
-    # execute the python filter/reorder
-    if sudo python3 /tmp/reorder_and_filter_grub.py >/dev/null 2>&1; then
-        log_success "Filtered out broken/non-functional GRUB entries and reordered menu successfully."
+    # run the python post-processor with sudo
+    if sudo python3 /tmp/reorder_and_filter_grub.py >/tmp/reorder_and_filter_grub.log 2>&1; then
+        log_success "GRUB post-processing completed (broken/non-functional entries removed, menu reordered)."
     else
-        log_error "Filtering/reordering script failed. Inspect /tmp/reorder_and_filter_grub.py and /boot/grub/grub.cfg."
+        log_error "GRUB post-processing failed. Inspect /tmp/reorder_and_filter_grub.log and $BACKUP_DIR for backups."
+        # keep going to attempt regeneration if possible
     fi
+
+    # cleanup the python script
     sudo rm -f /tmp/reorder_and_filter_grub.py 2>/dev/null || true
 
-    # 6) Final shell-based conservative cleanup (catch any stray fallback mentions)
-    log_info "Performing final conservative shell cleanup..."
-    sudo sed -i '/fallback/d' /boot/grub/grub.cfg || true
-    sudo sed -i '/recovery/d' /boot/grub/grub.cfg || true
-    sudo sed -i '/initramfs.*-fallback.img/d' /boot/grub/grub.cfg || true
-    log_success "Final shell cleanup complete."
+    # conservative sed-based cleanup for leftover patterns
+    log_info "Final conservative cleanup of grub.cfg (fallback/recovery lines)..."
+    sudo sed -i '/fallback/d;/recovery/d;/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
 
-    # 7) If grub-btrfs present, attempt to ensure snapshot entries are present (regenerate)
+    # If grub-btrfs is present, regenerate to ensure snapshots are visible
     if pacman -Q grub-btrfs &>/dev/null; then
-        log_info "Attempting grub-btrfs snapshot regeneration..."
+        log_info "Regenerating grub config for grub-btrfs snapshots..."
         if command -v grub-btrfs-mkconfig >/dev/null 2>&1; then
             sudo grub-btrfs-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
         else
@@ -365,8 +439,9 @@ PY"
         log_success "grub-btrfs regeneration attempted."
     fi
 
-    log_success "GRUB configuration complete: broken entries removed, primary kernel should appear first."
-    log_success "Please reboot to verify the changes."
+    log_success "GRUB configuration finished. Primary kernel should appear first in the menu."
+    log_success "Backups kept at: $BACKUP_DIR"
+    log_success "Please reboot to validate the changes."
 }
 
 # --- Windows Dual-Boot Detection and Configuration ---
@@ -468,9 +543,12 @@ set_localtime_for_windows() {
 
 # --- Main Execution ---
 
-# Apply GRUB config if needed
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
+elif [ "$BOOTLOADER" = "systemd-boot" ]; then
+    log_info "Detected systemd-boot. systemd-boot-specific configuration skipped (already covered)."
+else
+    log_warning "Unknown bootloader ($BOOTLOADER). No bootloader-specific actions taken."
 fi
 
 # Windows dual-boot configuration
