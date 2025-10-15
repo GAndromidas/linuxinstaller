@@ -118,16 +118,44 @@ configure_grub() {
     # Regenerate grub config
     sudo grub-mkconfig -o /boot/grub/grub.cfg
 
-    # Set default to preferred kernel on first run only (if grubenv doesn't exist yet)
+    # Remove fallback kernel entries from grub.cfg for a cleaner menu
+    # This specifically targets menuentries that include "fallback" in their title
+    # or that are clearly related to fallback initramfs images, to avoid showing them.
+    # We do this after grub-mkconfig generates the file.
+    log_info "Removing GRUB fallback kernel entries for a cleaner boot menu..."
+    sudo sed -i '/^menuentry / { N; /\n.*fallback/ { d }; P; D }' /boot/grub/grub.cfg || true
+    # Additionally, remove any remaining lines that might be part of a fallback entry structure if the above missed some
+    sudo sed -i '/initrd \/boot\/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
+    sudo sed -i '/title .*fallback/d' /boot/grub/grub.cfg || true
+
+
+    # Set default to preferred kernel on first run only (if grubenv doesn\'t exist yet)
     if [ ! -f /boot/grub/grubenv ]; then
-        # Look for linux-zen first, then fallback to standard linux
-        default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+        default_entry=""
+
+        # Priority 1: Default 'Arch Linux' kernel (e.g., linux, not lts/zen)
+        default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | grep -v "linux-lts" | grep -v "linux-zen" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+
+        # Priority 2: 'Arch Linux, with Linux linux-lts' kernel
         if [ -z "$default_entry" ]; then
-            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\([^']*\)'.*/\1/")
+            default_entry=$(grep -P "menuentry 'Arch Linux, with Linux linux-lts'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
         fi
+
+        # Priority 3: 'Arch Linux, with Linux linux-zen' kernel (if lts not found)
+        if [ -z "$default_entry" ]; then
+            default_entry=$(grep -P "menuentry 'Arch Linux.*zen'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+        fi
+
+        # Final Fallback: Any generic 'Arch Linux' entry
+        if [ -z "$default_entry" ]; then
+            default_entry=$(grep -P "menuentry 'Arch Linux'" /boot/grub/grub.cfg | grep -v "fallback" | head -n1 | sed "s/menuentry '\\([^']*\\)'.*/\\1/")
+        fi
+
         if [ -n "$default_entry" ]; then
             sudo grub-set-default "$default_entry"
             echo "Set GRUB default to: $default_entry"
+        else
+            ui_warn "Could not find a preferred kernel entry to set as GRUB default. GRUB will use its default ordering."
         fi
     else
         echo "GRUB environment exists, preserving @saved configuration"
