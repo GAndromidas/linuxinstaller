@@ -162,16 +162,6 @@ configure_grub() {
     fi
 }
 
-# --- grub-btrfs installation if needed ---
-install_grub_btrfs_if_needed() {
-    if [ "$BOOTLOADER" = "grub" ] && [ "$IS_BTRFS" = true ]; then
-        if ! pacman -Q grub-btrfs &>/dev/null; then
-            yay -S --noconfirm grub-btrfs
-        fi
-
-    fi
-}
-
 # --- Windows Dual-Boot Detection and Configuration ---
 
 detect_windows() {
@@ -267,7 +257,6 @@ set_localtime_for_windows() {
 # Apply GRUB config if needed
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
-    install_grub_btrfs_if_needed
 fi
 
 # Windows dual-boot configuration

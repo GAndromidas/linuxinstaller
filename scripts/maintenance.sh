@@ -465,7 +465,7 @@ setup_btrfs_snapshots() {
     gum style --margin "0 2" --foreground 15 "• Automated maintenance: scrub, balance, defrag"
     gum style --margin "0 2" --foreground 15 "• GUI tool (btrfs-assistant) for snapshot management"
     echo ""
-    if gum confirm --default=false "Would you like to set up automatic Btrfs snapshots?"; then
+    if gum confirm --default=true "Would you like to set up automatic Btrfs snapshots?"; then
       setup_snapshots=true
     fi
   else
@@ -510,13 +510,19 @@ setup_btrfs_snapshots() {
 
   # Install required packages
   step "Installing snapshot management packages"
-  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts"
+
+  local grub_btrfs_package_to_install=""
+  if [ "$BOOTLOADER" = "grub" ] && is_btrfs_system; then
+    grub_btrfs_package_to_install="grub-btrfs"
+  fi
+
+  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts $grub_btrfs_package_to_install"
 
   # Update package database first
   sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
 
   # Install packages including btrfsmaintenance
-  install_packages_quietly snapper snap-pac btrfs-assistant btrfsmaintenance linux-lts linux-lts-headers
+  install_packages_quietly snapper snap-pac btrfs-assistant btrfsmaintenance linux-lts linux-lts-headers $grub_btrfs_package_to_install
 
   # Configure Snapper
   configure_snapper || { log_error "Snapper configuration failed"; return 1; }
@@ -540,6 +546,12 @@ setup_btrfs_snapshots() {
   configure_btrfs_assistant_gui || log_warning "btrfs-assistant GUI configuration had issues but continuing"
 
   # Configure bootloader
+
+  # Re-run grub-mkconfig if GRUB and Btrfs are in use, after grub-btrfs is installed and configured
+  if [ "$BOOTLOADER" = "grub" ] && is_btrfs_system; then
+    log_info "Re-generating GRUB configuration to include Btrfs snapshot entries..."
+    sudo grub-mkconfig -o /boot/grub/grub.cfg || log_error "Failed to re-generate GRUB configuration"
+  fi
   case "$BOOTLOADER" in
     grub)
       setup_grub_bootloader || log_warning "GRUB configuration had issues but continuing"
