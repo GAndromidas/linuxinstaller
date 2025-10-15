@@ -140,16 +140,7 @@ install_grub_btrfs_if_needed() {
         if ! pacman -Q grub-btrfs &>/dev/null; then
             yay -S --noconfirm grub-btrfs
         fi
-        # Add Timeshift post-snapshot hook for grub-btrfs
-        sudo mkdir -p /etc/timeshift/scripts
-        sudo tee /etc/timeshift/scripts/post-snapshot > /dev/null <<'EOF'
-#!/bin/bash
-# Timeshift post-snapshot hook to update GRUB menu with new Btrfs snapshots
-if command -v grub-btrfsd &>/dev/null; then
-    sudo grub-btrfsd --syslog --once /boot/grub
-fi
-EOF
-        sudo chmod +x /etc/timeshift/scripts/post-snapshot
+
     fi
 }
 
