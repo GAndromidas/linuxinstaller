@@ -1,18 +1,14 @@
 #!/bin/bash
 set -uo pipefail
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIGS_DIR="$SCRIPT_DIR/../configs" # Assuming configs are in archinstaller/configs
-source "$SCRIPT_DIR/common.sh" # Source common functions like detect_bootloader and is_btrfs_system
+source "$SCRIPT_DIR/common.sh"
 
-# --- systemd-boot handling ---
+# --- systemd-boot ---
 configure_boot() {
-  # Make systemd-boot silent
   find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
     sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' {} \; 2>/dev/null || true
 
-  # Configure loader.conf
   if [ -f "/boot/loader/loader.conf" ]; then
     sudo sed -i \
       -e '/^default /d' \
@@ -21,153 +17,135 @@ configure_boot() {
       -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
       /boot/loader/loader.conf
 
-    # Add missing lines
     grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
     grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
   fi
 
-  # Remove fallback entries
   sudo rm -f /boot/loader/entries/*fallback.conf 2>/dev/null || true
 }
 
-# --- fastfetch config setup ---
-setup_fastfetch_config() {
-  if command -v fastfetch >/dev/null; then
-    if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
-      log_warning "fastfetch config already exists. Skipping generation."
-    else
-      run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
-    fi
-
-    # Safe config file copy
-    if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
-      mkdir -p "$HOME/.config/fastfetch"
-      cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-      log_success "fastfetch config copied from configs directory."
-    else
-      log_warning "config.jsonc not found in configs directory. Using generated config."
-    fi
-  else
-    log_warning "fastfetch not installed. Skipping config setup."
-  fi
-}
-
-# Execute systemd-boot config if present
-if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
-    configure_boot
-fi
-setup_fastfetch_config
-
-# --- Bootloader and Btrfs detection variables ---
+# --- Bootloader and Btrfs detection ---
 BOOTLOADER=$(detect_bootloader)
 IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false")
 
-# --- Helper: backup paths to timestamped folder ---
-_backup_paths() {
-    local ts
-    ts="$(date +%Y%m%d_%H%M%S)"
-    local dest="/root/grub_backup_${ts}"
-    sudo mkdir -p "$dest"
-    [ -f /etc/default/grub ] && sudo cp -a /etc/default/grub "$dest/" || true
-    [ -f /etc/mkinitcpio.conf ] && sudo cp -a /etc/mkinitcpio.conf "$dest/" || true
-    sudo cp -a /etc/grub.d "$dest/" 2>/dev/null || true
-    [ -f /boot/grub/grub.cfg ] && sudo cp -a /boot/grub/grub.cfg "$dest/" || true
-    echo "$dest"
-}
-
 # --- GRUB configuration ---
 configure_grub() {
-    step "Configuring GRUB: standard 'linux' kernel first, cleaning stale entries"
+    step "Configuring GRUB: linux kernel first, others in submenu"
 
-    log_info "Backing up current grub/mkinitcpio configs..."
-    BACKUP_DIR=$(_backup_paths)
-    log_info "Backups stored at: $BACKUP_DIR"
-
-    # Normalize /etc/default/grub
-    log_info "Updating /etc/default/grub..."
-    sudo cp -a /etc/default/grub "/etc/default/grub.bak.$(date +%s)" || true
+    # /etc/default/grub settings
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub || echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
-
-    # Remember last selected kernel
-    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || \
-        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
-
-    # Standard kernel command line
+    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub || \
         echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"' | sudo tee -a /etc/default/grub >/dev/null
-
     grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub || echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
-    # Ensure plymouth in mkinitcpio HOOKS
+    # Add plymouth hook
     if [ -f /etc/mkinitcpio.conf ] && ! grep -q plymouth /etc/mkinitcpio.conf; then
         if grep -q filesystems /etc/mkinitcpio.conf; then
             sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" /etc/mkinitcpio.conf || true
         else
             sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" /etc/mkinitcpio.conf || true
         fi
-        log_success "plymouth added to HOOKS (backup exists)."
+        log_success "plymouth added to HOOKS."
     fi
 
     # Rebuild initramfs
     if command -v mkinitcpio >/dev/null 2>&1; then
-        log_info "Regenerating initramfs for all presets..."
         sudo mkinitcpio -P >/dev/null 2>&1 || log_warning "mkinitcpio -P failed"
     fi
 
-    # --- Detect installed kernels ---
+    # Detect installed kernels
     KERNELS=($(ls /boot/vmlinuz-* 2>/dev/null | sed 's|/boot/vmlinuz-||g'))
     if [[ ${#KERNELS[@]} -eq 0 ]]; then
-        log_error "No kernels found in /boot. Aborting GRUB configuration."
+        log_error "No kernels found in /boot."
         return 1
     fi
-    log_info "Detected kernels: ${KERNELS[*]}"
 
-    # --- Build ordered list: linux > linux-lts > others ---
-    ORDERED_KERNELS=()
-    [[ " ${KERNELS[*]} " == *" linux "* ]] && ORDERED_KERNELS+=("linux")
-    [[ " ${KERNELS[*]} " == *" linux-lts "* ]] && ORDERED_KERNELS+=("linux-lts")
+    # Determine main kernel and secondary kernels
+    MAIN_KERNEL=""
+    SECONDARY_KERNELS=()
     for k in "${KERNELS[@]}"; do
-        [[ "$k" != "linux" && "$k" != "linux-lts" ]] && ORDERED_KERNELS+=("$k")
+        [[ "$k" == "linux" ]] && MAIN_KERNEL="$k"
+        [[ "$k" != "linux" && "$k" != "fallback" && "$k" != "rescue" ]] && SECONDARY_KERNELS+=("$k")
     done
-    log_info "Kernel boot order: ${ORDERED_KERNELS[*]}"
+    [[ -z "$MAIN_KERNEL" ]] && MAIN_KERNEL="${KERNELS[0]}"
 
-    # --- Remove fallback initramfs images ---
-    sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null || true
+    # Remove fallback/recovery initramfs
+    sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null
 
-    # --- Remove fallback/recovery menu entries from previous grub.cfg ---
-    sudo sed -i '/fallback/d;/recovery/d;/rescue/d' /boot/grub/grub.cfg || true
-
-    # --- Generate grub.cfg ---
-    log_info "Generating grub.cfg..."
+    # Regenerate grub.cfg
     sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
 
-    # --- Set default kernel explicitly ---
-    DEFAULT_KERNEL="${ORDERED_KERNELS[0]}"
-    MENU_ENTRY=$(grep -Po "menuentry 'Arch Linux, with Linux ${DEFAULT_KERNEL}[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
-    if [[ -n "$MENU_ENTRY" ]]; then
-        sudo grub-set-default "Advanced options for Arch Linux>${MENU_ENTRY}" >/dev/null 2>&1 || true
-        log_success "GRUB default set to: ${DEFAULT_KERNEL}"
+    # Set default to main kernel in Advanced submenu
+    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux ${MAIN_KERNEL}[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
+    if [[ -n "$DEFAULT_MENU" ]]; then
+        sudo grub-set-default "Advanced options for Arch Linux>${DEFAULT_MENU}" >/dev/null 2>&1 || true
+        log_success "GRUB default set to: ${MAIN_KERNEL}"
     else
-        log_warning "Could not find exact menu entry for ${DEFAULT_KERNEL}. Using first menuentry as fallback."
         sudo grub-set-default 0
+        log_warning "Could not find menu entry for ${MAIN_KERNEL}, defaulting to first entry."
     fi
-
-    log_success "GRUB configuration complete. Default kernel: ${DEFAULT_KERNEL}"
-    log_success "Backups stored at: ${BACKUP_DIR}"
 }
 
-# --- Windows Dual-Boot Detection ---
+# --- Windows helpers ---
 detect_windows() {
-    # Check for Windows EFI bootloader
-    if [ -d /boot/efi/EFI/Microsoft ] || [ -d /boot/EFI/Microsoft ]; then
-        return 0
-    fi
-    # Check for NTFS partitions (Windows)
-    if lsblk -f | grep -qi ntfs; then
-        return 0
-    fi
+    [ -d /boot/efi/EFI/Microsoft ] || [ -d /boot/EFI/Microsoft ] && return 0
+    lsblk -f | grep -qi ntfs && return 0
     return 1
 }
+
+find_windows_efi_partition() {
+    local partitions=($(lsblk -n -o NAME,TYPE | grep "part" | awk '{print "/dev/"$1}'))
+    for partition in "${partitions[@]}"; do
+        local temp_mount="/tmp/windows_efi_check"
+        mkdir -p "$temp_mount"
+        if sudo mount "$partition" "$temp_mount" 2>/dev/null; then
+            [ -d "$temp_mount/EFI/Microsoft" ] && { sudo umount "$temp_mount"; sudo rm -rf "$temp_mount"; echo "$partition"; return 0; }
+            sudo umount "$temp_mount"
+        fi
+        sudo rm -rf "$temp_mount"
+    done
+    return 1
+}
+
+add_windows_to_systemdboot() {
+    step "Adding Windows to systemd-boot menu"
+    if [ ! -d "/boot/EFI/Microsoft" ]; then
+        local windows_partition
+        windows_partition=$(find_windows_efi_partition)
+        [ -z "$windows_partition" ] && log_error "No Windows EFI found" && return 1
+        local mount_point="/mnt/winefi"
+        mkdir -p "$mount_point"
+        sudo mount "$windows_partition" "$mount_point"
+        sudo cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
+        sudo umount "$mount_point"
+        sudo rm -rf "$mount_point"
+    fi
+    local entry="/boot/loader/entries/windows.conf"
+    [ ! -f "$entry" ] && sudo bash -c "cat <<EOF > \"$entry\"
+title   Windows
+efi     /EFI/Microsoft/Boot/bootmgfw.efi
+EOF"
+}
+
+set_localtime_for_windows() {
+    sudo timedatectl set-local-rtc 1 --adjust-system-clock
+}
+
+# --- Main execution ---
+if [ "$BOOTLOADER" = "grub" ]; then
+    configure_grub
+elif [ "$BOOTLOADER" = "systemd-boot" ]; then
+    configure_boot
+fi
+
+if detect_windows && [ "$BOOTLOADER" = "systemd-boot" ]; then
+    run_step "Installing ntfs-3g" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
+    add_windows_to_systemdboot
+    set_localtime_for_windows
+elif detect_windows && [ "$BOOTLOADER" = "grub" ]; then
+    set_localtime_for_windows
+fi
