@@ -42,7 +42,7 @@ setup_shell() {
     cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/" 2>/dev/null && log_success "Starship prompt configuration copied"
   fi
 
-  # --- Fastfetch setup (from bootloader script) ---
+  # Fastfetch setup
   if command -v fastfetch >/dev/null; then
     if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
       log_warning "fastfetch config already exists. Skipping generation."
