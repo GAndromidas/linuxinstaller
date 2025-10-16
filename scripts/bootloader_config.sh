@@ -161,7 +161,13 @@ configure_grub() {
 
 # --- Windows Dual-Boot Detection ---
 detect_windows() {
+    # Check for Windows EFI bootloader
     if [ -d /boot/efi/EFI/Microsoft ] || [ -d /boot/EFI/Microsoft ]; then
         return 0
     fi
+    # Check for NTFS partitions (Windows)
     if lsblk -f | grep -qi ntfs; then
+        return 0
+    fi
+    return 1
+}
