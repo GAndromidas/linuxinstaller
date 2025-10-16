@@ -86,113 +86,76 @@ configure_grub() {
     # Normalize /etc/default/grub
     log_info "Updating /etc/default/grub..."
     sudo cp -a /etc/default/grub "/etc/default/grub.bak.$(date +%s)" || true
-    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub || sudo bash -c 'echo "GRUB_DEFAULT=0" >> /etc/default/grub'
-    if grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=false/' /etc/default/grub
-    else
-        echo 'GRUB_SAVEDEFAULT=false' | sudo tee -a /etc/default/grub >/dev/null
-    fi
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || sudo bash -c 'echo "GRUB_TIMEOUT=3" >> /etc/default/grub'
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
+    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub || echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
 
-    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub; then
-        sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub
-    else
+    # Remember last selected kernel
+    sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || \
+        echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
+
+    # Standard kernel command line
+    sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub || \
         echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"' | sudo tee -a /etc/default/grub >/dev/null
-    fi
 
+    grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub || echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
-    if grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=y/' /etc/default/grub
-    else
-        echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
-    fi
 
-    if pacman -Q grub-btrfs &>/dev/null; then
-        if grep -q '^GRUB_BTRFS_SUBMENU=' /etc/default/grub; then
-            sudo sed -i 's/^GRUB_BTRFS_SUBMENU=.*/GRUB_BTRFS_SUBMENU=n/' /etc/default/grub
+    # Ensure plymouth in mkinitcpio HOOKS
+    if [ -f /etc/mkinitcpio.conf ] && ! grep -q plymouth /etc/mkinitcpio.conf; then
+        if grep -q filesystems /etc/mkinitcpio.conf; then
+            sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" /etc/mkinitcpio.conf || true
         else
-            echo 'GRUB_BTRFS_SUBMENU=n' | sudo tee -a /etc/default/grub >/dev/null
+            sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" /etc/mkinitcpio.conf || true
         fi
-        log_info "grub-btrfs present: snapshots will be shown as separate GRUB entries."
+        log_success "plymouth added to HOOKS (backup exists)."
     fi
 
-    # Ensure plymouth is in mkinitcpio HOOKS
-    if [ -f /etc/mkinitcpio.conf ]; then
-        if ! grep -q 'plymouth' /etc/mkinitcpio.conf; then
-            log_info "Inserting 'plymouth' into HOOKS of /etc/mkinitcpio.conf"
-            if grep -q 'filesystems' /etc/mkinitcpio.conf; then
-                sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" /etc/mkinitcpio.conf || true
-            else
-                sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" /etc/mkinitcpio.conf || true
-            fi
-            log_success "plymouth added to HOOKS (backup exists)."
-        else
-            log_info "plymouth already present in HOOKS."
-        fi
-    else
-        log_warning "/etc/mkinitcpio.conf not found; skipping plymouth hook changes."
-    fi
-
-    # Rebuild initramfs for all kernels
+    # Rebuild initramfs
     if command -v mkinitcpio >/dev/null 2>&1; then
-        log_info "Regenerating initramfs for all presets (mkinitcpio -P)..."
-        if sudo mkinitcpio -P >/dev/null 2>&1; then
-            log_success "Initramfs regenerated for all presets."
-        else
-            log_error "mkinitcpio -P failed. You may need to regenerate initramfs manually."
-        fi
-    else
-        log_warning "mkinitcpio not found; skipping initramfs regeneration."
+        log_info "Regenerating initramfs for all presets..."
+        sudo mkinitcpio -P >/dev/null 2>&1 || log_warning "mkinitcpio -P failed"
     fi
 
-    # --- Identify kernels and set GRUB default ---
-    log_info "Detecting installed Arch kernels..."
+    # --- Detect installed kernels ---
     KERNELS=($(ls /boot/vmlinuz-* 2>/dev/null | sed 's|/boot/vmlinuz-||g'))
-
     if [[ ${#KERNELS[@]} -eq 0 ]]; then
-        log_error "No kernels found in /boot. Aborting grub configuration."
+        log_error "No kernels found in /boot. Aborting GRUB configuration."
         return 1
     fi
-
     log_info "Detected kernels: ${KERNELS[*]}"
 
-    # Prefer 'linux' (mainline) over 'linux-lts' or others
-    if [[ " ${KERNELS[*]} " == *" linux "* ]]; then
-        DEFAULT_KERNEL="linux"
-    else
-        DEFAULT_KERNEL="${KERNELS[0]}"
-    fi
-
-    log_info "Setting GRUB default to: ${DEFAULT_KERNEL}"
-
-    # Generate GRUB config
-    log_info "Generating GRUB config (grub-mkconfig -o /boot/grub/grub.cfg)..."
-    if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-        log_success "grub.cfg generated."
-    else
-        log_error "grub-mkconfig failed. Aborting grub configuration."
-        return 1
-    fi
-
-    # --- Set default kernel explicitly ---
-    sudo grub-set-default "Advanced options for Arch Linux>Arch Linux, with Linux ${DEFAULT_KERNEL}" >/dev/null 2>&1 || \
-        sudo grub-set-default 0
-
-    log_success "GRUB default entry set to: ${DEFAULT_KERNEL}"
-
-    # --- Remove fallback entries ---
-    log_info "Removing fallback/recovery entries from grub.cfg..."
-    sudo sed -i '/fallback/d;/recovery/d;/rescue/d' /boot/grub/grub.cfg || true
-    log_success "Fallback/recovery entries removed."
+    # --- Build ordered list: linux > linux-lts > others ---
+    ORDERED_KERNELS=()
+    [[ " ${KERNELS[*]} " == *" linux "* ]] && ORDERED_KERNELS+=("linux")
+    [[ " ${KERNELS[*]} " == *" linux-lts "* ]] && ORDERED_KERNELS+=("linux-lts")
+    for k in "${KERNELS[@]}"; do
+        [[ "$k" != "linux" && "$k" != "linux-lts" ]] && ORDERED_KERNELS+=("$k")
+    done
+    log_info "Kernel boot order: ${ORDERED_KERNELS[*]}"
 
     # --- Remove fallback initramfs images ---
-    log_info "Removing fallback initramfs images from /boot..."
     sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null || true
-    log_success "Fallback initramfs images removed."
 
-    log_success "GRUB configuration finished."
-    log_success "Default kernel: ${DEFAULT_KERNEL}"
+    # --- Remove fallback/recovery menu entries from previous grub.cfg ---
+    sudo sed -i '/fallback/d;/recovery/d;/rescue/d' /boot/grub/grub.cfg || true
+
+    # --- Generate grub.cfg ---
+    log_info "Generating grub.cfg..."
+    sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
+
+    # --- Set default kernel explicitly ---
+    DEFAULT_KERNEL="${ORDERED_KERNELS[0]}"
+    MENU_ENTRY=$(grep -Po "menuentry 'Arch Linux, with Linux ${DEFAULT_KERNEL}[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
+    if [[ -n "$MENU_ENTRY" ]]; then
+        sudo grub-set-default "Advanced options for Arch Linux>${MENU_ENTRY}" >/dev/null 2>&1 || true
+        log_success "GRUB default set to: ${DEFAULT_KERNEL}"
+    else
+        log_warning "Could not find exact menu entry for ${DEFAULT_KERNEL}. Using first menuentry as fallback."
+        sudo grub-set-default 0
+    fi
+
+    log_success "GRUB configuration complete. Default kernel: ${DEFAULT_KERNEL}"
     log_success "Backups stored at: ${BACKUP_DIR}"
 }
 
@@ -202,90 +165,3 @@ detect_windows() {
         return 0
     fi
     if lsblk -f | grep -qi ntfs; then
-        return 0
-    fi
-    return 1
-}
-
-find_windows_efi_partition() {
-    local partitions=($(lsblk -n -o NAME,TYPE | grep "part" | awk '{print "/dev/"$1}'))
-    for partition in "${partitions[@]}"; do
-        local temp_mount="/tmp/windows_efi_check"
-        mkdir -p "$temp_mount"
-        if sudo mount "$partition" "$temp_mount" 2>/dev/null; then
-            if [ -d "$temp_mount/EFI/Microsoft" ]; then
-                sudo umount "$temp_mount"
-                sudo rm -rf "$temp_mount"
-                echo "$partition"
-                return 0
-            fi
-            sudo umount "$temp_mount"
-        fi
-        sudo rm -rf "$temp_mount"
-    done
-    return 1
-}
-
-add_windows_to_systemdboot() {
-    step "Adding Windows to systemd-boot menu"
-    if [ ! -d "/boot/EFI/Microsoft" ]; then
-        local windows_partition
-        windows_partition=$(find_windows_efi_partition)
-        if [ -z "$windows_partition" ]; then
-            log_error "Could not find Windows EFI partition"
-            return 1
-        fi
-        local mount_point="/mnt/winefi"
-        mkdir -p "$mount_point"
-        if sudo mount "$windows_partition" "$mount_point"; then
-            if [ -d "$mount_point/EFI/Microsoft" ]; then
-                sudo cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
-                log_success "Copied Microsoft EFI files to /boot/EFI/Microsoft."
-            else
-                log_error "Microsoft EFI files not found in $windows_partition"
-            fi
-            sudo umount "$mount_point"
-        else
-            log_error "Failed to mount Windows EFI partition"
-        fi
-        sudo rm -rf "$mount_point"
-    else
-        log_success "Microsoft EFI files already present in /boot/EFI/Microsoft."
-    fi
-
-    local entry="/boot/loader/entries/windows.conf"
-    if [ ! -f "$entry" ]; then
-        sudo bash -c "cat <<EOF > \"$entry\"
-title   Windows
-efi     /EFI/Microsoft/Boot/bootmgfw.efi
-EOF"
-        log_success "Added Windows entry to systemd-boot."
-    else
-        log_success "Windows entry already exists in systemd-boot."
-    fi
-}
-
-set_localtime_for_windows() {
-    step "Adjusting hardware clock for Windows compatibility"
-    sudo timedatectl set-local-rtc 1 --adjust-system-clock
-    log_success "Set hardware clock to local time for Windows compatibility."
-}
-
-# --- Main Execution ---
-if [ "$BOOTLOADER" = "grub" ]; then
-    configure_grub
-elif [ "$BOOTLOADER" = "systemd-boot" ]; then
-    log_info "Detected systemd-boot. systemd-boot-specific configuration already applied."
-else
-    log_warning "Unknown bootloader ($BOOTLOADER). No bootloader-specific actions taken."
-fi
-
-if detect_windows && [ "$BOOTLOADER" = "systemd-boot" ]; then
-    log_info "Windows installation detected with systemd-boot. Configuring dual-boot..."
-    run_step "Installing ntfs-3g for Windows partition access" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
-    add_windows_to_systemdboot
-    set_localtime_for_windows
-elif detect_windows && [ "$BOOTLOADER" = "grub" ]; then
-    log_info "Windows dual-boot already configured inside GRUB setup."
-    set_localtime_for_windows
-fi
