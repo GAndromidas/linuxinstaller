@@ -38,7 +38,11 @@ configure_grub() {
     sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub || \
         echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"' | sudo tee -a /etc/default/grub >/dev/null
-    grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub || echo 'GRUB_DISABLE_SUBMENU=y' | sudo tee -a /etc/default/grub >/dev/null
+
+    # Enable submenu for additional kernels (linux-lts, linux-zen)
+    grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub && sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=notlinux/' /etc/default/grub || \
+        echo 'GRUB_DISABLE_SUBMENU=notlinux' | sudo tee -a /etc/default/grub >/dev/null
+
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
@@ -73,20 +77,20 @@ configure_grub() {
     done
     [[ -z "$MAIN_KERNEL" ]] && MAIN_KERNEL="${KERNELS[0]}"
 
-    # Remove fallback/recovery initramfs
-    sudo rm -f /boot/initramfs-*-fallback.img 2>/dev/null
+    # Remove fallback/recovery kernels
+    sudo rm -f /boot/initramfs-*-fallback.img /boot/vmlinuz-*-fallback 2>/dev/null || true
 
     # Regenerate grub.cfg
     sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
 
-    # Set default to main kernel in Advanced submenu
-    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux ${MAIN_KERNEL}[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
+    # Set default to main kernel (linux)
+    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux linux[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
     if [[ -n "$DEFAULT_MENU" ]]; then
-        sudo grub-set-default "Advanced options for Arch Linux>${DEFAULT_MENU}" >/dev/null 2>&1 || true
-        log_success "GRUB default set to: ${MAIN_KERNEL}"
+        sudo grub-set-default "$DEFAULT_MENU" >/dev/null 2>&1 || true
+        log_success "GRUB default set to: linux"
     else
         sudo grub-set-default 0
-        log_warning "Could not find menu entry for ${MAIN_KERNEL}, defaulting to first entry."
+        log_warning "Could not find menu entry for linux, defaulting to first entry."
     fi
 }
 
