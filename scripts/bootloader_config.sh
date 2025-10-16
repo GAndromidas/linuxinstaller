@@ -79,7 +79,7 @@ _backup_paths() {
 
 # --- GRUB configuration (full robust implementation) ---
 configure_grub() {
-    step "Configuring GRUB for desired kernel order, cleaning stale entries (auto mode)"
+    step "Configuring GRUB: standard 'linux' kernel first, then 'linux-lts', cleaning stale entries"
 
     log_info "Backing up current grub/mkinitcpio configs..."
     BACKUP_DIR=$(_backup_paths)
@@ -180,6 +180,17 @@ configure_grub() {
         log_info "Backed up and removed /etc/grub.d/41_custom"
     fi
 
+    # Handle Windows detection BEFORE generating grub.cfg
+    if detect_windows; then
+        log_info "Windows detected - enabling os-prober before grub-mkconfig..."
+        sudo pacman -S --noconfirm os-prober >/dev/null 2>&1 || log_warning "Failed to install os-prober"
+        if grep -q '^GRUB_DISABLE_OS_PROBER=' /etc/default/grub; then
+            sudo sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
+        else
+            echo 'GRUB_DISABLE_OS_PROBER=false' | sudo tee -a /etc/default/grub >/dev/null
+        fi
+    fi
+
     # Generate initial grub.cfg using distro scripts (ensures canonical entries)
     log_info "Generating GRUB config (grub-mkconfig -o /boot/grub/grub.cfg)..."
     if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
@@ -191,6 +202,7 @@ configure_grub() {
 
     # Python post-processing: remove broken kernel entries, dedupe, reorder
     log_info "Running post-processing to remove broken entries, deduplicate, and reorder GRUB menu..."
+    log_info "Target order: 1st=standard 'linux', 2nd='linux-lts', then others, then snapshots/Windows/UEFI"
 
     sudo bash -c "cat > /tmp/reorder_and_filter_grub.py <<'PY'
 #!/usr/bin/env python3
@@ -208,10 +220,10 @@ def write_file(path, content):
         f.write(content)
 
 def extract_blocks(content):
-    """
+    \"\"\"
     Return a list where each element is either a string (non-menuentry text)
     or a block starting with menuentry/submenu and ending with the matching closing brace.
-    """
+    \"\"\"
     blocks = []
     i = 0
     n = len(content)
@@ -222,7 +234,6 @@ def extract_blocks(content):
         if start > last:
             blocks.append(content[last:start])
         # find matching closing brace for this block
-        # naive brace counting: count '{' and '}' starting from m.start()
         brace_count = 0
         j = start
         while j < n:
@@ -231,15 +242,12 @@ def extract_blocks(content):
             elif content[j] == '}':
                 brace_count -= 1
                 if brace_count == 0:
-                    # include up to j (inclusive) and the following newline if present
                     end = j + 1
-                    # append block
                     blocks.append(content[start:end])
                     last = end
                     break
             j += 1
         else:
-            # if loop finishes without break, just take rest and stop
             blocks.append(content[start:])
             last = n
             break
@@ -248,13 +256,12 @@ def extract_blocks(content):
     return blocks
 
 def get_title(block):
-    m = re.search(r"(?:menuentry|submenu)\s+'([^']+)'", block)
+    m = re.search(r\"(?:menuentry|submenu)\s+'([^']+)'\", block)
     return m.group(1).strip() if m else ''
 
 def block_has_kernel_refs(block):
-    # heuristics: look for linux/linuxefi/linux16 lines and initrd lines
-    linux_re = re.compile(r'^\s*(?:linux(?:efi|16)?)[ \t]+([^\\n\\s]+)', re.MULTILINE)
-    initrd_re = re.compile(r'^\s*initrd[ \t]+([^\\n\\s]+)', re.MULTILINE)
+    linux_re = re.compile(r'^\s*(?:linux(?:efi|16)?)[ \t]+([^\n\s]+)', re.MULTILINE)
+    initrd_re = re.compile(r'^\s*initrd[ \t]+([^\n\s]+)', re.MULTILINE)
     linux_matches = linux_re.findall(block)
     initrd_matches = initrd_re.findall(block)
     return bool(linux_matches or initrd_matches), linux_matches, initrd_matches
@@ -262,25 +269,20 @@ def block_has_kernel_refs(block):
 def path_exists_try(path):
     if os.path.isabs(path) and os.path.exists(path):
         return True
-    # try /boot basename fallback
     b = os.path.basename(path)
     if os.path.exists(os.path.join('/boot', b)):
         return True
-    # try exact basename under /boot if path contains /vmlinuz- or /initramfs- pattern
     if os.path.exists(os.path.join('/boot', path)):
         return True
     return False
 
 def kernel_refs_valid(linux_matches, initrd_matches):
-    # if there are linux matches, ensure at least one linux + one initrd exists
-    # if no initrd lines present, still accept linux if matching initramfs file exists by naming convention
     linux_ok = True
     initrd_ok = True
     if linux_matches:
         linux_ok = any(path_exists_try(p) for p in linux_matches)
     if initrd_matches:
         initrd_ok = any(path_exists_try(p) for p in initrd_matches)
-    # if both present require both; if only linux lines present require linux_ok
     if linux_matches and initrd_matches:
         return linux_ok and initrd_ok
     if linux_matches:
@@ -299,16 +301,30 @@ def is_uefi_title(title):
 def is_lts_title(title):
     return 'lts' in title.lower() or 'linux-lts' in title.lower()
 
-def is_primary_linux_title(title):
-    # common menuentry title for Arch default: "Arch Linux, with Linux linux"
-    return ('arch linux' in title.lower() and 'linux' in title.lower() and 'lts' not in title.lower())
+def is_standard_linux_title(title):
+    # The standard Arch kernel entry: \"Arch Linux, with Linux linux\"
+    # Must have 'linux' but NOT 'lts', 'zen', 'hardened', 'rt'
+    tl = title.lower()
+    if 'arch linux' not in tl:
+        return False
+    if 'lts' in tl or 'zen' in tl or 'hardened' in tl or 'rt' in tl:
+        return False
+    # Check for pattern like \"with Linux linux\" (not \"with Linux linux-something\")
+    if 'with linux linux' in tl:
+        # Make sure it's exactly \"linux\" and not \"linux-lts\" or similar
+        # Pattern: \"with Linux linux\" followed by end or space/comma
+        if re.search(r'with\s+linux\s+linux\s*(?:,|$)', tl):
+            return True
+    return False
 
 try:
     orig = read_file(GRUB_CFG)
     blocks = extract_blocks(orig)
 
     kept_nonblocks = []
-    kernel_blocks = []  # tuples (title, block)
+    standard_kernel = []  # Standard 'linux' kernel - FIRST priority
+    lts_kernel = []       # LTS kernel - SECOND priority
+    other_kernels = []    # Other kernels (zen, hardened, etc)
     snapshot_blocks = []
     windows_blocks = []
     uefi_blocks = []
@@ -317,18 +333,17 @@ try:
     seen_titles = set()
 
     for blk in blocks:
-        # classify non-menu text (blks that don't start with menuentry/submenu)
+        # Non-menu text (configuration, comments, etc)
         if not blk.strip().startswith('menuentry') and not blk.strip().startswith('submenu'):
             kept_nonblocks.append(blk)
             continue
 
         title = get_title(blk)
         if not title:
-            # treat as misc if title couldn't be parsed
-            misc_blocks.append((title or 'UNKNOWN', blk))
+            misc_blocks.append(('UNKNOWN', blk))
             continue
 
-        # skip generic fallback/recovery entries by name
+        # Skip fallback/recovery/rescue entries
         tl = title.lower()
         if 'fallback' in tl or 'recovery' in tl or 'rescue' in tl:
             continue
@@ -336,110 +351,109 @@ try:
         has_kernel, linux_matches, initrd_matches = block_has_kernel_refs(blk)
         if has_kernel:
             if not kernel_refs_valid(linux_matches, initrd_matches):
-                # broken kernel entry -> skip
+                # Broken kernel entry -> skip
                 continue
 
-        # deduplicate by title
+        # Deduplicate by title
         if title in seen_titles:
             continue
         seen_titles.add(title)
 
-        # categorize
+        # Categorize entries
         if is_snapshot_title(title):
             snapshot_blocks.append((title, blk))
         elif is_windows_title(title):
             windows_blocks.append((title, blk))
         elif is_uefi_title(title):
             uefi_blocks.append((title, blk))
+        elif is_standard_linux_title(title):
+            # CRITICAL: This is the standard 'linux' kernel - highest priority!
+            standard_kernel.append((title, blk))
         elif is_lts_title(title):
-            kernel_blocks.append((title, blk, 'lts'))
-        elif is_primary_linux_title(title):
-            kernel_blocks.insert(0, (title, blk, 'primary'))  # prefer primary at front
-        elif 'zen' in tl or 'hardened' in tl or 'rt' in tl:
-            kernel_blocks.append((title, blk, 'other'))
+            # This is LTS - second priority
+            lts_kernel.append((title, blk))
+        elif has_kernel:
+            # Other kernel variants (zen, hardened, rt, etc)
+            other_kernels.append((title, blk))
         else:
-            # if it had kernel refs but wasn't caught by above, add to kernel list
-            if has_kernel:
-                kernel_blocks.append((title, blk, 'other'))
-            else:
-                misc_blocks.append((title, blk))
+            misc_blocks.append((title, blk))
 
-    # Build new content: non-block header + kernel order (primary, lts, others) + snapshots + windows + uefi + misc
+    # Build new content in correct order
     new_parts = []
-    # non-block header
+
+    # 1. Non-block header (GRUB settings, load statements, etc)
     new_parts.extend(kept_nonblocks)
 
-    # kernels: primary first, then lts, then others
-    primary_added = False
-    for t,b,kind in kernel_blocks:
-        if kind == 'primary' and not primary_added:
-            new_parts.append(b); primary_added = True
-
-    # add first LTS if present
-    for t,b,kind in kernel_blocks:
-        if kind == 'lts':
-            new_parts.append(b)
-
-    # add remaining kernels that are not primary/lts
-    for t,b,kind in kernel_blocks:
-        if kind not in ('primary','lts'):
-            new_parts.append(b)
-
-    # snapshots
-    for t,b in snapshot_blocks:
+    # 2. STANDARD 'linux' kernel FIRST (not LTS!)
+    for t, b in standard_kernel:
         new_parts.append(b)
 
-    # windows
-    for t,b in windows_blocks:
+    # 3. LTS kernel SECOND
+    for t, b in lts_kernel:
         new_parts.append(b)
 
-    # uefi/firmware
-    for t,b in uefi_blocks:
+    # 4. Other kernel variants
+    for t, b in other_kernels:
         new_parts.append(b)
 
-    # misc
-    for t,b in misc_blocks:
+    # 5. Snapshots
+    for t, b in snapshot_blocks:
         new_parts.append(b)
 
-    final = "".join(new_parts)
+    # 6. Windows
+    for t, b in windows_blocks:
+        new_parts.append(b)
+
+    # 7. UEFI/Firmware
+    for t, b in uefi_blocks:
+        new_parts.append(b)
+
+    # 8. Misc
+    for t, b in misc_blocks:
+        new_parts.append(b)
+
+    final = \"\".join(new_parts)
     write_file(TMP_OUT, final)
-    # atomic move
     os.replace(TMP_OUT, GRUB_CFG)
+
     print('[+] grub.cfg cleaned and reordered')
+    print(f'    Standard kernel entries: {len(standard_kernel)}')
+    print(f'    LTS kernel entries: {len(lts_kernel)}')
+    print(f'    Other kernel entries: {len(other_kernels)}')
+    print(f'    Snapshot entries: {len(snapshot_blocks)}')
+    print(f'    Windows entries: {len(windows_blocks)}')
     sys.exit(0)
 
 except Exception as e:
     print('[!] error in grub post-processing:', e, file=sys.stderr)
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 PY"
 
     # run the python post-processor with sudo
-    if sudo python3 /tmp/reorder_and_filter_grub.py >/tmp/reorder_and_filter_grub.log 2>&1; then
-        log_success "GRUB post-processing completed (broken/non-functional entries removed, menu reordered)."
+    if sudo python3 /tmp/reorder_and_filter_grub.py 2>&1 | tee /tmp/reorder_and_filter_grub.log; then
+        log_success "GRUB post-processing completed successfully."
+        log_success "Menu order: 1st=standard 'linux', 2nd='linux-lts', then others"
     else
-        log_error "GRUB post-processing failed. Inspect /tmp/reorder_and_filter_grub.log and $BACKUP_DIR for backups."
-        # keep going to attempt regeneration if possible
+        log_error "GRUB post-processing failed. Check /tmp/reorder_and_filter_grub.log"
+        log_error "Backups available at: $BACKUP_DIR"
+        cat /tmp/reorder_and_filter_grub.log
     fi
 
     # cleanup the python script
     sudo rm -f /tmp/reorder_and_filter_grub.py 2>/dev/null || true
 
-    # conservative sed-based cleanup for leftover patterns
-    log_info "Final conservative cleanup of grub.cfg (fallback/recovery lines)..."
+    # Conservative sed-based cleanup for leftover patterns
+    log_info "Final conservative cleanup of grub.cfg..."
     sudo sed -i '/fallback/d;/recovery/d;/initramfs-.*-fallback.img/d' /boot/grub/grub.cfg || true
 
-    # If grub-btrfs is present, regenerate to ensure snapshots are visible
-    if pacman -Q grub-btrfs &>/dev/null; then
-        log_info "Regenerating grub config for grub-btrfs snapshots..."
-        if command -v grub-btrfs-mkconfig >/dev/null 2>&1; then
-            sudo grub-btrfs-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
-        else
-            sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
-        fi
-        log_success "grub-btrfs regeneration attempted."
-    fi
+    # IMPORTANT: Do NOT regenerate grub.cfg again - it would undo our reordering!
+    # The Python script has already placed everything in the correct order.
 
-    log_success "GRUB configuration finished. Primary kernel should appear first in the menu."
+    log_success "GRUB configuration finished."
+    log_success "Standard 'linux' kernel is now FIRST in the menu (position 0)"
+    log_success "'linux-lts' kernel is SECOND in the menu (position 1)"
     log_success "Backups kept at: $BACKUP_DIR"
     log_success "Please reboot to validate the changes."
 }
@@ -456,23 +470,6 @@ detect_windows() {
         return 0
     fi
     return 1
-}
-
-# This function is specifically for adding Windows to GRUB, and should run AFTER grub-mkconfig generates initial config
-# but BEFORE the Python script reorders it, so the Python script can categorize the Windows entry.
-add_windows_to_grub_logic() {
-    step "Adding Windows to GRUB menu (if detected)"
-    sudo pacman -S --noconfirm os-prober >/dev/null 2>&1 || log_warning "Failed to install os-prober"
-
-    # Ensure GRUB_DISABLE_OS_PROBER is not set to true
-    if grep -q '^GRUB_DISABLE_OS_PROBER=' /etc/default/grub; then
-        sudo sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
-    else
-        echo 'GRUB_DISABLE_OS_PROBER=false' | sudo tee -a /etc/default/grub >/dev/null
-    fi
-    # Regenerate GRUB config to pick up os-prober's work
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
-    log_success "Windows entry added to GRUB (if detected by os-prober). This entry will be reordered shortly."
 }
 
 find_windows_efi_partition() {
@@ -546,21 +543,18 @@ set_localtime_for_windows() {
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
 elif [ "$BOOTLOADER" = "systemd-boot" ]; then
-    log_info "Detected systemd-boot. systemd-boot-specific configuration skipped (already covered)."
+    log_info "Detected systemd-boot. systemd-boot-specific configuration already applied."
 else
     log_warning "Unknown bootloader ($BOOTLOADER). No bootloader-specific actions taken."
 fi
 
-# Windows dual-boot configuration
-if detect_windows; then
-    log_info "Windows installation detected. Configuring dual-boot..."
-    # Always install ntfs-3g for NTFS access
+# Windows dual-boot configuration (systemd-boot only, GRUB handled inside configure_grub)
+if detect_windows && [ "$BOOTLOADER" = "systemd-boot" ]; then
+    log_info "Windows installation detected with systemd-boot. Configuring dual-boot..."
     run_step "Installing ntfs-3g for Windows partition access" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
-
-    if [ "$BOOTLOADER" = "grub" ]; then
-        add_windows_to_grub_logic # Call the function
-    elif [ "$BOOTLOADER" = "systemd-boot" ]; then
-        add_windows_to_systemdboot
-    fi
+    add_windows_to_systemdboot
+    set_localtime_for_windows
+elif detect_windows && [ "$BOOTLOADER" = "grub" ]; then
+    log_info "Windows dual-boot already configured inside GRUB setup."
     set_localtime_for_windows
 fi
