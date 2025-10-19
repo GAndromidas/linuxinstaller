@@ -9,56 +9,10 @@ source "$SCRIPT_DIR/common.sh"
 PLYMOUTH_ERRORS=()
 
 # ======= Plymouth Setup Steps =======
-enable_plymouth_hook() {
-  local mkinitcpio_conf="/etc/mkinitcpio.conf"
-  if ! grep -q "plymouth" "$mkinitcpio_conf"; then
-    sudo sed -i 's/^HOOKS=\(.*\)keyboard \(.*\)/HOOKS=\1plymouth keyboard \2/' "$mkinitcpio_conf"
-    log_success "Added plymouth hook to mkinitcpio.conf."
-  else
-    log_warning "Plymouth hook already present in mkinitcpio.conf."
-  fi
-}
 
+=======
 # ======= Kernel Detection Function =======
-get_installed_kernel_types() {
-  local kernel_types=()
-  pacman -Q linux &>/dev/null && kernel_types+=("linux")
-  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
-  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
-  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-  echo "${kernel_types[@]}"
-}
 
-rebuild_initramfs() {
-  local kernel_types
-  kernel_types=($(get_installed_kernel_types))
-
-  if [ "${#kernel_types[@]}" -eq 0 ]; then
-    log_warning "No supported kernel types detected. Rebuilding only for 'linux'."
-    sudo mkinitcpio -p linux
-    return
-  fi
-
-  echo -e "${CYAN}Detected kernels: ${kernel_types[*]}${RESET}"
-
-  local total=${#kernel_types[@]}
-  local current=0
-
-  for kernel in "${kernel_types[@]}"; do
-    ((current++))
-    print_progress "$current" "$total" "Rebuilding initramfs for $kernel"
-
-    if sudo mkinitcpio -p "$kernel" >/dev/null 2>&1; then
-      print_status " [OK]" "$GREEN"
-      log_success "Rebuilt initramfs for $kernel"
-    else
-      print_status " [FAIL]" "$RED"
-      log_error "Failed to rebuild initramfs for $kernel"
-    fi
-  done
-
-  echo -e "\n${GREEN}Initramfs rebuild completed for all kernels${RESET}\n"
-}
 
 set_plymouth_theme() {
   local theme="bgrt"
@@ -184,7 +138,7 @@ is_plymouth_configured() {
   local plymouth_theme_set=false
   local splash_parameter_set=false
 
-  # Check if plymouth hook is in mkinitcpio.conf
+  # Check if plymouth hook is in mkinitcpio.conf using the command_exists utility
   if grep -q "plymouth" /etc/mkinitcpio.conf 2>/dev/null; then
     plymouth_hook_present=true
   fi
@@ -231,8 +185,8 @@ main() {
     return 0
   fi
 
-  run_step "Adding plymouth hook to mkinitcpio.conf" enable_plymouth_hook
-  run_step "Rebuilding initramfs for all kernels" rebuild_initramfs
+  # Use the centralized function from common.sh
+  run_step "Configuring Plymouth hook and rebuilding initramfs" configure_plymouth_hook_and_initramfs
   run_step "Setting Plymouth theme" set_plymouth_theme
   run_step "Adding 'splash' to all kernel parameters" add_kernel_parameters
 

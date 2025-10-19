@@ -4,24 +4,64 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+add_systemd_boot_kernel_params() {
+  local boot_entries_dir="/boot/loader/entries"
+  if [ ! -d "$boot_entries_dir" ]; then
+    log_warning "Boot entries directory not found. Skipping kernel parameter addition for systemd-boot."
+    return 0 # Not an error that should stop the script
+  fi
+
+  local modified_count=0
+  local entries_found=0
+
+  # Find non-fallback .conf files and process them
+  while IFS= read -r -d $'\0' entry; do
+    ((entries_found++))
+    local entry_name=$(basename "$entry")
+    if ! grep -q "quiet loglevel=3" "$entry"; then # Check for existing parameters more generically
+      if sudo sed -i '/^options / s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$entry"; then
+        log_success "Added kernel parameters to $entry_name"
+        ((modified_count++))
+      else
+        log_error "Failed to add kernel parameters to $entry_name"
+        # Continue to try other entries, but log the error
+      fi
+    else
+      log_info "Kernel parameters already present in $entry_name - skipping."
+    fi
+  done < <(find "$boot_entries_dir" -name "*.conf" ! -name "*fallback.conf" -print0)
+
+  if [ "$entries_found" -eq 0 ]; then
+    log_warning "No systemd-boot entries found to modify."
+  elif [ "$modified_count" -gt 0 ]; then
+    log_success "Kernel parameters updated for $modified_count systemd-boot entries."
+  else
+    log_info "No systemd-boot entries needed parameter updates."
+  fi
+  return 0
+}
+
 # --- systemd-boot ---
 configure_boot() {
-  find /boot/loader/entries -name "*.conf" ! -name "*fallback.conf" -exec \
-    sudo sed -i '/options/s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' {} \; 2>/dev/null || true
+  run_step "Adding kernel parameters to systemd-boot entries" add_systemd_boot_kernel_params
 
   if [ -f "/boot/loader/loader.conf" ]; then
     sudo sed -i \
       -e '/^default /d' \
       -e '1i default @saved' \
       -e 's/^timeout.*/timeout 3/' \
-      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
+      -e 's/^[#]*console-mode[[:space:]]\\+.*/console-mode max/' \
       /boot/loader/loader.conf
 
-    grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
-    grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
+    run_step "Ensuring timeout is set in loader.conf" \
+        grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
+    run_step "Ensuring console-mode is set in loader.conf" \
+        grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
+  else
+    log_warning "loader.conf not found. Skipping loader.conf configuration for systemd-boot."
   fi
 
-  sudo rm -f /boot/loader/entries/*fallback.conf 2>/dev/null || true
+  run_step "Removing systemd-boot fallback entries" sudo rm -f /boot/loader/entries/*fallback.conf
 }
 
 # --- Bootloader and Btrfs detection ---
@@ -46,20 +86,7 @@ configure_grub() {
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
-    # Add plymouth hook
-    if [ -f /etc/mkinitcpio.conf ] && ! grep -q plymouth /etc/mkinitcpio.conf; then
-        if grep -q filesystems /etc/mkinitcpio.conf; then
-            sudo sed -i "s/\(HOOKS=.*\)filesystems/\1plymouth filesystems/" /etc/mkinitcpio.conf || true
-        else
-            sudo sed -i "s/^\(HOOKS=.*\)\"$/\1 plymouth\"/" /etc/mkinitcpio.conf || true
-        fi
-        log_success "plymouth added to HOOKS."
-    fi
 
-    # Rebuild initramfs
-    if command -v mkinitcpio >/dev/null 2>&1; then
-        sudo mkinitcpio -P >/dev/null 2>&1 || log_warning "mkinitcpio -P failed"
-    fi
 
     # Detect installed kernels
     KERNELS=($(ls /boot/vmlinuz-* 2>/dev/null | sed 's|/boot/vmlinuz-||g'))
@@ -84,13 +111,28 @@ configure_grub() {
     sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
 
     # Set default to main kernel (linux)
-    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux linux[^']*'" /boot/grub/grub.cfg | head -n1 | sed "s/menuentry '\(.*\)'/\1/")
+    # Set default to main kernel (e.g., 'Arch Linux, with Linux linux')
+    # This tries to find the 'linux' kernel entry, being flexible with its full title.
+    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux [^']+'" /boot/grub/grub.cfg | grep -v 'fallback' | head -n1 | sed "s/menuentry '\\(.*\\)'/\\1/")
+
     if [[ -n "$DEFAULT_MENU" ]]; then
-        sudo grub-set-default "$DEFAULT_MENU" >/dev/null 2>&1 || true
-        log_success "GRUB default set to: linux"
+        if sudo grub-set-default "$DEFAULT_MENU" >/dev/null 2>&1; then
+            log_success "GRUB default set to: $DEFAULT_MENU"
+        else
+            log_warning "Failed to set GRUB default to: $DEFAULT_MENU. Attempting to set to index 0."
+            if sudo grub-set-default 0 >/dev/null 2>&1; then
+                log_success "GRUB default set to index 0."
+            else
+                log_error "Failed to set GRUB default to index 0. Manual intervention may be required."
+            fi
+        fi
     else
-        sudo grub-set-default 0
-        log_warning "Could not find menu entry for linux, defaulting to first entry."
+        log_warning "Could not find a suitable 'Arch Linux, with Linux' menu entry. Attempting to set to index 0."
+        if sudo grub-set-default 0 >/dev/null 2>&1; then
+            log_success "GRUB default set to index 0."
+        else
+            log_error "Failed to set GRUB default to index 0. Manual intervention may be required."
+        fi
     fi
 }
 
@@ -106,7 +148,11 @@ find_windows_efi_partition() {
     for partition in "${partitions[@]}"; do
         local temp_mount="/tmp/windows_efi_check"
         mkdir -p "$temp_mount"
-        if sudo mount "$partition" "$temp_mount" 2>/dev/null; then
+        if ! sudo mount "$partition" "$temp_mount" 2>/dev/null; then
+            log_warning "Failed to mount partition $partition to $temp_mount. Skipping."
+            sudo rm -rf "$temp_mount"
+            continue
+        fi
             [ -d "$temp_mount/EFI/Microsoft" ] && { sudo umount "$temp_mount"; sudo rm -rf "$temp_mount"; echo "$partition"; return 0; }
             sudo umount "$temp_mount"
         fi
@@ -151,5 +197,7 @@ if detect_windows && [ "$BOOTLOADER" = "systemd-boot" ]; then
     add_windows_to_systemdboot
     set_localtime_for_windows
 elif detect_windows && [ "$BOOTLOADER" = "grub" ]; then
+    run_step "Installing ntfs-3g" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
     set_localtime_for_windows
+    run_step "Regenerating grub.cfg for Windows detection" sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1
 fi

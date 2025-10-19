@@ -281,6 +281,90 @@ log_error() {
   log_to_file "ERROR: $1"
 }
 
+# Check if a command exists
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Function to get all installed kernel types
+get_installed_kernel_types() {
+  local kernel_types=()
+  command_exists pacman || { echo "Error: pacman not found." >&2; return 1; }
+  pacman -Q linux &>/dev/null && kernel_types+=("linux")
+  pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
+  pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
+  pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  echo "${kernel_types[@]}"
+}
+
+# Function to configure plymouth hook and rebuild initramfs
+configure_plymouth_hook_and_initramfs() {
+  step "Configuring Plymouth hook and rebuilding initramfs"
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  local HOOK_ADDED=false
+
+  if ! grep -q "plymouth" "$mkinitcpio_conf"; then
+    log_info "Adding plymouth hook to mkinitcpio.conf..."
+    # Look for "filesystems" hook as anchor, or add before closing quote
+    if grep -q "filesystems" "$mkinitcpio_conf"; then
+        sudo sed -i "s/\\(HOOKS=.*\\)filesystems/\\1plymouth filesystems/" "$mkinitcpio_conf"
+    else
+        sudo sed -i "s/^\\(HOOKS=.*\\)\\\"$/\\1 plymouth\\\"/" "$mkinitcpio_conf"
+    fi
+
+    if [ $? -eq 0 ]; then
+      log_success "Added plymouth hook to mkinitcpio.conf."
+      HOOK_ADDED=true
+    else
+      log_error "Failed to add plymouth hook to mkinitcpio.conf."
+      return 1
+    fi
+  else
+    log_info "Plymouth hook already present in mkinitcpio.conf."
+    HOOK_ADDED=true # Assume it's correctly there if it exists
+  fi
+
+  if [ "$HOOK_ADDED" = true ]; then
+    local kernel_types
+    kernel_types=($(get_installed_kernel_types))
+
+    if [ "${#kernel_types[@]}" -eq 0 ]; then
+      log_warning "No supported kernel types detected. Cannot rebuild initramfs for Plymouth."
+      return 0
+    fi
+
+    echo -e "${CYAN}Detected kernels: ${kernel_types[*]}${RESET}"
+
+    local total=${#kernel_types[@]}
+    local current=0
+    local success_count=0
+
+    for kernel in "${kernel_types[@]}"; do
+      ((current++))
+      print_progress "$current" "$total" "Rebuilding initramfs for $kernel (for Plymouth)"
+
+      if sudo mkinitcpio -p "$kernel" >/dev/null 2>&1; then
+        print_status " [OK]" "$GREEN"
+        log_success "Rebuilt initramfs for $kernel"
+        ((success_count++))
+      else
+        print_status " [FAIL]" "$RED"
+        log_error "Failed to rebuild initramfs for $kernel (for Plymouth)"
+      fi
+    done
+
+    if [ "$success_count" -eq "$total" ]; then
+      log_success "Initramfs rebuilt for all detected kernels for Plymouth."
+    elif [ "$success_count" -gt 0 ]; then
+      log_warning "Initramfs rebuilt for some kernels for Plymouth, but not all."
+    else
+      log_error "Failed to rebuild initramfs for any kernel for Plymouth."
+      return 1
+    fi
+  fi
+  return 0
+}
+
 # Function: log_info
 # Description: Prints info message in cyan
 # Parameters: $1 - Info message
