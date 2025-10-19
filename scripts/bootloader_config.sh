@@ -70,11 +70,11 @@ IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false")
 
 # --- GRUB configuration ---
 configure_grub() {
-    step "Configuring GRUB: linux kernel first, others in submenu"
+    step "Configuring GRUB: remember last chosen kernel"
 
     # /etc/default/grub settings
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
-    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=0/' /etc/default/grub || echo 'GRUB_DEFAULT=0' | sudo tee -a /etc/default/grub >/dev/null
+    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub || echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub || \
         echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"' | sudo tee -a /etc/default/grub >/dev/null
@@ -86,8 +86,6 @@ configure_grub() {
     grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
 
-
-
     # Detect installed kernels
     KERNELS=($(ls /boot/vmlinuz-* 2>/dev/null | sed 's|/boot/vmlinuz-||g'))
     if [[ ${#KERNELS[@]} -eq 0 ]]; then
@@ -95,7 +93,7 @@ configure_grub() {
         return 1
     fi
 
-    # Determine main kernel and secondary kernels
+    # Determine main kernel and secondary kernels (logic kept for informational purposes, not used for default setting)
     MAIN_KERNEL=""
     SECONDARY_KERNELS=()
     for k in "${KERNELS[@]}"; do
@@ -110,30 +108,7 @@ configure_grub() {
     # Regenerate grub.cfg
     sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
 
-    # Set default to main kernel (linux)
-    # Set default to main kernel (e.g., 'Arch Linux, with Linux linux')
-    # This tries to find the 'linux' kernel entry, being flexible with its full title.
-    DEFAULT_MENU=$(grep -Po "menuentry 'Arch Linux, with Linux [^']+'" /boot/grub/grub.cfg | grep -v 'fallback' | head -n1 | sed "s/menuentry '\\(.*\\)'/\\1/")
-
-    if [[ -n "$DEFAULT_MENU" ]]; then
-        if sudo grub-set-default "$DEFAULT_MENU" >/dev/null 2>&1; then
-            log_success "GRUB default set to: $DEFAULT_MENU"
-        else
-            log_warning "Failed to set GRUB default to: $DEFAULT_MENU. Attempting to set to index 0."
-            if sudo grub-set-default 0 >/dev/null 2>&1; then
-                log_success "GRUB default set to index 0."
-            else
-                log_error "Failed to set GRUB default to index 0. Manual intervention may be required."
-            fi
-        fi
-    else
-        log_warning "Could not find a suitable 'Arch Linux, with Linux' menu entry. Attempting to set to index 0."
-        if sudo grub-set-default 0 >/dev/null 2>&1; then
-            log_success "GRUB default set to index 0."
-        else
-            log_error "Failed to set GRUB default to index 0. Manual intervention may be required."
-        fi
-    fi
+    log_success "GRUB configured to remember the last chosen boot entry."
 }
 
 # --- Windows helpers ---
