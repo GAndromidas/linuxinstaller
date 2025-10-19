@@ -50,7 +50,7 @@ configure_boot() {
       -e '/^default /d' \
       -e '1i default @saved' \
       -e 's/^timeout.*/timeout 3/' \
-      -e 's/^[#]*console-mode[[:space:]]\\+.*/console-mode max/' \
+      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
       /boot/loader/loader.conf
 
     run_step "Ensuring timeout is set in loader.conf" \
@@ -153,9 +153,8 @@ find_windows_efi_partition() {
             sudo rm -rf "$temp_mount"
             continue
         fi
-            [ -d "$temp_mount/EFI/Microsoft" ] && { sudo umount "$temp_mount"; sudo rm -rf "$temp_mount"; echo "$partition"; return 0; }
-            sudo umount "$temp_mount"
-        fi
+        [ -d "$temp_mount/EFI/Microsoft" ] && { sudo umount "$temp_mount"; sudo rm -rf "$temp_mount"; echo "$partition"; return 0; }
+        sudo umount "$temp_mount"
         sudo rm -rf "$temp_mount"
     done
     return 1
