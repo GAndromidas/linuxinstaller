@@ -206,8 +206,9 @@ custom_essential_selection() {
   local selected
   selected=$(show_checklist "Select ADDITIONAL Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
 
-  # Re-initialize essential_programs with only base essential packages before adding user selections
-  essential_programs=("${essential_programs_minimal[@]}")
+  # For custom mode, essential_programs should only contain user-selected items.
+  # Initialize it as empty before adding selections.
+  essential_programs=()
 
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
@@ -219,7 +220,6 @@ custom_essential_selection() {
 custom_aur_selection() {
   # Base AUR packages (from minimal mode) are automatically included.
   # Here we offer additional AUR packages for user selection.
-  yay_programs=("${yay_programs_minimal[@]}")
 
   local all_selectable_pkgs=("${custom_selectable_yay_programs[@]}")
   local selectable_descriptions=("${custom_selectable_yay_descriptions[@]}")
@@ -243,8 +243,9 @@ custom_aur_selection() {
   local selected
   selected=$(show_checklist "Select ADDITIONAL AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
 
-  # Re-initialize yay_programs with only base AUR packages before adding user selections
-  yay_programs=("${yay_programs_minimal[@]}")
+  # For custom mode, yay_programs should only contain user-selected items.
+  # Initialize it as empty before adding selections.
+  yay_programs=()
 
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
@@ -496,7 +497,12 @@ print_total_packages() {
 
   # Calculate Pacman packages
   # In custom mode, pacman_programs are determined interactively, essential_programs are for additional custom essential packages
-  local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
+  local pacman_total=0
+  if [[ "$INSTALL_MODE" == "custom" ]]; then
+    pacman_total=$((${#essential_programs[@]} + ${#specific_install_programs[@]}))
+  else
+    pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
+  fi
 
   # Calculate AUR packages
   local aur_total=${#yay_programs[@]}
@@ -567,11 +573,14 @@ install_pacman_programs() {
   step "Installing Pacman programs"
   echo -e "${CYAN}=== Programs Installing ===${RESET}"
 
-  local pkgs=("${pacman_programs[@]}")
+  local pkgs=() # Initialize as empty for custom mode
 
-  # For default/minimal modes, also include essential packages here.
-  # For custom mode, essential_programs are populated by custom_essential_selection.
-  if [[ "$INSTALL_MODE" != "custom" ]]; then
+  # In custom mode, start with user-selected essential packages
+  if [[ "$INSTALL_MODE" == "custom" ]]; then
+    pkgs+=("${essential_programs[@]}")
+  else
+    # For default/minimal modes, start with general pacman programs and essential packages
+    pkgs+=("${pacman_programs[@]}")
     pkgs+=("${essential_programs[@]}")
   fi
 
