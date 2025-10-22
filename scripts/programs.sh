@@ -22,7 +22,6 @@ flatpak_programs=()             # Initialize to prevent unbound variable errors
 specific_install_programs=()   # Initialize to prevent unbound variable errors
 specific_remove_programs=()    # Initialize to prevent unbound variable errors
 
-
 # ===== YAML Parsing Functions =====
 
 # Function to check if yq is available, install if not
@@ -96,7 +95,7 @@ if ! ensure_yq; then
   return 1
 fi
 
-# Read package lists from YAML
+# Read base package lists from YAML
 read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_programs pacman_descriptions
 read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
 read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
@@ -111,9 +110,14 @@ read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.gnome.remove" 
 read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.install" cosmic_install_programs
 read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.remove" cosmic_remove_programs
 
+# Read custom selectable package lists
+read_yaml_packages "$PROGRAMS_YAML" ".custom.essential" custom_selectable_essential_programs custom_selectable_essential_descriptions
+read_yaml_packages "$PROGRAMS_YAML" ".custom.aur" custom_selectable_yay_programs custom_selectable_yay_descriptions
+read_yaml_packages "$PROGRAMS_YAML" ".custom.flatpak" custom_selectable_flatpak_programs custom_selectable_flatpak_descriptions
+
 # ===== Custom Selection Functions =====
 
-# Helper: Show whiptail checklist for a package list
+# Helper: Show gum checklist for a package list
 show_checklist() {
   local title="$1"
   shift
@@ -138,12 +142,6 @@ show_checklist() {
   done
 
   local selected_output
-  # Use gum filter for multi-selection
-  # --no-limit allows selecting multiple items
-  # --height for a reasonable height
-  # --header for the title
-  # --prompt for instructions
-  # --selected for pre-selected items
   local gum_command=(gum filter \
     --no-limit \
     --height 15 \
@@ -156,7 +154,7 @@ show_checklist() {
   fi
 
   # Pass options as separate arguments
-  selected_output=$(printf "%s\n" "${gum_options[@]}" | "${gum_command[@]}")
+  selected_output=$(printf "%s\\n" "${gum_options[@]}" | "${gum_command[@]}")
 
   local status=$?
   if [[ $status -ne 0 ]]; then
@@ -177,100 +175,82 @@ show_checklist() {
   done <<< "$selected_output"
 
   # Output the raw package names, similar to whiptail's output
-  printf "%s\n" "${final_selected_pkgs[@]}"
+  printf "%s\\n" "${final_selected_pkgs[@]}"
 }
 
-# Custom selection for Pacman/Essential
-
-# Custom selection for Pacman/Essential
+# Custom selection for Essential packages (additional to minimal)
 custom_essential_selection() {
-  # Essential packages selection
-  local all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
-  local choices=()
+  # Base essential packages (from minimal mode) are automatically included.
+  # Here we offer additional essential packages for user selection.
+  essential_programs=("${essential_programs_minimal[@]}")
 
-  for pkg in "${all_pkgs[@]}"; do
+  local all_selectable_pkgs=("${custom_selectable_essential_programs[@]}")
+  local selectable_descriptions=("${custom_selectable_essential_descriptions[@]}")
+
+  local choices=()
+  for pkg in "${all_selectable_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
 
-    # Find description for this package
     local description="$pkg"
-    for i in "${!essential_programs_default[@]}"; do
-      if [[ "${essential_programs_default[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_default[$i]}"
-        break
-      fi
-    done
-    for i in "${!essential_programs_minimal[@]}"; do
-      if [[ "${essential_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${essential_descriptions_minimal[$i]}"
+    for i in "${!all_selectable_pkgs[@]}"; do
+      if [[ "${all_selectable_pkgs[$i]}" == "$pkg" ]]; then
+        description="${selectable_descriptions[$i]}"
         break
       fi
     done
 
-    # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-
-    # Only pre-select minimal packages, not default packages
-    if [[ " ${essential_programs_minimal[*]} " == *" $pkg "* ]]; then
-      choices+=("$pkg" "$display_text" "on")
-    else
-      choices+=("$pkg" "$display_text" "off")
-    fi
+    choices+=("$pkg" "$display_text" "off") # All custom options start as off
   done
 
   local selected
-  selected=$(show_checklist "Select Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  essential_programs=()
+  selected=$(show_checklist "Select ADDITIONAL Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
-    essential_programs+=("$pkg")
+    essential_programs+=("$pkg") # Add selected custom essential packages
   done <<< "$selected"
 }
 
-# Custom selection for AUR
+# Custom selection for AUR packages (additional to minimal's defaults if any)
 custom_aur_selection() {
-  local all_pkgs=($(printf "%s\n" "${yay_programs_default[@]}" "${yay_programs_minimal[@]}" | sort -u))
-  local choices=()
+  # Base AUR packages (from minimal mode) are automatically included.
+  # Here we offer additional AUR packages for user selection.
+  yay_programs=("${yay_programs_minimal[@]}")
 
-  for pkg in "${all_pkgs[@]}"; do
+  local all_selectable_pkgs=("${custom_selectable_yay_programs[@]}")
+  local selectable_descriptions=("${custom_selectable_yay_descriptions[@]}")
+
+  local choices=()
+  for pkg in "${all_selectable_pkgs[@]}"; do
     [[ -z "$pkg" ]] && continue
 
-    # Find description for this package
     local description="$pkg"
-    for i in "${!yay_programs_default[@]}"; do
-      if [[ "${yay_programs_default[$i]}" == "$pkg" ]]; then
-        description="${yay_descriptions_default[$i]}"
-        break
-      fi
-    done
-    for i in "${!yay_programs_minimal[@]}"; do
-      if [[ "${yay_programs_minimal[$i]}" == "$pkg" ]]; then
-        description="${yay_descriptions_minimal[$i]}"
+    for i in "${!all_selectable_pkgs[@]}"; do
+      if [[ "${all_selectable_pkgs[$i]}" == "$pkg" ]]; then
+        description="${selectable_descriptions[$i]}"
         break
       fi
     done
 
-    # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-
-    # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$display_text" "off")
+    choices+=("$pkg" "$display_text" "off") # All custom options start as off
   done
 
   local selected
-  selected=$(show_checklist "Select AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  yay_programs=()
+  selected=$(show_checklist "Select ADDITIONAL AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
-    yay_programs+=("$pkg")
+    yay_programs+=("$pkg") # Add selected custom AUR packages
   done <<< "$selected"
 }
 
-# Custom selection for Flatpaks
+# Custom selection for Flatpaks (additional to minimal's defaults if any)
 custom_flatpak_selection() {
-  # Get flatpak packages from YAML based on detected DE
-  local flatpak_data=()
+  # Base Flatpak packages (from minimal mode for the detected DE) are automatically included.
+  # Here we offer additional Flatpak apps for user selection.
   local de_lower=""
-
   case "$XDG_CURRENT_DESKTOP" in
     KDE) de_lower="kde" ;;
     GNOME) de_lower="gnome" ;;
@@ -278,42 +258,39 @@ custom_flatpak_selection() {
     *) de_lower="generic" ;;
   esac
 
+  local base_flatpaks=()
+  get_flatpak_packages "$de_lower" "minimal" base_flatpaks # Load minimal Flatpaks for the detected DE
+  flatpak_programs=("${base_flatpaks[@]}")
+
+
   echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
 
-  # Read flatpak packages from YAML - use 'default' section which contains all flatpaks
-  local yq_output
-  yq_output=$(yq -r ".flatpak.$de_lower.default[] | [.name, .description] | @tsv" "$PROGRAMS_YAML" 2>/dev/null)
-
-  if [[ $? -eq 0 && -n "$yq_output" ]]; then
-    while IFS=$'\t' read -r name description; do
-      [[ -z "$name" ]] && continue
-      flatpak_data+=("$name|$description")
-    done <<< "$yq_output"
-  fi
-
-  echo -e "${CYAN}Available flatpak packages: ${#flatpak_data[@]}${RESET}"
+  local all_selectable_pkgs=("${custom_selectable_flatpak_programs[@]}")
+  local selectable_descriptions=("${custom_selectable_flatpak_descriptions[@]}")
 
   local choices=()
-  for flatpak_entry in "${flatpak_data[@]}"; do
+  for flatpak_entry in "${all_selectable_pkgs[@]}"; do
     [[ -z "$flatpak_entry" ]] && continue
 
-    # Extract package name and description
-    local pkg=$(echo "$flatpak_entry" | cut -d'|' -f1)
-    local description=$(echo "$flatpak_entry" | cut -d'|' -f2-)
+    local pkg="$flatpak_entry"
+    local description=""
+    for i in "${!all_selectable_pkgs[@]}"; do
+      if [[ "${all_selectable_pkgs[$i]}" == "$pkg" ]]; then
+        description="${selectable_descriptions[$i]}"
+        break
+      fi
+    done
 
-    # Create display text: "package_name - description"
     local display_text="$pkg - $description"
-
-    # Set all packages to "off" by default - no pre-selection
-    choices+=("$pkg" "$display_text" "off")
+    choices+=("$pkg" "$display_text" "off") # All custom options start as off
   done
 
   local selected
-  selected=$(show_checklist "Select Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
-  flatpak_programs=()
+  selected=$(show_checklist "Select ADDITIONAL Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
-    flatpak_programs+=("$pkg")
+    flatpak_programs+=("$pkg") # Add selected custom Flatpak apps
   done <<< "$selected"
 
   echo -e "${CYAN}User selected flatpak packages: ${flatpak_programs[*]}${RESET}"
@@ -327,10 +304,10 @@ handle_error() { if [ $? -ne 0 ]; then log_error "$1"; return 1; fi; return 0; }
 
 check_yay() {
   if ! command -v yay &>/dev/null; then
-    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped.";
-    return 1;
-  fi;
-  return 0;
+    log_warning "yay (AUR helper) is not installed. AUR packages will be skipped."
+    return 1
+  fi
+  return 0
 }
 
 check_flatpak() {
@@ -449,7 +426,9 @@ install_aur_quietly() {
     echo -e "${RED}Some AUR packages failed to install.${RESET}"
     for pkg in "${to_install[@]}"; do
       pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
-    done
+    d
+
+  one
   fi
 }
 
@@ -481,8 +460,8 @@ detect_desktop_environment() {
       specific_install_programs=()
       specific_remove_programs=()
       log_warning "Falling back to minimal set for unsupported DE/WM."
-      pacman_programs=("${pacman_programs_minimal[@]}")
-      essential_programs=("${essential_programs_minimal[@]}")
+      # These variables should be set by the main logic based on INSTALL_MODE
+      # For generic, we might not have a specific 'default' or 'minimal' flatpak function
       flatpak_install_function="install_flatpak_minimal_generic"
       flatpak_minimal_function="install_flatpak_minimal_generic"
       ;;
@@ -493,6 +472,7 @@ print_total_packages() {
   step "Calculating total packages to install"
 
   # Calculate Pacman packages
+  # In custom mode, pacman_programs are determined interactively, essential_programs are for additional custom essential packages
   local pacman_total=$((${#pacman_programs[@]} + ${#essential_programs[@]} + ${#specific_install_programs[@]}))
 
   # Calculate AUR packages
@@ -505,15 +485,17 @@ print_total_packages() {
       KDE) flatpak_total=3 ;;
       GNOME) flatpak_total=4 ;;
       COSMIC) flatpak_total=4 ;;
-      *) flatpak_total=1 ;;
+      *) flatpak_total=1 ;; # generic
     esac
-  else
+  elif [[ "$INSTALL_MODE" == "minimal" ]]; then
     case "$XDG_CURRENT_DESKTOP" in
       KDE) flatpak_total=1 ;;
       GNOME) flatpak_total=2 ;;
       COSMIC) flatpak_total=2 ;;
-      *) flatpak_total=1 ;;
+      *) flatpak_total=1 ;; # generic
     esac
+  elif [[ "$INSTALL_MODE" == "custom" ]]; then
+    flatpak_total=${#flatpak_programs[@]} # Use the actual count from custom selection
   fi
 
   # Calculate total
@@ -555,14 +537,22 @@ remove_programs() {
     fi
   done
 
-  echo -e "\n${GREEN}Program removal completed (${current}/${total} programs processed)${RESET}\n"
+  echo -e "\\n${GREEN}Program removal completed (${current}/${total} programs processed)${RESET}\\n"
 }
 
 install_pacman_programs() {
   step "Installing Pacman programs"
   echo -e "${CYAN}=== Programs Installing ===${RESET}"
 
-  local pkgs=("${pacman_programs[@]}" "${essential_programs[@]}")
+  local pkgs=("${pacman_programs[@]}")
+
+  # For default/minimal modes, also include essential packages here.
+  # For custom mode, essential_programs are populated by custom_essential_selection.
+  if [[ "$INSTALL_MODE" != "custom" ]]; then
+    pkgs+=("${essential_programs[@]}")
+  fi
+
+  # Always include DE-specific install programs
   if [ "${#specific_install_programs[@]}" -gt 0 ]; then
     pkgs+=("${specific_install_programs[@]}")
   fi
@@ -601,6 +591,7 @@ get_flatpak_packages() {
 
   # Use yq to extract flatpak package names
   local yq_output
+  # In custom mode, this function will primarily be used to get base minimal flatpaks
   yq_output=$(yq -r ".flatpak.$de.$mode[].name" "$PROGRAMS_YAML" 2>/dev/null)
 
   if [[ $? -eq 0 && -n "$yq_output" ]]; then
@@ -661,7 +652,7 @@ install_flatpak_minimal_generic() {
 }
 
 print_programs_summary() {
-  echo -e "\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
+  echo -e "\\n${CYAN}======= PROGRAMS SUMMARY =======${RESET}"
   if [ ${#PROGRAMS_INSTALLED[@]} -gt 0 ]; then
     echo -e "${GREEN}Installed:${RESET} ${PROGRAMS_INSTALLED[*]}"
   else
@@ -687,46 +678,61 @@ print_programs_summary() {
 
 # Use INSTALL_MODE from menu instead of command-line flags
 if [[ "$INSTALL_MODE" == "default" ]]; then
-  # Pacman packages are the same for all modes
+  # For default mode, use default essential and AUR packages
   essential_programs=("${essential_programs_default[@]}")
   yay_programs=("${yay_programs_default[@]}")
 elif [[ "$INSTALL_MODE" == "minimal" ]]; then
-  # Pacman packages are the same for all modes
-  essential_programs=(\"${essential_programs_minimal[@]}\")
-  yay_programs=(\"${yay_programs_minimal[@]}\")
-elif [[ \"$INSTALL_MODE\" == \"custom\" ]]; then
+  # For minimal mode, use minimal essential and AUR packages
+  essential_programs=("${essential_programs_minimal[@]}")
+  yay_programs=("${yay_programs_minimal[@]}")
+elif [[ "$INSTALL_MODE" == "custom" ]]; then
   # Detect desktop environment first to populate specific_install_programs
   detect_desktop_environment
 
-  # Install Pacman packages unconditionally first
-  step "Installing Base Pacman Programs"
-  install_pacman_programs # This will now install pacman_programs and essential_programs (which is empty here)
+  # Pacman programs are always from the main pacman.packages section, no custom pacman
+  # essential_programs and yay_programs are initially minimal, then added to by custom selection
+  essential_programs=("${essential_programs_minimal[@]}")
+  yay_programs=("${yay_programs_minimal[@]}")
+
+  # Install Pacman packages (including DE-specific ones) unconditionally first
+  step "Installing Base Pacman Programs (Unified for all modes)"
+  install_pacman_programs
   log_success "Base Pacman programs installed."
-  # Now, proceed with interactive selections for Essential, AUR, and Flatpak
-  custom_essential_selection
 
-  gum confirm "Continue to AUR package selection?" || exit 1
+  # Now, proceed with interactive selections for ADDITIONAL Essential, AUR, and Flatpak
 
+  # Custom Essential Selection (adds to minimal set)
+  if gum confirm "Select ADDITIONAL Essential packages?"; then
+    custom_essential_selection
+  fi
+
+  gum confirm "Continue to ADDITIONAL AUR package selection?" || exit 1
   custom_aur_selection
 
-  gum confirm "Continue to Flatpak app selection?" || exit 1
-
+  gum confirm "Continue to ADDITIONAL Flatpak app selection?" || exit 1
   custom_flatpak_selection
 
-  ui_success \"Custom package selection complete. Proceeding with remaining installation steps.\"\nelse
-  log_error \"INSTALL_MODE not set. Please run the installer from the main menu.\"\n  return 1
+  ui_success "Custom package selection complete. Proceeding with remaining installation steps."
+else
+  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
+  return 1
 fi
 
 if ! check_flatpak; then
   log_warning "Flatpak packages will be skipped."
 fi
 
-detect_desktop_environment
+# Detect DE for non-custom modes (already done for custom mode)
+if [[ "$INSTALL_MODE" != "custom" ]]; then
+  detect_desktop_environment
+fi
+
 print_total_packages
 remove_programs
 
-# For default/minimal, Pacman programs are installed via install_pacman_programs
-# For custom, they were installed above
+# Pacman programs (including essential & DE-specific) are installed here for default/minimal modes
+# For custom mode, base pacman packages are already installed above.
+# Additional essential packages selected in custom mode are installed here.
 if [[ "$INSTALL_MODE" != "custom" ]]; then
   install_pacman_programs
 fi
@@ -744,13 +750,13 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
     install_flatpak_minimal_generic
   fi
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  # Use user's custom flatpak selections
+  # Use user's custom flatpak selections (which already include minimal base + additions)
   if [ ${#flatpak_programs[@]} -gt 0 ]; then
     step "Installing custom selected Flatpak programs"
     echo -e "${CYAN}Selected flatpak packages: ${flatpak_programs[*]}${RESET}"
     install_flatpak_quietly "${flatpak_programs[@]}"
   else
-    log_success "No Flatpak packages selected for installation."
+    log_success "No additional Flatpak packages selected for installation."
   fi
 fi
 

@@ -53,11 +53,28 @@ cleanup_helpers() {
 # Update mirrorlist using rate-mirrors if installed
 update_mirrorlist_with_rate_mirrors() {
   step "Updating mirrorlist with rate-mirrors"
+
+  # Check if rate-mirrors-bin is installed, and install if not
+  if ! command -v rate-mirrors >/dev/null 2>&1; then
+    ui_info "rate-mirrors not found. Attempting to install rate-mirrors-bin from AUR..."
+    if [ "$DRY_RUN" = true ]; then
+      ui_info "Dry-run: yay -S --noconfirm rate-mirrors-bin (skipped)"
+    else
+      if command -v yay >/dev/null 2>&1; then
+        run_step "Installing rate-mirrors-bin" yay -S --noconfirm rate-mirrors-bin || log_error "Failed to install rate-mirrors-bin"
+      else
+        log_error "yay is not installed. Cannot install rate-mirrors-bin. Please install yay first."
+        return 1
+      fi
+    fi
+  fi
+
+  # If rate-mirrors is available (either pre-existing or just installed)
   if command -v rate-mirrors >/dev/null 2>&1; then
     run_step "Updating mirrorlist with fastest mirrors" sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch
     log_success "Mirrorlist updated successfully with rate-mirrors"
   else
-    log_warning "rate-mirrors not found. Mirrorlist update skipped."
+    log_warning "rate-mirrors is still not found after attempted installation. Mirrorlist update skipped."
   fi
 }
 

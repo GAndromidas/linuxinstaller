@@ -110,7 +110,7 @@ aur:
     - name: "stremio"
       description: "Media streaming platform"
 
-# Desktop environment specific packages
+# Desktop environment specific packages (used by all modes that detect a DE)
 desktop_environments:
   kde:
     install:
@@ -191,10 +191,69 @@ flatpak:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
 
-  generic:
+  generic: # Fallback for unsupported DEs/WMs
     default:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
     minimal:
+      - name: "it.mijorus.gearlever"
+        description: "System tray application launcher"
+
+# Custom packages (user-selectable additions beyond the base installation)
+# Add any packages here that you want to be optional choices for the 'Custom' mode.
+# These lists are for additional packages, not replacements.
+custom:
+  essential:
+    - name: "filezilla"
+      description: "FTP client for file transfers"
+    - name: "gimp"
+      description: "GNU Image Manipulation Program"
+    - name: "kdenlive"
+      description: "Video editing software"
+    - name: "openrgb"
+      description: "RGB lighting control software"
+    - name: "vlc"
+      description: "Media player"
+    - name: "vlc-plugins-all"
+      description: "All VLC plugins (required for VLC functionality)"
+
+  aur:
+    - name: "dropbox"
+      description: "Cloud storage and file synchronization"
+    - name: "onlyoffice-bin"
+      description: "Office suite with document, spreadsheet and presentation editors"
+    - name: "rate-mirrors-bin"
+      description: "Fast mirror selection tool for pacman"
+    - name: "rustdesk-bin"
+      description: "Remote desktop software"
+    - name: "spotify"
+      description: "Music streaming service"
+    - name: "stremio"
+      description: "Media streaming platform"
+    - name: "ventoy-bin"
+      description: "Tool to create bootable USB drives for ISO files"
+    - name: "via-bin"
+      description: "VIA keyboard configuration tool"
+
+  flatpak:
+    kde:
+      - name: "io.github.shiftey.Desktop"
+        description: "Desktop environment"
+      - name: "it.mijorus.gearlever"
+        description: "System tray application launcher"
+
+    gnome:
+      - name: "com.mattjakeman.ExtensionManager"
+        description: "GNOME Extension Manager"
+      - name: "io.github.shiftey.Desktop"
+        description: "Desktop environment"
+      - name: "it.mijorus.gearlever"
+        description: "System tray application launcher"
+
+    cosmic:
+      - name: "dev.edfloreshz.CosmicTweaks"
+        description: "System settings and tweaks"
+      - name: "io.github.shiftey.Desktop"
+        description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
