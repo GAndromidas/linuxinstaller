@@ -265,8 +265,24 @@ custom_flatpak_selection() {
 
   echo -e "${CYAN}Detected DE: $XDG_CURRENT_DESKTOP (using $de_lower flatpaks)${RESET}"
 
-  local all_selectable_pkgs=("${custom_selectable_flatpak_programs[@]}")
-  local selectable_descriptions=("${custom_selectable_flatpak_descriptions[@]}")
+  local de_flatpak_names=()
+  local de_flatpak_descriptions=()
+  local yq_path=".custom.flatpak.$de_lower"
+
+  # Load custom Flatpak programs specific to the detected DE
+  local yq_output
+  yq_output=$(yq -r "${yq_path}[].name" "$PROGRAMS_YAML" 2>/dev/null)
+  if [[ -n "$yq_output" ]]; then
+    mapfile -t de_flatpak_names <<< "$yq_output"
+  fi
+
+  yq_output=$(yq -r "${yq_path}[].description" "$PROGRAMS_YAML" 2>/dev/null)
+  if [[ -n "$yq_output" ]]; then
+    mapfile -t de_flatpak_descriptions <<< "$yq_output"
+  fi
+
+  local all_selectable_pkgs=("${de_flatpak_names[@]}")
+  local selectable_descriptions=("${de_flatpak_descriptions[@]}")
 
   local choices=()
   for flatpak_entry in "${all_selectable_pkgs[@]}"; do
