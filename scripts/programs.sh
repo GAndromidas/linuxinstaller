@@ -426,9 +426,7 @@ install_aur_quietly() {
     echo -e "${RED}Some AUR packages failed to install.${RESET}"
     for pkg in "${to_install[@]}"; do
       pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
-    d
-
-  one
+    done
   fi
 }
 
