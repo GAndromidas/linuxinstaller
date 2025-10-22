@@ -16,6 +16,11 @@ CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
+essential_programs=()           # Initialize to prevent unbound variable errors
+yay_programs=()                 # Initialize to prevent unbound variable errors
+flatpak_programs=()             # Initialize to prevent unbound variable errors
+specific_install_programs=()   # Initialize to prevent unbound variable errors
+specific_remove_programs=()    # Initialize to prevent unbound variable errors
 
 
 # ===== YAML Parsing Functions =====
@@ -687,29 +692,29 @@ if [[ "$INSTALL_MODE" == "default" ]]; then
   yay_programs=("${yay_programs_default[@]}")
 elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   # Pacman packages are the same for all modes
-  essential_programs=("${essential_programs_minimal[@]}")
-  yay_programs=("${yay_programs_minimal[@]}")
-elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  # Install Pacman packages unconditionally first
-  step "Installing Base Pacman Programs"
-  install_pacman_programs # This will now install pacman_programs and essential_programs (which is empty here)
-  log_success "Base Pacman programs installed."
+  essential_programs=(\"${essential_programs_minimal[@]}\")
+  yay_programs=(\"${yay_programs_minimal[@]}\")
+elif [[ \"$INSTALL_MODE\" == \"custom\" ]]; then
+  # Detect desktop environment first to populate specific_install_programs
+  detect_desktop_environment
 
+  # Install Pacman packages unconditionally first
+  step \"Installing Base Pacman Programs\"
+  install_pacman_programs # This will now install pacman_programs and essential_programs (which is empty here)
+  log_success \"Base Pacman programs installed.\"\n
   # Now, proceed with interactive selections for Essential, AUR, and Flatpak
   custom_essential_selection
 
-  gum confirm "Continue to AUR package selection?" || exit 1
+  gum confirm \"Continue to AUR package selection?\" || exit 1
 
   custom_aur_selection
 
-  gum confirm "Continue to Flatpak app selection?" || exit 1
+  gum confirm \"Continue to Flatpak app selection?\" || exit 1
 
   custom_flatpak_selection
 
-  ui_success "Custom package selection complete. Proceeding with remaining installation steps."
-else
-  log_error "INSTALL_MODE not set. Please run the installer from the main menu."
-  return 1
+  ui_success \"Custom package selection complete. Proceeding with remaining installation steps.\"\nelse
+  log_error \"INSTALL_MODE not set. Please run the installer from the main menu.\"\n  return 1
 fi
 
 if ! check_flatpak; then
