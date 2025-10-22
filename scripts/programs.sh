@@ -699,17 +699,17 @@ elif [[ \"$INSTALL_MODE\" == \"custom\" ]]; then
   detect_desktop_environment
 
   # Install Pacman packages unconditionally first
-  step \"Installing Base Pacman Programs\"
+  step "Installing Base Pacman Programs"
   install_pacman_programs # This will now install pacman_programs and essential_programs (which is empty here)
-  log_success \"Base Pacman programs installed.\"\n
+  log_success "Base Pacman programs installed."
   # Now, proceed with interactive selections for Essential, AUR, and Flatpak
   custom_essential_selection
 
-  gum confirm \"Continue to AUR package selection?\" || exit 1
+  gum confirm "Continue to AUR package selection?" || exit 1
 
   custom_aur_selection
 
-  gum confirm \"Continue to Flatpak app selection?\" || exit 1
+  gum confirm "Continue to Flatpak app selection?" || exit 1
 
   custom_flatpak_selection
 
