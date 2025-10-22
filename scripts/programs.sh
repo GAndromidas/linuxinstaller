@@ -206,6 +206,9 @@ custom_essential_selection() {
   local selected
   selected=$(show_checklist "Select ADDITIONAL Essential packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
 
+  # Re-initialize essential_programs with only base essential packages before adding user selections
+  essential_programs=("${essential_programs_minimal[@]}")
+
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
     essential_programs+=("$pkg") # Add selected custom essential packages
@@ -239,6 +242,9 @@ custom_aur_selection() {
 
   local selected
   selected=$(show_checklist "Select ADDITIONAL AUR packages to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+
+  # Re-initialize yay_programs with only base AUR packages before adding user selections
+  yay_programs=("${yay_programs_minimal[@]}")
 
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
@@ -303,6 +309,9 @@ custom_flatpak_selection() {
 
   local selected
   selected=$(show_checklist "Select ADDITIONAL Flatpak apps to install (SPACE=select, ENTER=confirm):" "${choices[@]}")
+
+  # Start with base flatpaks, then add user-selected custom flatpaks
+  flatpak_programs=("${base_flatpaks[@]}") # Re-initialize with base flatpaks
 
   while IFS= read -r pkg; do
     [[ -z "$pkg" ]] && continue
