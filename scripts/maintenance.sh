@@ -82,7 +82,7 @@ configure_snapper() {
   sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="1"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="1"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="1"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
@@ -90,7 +90,7 @@ configure_snapper() {
   sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
 
-  log_success "Snapper configuration completed (1 hourly, 1 daily, 1 weekly, max 10 snapshots)"
+  log_success "Snapper configuration completed (0 hourly, 1 daily, 1 weekly, max 10 snapshots, plus boot snapshots)"
 }
 
 # Configure btrfs-assistant GUI settings
@@ -526,7 +526,7 @@ setup_btrfs_snapshots() {
      sudo systemctl enable --now snapper-cleanup.timer 2>/dev/null && \
      sudo systemctl enable snapper-boot.timer 2>/dev/null; then
     log_success "Snapper timers enabled and started"
-    log_info "Snapshots will be created: hourly, daily, weekly, and on every boot"
+    log_info "Snapshots will be created: daily, weekly, and on every boot"
   else
     log_error "Failed to enable Snapper timers"
     return 1
