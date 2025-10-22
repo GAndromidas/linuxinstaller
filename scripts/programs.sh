@@ -139,15 +139,19 @@ show_checklist() {
   # --header for the title
   # --prompt for instructions
   # --selected for pre-selected items
-  selected_output=$(gum filter \
+  local gum_command=(gum filter \
     --no-limit \
     --height 15 \
     --placeholder "Filter packages..." \
     --prompt "Use space to select, enter to confirm:" \
-    --header "$title" \
-    $(printf "%s\n" "${gum_options[@]}") \
-    --selected $(printf "%s\n" "${pre_selected_options[@]}") \
-  )
+    --header "$title")
+
+  if [[ ${#pre_selected_options[@]} -gt 0 ]]; then
+    gum_command+=(--selected "$(printf "%s," "${pre_selected_options[@]}" | sed 's/,$//')")
+  fi
+
+  # Pass options as separate arguments
+  selected_output=$(printf "%s\n" "${gum_options[@]}" | "${gum_command[@]}")
 
   local status=$?
   if [[ $status -ne 0 ]]; then
@@ -172,11 +176,9 @@ show_checklist() {
 }
 
 # Custom selection for Pacman/Essential
-custom_package_selection() {
-  # Pacman packages are auto-selected (same for all modes)
-  pacman_programs=("${pacman_programs[@]}")
-  log_info "Pacman packages auto-selected (same for all installation modes)"
 
+# Custom selection for Pacman/Essential
+custom_essential_selection() {
   # Essential packages selection
   local all_pkgs=($(printf "%s\n" "${essential_programs_default[@]}" "${essential_programs_minimal[@]}" | sort -u))
   local choices=()
@@ -688,7 +690,13 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  custom_package_selection
+  # Install Pacman packages unconditionally first
+  step "Installing Base Pacman Programs"
+  install_pacman_programs # This will now install pacman_programs and essential_programs (which is empty here)
+  log_success "Base Pacman programs installed."
+
+  # Now, proceed with interactive selections for Essential, AUR, and Flatpak
+  custom_essential_selection
 
   gum confirm "Continue to AUR package selection?" || exit 1
 
@@ -698,7 +706,7 @@ elif [[ "$INSTALL_MODE" == "custom" ]]; then
 
   custom_flatpak_selection
 
-  ui_success "Custom package selection complete. Proceeding with installation."
+  ui_success "Custom package selection complete. Proceeding with remaining installation steps."
 else
   log_error "INSTALL_MODE not set. Please run the installer from the main menu."
   return 1
@@ -711,7 +719,12 @@ fi
 detect_desktop_environment
 print_total_packages
 remove_programs
-install_pacman_programs
+
+# For default/minimal, Pacman programs are installed via install_pacman_programs
+# For custom, they were installed above
+if [[ "$INSTALL_MODE" != "custom" ]]; then
+  install_pacman_programs
+fi
 
 if [[ "$INSTALL_MODE" == "default" ]]; then
   if [ -n "$flatpak_install_function" ]; then
