@@ -16,7 +16,7 @@ CURRENT_STEP=1
 PROGRAMS_ERRORS=()
 PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
-WHIPTAIL_INSTALLED_BY_SCRIPT=false
+
 
 # ===== YAML Parsing Functions =====
 
@@ -112,19 +112,63 @@ read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.cosmic.remove"
 show_checklist() {
   local title="$1"
   shift
-  local choices=("$@")
-  # Echo the instruction to stderr so it doesn't interfere with the output
-  echo -e "${YELLOW}Use the ARROW keys to move, SPACE to select/deselect, and ENTER to confirm your choices.${RESET}" >&2
-  local selected
-  selected=$(whiptail --separate-output --checklist "$title" 22 76 16 \
-    "${choices[@]}" 3>&1 1>&2 2>&3 3>&-)
+  local whiptail_choices=("$@") # Original choices in pkg, desc, status format
+
+  local gum_options=()
+  local pre_selected_options=()
+
+  local i=0
+  while [[ $i -lt ${#whiptail_choices[@]} ]]; do
+    local pkg_name="${whiptail_choices[$i]}"
+    local display_description="${whiptail_choices[$((i+1))]}"
+    local status="${whiptail_choices[$((i+2))]}"
+
+    # Gum displays the description, we want to pass the full display text
+    gum_options+=("$display_description")
+
+    if [[ "$status" == "on" ]]; then
+      pre_selected_options+=("$display_description")
+    fi
+    i=$((i+3))
+  done
+
+  local selected_output
+  # Use gum filter for multi-selection
+  # --no-limit allows selecting multiple items
+  # --height for a reasonable height
+  # --header for the title
+  # --prompt for instructions
+  # --selected for pre-selected items
+  selected_output=$(gum filter \
+    --no-limit \
+    --height 15 \
+    --placeholder "Filter packages..." \
+    --prompt "Use space to select, enter to confirm:" \
+    --header "$title" \
+    $(printf "%s\n" "${gum_options[@]}") \
+    --selected $(printf "%s\n" "${pre_selected_options[@]}") \
+  )
+
   local status=$?
   if [[ $status -ne 0 ]]; then
+    # User cancelled or gum failed
     echo -e "${RED}Selection cancelled. Exiting.${RESET}" >&2
-    [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]] && sudo pacman -Rns --noconfirm newt
     exit 1
   fi
-  echo "$selected"
+
+  # Gum filter returns the selected items as displayed.
+  # We need to extract the original package name (first word before ' - ')
+  local final_selected_pkgs=()
+  while IFS= read -r line; do
+    if [[ -n "$line" ]]; then
+      # Extract the package name from the "package_name - description" format
+      local pkg_from_display=$(echo "$line" | cut -d' ' -f1)
+      final_selected_pkgs+=("$pkg_from_display")
+    fi
+  done <<< "$selected_output"
+
+  # Output the raw package names, similar to whiptail's output
+  printf "%s\n" "${final_selected_pkgs[@]}"
 }
 
 # Custom selection for Pacman/Essential
@@ -644,14 +688,17 @@ elif [[ "$INSTALL_MODE" == "minimal" ]]; then
   essential_programs=("${essential_programs_minimal[@]}")
   yay_programs=("${yay_programs_minimal[@]}")
 elif [[ "$INSTALL_MODE" == "custom" ]]; then
-  if ! command -v whiptail &>/dev/null; then
-    echo -e "${YELLOW}The 'whiptail' package is required for custom selection. Installing...${RESET}"
-    sudo pacman -S --noconfirm newt
-    WHIPTAIL_INSTALLED_BY_SCRIPT=true
-  fi
   custom_package_selection
+
+  gum confirm "Continue to AUR package selection?" || exit 1
+
   custom_aur_selection
+
+  gum confirm "Continue to Flatpak app selection?" || exit 1
+
   custom_flatpak_selection
+
+  ui_success "Custom package selection complete. Proceeding with installation."
 else
   log_error "INSTALL_MODE not set. Please run the installer from the main menu."
   return 1
@@ -690,8 +737,3 @@ elif [[ "$INSTALL_MODE" == "custom" ]]; then
 fi
 
 install_aur_packages
-
-if [[ "$WHIPTAIL_INSTALLED_BY_SCRIPT" == "true" ]]; then
-  echo -e "${YELLOW}Removing 'whiptail' (newt) package as it is no longer needed...${RESET}"
-  sudo pacman -Rns --noconfirm newt
-fi
