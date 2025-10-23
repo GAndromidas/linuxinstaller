@@ -111,67 +111,9 @@ configure_grub() {
     log_success "GRUB configured to remember the last chosen boot entry."
 }
 
-# --- Windows helpers ---
-detect_windows() {
-    [ -d /boot/efi/EFI/Microsoft ] || [ -d /boot/EFI/Microsoft ] && return 0
-    lsblk -f | grep -qi ntfs && return 0
-    return 1
-}
-
-find_windows_efi_partition() {
-    local partitions=($(lsblk -n -o NAME,TYPE | grep "part" | awk '{print "/dev/"$1}'))
-    for partition in "${partitions[@]}"; do
-        local temp_mount="/tmp/windows_efi_check"
-        mkdir -p "$temp_mount"
-        if ! sudo mount "$partition" "$temp_mount" 2>/dev/null; then
-            log_warning "Failed to mount partition $partition to $temp_mount. Skipping."
-            sudo rm -rf "$temp_mount"
-            continue
-        fi
-        [ -d "$temp_mount/EFI/Microsoft" ] && { sudo umount "$temp_mount"; sudo rm -rf "$temp_mount"; echo "$partition"; return 0; }
-        sudo umount "$temp_mount"
-        sudo rm -rf "$temp_mount"
-    done
-    return 1
-}
-
-add_windows_to_systemdboot() {
-    step "Adding Windows to systemd-boot menu"
-    if [ ! -d "/boot/EFI/Microsoft" ]; then
-        local windows_partition
-        windows_partition=$(find_windows_efi_partition)
-        [ -z "$windows_partition" ] && log_error "No Windows EFI found" && return 1
-        local mount_point="/mnt/winefi"
-        mkdir -p "$mount_point"
-        sudo mount "$windows_partition" "$mount_point"
-        sudo cp -R "$mount_point/EFI/Microsoft" /boot/EFI/
-        sudo umount "$mount_point"
-        sudo rm -rf "$mount_point"
-    fi
-    local entry="/boot/loader/entries/windows.conf"
-    [ ! -f "$entry" ] && sudo bash -c "cat <<EOF > \"$entry\"
-title   Windows
-efi     /EFI/Microsoft/Boot/bootmgfw.efi
-EOF"
-}
-
-set_localtime_for_windows() {
-    sudo timedatectl set-local-rtc 1 --adjust-system-clock
-}
-
 # --- Main execution ---
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
 elif [ "$BOOTLOADER" = "systemd-boot" ]; then
     configure_boot
-fi
-
-if detect_windows && [ "$BOOTLOADER" = "systemd-boot" ]; then
-    run_step "Installing ntfs-3g" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
-    add_windows_to_systemdboot
-    set_localtime_for_windows
-elif detect_windows && [ "$BOOTLOADER" = "grub" ]; then
-    run_step "Installing ntfs-3g" sudo pacman -S --noconfirm ntfs-3g >/dev/null 2>&1
-    set_localtime_for_windows
-    run_step "Regenerating grub.cfg for Windows detection" sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1
 fi

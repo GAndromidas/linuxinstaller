@@ -35,7 +35,7 @@ FEATURES:
     - Performance tuning (ZRAM, Plymouth boot screen)
     - Optional gaming mode with performance optimizations
     - Btrfs snapshot support with automatic configuration
-    - Windows dual-boot detection and configuration
+
     - Automatic GPU driver detection and installation
 
 REQUIREMENTS:
@@ -292,7 +292,7 @@ fi
 # Step 7: Bootloader and Kernel Configuration
 if ! is_step_complete "bootloader_config"; then
   print_step_header 7 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
-  ui_info "Configuring bootloader and setting up dual-boot with Windows..."
+  ui_info "Configuring bootloader..."
   step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
   mark_step_complete "bootloader_config"
   ui_success "Step 7 completed"
@@ -352,7 +352,7 @@ echo -e "  - Performance optimizations (ZRAM, boot screen)"
 echo -e "  - Laptop optimizations (if laptop detected)"
 echo -e "  - Gaming tools (if you chose Gaming Mode)"
 echo -e "  - Btrfs snapshots (if Btrfs filesystem detected)"
-echo -e "  - Dual-boot with Windows (if detected)"
+
 echo -e "  - Enhanced shell with 50+ aliases and SSH shortcuts"
 echo ""
 if declare -f print_programs_summary >/dev/null 2>&1; then
