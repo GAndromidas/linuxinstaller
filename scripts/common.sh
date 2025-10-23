@@ -126,6 +126,22 @@ print_status() {
   echo -e "$color$status${RESET}"
 }
 
+# Format time display helper function
+format_time() {
+  local seconds=$1
+  if [ $seconds -lt 60 ]; then
+    echo "${seconds}s"
+  elif [ $seconds -lt 3600 ]; then
+    local minutes=$((seconds / 60))
+    local remaining_seconds=$((seconds % 60))
+    echo "${minutes}m ${remaining_seconds}s"
+  else
+    local hours=$((seconds / 3600))
+    local minutes=$(((seconds % 3600) / 60))
+    echo "${hours}h ${minutes}m"
+  fi
+}
+
 # Timing functions for progress estimation
 start_step_timer() {
   STEP_START_TIME=$(date +%s)
@@ -150,24 +166,8 @@ end_step_timer() {
   local remaining_steps=$((TOTAL_STEPS - CURRENT_STEP))
   local estimated_remaining=$((remaining_steps * avg_time))
   
-  # Format time display
-  local format_duration() {
-    local seconds=$1
-    if [ $seconds -lt 60 ]; then
-      echo "${seconds}s"
-    elif [ $seconds -lt 3600 ]; then
-      local minutes=$((seconds / 60))
-      local remaining_seconds=$((seconds % 60))
-      echo "${minutes}m ${remaining_seconds}s"
-    else
-      local hours=$((seconds / 3600))
-      local minutes=$(((seconds % 3600) / 60))
-      echo "${hours}h ${minutes}m"
-    fi
-  }
-  
   if [ $remaining_steps -gt 0 ]; then
-    ui_info "Step completed in $(format_duration $duration). Estimated remaining time: $(format_duration $estimated_remaining)"
+    ui_info "Step completed in $(format_time $duration). Estimated remaining time: $(format_time $estimated_remaining)"
   fi
 }
 
@@ -209,6 +209,7 @@ print_step_header_with_timing() {
     print_step_header "$step_num" "$total" "$title"
   fi
 }
+
 
 # Utility/Helper Functions
 supports_gum() {
