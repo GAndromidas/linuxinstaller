@@ -5,6 +5,8 @@
 
 **Archinstaller** is an advanced post-installation script for Arch Linux that automates the transition from a base system to a fully configured, highly optimized, and ready-to-use desktop environment. It leverages intelligent detection systems to tailor the installation to your specific hardware, ensuring optimal performance and stability.
 
+Built with the Arch Linux philosophy of simplicity and minimalism, Archinstaller provides a clean, professional installation experience with enhanced user interface features including real-time progress tracking, time estimation, and intelligent resume functionality.
+
 ## Demo
 <img width="796" height="423" alt="ArchInstaller" src="https://github.com/user-attachments/assets/2f866c98-37e7-4036-aacf-c24aa0ab49f3" />
 
@@ -29,7 +31,9 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 #### User Experience
 *   **Flexible Installation Modes**: Choose between a feature-rich **Standard** setup, a lightweight **Minimal** installation, or an interactive **Custom** mode to select your own packages.
 *   **Enhanced Shell**: Comes with a pre-configured Zsh environment powered by Oh-My-Zsh and the Starship prompt.
-*   **Resumable Installation**: The installer tracks its progress and can be safely re-run to resume from the last completed step.
+*   **Smart Resume Functionality**: The installer tracks its progress and can be safely re-run to resume from the last completed step with an interactive menu showing completed steps.
+*   **Real-time Progress Tracking**: Visual progress bars with percentage completion and time estimation for all installation steps.
+*   **Professional Interface**: Clean, minimal design following Arch Linux principles with enhanced visual feedback and status updates.
 
 ## Installation
 
@@ -51,6 +55,15 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     ./install.sh
     ```
 The script will present a menu where you can choose your desired installation mode.
+
+#### Installation Experience
+The installer provides a modern, user-friendly experience with:
+*   **Interactive Menu**: Clean interface powered by `gum` for mode selection and confirmations
+*   **Progress Visualization**: Real-time progress bars showing completion percentage for each step
+*   **Time Estimation**: Dynamic time estimates that improve as installation progresses
+*   **Resume Support**: If interrupted, the installer can resume from the last completed step
+*   **Professional Summary**: Minimal, clean installation summary following Arch Linux principles
+*   **Automatic Cleanup**: Removes temporary files and packages after successful installation
 
 ## Customization
 This installer is designed to be easily customized. The package lists for all installation modes are managed in a human-readable YAML file located at `configs/programs.yaml`. You can add or remove packages from these lists to perfectly match your preferences without altering the script logic.

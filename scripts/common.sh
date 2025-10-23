@@ -20,6 +20,11 @@ INSTALLED_PACKAGES=()       # Tracks installed packages
 REMOVED_PACKAGES=()         # Tracks removed packages
 FAILED_PACKAGES=()          # Tracks packages that failed to install
 
+# Timing and progress tracking
+STEP_TIMES=()               # Tracks time for each step
+STEP_START_TIME=0           # Start time of current step
+INSTALLATION_START_TIME=0   # Overall installation start time
+
 # UI/Flow configuration
 TOTAL_STEPS=10
 : "${VERBOSE:=false}"   # Can be overridden/exported by caller
@@ -62,13 +67,147 @@ print_progress() {
   fi
 
   clear_line
-  printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+  
+  if supports_gum; then
+    # Enhanced progress bar with gum
+    local percentage=$((current * 100 / total))
+    local filled=$((percentage / 5))
+    local empty=$((20 - filled))
+    
+    printf "${CYAN}[%d/%d] %s: [%s%s] %d%%${RESET}" \
+      "$current" "$total" "$description" \
+      "$(printf '█%.0s' $(seq 1 $filled))" \
+      "$(printf '░%.0s' $(seq 1 $empty))" \
+      "$percentage"
+  else
+    printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+  fi
+}
+
+# Enhanced progress bar for long operations with speed indicator
+show_progress_bar() {
+  local current="$1"
+  local total="$2"
+  local description="$3"
+  local speed="${4:-}"
+  local max_width=$((TERM_WIDTH - 30))
+
+  # Truncate description if too long
+  if [ ${#description} -gt $max_width ]; then
+    description="${description:0:$((max_width-3))}..."
+  fi
+
+  clear_line
+  
+  if supports_gum; then
+    local percentage=$((current * 100 / total))
+    local filled=$((percentage / 5))
+    local empty=$((20 - filled))
+    
+    printf "${CYAN}[%d/%d] %s: [%s%s] %d%%" \
+      "$current" "$total" "$description" \
+      "$(printf '█%.0s' $(seq 1 $filled))" \
+      "$(printf '░%.0s' $(seq 1 $empty))" \
+      "$percentage"
+    
+    if [ -n "$speed" ]; then
+      printf " ${GREEN}%s${RESET}" "$speed"
+    fi
+    
+    printf "${RESET}"
+  else
+    printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+  fi
 }
 
 print_status() {
   local status="$1"
   local color="$2"
   echo -e "$color$status${RESET}"
+}
+
+# Timing functions for progress estimation
+start_step_timer() {
+  STEP_START_TIME=$(date +%s)
+  if [ $INSTALLATION_START_TIME -eq 0 ]; then
+    INSTALLATION_START_TIME=$STEP_START_TIME
+  fi
+}
+
+end_step_timer() {
+  local step_name="${1:-Step $CURRENT_STEP}"
+  local end_time=$(date +%s)
+  local duration=$((end_time - STEP_START_TIME))
+  STEP_TIMES+=("$duration")
+  
+  # Calculate average time per step
+  local total_time=0
+  for time in "${STEP_TIMES[@]}"; do
+    total_time=$((total_time + time))
+  done
+  
+  local avg_time=$((total_time / ${#STEP_TIMES[@]}))
+  local remaining_steps=$((TOTAL_STEPS - CURRENT_STEP))
+  local estimated_remaining=$((remaining_steps * avg_time))
+  
+  # Format time display
+  local format_duration() {
+    local seconds=$1
+    if [ $seconds -lt 60 ]; then
+      echo "${seconds}s"
+    elif [ $seconds -lt 3600 ]; then
+      local minutes=$((seconds / 60))
+      local remaining_seconds=$((seconds % 60))
+      echo "${minutes}m ${remaining_seconds}s"
+    else
+      local hours=$((seconds / 3600))
+      local minutes=$(((seconds % 3600) / 60))
+      echo "${hours}h ${minutes}m"
+    fi
+  }
+  
+  if [ $remaining_steps -gt 0 ]; then
+    ui_info "Step completed in $(format_duration $duration). Estimated remaining time: $(format_duration $estimated_remaining)"
+  fi
+}
+
+# Enhanced step header with time estimation
+print_step_header_with_timing() {
+  local step_num="$1"
+  local total="$2"
+  local title="$3"
+  
+  CURRENT_STEP=$step_num
+  start_step_timer
+  
+  if supports_gum; then
+    echo ""
+    gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Step $step_num of $total: $title"
+    
+    # Show estimated remaining time
+    if [ ${#STEP_TIMES[@]} -gt 0 ]; then
+      local total_time=0
+      for time in "${STEP_TIMES[@]}"; do
+        total_time=$((total_time + time))
+      done
+      local avg_time=$((total_time / ${#STEP_TIMES[@]}))
+      local remaining_steps=$((TOTAL_STEPS - step_num + 1))
+      local estimated_remaining=$((remaining_steps * avg_time))
+      
+      if [ $estimated_remaining -lt 60 ]; then
+        gum style --margin "0 2" --foreground 226 "Estimated remaining time: ${estimated_remaining}s"
+      elif [ $estimated_remaining -lt 3600 ]; then
+        local minutes=$((estimated_remaining / 60))
+        gum style --margin "0 2" --foreground 226 "Estimated remaining time: ${minutes}m"
+      else
+        local hours=$((estimated_remaining / 3600))
+        local minutes=$(((estimated_remaining % 3600) / 60))
+        gum style --margin "0 2" --foreground 226 "Estimated remaining time: ${hours}h ${minutes}m"
+      fi
+    fi
+  else
+    print_step_header "$step_num" "$total" "$title"
+  fi
 }
 
 # Utility/Helper Functions
