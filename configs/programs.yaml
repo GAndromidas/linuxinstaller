@@ -87,8 +87,6 @@ aur:
       description: "Cloud storage and file synchronization"
     - name: "onlyoffice-bin"
       description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rate-mirrors-bin"
-      description: "Fast mirror selection tool for pacman"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
     - name: "spotify"
@@ -101,8 +99,6 @@ aur:
   minimal:
     - name: "onlyoffice-bin"
       description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rate-mirrors-bin"
-      description: "Fast mirror selection tool for pacman"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
 
@@ -218,8 +214,6 @@ custom:
       description: "Cloud storage and file synchronization"
     - name: "onlyoffice-bin"
       description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rate-mirrors-bin"
-      description: "Fast mirror selection tool for pacman"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
     - name: "spotify"

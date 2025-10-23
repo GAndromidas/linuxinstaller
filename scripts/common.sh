@@ -572,56 +572,68 @@ prompt_reboot() {
   echo -e "  - Performance optimizations will be enabled"
   echo -e "  - Gaming tools will be available (if installed)"
   echo ""
-  echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.\n"
-  while true; do
-    read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
-    reboot_ans=${reboot_ans,,}
-    case "$reboot_ans" in
-      ""|y|yes)
-        echo -e "\n${CYAN}Rebooting your system...${RESET}"
-        echo -e "${YELLOW}   Thank you for using Arch Installer!${RESET}\n"
+  echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.${RESET}"
+  echo ""
 
-        # Cleanup if no errors occurred
-        if [ ${#ERRORS[@]} -eq 0 ]; then
-          # Silently uninstall figlet and gum
-          sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
+  # Use gum menu for reboot confirmation
+  if command -v gum >/dev/null 2>&1; then
+    echo ""
+    gum style --foreground 226 "Ready to reboot your system?"
+    echo ""
+    if gum confirm --default=true "Reboot now?"; then
+      echo ""
+      echo -e "${CYAN}System ready for reboot!${RESET}"
+      echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
+      echo ""
+      echo -e "${CYAN}To reboot, run: ${YELLOW}sudo reboot${RESET}"
+      echo -e "${CYAN}Or simply restart your computer.${RESET}"
+    else
+      echo ""
+      echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
+      echo -e "${CYAN}   sudo reboot${RESET}"
+      echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
+    fi
+  else
+    # Fallback to text prompt if gum is not available
+    while true; do
+      read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+      reboot_ans=${reboot_ans,,}
+      case "$reboot_ans" in
+        ""|y|yes)
+          echo ""
+          echo -e "${CYAN}System ready for reboot!${RESET}"
+          echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
+          echo ""
+          echo -e "${CYAN}To reboot, run: ${YELLOW}sudo reboot${RESET}"
+          echo -e "${CYAN}Or simply restart your computer.${RESET}"
+          break
+          ;;
+        n|no)
+          echo ""
+          echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
+          echo -e "${CYAN}   sudo reboot${RESET}"
+          echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
+          break
+          ;;
+      esac
+    done
+  fi
 
-          # Remove state file, log file, and archinstaller folder
-          rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
-          cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
-        fi
+  echo ""
+  # Cleanup if no errors occurred
+  if [ ${#ERRORS[@]} -eq 0 ]; then
+    echo -e "${CYAN}Cleaning up installer files...${RESET}"
 
-        sudo reboot
-        break
-        ;;
-      n|no)
-        echo -e "\n${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
-        echo -e "${CYAN}   sudo reboot${RESET}"
-        echo -e "${YELLOW}   Or simply restart your computer.${RESET}\n"
+    # Silently uninstall figlet and gum
+    sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
 
-        # Cleanup if no errors occurred
-        if [ ${#ERRORS[@]} -eq 0 ]; then
-          echo -e "${CYAN}Cleaning up installer files...${RESET}"
+    # Remove state file, log file, and archinstaller folder
+    rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
+    cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
 
-          # Silently uninstall figlet and gum
-          sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
-
-          # Remove state file, log file, and archinstaller folder
-          rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
-          cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
-
-          echo -e "${GREEN}✓ Installer files cleaned up${RESET}\n"
-        fi
-        break
-        ;;
-      *)
-        echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
-        ;;
-    esac
-  done
+    echo -e "${GREEN}✓ Installer files cleaned up${RESET}"
+  fi
 }
-
-
 
 # Pre-download package lists for faster installation
 preload_package_lists() {
