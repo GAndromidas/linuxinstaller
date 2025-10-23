@@ -67,6 +67,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 
+# State tracking for error recovery
+STATE_FILE="$HOME/.archinstaller.state"
+mkdir -p "$(dirname "$STATE_FILE")"
+
 source "$SCRIPTS_DIR/common.sh"
 
 # Initialize log file
@@ -197,10 +201,6 @@ else
   trap 'save_log_on_exit' EXIT INT TERM
 fi
 
-# State tracking for error recovery
-STATE_FILE="$HOME/.archinstaller.state"
-mkdir -p "$(dirname "$STATE_FILE")"
-
 # Function to mark step as completed
 mark_step_complete() {
   echo "$1" >> "$STATE_FILE"
@@ -216,19 +216,19 @@ show_resume_menu() {
   if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
     echo ""
     ui_info "Previous installation detected. The following steps were completed:"
-    
+
     local completed_steps=()
     while IFS= read -r step; do
       completed_steps+=("$step")
     done < "$STATE_FILE"
-    
+
     if supports_gum; then
       echo ""
       gum style --margin "0 2" --foreground 15 "Completed steps:"
       for step in "${completed_steps[@]}"; do
         gum style --margin "0 4" --foreground 10 "✓ $step"
       done
-      
+
       echo ""
       if gum confirm --default=true "Resume installation from where you left off?"; then
         ui_success "Resuming installation..."
@@ -248,7 +248,7 @@ show_resume_menu() {
       for step in "${completed_steps[@]}"; do
         echo -e "  ${GREEN}✓${RESET} $step"
       done
-      
+
       echo ""
       read -r -p "Resume installation? [Y/n]: " response
       response=${response,,}
@@ -273,11 +273,11 @@ show_resume_menu() {
 mark_step_complete_with_progress() {
   local step_name="$1"
   echo "$step_name" >> "$STATE_FILE"
-  
+
   # Show overall progress
   local completed_count=$(wc -l < "$STATE_FILE" 2>/dev/null || echo "0")
   local progress_percentage=$((completed_count * 100 / TOTAL_STEPS))
-  
+
   if supports_gum; then
     echo ""
     gum style --margin "0 2" --foreground 10 "✓ Step completed! Overall progress: $progress_percentage% ($completed_count/$TOTAL_STEPS)"
