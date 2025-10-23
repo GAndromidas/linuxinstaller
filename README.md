@@ -6,7 +6,7 @@
 **Archinstaller** is an advanced post-installation script for Arch Linux that automates the transition from a base system to a fully configured, highly optimized, and ready-to-use desktop environment. It leverages intelligent detection systems to tailor the installation to your specific hardware, ensuring optimal performance and stability.
 
 ## Demo
-!<img width="796" height="423" alt="ArchInstaller" src="https://github.com/user-attachments/assets/2f866c98-37e7-4036-aacf-c24aa0ab49f3" />
+<img width="796" height="423" alt="ArchInstaller" src="https://github.com/user-attachments/assets/2f866c98-37e7-4036-aacf-c24aa0ab49f3" />
 
 ## Core Philosophy
 
