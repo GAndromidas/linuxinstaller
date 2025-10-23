@@ -76,7 +76,7 @@ install_yay() {
 
     # Update mirrorlist
     step "Updating mirrorlist with rate-mirrors"
-    if sudo rate-mirrors arch --save /etc/pacman.d/mirrorlist >/dev/null 2>&1; then
+    if sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch >/dev/null 2>&1; then
       log_success "Mirrorlist updated successfully"
     else
       log_error "Failed to update mirrorlist"

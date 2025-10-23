@@ -59,7 +59,7 @@ print_progress() {
   local current="$1"
   local total="$2"
   local description="$3"
-  local max_width=$((TERM_WIDTH - 20))  # Leave space for progress indicator
+  local max_width=$((TERM_WIDTH - 25))  # Leave space for progress indicator
 
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
@@ -69,13 +69,13 @@ print_progress() {
   clear_line
   
   if supports_gum; then
-    # Enhanced progress bar with gum
+    # Professional progress bar
     local percentage=$((current * 100 / total))
     local filled=$((percentage / 5))
     local empty=$((20 - filled))
     
-    printf "${CYAN}[%d/%d] %s: [%s%s] %d%%${RESET}" \
-      "$current" "$total" "$description" \
+    printf "${CYAN}[%d/%d] %s: ${RESET}" "$current" "$total" "$description"
+    printf "${GREEN}%s${YELLOW}%s${RESET} ${CYAN}%d%%${RESET}" \
       "$(printf '█%.0s' $(seq 1 $filled))" \
       "$(printf '░%.0s' $(seq 1 $empty))" \
       "$percentage"
@@ -211,6 +211,55 @@ print_step_header_with_timing() {
 }
 
 
+# Unified styling functions for consistent UI across all scripts
+print_unified_step_header() {
+  local step_num="$1"
+  local total="$2"
+  local title="$3"
+  
+  if supports_gum; then
+    echo ""
+    gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Step $step_num of $total: $title"
+    echo ""
+  else
+    echo ""
+    echo -e "${CYAN}============================================================${RESET}"
+    echo -e "${CYAN}  Step $step_num of $total: $title${RESET}"
+    echo -e "${CYAN}============================================================${RESET}"
+    echo ""
+  fi
+}
+
+print_unified_substep() {
+  local description="$1"
+  
+  if supports_gum; then
+    gum style --margin "0 2" --foreground 226 "> $description"
+  else
+    echo -e "${CYAN}> $description${RESET}"
+  fi
+}
+
+print_unified_success() {
+  local message="$1"
+  
+  if supports_gum; then
+    gum style --margin "0 4" --foreground 10 "✓ $message"
+  else
+    echo -e "${GREEN}✓ $message${RESET}"
+  fi
+}
+
+print_unified_error() {
+  local message="$1"
+  
+  if supports_gum; then
+    gum style --margin "0 4" --foreground 196 "✗ $message"
+  else
+    echo -e "${RED}✗ $message${RESET}"
+  fi
+}
+
 # Utility/Helper Functions
 supports_gum() {
   command -v gum >/dev/null 2>&1
@@ -301,6 +350,64 @@ arch_ascii() {
 
 EOF
   echo -e "${RESET}"
+}
+
+# Enhanced resume functionality
+show_resume_menu() {
+  if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
+    echo ""
+    ui_info "Previous installation detected. The following steps were completed:"
+    
+    local completed_steps=()
+    while IFS= read -r step; do
+      completed_steps+=("$step")
+    done < "$STATE_FILE"
+    
+    if supports_gum; then
+      echo ""
+      gum style --margin "0 2" --foreground 15 "Completed steps:"
+      for step in "${completed_steps[@]}"; do
+        gum style --margin "0 4" --foreground 10 "✓ $step"
+      done
+      
+      echo ""
+      if gum confirm --default=true "Resume installation from where you left off?"; then
+        ui_success "Resuming installation..."
+        return 0
+      else
+        if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
+          rm -f "$STATE_FILE" 2>/dev/null || true
+          ui_info "Starting fresh installation..."
+          return 0
+        else
+          ui_info "Installation cancelled by user"
+          exit 0
+        fi
+      fi
+    else
+      # Fallback for systems without gum
+      for step in "${completed_steps[@]}"; do
+        echo -e "  ${GREEN}✓${RESET} $step"
+      done
+      
+      echo ""
+      read -r -p "Resume installation? [Y/n]: " response
+      response=${response,,}
+      if [[ "$response" == "n" || "$response" == "no" ]]; then
+        read -r -p "Start fresh installation? [y/N]: " response
+        response=${response,,}
+        if [[ "$response" == "y" || "$response" == "yes" ]]; then
+          rm -f "$STATE_FILE" 2>/dev/null || true
+          ui_info "Starting fresh installation..."
+        else
+          ui_info "Installation cancelled by user"
+          exit 0
+        fi
+      else
+        ui_success "Resuming installation..."
+      fi
+    fi
+  fi
 }
 
 show_menu() {
@@ -722,11 +829,11 @@ prompt_reboot() {
     echo ""
     if gum confirm --default=true "Reboot now?"; then
       echo ""
-      echo -e "${CYAN}System ready for reboot!${RESET}"
+      echo -e "${CYAN}Rebooting your system...${RESET}"
       echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
       echo ""
-      echo -e "${CYAN}To reboot, run: ${YELLOW}sudo reboot${RESET}"
-      echo -e "${CYAN}Or simply restart your computer.${RESET}"
+      sleep 2
+      sudo reboot
     else
       echo ""
       echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
@@ -741,11 +848,11 @@ prompt_reboot() {
       case "$reboot_ans" in
         ""|y|yes)
           echo ""
-          echo -e "${CYAN}System ready for reboot!${RESET}"
+          echo -e "${CYAN}Rebooting your system...${RESET}"
           echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
           echo ""
-          echo -e "${CYAN}To reboot, run: ${YELLOW}sudo reboot${RESET}"
-          echo -e "${CYAN}Or simply restart your computer.${RESET}"
+          sleep 2
+          sudo reboot
           break
           ;;
         n|no)
