@@ -306,6 +306,24 @@ install_inotify_tools() {
   echo ""
 }
 
+install_lts_kernel() {
+  step "Ensuring LTS kernel is installed for snapshot recovery"
+  local lts_kernel="linux-lts"
+
+  if ! pacman -Q "$lts_kernel" &>/dev/null; then
+    log_info "Installing missing LTS kernel: $lts_kernel"
+    if sudo pacman -S --noconfirm --needed "$lts_kernel"; then
+      log_success "LTS kernel installed successfully."
+      INSTALLED_PACKAGES+=("$lts_kernel")
+    else
+      log_error "Failed to install LTS kernel. Btrfs fallback might not be available."
+    fi
+  else
+    log_success "LTS kernel is already installed."
+  fi
+  echo ""
+}
+
 generate_locales() {
   run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
 }
@@ -318,6 +336,7 @@ install_all_packages
 update_system
 set_sudo_pwfeedback
 install_cpu_microcode
+install_lts_kernel
 install_kernel_headers_for_all
 install_inotify_tools # Ensure inotify-tools is present before grub-btrfsd setup
 generate_locales

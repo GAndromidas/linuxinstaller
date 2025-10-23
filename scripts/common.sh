@@ -67,21 +67,9 @@ print_progress() {
   fi
 
   clear_line
-  
-  if supports_gum; then
-    # Professional progress bar
-    local percentage=$((current * 100 / total))
-    local filled=$((percentage / 5))
-    local empty=$((20 - filled))
-    
-    printf "${CYAN}[%d/%d] %s: ${RESET}" "$current" "$total" "$description"
-    printf "${GREEN}%s${YELLOW}%s${RESET} ${CYAN}%d%%${RESET}" \
-      "$(printf '█%.0s' $(seq 1 $filled))" \
-      "$(printf '░%.0s' $(seq 1 $empty))" \
-      "$percentage"
-  else
-    printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
-  fi
+
+  local percentage=$((current * 100 / total))
+  printf "${CYAN}[%d/%d] %s: %d%%${RESET}" "$current" "$total" "$description" "$percentage"
 }
 
 # Enhanced progress bar for long operations with speed indicator
@@ -98,26 +86,15 @@ show_progress_bar() {
   fi
 
   clear_line
-  
-  if supports_gum; then
-    local percentage=$((current * 100 / total))
-    local filled=$((percentage / 5))
-    local empty=$((20 - filled))
-    
-    printf "${CYAN}[%d/%d] %s: [%s%s] %d%%" \
-      "$current" "$total" "$description" \
-      "$(printf '█%.0s' $(seq 1 $filled))" \
-      "$(printf '░%.0s' $(seq 1 $empty))" \
-      "$percentage"
-    
-    if [ -n "$speed" ]; then
-      printf " ${GREEN}%s${RESET}" "$speed"
-    fi
-    
-    printf "${RESET}"
-  else
-    printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+
+  local percentage=$((current * 100 / total))
+  printf "${CYAN}[%d/%d] %s: %d%%" "$current" "$total" "$description" "$percentage"
+
+  if [ -n "$speed" ]; then
+    printf " ${GREEN}%s${RESET}" "$speed"
   fi
+
+  printf "${RESET}"
 }
 
 print_status() {
@@ -155,17 +132,17 @@ end_step_timer() {
   local end_time=$(date +%s)
   local duration=$((end_time - STEP_START_TIME))
   STEP_TIMES+=("$duration")
-  
+
   # Calculate average time per step
   local total_time=0
   for time in "${STEP_TIMES[@]}"; do
     total_time=$((total_time + time))
   done
-  
+
   local avg_time=$((total_time / ${#STEP_TIMES[@]}))
   local remaining_steps=$((TOTAL_STEPS - CURRENT_STEP))
   local estimated_remaining=$((remaining_steps * avg_time))
-  
+
   if [ $remaining_steps -gt 0 ]; then
     ui_info "Step completed in $(format_time $duration). Estimated remaining time: $(format_time $estimated_remaining)"
   fi
@@ -176,14 +153,14 @@ print_step_header_with_timing() {
   local step_num="$1"
   local total="$2"
   local title="$3"
-  
+
   CURRENT_STEP=$step_num
   start_step_timer
-  
+
   if supports_gum; then
     echo ""
     gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Step $step_num of $total: $title"
-    
+
     # Show estimated remaining time
     if [ ${#STEP_TIMES[@]} -gt 0 ]; then
       local total_time=0
@@ -193,7 +170,7 @@ print_step_header_with_timing() {
       local avg_time=$((total_time / ${#STEP_TIMES[@]}))
       local remaining_steps=$((TOTAL_STEPS - step_num + 1))
       local estimated_remaining=$((remaining_steps * avg_time))
-      
+
       if [ $estimated_remaining -lt 60 ]; then
         gum style --margin "0 2" --foreground 226 "Estimated remaining time: ${estimated_remaining}s"
       elif [ $estimated_remaining -lt 3600 ]; then
@@ -216,7 +193,7 @@ print_unified_step_header() {
   local step_num="$1"
   local total="$2"
   local title="$3"
-  
+
   if supports_gum; then
     echo ""
     gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Step $step_num of $total: $title"
@@ -232,7 +209,7 @@ print_unified_step_header() {
 
 print_unified_substep() {
   local description="$1"
-  
+
   if supports_gum; then
     gum style --margin "0 2" --foreground 226 "> $description"
   else
@@ -242,7 +219,7 @@ print_unified_substep() {
 
 print_unified_success() {
   local message="$1"
-  
+
   if supports_gum; then
     gum style --margin "0 4" --foreground 10 "✓ $message"
   else
@@ -252,7 +229,7 @@ print_unified_success() {
 
 print_unified_error() {
   local message="$1"
-  
+
   if supports_gum; then
     gum style --margin "0 4" --foreground 196 "✗ $message"
   else
@@ -357,19 +334,19 @@ show_resume_menu() {
   if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
     echo ""
     ui_info "Previous installation detected. The following steps were completed:"
-    
+
     local completed_steps=()
     while IFS= read -r step; do
       completed_steps+=("$step")
     done < "$STATE_FILE"
-    
+
     if supports_gum; then
       echo ""
       gum style --margin "0 2" --foreground 15 "Completed steps:"
       for step in "${completed_steps[@]}"; do
         gum style --margin "0 4" --foreground 10 "✓ $step"
       done
-      
+
       echo ""
       if gum confirm --default=true "Resume installation from where you left off?"; then
         ui_success "Resuming installation..."
@@ -389,7 +366,7 @@ show_resume_menu() {
       for step in "${completed_steps[@]}"; do
         echo -e "  ${GREEN}✓${RESET} $step"
       done
-      
+
       echo ""
       read -r -p "Resume installation? [Y/n]: " response
       response=${response,,}

@@ -384,24 +384,22 @@ install_pacman_quietly() {
   for pkg in "${pkgs[@]}"; do
     pacman -Q "$pkg" &>/dev/null || to_install+=("$pkg")
   done
-  local total=${#to_install[@]}
-  if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}All Pacman packages are already installed.${RESET}"
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    ui_info "All Pacman packages already installed."
     return
   fi
-  echo -e "${CYAN}Installing ${total} packages via Pacman (batch)...${RESET}"
-  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
-  if sudo pacman -S --noconfirm --needed "${to_install[@]}"; then
-    for pkg in "${to_install[@]}"; do
-      pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg")
-    done
-    echo -e "${GREEN}Pacman batch installation completed.${RESET}"
-  else
-    echo -e "${RED}Some Pacman packages failed to install.${RESET}"
-    for pkg in "${to_install[@]}"; do
-      pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install $pkg")
-    done
-  fi
+
+  for pkg in "${to_install[@]}"; do
+    printf "${CYAN}Installing Pacman package:${RESET} %-30s" "$pkg"
+    if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      printf "${GREEN} ✓ Success${RESET}\n"
+      PROGRAMS_INSTALLED+=("$pkg")
+    else
+      printf "${RED} ✗ Failed${RESET}\n"
+      PROGRAMS_ERRORS+=("Failed to install $pkg")
+    fi
+  done
 }
 
 install_flatpak_quietly() {
@@ -410,24 +408,22 @@ install_flatpak_quietly() {
   for pkg in "${pkgs[@]}"; do
     flatpak list --app | grep -qw "$pkg" || to_install+=("$pkg")
   done
-  local total=${#to_install[@]}
-  if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}All Flatpak packages are already installed.${RESET}"
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    ui_info "All Flatpak packages already installed."
     return
   fi
-  echo -e "${CYAN}Installing ${total} packages via Flatpak (batch)...${RESET}"
-  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
-  if flatpak install -y --noninteractive flathub "${to_install[@]}"; then
-    for pkg in "${to_install[@]}"; do
-      flatpak list --app | grep -qw "$pkg" && PROGRAMS_INSTALLED+=("$pkg (flatpak)")
-    done
-    echo -e "${GREEN}Flatpak batch installation completed.${RESET}"
-  else
-    echo -e "${RED}Some Flatpak packages failed to install.${RESET}"
-    for pkg in "${to_install[@]}"; do
-      flatpak list --app | grep -qw "$pkg" || PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
-    done
-  fi
+
+  for pkg in "${to_install[@]}"; do
+    printf "${CYAN}Installing Flatpak package:${RESET} %-30s" "$pkg"
+    if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+      printf "${GREEN} ✓ Success${RESET}\n"
+      PROGRAMS_INSTALLED+=("$pkg (flatpak)")
+    else
+      printf "${RED} ✗ Failed${RESET}\n"
+      PROGRAMS_ERRORS+=("Failed to install Flatpak $pkg")
+    fi
+  done
 }
 
 install_aur_quietly() {
@@ -436,24 +432,22 @@ install_aur_quietly() {
   for pkg in "${pkgs[@]}"; do
     pacman -Q "$pkg" &>/dev/null || to_install+=("$pkg")
   done
-  local total=${#to_install[@]}
-  if [ $total -eq 0 ]; then
-    echo -e "${YELLOW}All AUR packages are already installed.${RESET}"
+
+  if [ ${#to_install[@]} -eq 0 ]; then
+    ui_info "All AUR packages already installed."
     return
   fi
-  echo -e "${CYAN}Installing ${total} packages via AUR (yay, batch)...${RESET}"
-  echo -e "${CYAN}Packages:${RESET} ${to_install[*]}"
-  if yay -S --noconfirm --needed "${to_install[@]}"; then
-    for pkg in "${to_install[@]}"; do
-      pacman -Q "$pkg" &>/dev/null && PROGRAMS_INSTALLED+=("$pkg (AUR)")
-    done
-    echo -e "${GREEN}AUR batch installation completed.${RESET}"
-  else
-    echo -e "${RED}Some AUR packages failed to install.${RESET}"
-    for pkg in "${to_install[@]}"; do
-      pacman -Q "$pkg" &>/dev/null || PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
-    done
-  fi
+
+  for pkg in "${to_install[@]}"; do
+    printf "${CYAN}Installing AUR package:${RESET} %-30s" "$pkg"
+    if yay -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+      printf "${GREEN} ✓ Success${RESET}\n"
+      PROGRAMS_INSTALLED+=("$pkg (AUR)")
+    else
+      printf "${RED} ✗ Failed${RESET}\n"
+      PROGRAMS_ERRORS+=("Failed to install AUR $pkg")
+    fi
+  done
 }
 
 detect_desktop_environment() {
