@@ -93,8 +93,6 @@ aur:
       description: "Remote desktop software"
     - name: "spotify"
       description: "Music streaming service"
-    - name: "stremio"
-      description: "Media streaming platform"
     - name: "ventoy-bin"
       description: "Tool to create bootable USB drives for ISO files"
     - name: "via-bin"
@@ -107,8 +105,6 @@ aur:
       description: "Fast mirror selection tool for pacman"
     - name: "rustdesk-bin"
       description: "Remote desktop software"
-    - name: "stremio"
-      description: "Media streaming platform"
 
 # Desktop environment specific packages (used by all modes that detect a DE)
 desktop_environments:
@@ -228,8 +224,6 @@ custom:
       description: "Remote desktop software"
     - name: "spotify"
       description: "Music streaming service"
-    - name: "stremio"
-      description: "Media streaming platform"
     - name: "ventoy-bin"
       description: "Tool to create bootable USB drives for ISO files"
     - name: "via-bin"
