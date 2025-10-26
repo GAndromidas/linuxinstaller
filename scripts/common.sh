@@ -187,7 +187,6 @@ print_step_header_with_timing() {
   fi
 }
 
-
 # Unified styling functions for consistent UI across all scripts
 print_unified_step_header() {
   local step_num="$1"
@@ -409,15 +408,15 @@ show_gum_menu() {
   case "$choice" in
     "Standard"*)
       INSTALL_MODE="default"
-      gum style --foreground 51 "Selected: Standard installation (intermediate users)"
+      print_header "Installation Mode" "Standard - Complete setup with all recommended packages"
       ;;
     "Minimal"*)
       INSTALL_MODE="minimal"
-      gum style --foreground 46 "Selected: Minimal installation (recommended for new users)"
+      print_header "Installation Mode" "Minimal - Essential tools only for lightweight installations"
       ;;
     "Custom"*)
       INSTALL_MODE="custom"
-      gum style --foreground 226 "Selected: Custom installation (advanced users)"
+      print_header "Installation Mode" "Custom - Interactive selection of packages to install"
       ;;
     "Exit"*)
       gum style --foreground 226 "Installation cancelled. You can run this script again anytime."
@@ -446,17 +445,17 @@ show_traditional_menu() {
           case "$menu_choice" in
         1)
           INSTALL_MODE="default"
-          echo -e "\n${BLUE}Selected: Standard installation (intermediate users)${RESET}"
+          print_header "Installation Mode" "Standard - Complete setup with all recommended packages"
           break
           ;;
         2)
           INSTALL_MODE="minimal"
-          echo -e "\n${GREEN}Selected: Minimal installation (recommended for new users)${RESET}"
+          print_header "Installation Mode" "Minimal - Essential tools only for lightweight installations"
           break
           ;;
         3)
           INSTALL_MODE="custom"
-          echo -e "\n${YELLOW}Selected: Custom installation (advanced users)${RESET}"
+          print_header "Installation Mode" "Custom - Interactive selection of packages to install"
           break
           ;;
       4)
