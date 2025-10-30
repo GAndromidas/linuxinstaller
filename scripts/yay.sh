@@ -66,7 +66,6 @@ install_yay() {
   print_status " [OK]" "$GREEN"
 
   echo -e "\n${GREEN}yay AUR helper installed successfully${RESET}"
-  log_success "yay AUR helper installed"
   echo ""
 
   # Install rate-mirrors to get the fastest mirrors
