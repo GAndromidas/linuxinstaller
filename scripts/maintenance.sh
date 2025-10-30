@@ -502,7 +502,7 @@ setup_btrfs_snapshots() {
     grub_btrfs_package_to_install="grub-btrfs"
   fi
 
-  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts, $grub_btrfs_package_to_install"
+  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts $grub_btrfs_package_to_install"
 
   # Update package database first
   sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
