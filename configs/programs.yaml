@@ -55,6 +55,10 @@ pacman:
       description: "Liberation font family"
     - name: "unrar"
       description: "RAR archive extractor"
+    - name: "vlc"
+      description: "Media player"
+    - name: "vlc-plugins-all"
+      description: "All VLC plugins (required for VLC functionality)"
     - name: "xdg-desktop-portal-gtk"
       description: "GTK portal for desktop integration"
 
@@ -69,10 +73,6 @@ essential:
       description: "Video editing software"
     - name: "openrgb"
       description: "RGB lighting control software"
-    - name: "vlc"
-      description: "Media player"
-    - name: "vlc-plugins-all"
-      description: "All VLC plugins (required for VLC functionality)"
 
   minimal:
     - name: "vlc"
@@ -204,10 +204,6 @@ custom:
       description: "Video editing software"
     - name: "openrgb"
       description: "RGB lighting control software"
-    - name: "vlc"
-      description: "Media player"
-    - name: "vlc-plugins-all"
-      description: "All VLC plugins (required for VLC functionality)"
 
   aur:
     - name: "dropbox"
