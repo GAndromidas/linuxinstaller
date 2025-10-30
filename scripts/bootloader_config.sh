@@ -110,9 +110,18 @@ configure_grub() {
     log_success "GRUB configured to remember the last chosen boot entry."
 }
 
+# --- Console Font Setup ---
+setup_console_font() {
+    run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
+    run_step "Configuring /etc/vconsole.conf" bash -c "(grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null && sudo sed -i 's/^FONT=.*/FONT=ter-v16n/' /etc/vconsole.conf) || echo 'FONT=ter-v16n' | sudo tee -a /etc/vconsole.conf >/dev/null"
+    run_step "Rebuilding initramfs" sudo mkinitcpio -P
+}
+
 # --- Main execution ---
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
 elif [ "$BOOTLOADER" = "systemd-boot" ]; then
     configure_boot
 fi
+
+setup_console_font
