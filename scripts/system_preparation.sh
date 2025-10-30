@@ -338,5 +338,11 @@ set_sudo_pwfeedback
 install_cpu_microcode
 install_lts_kernel
 install_kernel_headers_for_all
-install_inotify_tools # Ensure inotify-tools is present before grub-btrfsd setup
+
+# Conditional install for grub-btrfsd dependency
+BOOTLOADER=$(detect_bootloader)
+if [ "$BOOTLOADER" = "grub" ]; then
+    install_inotify_tools
+fi
+
 generate_locales
