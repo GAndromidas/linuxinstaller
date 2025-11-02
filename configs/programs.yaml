@@ -55,10 +55,6 @@ pacman:
       description: "Liberation font family"
     - name: "unrar"
       description: "RAR archive extractor"
-    - name: "vlc"
-      description: "Media player"
-    - name: "vlc-plugins-all"
-      description: "All VLC plugins (required for VLC functionality)"
     - name: "xdg-desktop-portal-gtk"
       description: "GTK portal for desktop integration"
 
@@ -75,10 +71,8 @@ essential:
       description: "RGB lighting control software"
 
   minimal:
-    - name: "vlc"
+    - name: "mpv"
       description: "Media player"
-    - name: "vlc-plugins-all"
-      description: "All VLC plugins (required for VLC functionality)"
 
 # AUR packages for different installation modes
 aur:
@@ -115,6 +109,7 @@ desktop_environments:
       - "python-pyqt6"
       - "qbittorrent"
       - "spectacle"
+      - "smplayer"
     remove:
       - "htop"
 
@@ -139,6 +134,7 @@ desktop_environments:
 
   cosmic:
     install:
+      - "celluloid"
       - "transmission-gtk"
     remove:
       - "htop"
