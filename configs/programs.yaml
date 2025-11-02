@@ -167,15 +167,11 @@ flatpak:
 
   cosmic:
     default:
-      - name: "dev.edfloreshz.CosmicTweaks"
-        description: "System settings and tweaks"
       - name: "io.github.shiftey.Desktop"
         description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
     minimal:
-      - name: "dev.edfloreshz.CosmicTweaks"
-        description: "System settings and tweaks"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
 
