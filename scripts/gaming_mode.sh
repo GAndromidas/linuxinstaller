@@ -18,7 +18,7 @@ figlet_banner "Gaming Mode"
 # Check if user wants gaming mode (default to Yes)
 if command -v gum >/dev/null 2>&1; then
     gum style --foreground 51 "Would you like to enable Gaming Mode?"
-    gum style --foreground 226 "This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine."
+    gum style --foreground 226 "This includes: Discord, Faugus Launcher, GameMode, Heroic Games Launcher, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine."
 
     if ! gum confirm --default=true "Enable Gaming Mode?"; then
         gum style --foreground 51 "Gaming Mode skipped."
@@ -27,7 +27,7 @@ if command -v gum >/dev/null 2>&1; then
 else
     # Fallback to traditional prompts
     echo -e "${CYAN}Would you like to enable Gaming Mode?${RESET}"
-    echo -e "${YELLOW}This includes: Discord, GameMode, Heroic Games Launcher, Lutris, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
+    echo -e "${YELLOW}This includes: Discord, Faugus Launcher, GameMode, Heroic Games Launcher, MangoHud, OBS Studio, ProtonPlus, Steam, and Wine.${RESET}"
     echo -e "${YELLOW}----------------------------------------------------------------${RESET}"
     while true; do
         read -r -p "$(echo -e "${YELLOW}Enable Gaming Mode? [Y/n]: ${RESET}")" response
@@ -87,24 +87,18 @@ fi
 step "Installing gaming utilities"
 GAMING_PACKAGES=(
     "discord"
-    "lutris"
     "obs-studio"
     "steam"
     "wine"
 )
 install_packages_quietly "${GAMING_PACKAGES[@]}"
 
-# Install AUR gaming packages
-step "Installing AUR gaming packages"
-GAMING_AUR_PACKAGES=(
-    "heroic-games-launcher-bin"
-)
-install_aur_quietly "${GAMING_AUR_PACKAGES[@]}"
-
 # Install additional gaming-related Flatpaks
 step "Installing gaming-related Flatpaks"
 GAMING_FLATPAKS=(
     "com.vysp3r.ProtonPlus"
+    "io.github.Faugus.faugus-launcher"
+    "com.heroicgameslauncher.hgl"
 )
 install_flatpak_quietly "${GAMING_FLATPAKS[@]}"
 

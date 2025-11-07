@@ -25,7 +25,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 #### Robust Features
 *   **Btrfs Snapshot System**: Implements a full Btrfs snapshot and recovery solution with `snapper`, including bootloader integration with GRUB for easy rollbacks.
 *   **Security Hardening**: Deploys and configures a firewall (`firewalld` or `UFW`) and `Fail2ban` for out-of-the-box system protection.
-*   **Optional Gaming Mode**: A one-click setup for a complete gaming environment, including Steam, Lutris, Heroic Games Launcher, MangoHud, and GameMode.
+*   **Optional Gaming Mode**: A one-click setup for a complete gaming environment, including Steam, Faugus Launcher, Heroic Games Launcher, MangoHud, and GameMode.
 *   **Power Management**: Advanced power-saving features for laptops, including `power-profiles-daemon` or `tuned-ppd`, `thermald` for Intel CPUs, and touchpad gesture support.
 
 #### User Experience
