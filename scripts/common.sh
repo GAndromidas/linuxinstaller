@@ -784,6 +784,19 @@ print_summary() {
   echo -e "${CYAN}======================${RESET}"
 }
 
+# Function to display a styled header for summaries
+# Usage: ui_header "My Header"
+ui_header() {
+    local title="$1"
+    if supports_gum; then
+        gum style --border normal --margin "1 2" --padding "1 2" --align center "$title"
+    else
+        echo ""
+        echo -e "${CYAN}### ${title} ###${RESET}"
+        echo ""
+    fi
+}
+
 supports_gum() {
   command -v gum >/dev/null 2>&1
 }
