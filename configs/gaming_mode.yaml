@@ -1,0 +1,29 @@
+# Packages for Gaming Mode
+
+pacman:
+  packages:
+    - name: mangohud
+      description: "Vulkan/OpenGL overlay for monitoring FPS, temps, and load."
+    - name: lib32-mangohud
+      description: "32-bit libraries for MangoHud."
+    - name: gamemode
+      description: "Optimize system performance on demand for games."
+    - name: lib32-gamemode
+      description: "32-bit libraries for GameMode."
+    - name: steam
+      description: "Digital distribution platform by Valve."
+    - name: discord
+      description: "Voice, video, and text communication service."
+    - name: obs-studio
+      description: "Software for video recording and live streaming."
+    - name: wine
+      description: "Run Windows applications on Linux."
+
+flatpak:
+  apps:
+    - name: com.heroicgameslauncher.hgl
+      description: "Open source launcher for GOG and Epic Games."
+    - name: io.github.Faugus.faugus-launcher
+      description: "Launcher for modded Bethesda games."
+    - name: com.vysp3r.ProtonPlus
+      description: "Manager for Proton-GE and other compatibility tools for Steam."
