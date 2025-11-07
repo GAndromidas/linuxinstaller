@@ -784,6 +784,53 @@ print_summary() {
   echo -e "${CYAN}======================${RESET}"
 }
 
+supports_gum() {
+  command -v gum >/dev/null 2>&1
+}
+
+# Function for user confirmation with gum (or fallback)
+# Usage: gum_confirm "Your question?" "Optional description."
+gum_confirm() {
+    local question="$1"
+    local description="${2:-}" # Default to empty string if not provided
+
+    if supports_gum; then
+        # Use gum for a nice UI
+        if [ -n "$description" ]; then
+            gum style --foreground 226 "$description"
+        fi
+
+        if gum confirm --default=true "$question"; then
+            return 0 # User said yes
+        else
+            return 1 # User said no
+        fi
+    else
+        # Fallback to traditional read prompt
+        echo ""
+        if [ -n "$description" ]; then
+            echo -e "${YELLOW}${description}${RESET}"
+        fi
+
+        local response
+        while true; do
+            read -r -p "$(echo -e "${CYAN}${question} [Y/n]: ${RESET}")" response
+            response=${response,,} # tolower
+            case "$response" in
+                ""|y|yes)
+                    return 0 # Yes
+                    ;;
+                n|no)
+                    return 1 # No
+                    ;;
+                *)
+                    echo -e "\n${RED}Please answer Y (yes) or N (no).${RESET}\n"
+                    ;;
+            esac
+        done
+    fi
+}
+
 prompt_reboot() {
   figlet_banner "Reboot System"
   echo -e "${YELLOW}Congratulations! Your Arch Linux system is now fully configured!${RESET}"
