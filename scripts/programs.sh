@@ -337,27 +337,30 @@ configure_server_applications() {
 		fi
 	fi
 
-	# Configure Portainer
-	if pacman -Q portainer >/dev/null 2>&1 && command -v docker >/dev/null; then
-		step "Configuring Portainer"
-		if sudo docker volume create portainer_data >/dev/null 2>&1; then
-			log_success "Created Docker volume for Portainer data."
-		else
-			# This might fail if it already exists, which is not a critical error.
-			log_warning "Could not create Portainer Docker volume (it might already exist)."
-		fi
+	# Interactively install Portainer
+	if command -v docker >/dev/null; then
+		if gum_confirm "Install Portainer for Docker management?"; then
+			step "Installing Portainer"
+			if sudo docker volume create portainer_data >/dev/null 2>&1; then
+				log_success "Created Docker volume for Portainer data."
+			else
+				log_warning "Could not create Portainer Docker volume (it might already exist)."
+			fi
 
-		step "Starting Portainer container"
-		# Stop and remove existing container to ensure a clean start with correct settings
-		sudo docker stop portainer >/dev/null 2>&1 || true
-		sudo docker rm portainer >/dev/null 2>&1 || true
+			step "Pulling Portainer image and starting container"
+			# Stop and remove existing container to ensure a clean start
+			sudo docker stop portainer >/dev/null 2>&1 || true
+			sudo docker rm portainer >/dev/null 2>&1 || true
 
-		if sudo docker run -d -p 8000:8000 -p 9443:9443 --name=portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest >/dev/null 2>&1; then
-			log_success "Portainer container is running."
-			ui_info "You can access Portainer at https://<your-server-ip>:9443"
+			if sudo docker run -d -p 8000:8000 -p 9443:9443 --name=portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest >/dev/null 2>&1; then
+				log_success "Portainer container is running."
+				ui_info "You can access Portainer at https://<your-server-ip>:9443"
+			else
+				log_error "Failed to start the Portainer container."
+				PROGRAMS_ERRORS+=("Portainer container start")
+			fi
 		else
-			log_error "Failed to start the Portainer container."
-			PROGRAMS_ERRORS+=("Portainer container start")
+			ui_info "Portainer installation skipped."
 		fi
 	fi
 }

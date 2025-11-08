@@ -107,8 +107,6 @@ essential:
       description: "Network scanner and security auditing tool"
     - name: "noto-fonts-extra"
       description: "Additional Google Noto fonts"
-    - name: "portainer"
-      description: "Lightweight management UI for Docker"
     - name: "samba"
       description: "Windows file sharing compatibility"
     - name: "sl"
