@@ -363,6 +363,26 @@ configure_server_applications() {
 			ui_info "Portainer installation skipped."
 		fi
 	fi
+
+	# Interactively install Watchtower
+	if command -v docker >/dev/null; then
+		if gum_confirm "Install Watchtower for automatic container updates?"; then
+			step "Installing Watchtower"
+			# Stop and remove existing container to ensure a clean start
+			sudo docker stop watchtower >/dev/null 2>&1 || true
+			sudo docker rm watchtower >/dev/null 2>&1 || true
+
+			if sudo docker run -d --name=watchtower --restart=always -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower >/dev/null 2>&1; then
+				log_success "Watchtower container is running."
+				ui_info "Watchtower will now monitor your running containers and update them automatically."
+			else
+				log_error "Failed to start the Watchtower container."
+				PROGRAMS_ERRORS+=("Watchtower container start")
+			fi
+		else
+			ui_info "Watchtower installation skipped."
+		fi
+	fi
 }
 
 # ===== Installation Functions =====
