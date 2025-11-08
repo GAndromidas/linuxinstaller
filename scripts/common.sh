@@ -919,7 +919,7 @@ prompt_reboot() {
     echo -e "${CYAN}Cleaning up installer files...${RESET}"
 
     # Silently uninstall figlet and gum
-    sudo pacman -R figlet gum --noconfirm >/dev/null 2>&1 || true
+    sudo pacman -R figlet gum yq --noconfirm >/dev/null 2>&1 || true
 
     # Remove state file, log file, and archinstaller folder
     rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
