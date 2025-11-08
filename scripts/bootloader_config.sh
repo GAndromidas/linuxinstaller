@@ -122,6 +122,9 @@ if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
 elif [ "$BOOTLOADER" = "systemd-boot" ]; then
     configure_boot
+else
+    log_warning "No bootloader detected or bootloader is unsupported. Defaulting to systemd-boot configuration."
+    configure_boot
 fi
 
 setup_console_font

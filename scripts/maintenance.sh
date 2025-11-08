@@ -502,13 +502,24 @@ setup_btrfs_snapshots() {
     grub_btrfs_package_to_install="grub-btrfs"
   fi
 
-  log_info "Installing: snapper, snap-pac, btrfs-assistant, btrfsmaintenance, linux-lts $grub_btrfs_package_to_install"
+  local snapper_packages=(snapper snap-pac btrfsmaintenance linux-lts linux-lts-headers)
+  if [ -n "$grub_btrfs_package_to_install" ]; then
+    snapper_packages+=("$grub_btrfs_package_to_install")
+  fi
+
+  # Add btrfs-assistant GUI only for non-server modes
+  if [[ "${INSTALL_MODE:-}" != "server" ]]; then
+    snapper_packages+=("btrfs-assistant")
+    log_info "Installing full snapshot suite: ${snapper_packages[*]}"
+  else
+    log_info "Installing server (CLI-only) snapshot suite: ${snapper_packages[*]}"
+  fi
 
   # Update package database first
   sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
 
-  # Install packages including btrfsmaintenance
-  install_packages_quietly snapper snap-pac btrfs-assistant btrfsmaintenance linux-lts linux-lts-headers $grub_btrfs_package_to_install
+  # Install packages
+  install_packages_quietly "${snapper_packages[@]}"
 
   # Configure Snapper
   configure_snapper || { log_error "Snapper configuration failed"; return 1; }

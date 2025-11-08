@@ -137,9 +137,25 @@ configure_pacman() {
 }
 
 install_all_packages() {
+  # Start with the full list of helper utilities
+  local packages_to_install=("${HELPER_UTILS[@]}")
+
+  # If in server mode, filter out desktop-specific helper utilities
+  if [[ "${INSTALL_MODE:-}" == "server" ]]; then
+    ui_info "Server mode: Filtering out desktop-specific helper utilities (bluetooth, plymouth)..."
+    local server_filtered_packages=()
+    for pkg in "${packages_to_install[@]}"; do
+      if [[ "$pkg" != "bluez-utils" && "$pkg" != "plymouth" ]]; then
+        server_filtered_packages+=("$pkg")
+      fi
+    done
+    # Replace the original list with the filtered one
+    packages_to_install=("${server_filtered_packages[@]}")
+  fi
+
   local all_packages=(
-    # Helper utilities from HELPER_UTILS array
-    "${HELPER_UTILS[@]}"
+    # Helper utilities from the (potentially filtered) list
+    "${packages_to_install[@]}"
     # ZSH and plugins
     zsh zsh-autosuggestions zsh-syntax-highlighting
     # Starship
@@ -149,7 +165,7 @@ install_all_packages() {
   )
 
   step "Installing all packages"
-  echo -e "${CYAN}Installing ${#HELPER_UTILS[@]} helper utilities + ${#all_packages[@]} total packages via Pacman...${RESET}"
+  echo -e "${CYAN}Installing ${#packages_to_install[@]} helper utilities + ${#all_packages[@]} total packages via Pacman...${RESET}"
 
   local total=${#all_packages[@]}
   local current=0
