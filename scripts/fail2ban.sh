@@ -45,7 +45,8 @@ configure_fail2ban() {
     echo -ne "${CYAN}Configuring: jail.local ...${RESET} "
     sudo cp /etc/fail2ban/jail.conf "$jail_local"
     sudo sed -i 's/^backend = auto/backend = systemd/' "$jail_local"
-    sudo sed -i 's/^bantime  = 10m/bantime = 30m/' "$jail_local"
+    sudo sed -i 's/^bantime  = 10m/bantime = 1h/' "$jail_local"
+    sudo sed -i 's/^findtime  = 10m/findtime = 10m/' "$jail_local"
     sudo sed -i 's/^maxretry = 5/maxretry = 3/' "$jail_local"
     echo -e "${GREEN}[OK]${RESET}"
     CONFIGURED+=("jail.local")

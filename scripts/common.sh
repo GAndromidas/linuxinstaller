@@ -402,6 +402,7 @@ show_gum_menu() {
   local choice=$(gum choose --cursor="-> " --selected.foreground 51 --cursor.foreground 51 \
     "Standard - Complete setup with all packages (intermediate users)" \
     "Minimal - Essential tools only (recommended for new users)" \
+    "Server - Headless server setup (Docker, SSH, etc.)" \
     "Custom - Interactive selection (choose what to install) (advanced users)" \
     "Exit - Cancel installation")
 
@@ -413,6 +414,10 @@ show_gum_menu() {
     "Minimal"*)
       INSTALL_MODE="minimal"
       print_header "Installation Mode" "Minimal - Essential tools only for lightweight installations"
+      ;;
+    "Server"*)
+      INSTALL_MODE="server"
+      print_header "Installation Mode" "Server - Headless server setup"
       ;;
     "Custom"*)
       INSTALL_MODE="custom"
@@ -436,12 +441,13 @@ show_traditional_menu() {
   echo ""
   printf "${BLUE}  1) Standard${RESET}%-12s - Complete setup with all packages (intermediate users)\n" ""
   printf "${GREEN}  2) Minimal${RESET}%-13s - Essential tools only (recommended for new users)\n" ""
-  printf "${YELLOW}  3) Custom${RESET}%-14s - Interactive selection (choose what to install) (advanced users)\n" ""
-  printf "${RED}  4) Exit${RESET}%-16s - Cancel installation\n" ""
+  printf "${CYAN}  3) Server${RESET}%-13s - Headless server setup (Docker, SSH, etc.)\n" ""
+  printf "${YELLOW}  4) Custom${RESET}%-14s - Interactive selection (choose what to install) (advanced users)\n" ""
+  printf "${RED}  5) Exit${RESET}%-16s - Cancel installation\n" ""
   echo ""
 
   while true; do
-    read -r -p "$(echo -e "${CYAN}Enter your choice [1-4]: ${RESET}")" menu_choice
+    read -r -p "$(echo -e "${CYAN}Enter your choice [1-5]: ${RESET}")" menu_choice
           case "$menu_choice" in
         1)
           INSTALL_MODE="default"
@@ -454,16 +460,21 @@ show_traditional_menu() {
           break
           ;;
         3)
+          INSTALL_MODE="server"
+          print_header "Installation Mode" "Server - Headless server setup"
+          break
+          ;;
+        4)
           INSTALL_MODE="custom"
           print_header "Installation Mode" "Custom - Interactive selection of packages to install"
           break
           ;;
-      4)
+      5)
         echo -e "\n${YELLOW}Installation cancelled. You can run this script again anytime.${RESET}"
         exit 0
         ;;
       *)
-        echo -e "\n${RED}Invalid choice! Please enter 1, 2, 3, or 4.${RESET}\n"
+        echo -e "\n${RED}Invalid choice! Please enter 1, 2, 3, 4, or 5.${RESET}\n"
         ;;
     esac
   done

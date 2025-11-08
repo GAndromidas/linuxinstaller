@@ -352,13 +352,17 @@ else
 fi
 
 # Step 6: Gaming Mode
-if ! is_step_complete "gaming_mode"; then
-  print_step_header_with_timing 6 "$TOTAL_STEPS" "Gaming Mode"
-  ui_info "Setting up gaming tools (optional)..."
-  step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
-  mark_step_complete_with_progress "gaming_mode"
+if [[ "$INSTALL_MODE" == "server" ]]; then
+  ui_info "Server mode selected, skipping Gaming Mode setup."
 else
-  ui_info "Step 6 (Gaming Mode) already completed - skipping"
+  if ! is_step_complete "gaming_mode"; then
+    print_step_header_with_timing 6 "$TOTAL_STEPS" "Gaming Mode"
+    ui_info "Setting up gaming tools (optional)..."
+    step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
+    mark_step_complete_with_progress "gaming_mode"
+  else
+    ui_info "Step 6 (Gaming Mode) already completed - skipping"
+  fi
 fi
 
 # Step 7: Bootloader and Kernel Configuration

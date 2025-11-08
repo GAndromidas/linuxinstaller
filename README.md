@@ -31,12 +31,13 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 
 #### Robust Features
 *   **Btrfs Snapshot System**: Implements a full Btrfs snapshot and recovery solution with `snapper`, including bootloader integration with GRUB for easy rollbacks.
-*   **Security Hardening**: Deploys and configures a firewall (`firewalld` or `UFW`) and `Fail2ban` for out-of-the-box system protection.
+*   **Dedicated Server Mode**: A one-click setup for a true headless server environment. This mode installs a curated list of server tools (like Docker and Portainer), skips all graphical components and desktop shells, and applies a secure-by-default firewall configuration.
+*   **Intelligent Security Hardening**: Deploys and configures a robust security posture out-of-the-box. This includes a stricter `Fail2ban` policy and a smart `UFW` firewall configuration that sets secure defaults, always allows SSH, and automatically opens ports for KDE Connect only when a KDE Plasma desktop is detected.
 *   **Optional Gaming Mode**: A one-click setup for a complete gaming environment, including Steam, Faugus Launcher, Heroic Games Launcher, MangoHud, and GameMode.
 *   **Power Management**: Advanced power-saving features for laptops, including `power-profiles-daemon` or `tuned-ppd`, `thermald` for Intel CPUs, and touchpad gesture support.
 
 #### User Experience
-*   **Flexible Installation Modes**: Choose between a feature-rich **Standard** setup, a lightweight **Minimal** installation, or an interactive **Custom** mode to select your own packages.
+*   **Flexible Installation Modes**: Choose between a feature-rich **Standard** setup, a lightweight **Minimal** installation, a true headless **Server** mode, or an interactive **Custom** mode to select your own packages.
 *   **Enhanced Shell**: Comes with a pre-configured Zsh environment powered by Oh-My-Zsh and the Starship prompt.
 *   **Smart Resume Functionality**: The installer tracks its progress and can be safely re-run to resume from the last completed step with an interactive menu showing completed steps.
 *   **Real-time Progress Tracking**: Visual progress bars with percentage completion and time estimation for all installation steps.
@@ -73,7 +74,7 @@ The installer provides a modern, user-friendly experience with:
 *   **Automatic Cleanup**: Removes temporary files and packages after successful installation
 
 ## Customization
-This installer is designed to be easily customized. The package lists for all installation modes are managed in a human-readable YAML file located at `configs/programs.yaml`. You can add or remove packages from these lists to perfectly match your preferences without altering the script logic.
+This installer is designed to be easily customized. The package lists for all installation modes are managed in `configs/programs.yaml`. This file is structured into logical groups (`common`, `desktop_base`, `server`, etc.), allowing you to add or remove packages to perfectly match your preferences without altering the script logic.
 
 ## Contributing
 Contributions are welcome! Please feel free to submit a pull request for improvements or open an issue to report a bug or request a new feature.

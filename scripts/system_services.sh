@@ -16,6 +16,10 @@ setup_firewall_and_services() {
   fi
 
   # Then handle services
+  # Configure and enable the firewall
+  run_step "Configuring Firewall" configure_firewall
+
+  # Then handle services
   run_step "Enabling system services" enable_services
 }
 
@@ -113,7 +117,52 @@ configure_virt_manager_guest_integration() {
   fi
 }
 
+configure_firewall() {
+  step "Configuring Firewall (UFW)"
+
+  log_info "Setting firewall default rules..."
+  sudo ufw default deny incoming >/dev/null 2>&1
+  sudo ufw default allow outgoing >/dev/null 2>&1
+
+  log_info "Allowing SSH connections..."
+  sudo ufw allow ssh >/dev/null 2>&1
+
+  # Conditionally allow KDE Connect
+  if [[ "${XDG_CURRENT_DESKTOP}" == *"KDE"* ]]; then
+    log_info "KDE Plasma detected. Allowing KDE Connect..."
+    sudo ufw allow 1714:1764/udp >/dev/null 2>&1
+    sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
+  fi
+
+  # Enable the firewall (non-interactively)
+  if sudo ufw --force enable >/dev/null 2>&1; then
+      log_success "Firewall is now active and enabled on boot."
+  else
+      log_error "Failed to enable the firewall."
+      PROGRAMS_ERRORS+=("UFW enable")
+  fi
+}
+
 enable_services() {
+  # For server mode, we enable only a minimal set of services and then exit this script
+  # to prevent any desktop-specific logic (like display manager setup) from running.
+  if [[ "$INSTALL_MODE" == "server" ]]; then
+    ui_info "Server mode: Enabling only essential services (cronie, sshd, etc.)."
+    local services=(
+      cronie.service
+      fstrim.timer
+      paccache.timer
+      sshd.service
+    )
+    step "Enabling the following system services:"
+    for svc in "${services[@]}"; do
+      echo -e "  - $svc"
+    done
+    sudo systemctl enable --now "${services[@]}" >/dev/null 2>&1 || true
+    log_success "Essential server services enabled."
+    exit 0
+  fi
+
   local services=(
     bluetooth.service
     cronie.service
@@ -121,7 +170,6 @@ enable_services() {
     paccache.timer
     power-profiles-daemon.service
     sshd.service
-    ufw.service
   )
 
   # Check and configure virt-manager guest integration

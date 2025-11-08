@@ -17,6 +17,7 @@ PROGRAMS_INSTALLED=()
 PROGRAMS_REMOVED=()
 pacman_programs=()           # Holds base pacman packages for all modes
 essential_programs=()        # Holds final list of pacman packages to install
+essential_programs_server=() # Holds server-specific pacman packages
 yay_programs=()              # Holds final list of AUR packages to install
 flatpak_programs=()          # Holds final list of flatpak packages to install
 specific_install_programs=() # DE-specific installs
@@ -138,6 +139,7 @@ load_package_lists_from_yaml() {
 	read_yaml_packages "$PROGRAMS_YAML" ".pacman.packages" pacman_programs pacman_descriptions
 	read_yaml_packages "$PROGRAMS_YAML" ".essential.default" essential_programs_default essential_descriptions_default
 	read_yaml_packages "$PROGRAMS_YAML" ".essential.minimal" essential_programs_minimal essential_descriptions_minimal
+	read_yaml_packages "$PROGRAMS_YAML" ".essential.server" essential_programs_server essential_descriptions_server
 	read_yaml_packages "$PROGRAMS_YAML" ".aur.default" yay_programs_default yay_descriptions_default
 	read_yaml_packages "$PROGRAMS_YAML" ".aur.minimal" yay_programs_minimal yay_descriptions_minimal
 	read_yaml_simple_packages "$PROGRAMS_YAML" ".desktop_environments.kde.install" kde_install_programs
@@ -261,6 +263,10 @@ determine_package_lists() {
 		essential_programs+=("${essential_programs_minimal[@]}")
 		yay_programs=("${yay_programs_minimal[@]}")
 		;;
+	"server")
+		essential_programs=("${essential_programs_server[@]}")
+		# No AUR or Flatpak packages for server mode by default
+		;;
 	"custom")
 		ui_info "Presenting menus for additional package selection..."
 		custom_essential_selection
@@ -275,6 +281,11 @@ determine_package_lists() {
 }
 
 handle_de_packages() {
+	if [[ "$INSTALL_MODE" == "server" ]]; then
+		ui_info "Server mode selected, skipping desktop environment packages."
+		return
+	fi
+
 	local de
 	de=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
 
@@ -300,6 +311,54 @@ handle_de_packages() {
 	if [[ ${#specific_install_programs[@]} -gt 0 ]]; then
 		ui_info "Adding DE-specific packages for $de..."
 		essential_programs+=("${specific_install_programs[@]}")
+	fi
+}
+
+# ===== Server Configuration Functions =====
+configure_server_applications() {
+	ui_info "Configuring server applications..."
+
+	# Configure Docker
+	if command -v docker >/dev/null; then
+		step "Configuring Docker"
+		if sudo systemctl enable --now docker >/dev/null 2>&1; then
+			log_success "Docker service enabled and started."
+		else
+			log_error "Failed to enable or start Docker service."
+			PROGRAMS_ERRORS+=("Docker service setup")
+		fi
+
+		step "Adding user to the docker group"
+		if sudo usermod -aG docker "$USER"; then
+			log_success "User '$USER' added to the docker group. Please log out and back in to apply changes."
+		else
+			log_error "Failed to add user to the docker group."
+			PROGRAMS_ERRORS+=("docker group add")
+		fi
+	fi
+
+	# Configure Portainer
+	if pacman -Q portainer >/dev/null 2>&1 && command -v docker >/dev/null; then
+		step "Configuring Portainer"
+		if sudo docker volume create portainer_data >/dev/null 2>&1; then
+			log_success "Created Docker volume for Portainer data."
+		else
+			# This might fail if it already exists, which is not a critical error.
+			log_warning "Could not create Portainer Docker volume (it might already exist)."
+		fi
+
+		step "Starting Portainer container"
+		# Stop and remove existing container to ensure a clean start with correct settings
+		sudo docker stop portainer >/dev/null 2>&1 || true
+		sudo docker rm portainer >/dev/null 2>&1 || true
+
+		if sudo docker run -d -p 8000:8000 -p 9443:9443 --name=portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest >/dev/null 2>&1; then
+			log_success "Portainer container is running."
+			ui_info "You can access Portainer at https://<your-server-ip>:9443"
+		else
+			log_error "Failed to start the Portainer container."
+			PROGRAMS_ERRORS+=("Portainer container start")
+		fi
 	fi
 }
 
@@ -373,6 +432,11 @@ main() {
 	install_aur_packages "${yay_programs[@]}"
 	install_flatpak_packages "${flatpak_programs[@]}"
 	remove_pacman_packages "${specific_remove_programs[@]}"
+
+	if [[ "$INSTALL_MODE" == "server" ]]; then
+		configure_server_applications
+	fi
+
 	ui_success "Program installation phase completed."
 }
 
