@@ -134,12 +134,12 @@ configure_firewall() {
     sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
   fi
 
-  # Enable the firewall (non-interactively)
-  if sudo ufw --force enable >/dev/null 2>&1; then
-      log_success "Firewall is now active and enabled on boot."
+  # Enable and start the firewall service
+  if sudo systemctl enable --now ufw.service >/dev/null 2>&1; then
+      log_success "Firewall service is now active and enabled on boot."
   else
-      log_error "Failed to enable the firewall."
-      PROGRAMS_ERRORS+=("UFW enable")
+      log_error "Failed to enable the firewall service."
+      PROGRAMS_ERRORS+=("UFW service enable")
   fi
 }
 
