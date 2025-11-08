@@ -322,13 +322,17 @@ else
 fi
 
 # Step 3: Plymouth Setup
-if ! is_step_complete "plymouth_setup"; then
-  print_step_header_with_timing 3 "$TOTAL_STEPS" "Plymouth Setup"
-  ui_info "Setting up boot screen..."
-  step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
-  mark_step_complete_with_progress "plymouth_setup"
+if [[ "$INSTALL_MODE" == "server" ]]; then
+  ui_info "Server mode selected, skipping Plymouth (graphical boot) setup."
 else
-  ui_info "Step 3 (Plymouth Setup) already completed - skipping"
+  if ! is_step_complete "plymouth_setup"; then
+    print_step_header_with_timing 3 "$TOTAL_STEPS" "Plymouth Setup"
+    ui_info "Setting up boot screen..."
+    step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
+    mark_step_complete_with_progress "plymouth_setup"
+  else
+    ui_info "Step 3 (Plymouth Setup) already completed - skipping"
+  fi
 fi
 
 # Step 4: Yay Installation
