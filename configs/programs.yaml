@@ -99,6 +99,8 @@ essential:
       description: "Hardware information tool"
     - name: "inxi"
       description: "System information script"
+    - name: "nano"
+      description: "User-friendly text editor"
     - name: "ncdu"
       description: "Disk usage analyzer with interactive interface"
     - name: "net-tools"
