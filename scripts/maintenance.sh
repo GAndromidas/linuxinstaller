@@ -68,18 +68,18 @@ configure_snapper() {
   fi
 
   # Configure Snapper settings with optimized retention policy
-  sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="no"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="1"/' /etc/snapper/configs/root
-  sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="1"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="0"/' /etc/snapper/configs/root
+  sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
 
-  log_success "Snapper configuration completed (0 hourly, 1 daily, 1 weekly, max 10 snapshots, plus boot snapshots)"
+  log_success "Snapper configuration completed (boot snapshots only, max 10 total)"
 }
 
 # Configure btrfs-assistant GUI settings
@@ -444,7 +444,7 @@ setup_btrfs_snapshots() {
     gum style --foreground 226 "Btrfs snapshot setup available:"
     gum style --margin "0 2" --foreground 15 "• Automatic snapshots before/after package operations"
     gum style --margin "0 2" --foreground 15 "• Automatic snapshots on every system boot"
-    gum style --margin "0 2" --foreground 15 "• Retention: 0 hourly, 1 daily, 1 weekly (max 10 total)"
+    gum style --margin "0 2" --foreground 15 "• Retention: boot snapshots only (max 10 total)"
 
     gum style --margin "0 2" --foreground 15 "• LTS kernel fallback for recovery"
     gum style --margin "0 2" --foreground 15 "• Automated maintenance: scrub, balance, defrag"
@@ -458,7 +458,7 @@ setup_btrfs_snapshots() {
     echo -e "${YELLOW}Btrfs snapshot setup available:${RESET}"
     echo -e "  • Automatic snapshots before/after package operations"
     echo -e "  • Automatic snapshots on every system boot"
-    echo -e "  • Retention: 0 hourly, 1 daily, 1 weekly (max 10 total)"
+    echo -e "  • Retention: boot snapshots only (max 10 total)"
 
     echo -e "  • LTS kernel fallback for recovery"
     echo -e "  • Automated maintenance: scrub, balance, defrag"
@@ -526,11 +526,10 @@ setup_btrfs_snapshots() {
 
   # Enable Snapper timers
   step "Enabling Snapper automatic snapshot timers"
-  if sudo systemctl enable --now snapper-timeline.timer 2>/dev/null && \
-     sudo systemctl enable --now snapper-cleanup.timer 2>/dev/null && \
+  if sudo systemctl enable --now snapper-cleanup.timer 2>/dev/null && \
      sudo systemctl enable snapper-boot.timer 2>/dev/null; then
     log_success "Snapper timers enabled and started"
-    log_info "Snapshots will be created: daily, weekly, and on every boot"
+    log_info "Snapshots will be created on every boot"
   else
     log_error "Failed to enable Snapper timers"
     return 1
