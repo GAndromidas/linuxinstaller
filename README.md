@@ -33,7 +33,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 *   **Btrfs Snapshot System**: Implements a full Btrfs snapshot and recovery solution with `snapper`, including bootloader integration with GRUB for easy rollbacks.
 *   **Dedicated Server Mode**: A one-click setup for a true headless server environment. This mode installs a curated list of server tools (like Docker and Portainer), skips all graphical components and desktop shells, and applies a secure-by-default firewall configuration.
 *   **Intelligent Security Hardening**: Deploys and configures a robust security posture out-of-the-box. This includes a stricter `Fail2ban` policy and a smart `UFW` firewall configuration that sets secure defaults, always allows SSH, and automatically opens ports for KDE Connect only when a KDE Plasma desktop is detected.
-*   **Optional Gaming Mode**: A one-click setup for a complete gaming environment, including Steam, Faugus Launcher, Heroic Games Launcher, MangoHud, and GameMode.
+*   **Optional Gaming Mode**: A one-click setup for a complete gaming environment, including Steam, Faugus Launcher, Heroic Games Launcher, MangoHud, Goverlay and GameMode.
 *   **Power Management**: Advanced power-saving features for laptops, including `power-profiles-daemon` or `tuned-ppd`, `thermald` for Intel CPUs, and touchpad gesture support.
 
 #### User Experience

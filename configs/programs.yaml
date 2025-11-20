@@ -67,8 +67,6 @@ essential:
       description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
-    - name: "openrgb"
-      description: "RGB lighting control software"
 
   minimal:
     - name: "mpv"
@@ -244,8 +242,6 @@ custom:
       description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
-    - name: "openrgb"
-      description: "RGB lighting control software"
 
   aur:
     - name: "dropbox"

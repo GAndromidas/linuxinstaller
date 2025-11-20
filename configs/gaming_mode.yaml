@@ -2,20 +2,22 @@
 
 pacman:
   packages:
-    - name: mangohud
-      description: "Vulkan/OpenGL overlay for monitoring FPS, temps, and load."
-    - name: lib32-mangohud
-      description: "32-bit libraries for MangoHud."
+    - name: discord
+      description: "Voice, video, and text communication service."
     - name: gamemode
       description: "Optimize system performance on demand for games."
     - name: lib32-gamemode
       description: "32-bit libraries for GameMode."
-    - name: steam
-      description: "Digital distribution platform by Valve."
-    - name: discord
-      description: "Voice, video, and text communication service."
+    - name: goverlay
+      description: "Overlay for monitoring FPS, temps, and load."
+    - name: mangohud
+      description: "Vulkan/OpenGL overlay for monitoring FPS, temps, and load."
+    - name: lib32-mangohud
+      description: "32-bit libraries for MangoHud."
     - name: obs-studio
       description: "Software for video recording and live streaming."
+    - name: steam
+      description: "Digital distribution platform by Valve."
     - name: wine
       description: "Run Windows applications on Linux."
 
