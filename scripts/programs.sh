@@ -393,6 +393,16 @@ install_pacman_packages() {
 		return
 	fi
 	ui_info "Installing ${#essential_programs[@]} pacman packages..."
+
+	# Try batch install first for speed
+	printf "${CYAN}Attempting batch installation...${RESET}\n"
+	if sudo pacman -S --noconfirm --needed "${essential_programs[@]}" >/dev/null 2>&1; then
+		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+		PROGRAMS_INSTALLED+=("${essential_programs[@]}")
+		return
+	fi
+
+	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${essential_programs[@]}"; do
 		if pacman_install "$pkg"; then PROGRAMS_INSTALLED+=("$pkg"); else PROGRAMS_ERRORS+=("$pkg (pacman)"); fi
 	done
@@ -402,6 +412,18 @@ install_aur_packages() {
 	if ! command -v yay >/dev/null; then ui_warn "yay is not installed. Skipping AUR packages."; return; fi
 	if [[ ${#yay_programs[@]} -eq 0 ]]; then ui_info "No AUR packages to install."; return; fi
 	ui_info "Installing ${#yay_programs[@]} AUR packages with yay..."
+
+	# Try batch install first
+	printf "${CYAN}Attempting batch installation...${RESET}\n"
+	if yay -S --noconfirm --needed "${yay_programs[@]}" >/dev/null 2>&1; then
+		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+		for pkg in "${yay_programs[@]}"; do
+			PROGRAMS_INSTALLED+=("$pkg (AUR)")
+		done
+		return
+	fi
+
+	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${yay_programs[@]}"; do
 		if yay_install "$pkg"; then PROGRAMS_INSTALLED+=("$pkg (AUR)"); else PROGRAMS_ERRORS+=("$pkg (AUR)"); fi
 	done
@@ -415,6 +437,18 @@ install_flatpak_packages() {
 	fi
 	if [[ ${#flatpak_programs[@]} -eq 0 ]]; then ui_info "No Flatpak applications to install."; return; fi
 	ui_info "Installing ${#flatpak_programs[@]} Flatpak applications..."
+
+	# Try batch install first
+	printf "${CYAN}Attempting batch installation...${RESET}\n"
+	if flatpak install -y --noninteractive flathub "${flatpak_programs[@]}" >/dev/null 2>&1; then
+		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+		for pkg in "${flatpak_programs[@]}"; do
+			PROGRAMS_INSTALLED+=("$pkg (Flatpak)")
+		done
+		return
+	fi
+
+	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${flatpak_programs[@]}"; do
 		if flatpak_install "$pkg"; then PROGRAMS_INSTALLED+=("$pkg (Flatpak)"); else PROGRAMS_ERRORS+=("$pkg (Flatpak)"); fi
 	done

@@ -100,6 +100,16 @@ install_pacman_packages() {
 		return
 	fi
 	ui_info "Installing ${#pacman_gaming_programs[@]} pacman packages for gaming..."
+
+	# Try batch install first
+	printf "${CYAN}Attempting batch installation...${RESET}\n"
+	if sudo pacman -S --noconfirm --needed "${pacman_gaming_programs[@]}" >/dev/null 2>&1; then
+		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+		GAMING_INSTALLED+=("${pacman_gaming_programs[@]}")
+		return
+	fi
+
+	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${pacman_gaming_programs[@]}"; do
 		if pacman_install "$pkg"; then GAMING_INSTALLED+=("$pkg"); else GAMING_ERRORS+=("$pkg (pacman)"); fi
 	done
@@ -116,6 +126,18 @@ install_flatpak_packages() {
 		return
 	fi
 	ui_info "Installing ${#flatpak_gaming_programs[@]} Flatpak applications for gaming..."
+
+	# Try batch install first
+	printf "${CYAN}Attempting batch installation...${RESET}\n"
+	if flatpak install -y --noninteractive flathub "${flatpak_gaming_programs[@]}" >/dev/null 2>&1; then
+		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+		for pkg in "${flatpak_gaming_programs[@]}"; do
+			GAMING_INSTALLED+=("$pkg (Flatpak)")
+		done
+		return
+	fi
+
+	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${flatpak_gaming_programs[@]}"; do
 		if flatpak_install "$pkg"; then GAMING_INSTALLED+=("$pkg (Flatpak)"); else GAMING_ERRORS+=("$pkg (Flatpak)"); fi
 	done
