@@ -167,6 +167,16 @@ install_all_packages() {
   step "Installing all packages"
   echo -e "${CYAN}Installing ${#packages_to_install[@]} helper utilities + ${#all_packages[@]} total packages via Pacman...${RESET}"
 
+  # Try batch install first for speed
+  printf "${CYAN}Attempting batch installation...${RESET}\n"
+  if sudo pacman -S --noconfirm --needed "${all_packages[@]}" >/dev/null 2>&1; then
+    printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+    INSTALLED_PACKAGES+=("${all_packages[@]}")
+    return 0
+  fi
+
+  printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
+
   local total=${#all_packages[@]}
   local current=0
   local failed_packages=()
@@ -281,6 +291,21 @@ install_kernel_headers_for_all() {
 
   local total=${#kernel_types[@]}
   local current=0
+  local header_packages=()
+
+  for kernel in "${kernel_types[@]}"; do
+    header_packages+=("${kernel}-headers")
+  done
+
+  # Try batch install first
+  printf "${CYAN}Attempting batch installation for headers...${RESET}\n"
+  if sudo pacman -S --noconfirm --needed "${header_packages[@]}" >/dev/null 2>&1; then
+    printf "${GREEN} ✓ Batch installation successful${RESET}\n"
+    INSTALLED_PACKAGES+=("${header_packages[@]}")
+    return 0
+  fi
+
+  printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 
   for kernel in "${kernel_types[@]}"; do
     ((current++))
