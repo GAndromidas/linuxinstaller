@@ -103,7 +103,7 @@ configure_grub() {
     [[ -z "$MAIN_KERNEL" ]] && MAIN_KERNEL="${KERNELS[0]}"
 
     # Remove fallback/recovery kernels
-    # sudo rm -f /boot/initramfs-*-fallback.img /boot/vmlinuz-*-fallback 2>/dev/null || true
+    sudo rm -f /boot/initramfs-*-fallback.img /boot/vmlinuz-*-fallback 2>/dev/null || true
 
     # Regenerate grub.cfg
     sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }

@@ -15,9 +15,8 @@ setup_firewall_and_services() {
     run_step "Configuring UFW" configure_ufw
   fi
 
-  # Then handle services
-  # Configure and enable the firewall
-  run_step "Configuring Firewall" configure_firewall
+  # Configure user groups
+  run_step "Configuring user groups" configure_user_groups
 
   # Then handle services
   run_step "Enabling system services" enable_services
@@ -65,6 +64,7 @@ configure_ufw() {
 
   # Enable UFW
   sudo ufw enable
+  sudo systemctl enable --now ufw
 
   # Set default policies
   sudo ufw default deny incoming
@@ -117,30 +117,19 @@ configure_virt_manager_guest_integration() {
   fi
 }
 
-configure_firewall() {
-  step "Configuring Firewall (UFW)"
+configure_user_groups() {
+  step "Configuring user groups"
 
-  log_info "Setting firewall default rules..."
-  sudo ufw default deny incoming >/dev/null 2>&1
-  sudo ufw default allow outgoing >/dev/null 2>&1
+  local groups=("wheel" "input" "video" "storage" "optical" "scanner" "lp" "rfkill")
 
-  log_info "Allowing SSH connections..."
-  sudo ufw allow ssh >/dev/null 2>&1
-
-  # Conditionally allow KDE Connect
-  if [[ "${XDG_CURRENT_DESKTOP}" == *"KDE"* ]]; then
-    log_info "KDE Plasma detected. Allowing KDE Connect..."
-    sudo ufw allow 1714:1764/udp >/dev/null 2>&1
-    sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
-  fi
-
-  # Enable and start the firewall service
-  if sudo systemctl enable --now ufw.service >/dev/null 2>&1; then
-      log_success "Firewall service is now active and enabled on boot."
-  else
-      log_error "Failed to enable the firewall service."
-      PROGRAMS_ERRORS+=("UFW service enable")
-  fi
+  for group in "${groups[@]}"; do
+    if getent group "$group" >/dev/null; then
+      if ! groups "$USER" | grep -q "\b$group\b"; then
+        sudo usermod -aG "$group" "$USER"
+        log_success "Added $USER to $group group"
+      fi
+    fi
+  done
 }
 
 enable_services() {

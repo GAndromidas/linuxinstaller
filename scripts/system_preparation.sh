@@ -214,8 +214,26 @@ install_all_packages() {
 }
 
 update_mirrorlist() {
-  # Skip mirrorlist update - reflector removed due to issues
-  log_warning "Mirrorlist update skipped - reflector removed from installer"
+  step "Updating mirrorlist for faster downloads"
+
+  if ! command -v reflector >/dev/null; then
+    log_info "Installing reflector..."
+    sudo pacman -S --noconfirm --needed reflector >/dev/null 2>&1
+  fi
+
+  if command -v reflector >/dev/null; then
+    log_info "Finding fastest mirrors (this may take a moment)..."
+    # Backup existing mirrorlist
+    [ ! -f /etc/pacman.d/mirrorlist.backup ] && sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
+
+    if sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist; then
+      log_success "Mirrorlist updated with fastest mirrors"
+    else
+      log_warning "Reflector failed. Keeping existing mirrorlist."
+    fi
+  else
+    log_warning "Could not install reflector. Skipping mirrorlist update."
+  fi
 }
 
 update_system() {
@@ -373,6 +391,7 @@ generate_locales() {
 check_prerequisites
 detect_network_speed  # This now installs speedtest-cli silently before testing
 configure_pacman
+update_mirrorlist
 install_all_packages
 update_system
 set_sudo_pwfeedback
