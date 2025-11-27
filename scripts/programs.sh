@@ -462,17 +462,6 @@ install_flatpak_packages() {
 	if [[ ${#flatpak_programs[@]} -eq 0 ]]; then ui_info "No Flatpak applications to install."; return; fi
 	ui_info "Installing ${#flatpak_programs[@]} Flatpak applications..."
 
-	# Try batch install first
-	printf "${CYAN}Attempting batch installation...${RESET}\n"
-	if flatpak install -y --noninteractive flathub "${flatpak_programs[@]}" >/dev/null 2>&1; then
-		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
-		for pkg in "${flatpak_programs[@]}"; do
-			PROGRAMS_INSTALLED+=("$pkg (Flatpak)")
-		done
-		return
-	fi
-
-	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${flatpak_programs[@]}"; do
 		if flatpak_install "$pkg"; then PROGRAMS_INSTALLED+=("$pkg (Flatpak)"); else PROGRAMS_ERRORS+=("$pkg (Flatpak)"); fi
 	done

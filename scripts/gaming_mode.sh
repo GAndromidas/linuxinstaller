@@ -127,17 +127,6 @@ install_flatpak_packages() {
 	fi
 	ui_info "Installing ${#flatpak_gaming_programs[@]} Flatpak applications for gaming..."
 
-	# Try batch install first
-	printf "${CYAN}Attempting batch installation...${RESET}\n"
-	if flatpak install -y --noninteractive flathub "${flatpak_gaming_programs[@]}" >/dev/null 2>&1; then
-		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
-		for pkg in "${flatpak_gaming_programs[@]}"; do
-			GAMING_INSTALLED+=("$pkg (Flatpak)")
-		done
-		return
-	fi
-
-	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
 	for pkg in "${flatpak_gaming_programs[@]}"; do
 		if flatpak_install "$pkg"; then GAMING_INSTALLED+=("$pkg (Flatpak)"); else GAMING_ERRORS+=("$pkg (Flatpak)"); fi
 	done
