@@ -118,6 +118,87 @@ setup_console_font() {
     run_step "Rebuilding initramfs" sudo mkinitcpio -P
 }
 
+# --- Boot Permission Fix ---
+fix_boot_permissions() {
+  log_info "Fixing Boot Partition permissions..."
+
+  # Detect boot mount point
+  local BOOT_MOUNT="/boot"
+  if command -v bootctl >/dev/null 2>&1; then
+      local ESP_PATH
+      ESP_PATH=$(bootctl -p 2>/dev/null)
+      if [ -n "$ESP_PATH" ] && [ -d "$ESP_PATH" ]; then
+          BOOT_MOUNT="$ESP_PATH"
+      fi
+  fi
+
+  # Fallback checks
+  if [ ! -d "$BOOT_MOUNT" ] && [ -d "/efi" ]; then
+      BOOT_MOUNT="/efi"
+  elif [ ! -d "$BOOT_MOUNT" ] && [ -d "/boot/efi" ]; then
+      BOOT_MOUNT="/boot/efi"
+  fi
+
+  log_info "Detected Boot Mount: $BOOT_MOUNT"
+
+  if [ -d "$BOOT_MOUNT" ]; then
+      log_info "Setting permissions on $BOOT_MOUNT to 700..."
+      sudo chmod 700 "$BOOT_MOUNT" 2>/dev/null
+
+      # Check if chmod worked
+      local CURRENT_PERM
+      CURRENT_PERM=$(stat -c "%a" "$BOOT_MOUNT")
+
+      if [ "$CURRENT_PERM" != "700" ]; then
+          log_warning "chmod failed (permissions are $CURRENT_PERM). Checking /etc/fstab..."
+
+          # Backup fstab
+          sudo cp /etc/fstab "/etc/fstab.backup.$(date +%Y%m%d_%H%M%S)"
+
+          # Prepare mount point for regex (escape slashes)
+          local BOOT_ESC
+          BOOT_ESC=$(echo "$BOOT_MOUNT" | sed 's/\//\\\//g')
+
+          # Update fstab for BOOT_MOUNT if it exists
+          if grep -q "[[:space:]]$BOOT_MOUNT[[:space:]]" /etc/fstab; then
+              log_info "Checking permissions in /etc/fstab..."
+
+              # Check for existing insecure masks and fix them
+              if grep "[[:space:]]$BOOT_MOUNT[[:space:]]" /etc/fstab | grep -qE "fmask=|dmask=|umask="; then
+                  log_info "Updating existing masks to 0077..."
+                  sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/fmask=[0-9]\+/fmask=0077/g" /etc/fstab
+                  sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/dmask=[0-9]\+/dmask=0077/g" /etc/fstab
+                  sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/umask=[0-9]\+/umask=0077/g" /etc/fstab
+              else
+                  log_info "Adding umask=0077 to $BOOT_MOUNT entry in /etc/fstab..."
+                  # Attempt to append umask=0077 to the options field (4th column usually)
+                  sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/\(vfat[[:space:]]\+\)\([^[:space:]]\+\)/\1\2,umask=0077/" /etc/fstab
+              fi
+
+              log_info "Reloading systemd and remounting $BOOT_MOUNT..."
+              sudo systemctl daemon-reload
+              sudo mount -o remount "$BOOT_MOUNT"
+          else
+              log_info "$BOOT_MOUNT not found in /etc/fstab. Attempting runtime remount..."
+              sudo mount -o remount,umask=0077 "$BOOT_MOUNT"
+          fi
+      fi
+
+      # Check again
+      CURRENT_PERM=$(stat -c "%a" "$BOOT_MOUNT")
+      if [ "$CURRENT_PERM" == "700" ]; then
+          log_success "$BOOT_MOUNT permissions secured."
+      else
+          log_error "Could not secure $BOOT_MOUNT permissions (Current: $CURRENT_PERM). Please check /etc/fstab manually."
+      fi
+
+      if [ -f "$BOOT_MOUNT/loader/random-seed" ]; then
+          log_info "Setting permissions on $BOOT_MOUNT/loader/random-seed to 600..."
+          sudo chmod 600 "$BOOT_MOUNT/loader/random-seed" || log_warning "Failed to chmod random-seed"
+      fi
+  fi
+}
+
 # --- Main execution ---
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
@@ -129,3 +210,4 @@ else
 fi
 
 setup_console_font
+fix_boot_permissions
