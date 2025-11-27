@@ -26,6 +26,6 @@ flatpak:
     - name: com.heroicgameslauncher.hgl
       description: "Open source launcher for GOG and Epic Games."
     - name: io.github.Faugus.faugus-launcher
-      description: "Launcher for modded Bethesda games."
+      description: "Launcher for Game Launchers."
     - name: com.vysp3r.ProtonPlus
       description: "Manager for Proton-GE and other compatibility tools for Steam."

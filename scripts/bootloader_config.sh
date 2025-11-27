@@ -142,15 +142,20 @@ fix_boot_permissions() {
   log_info "Detected Boot Mount: $BOOT_MOUNT"
 
   if [ -d "$BOOT_MOUNT" ]; then
-      log_info "Setting permissions on $BOOT_MOUNT to 700..."
+      log_info "Securing $BOOT_MOUNT..."
+
+      # Ensure ownership is root:root
+      sudo chown root:root "$BOOT_MOUNT" 2>/dev/null
+
+      # Try chmod first
       sudo chmod 700 "$BOOT_MOUNT" 2>/dev/null
 
-      # Check if chmod worked
+      # Check if permissions are correct
       local CURRENT_PERM
       CURRENT_PERM=$(stat -c "%a" "$BOOT_MOUNT")
 
       if [ "$CURRENT_PERM" != "700" ]; then
-          log_warning "chmod failed (permissions are $CURRENT_PERM). Checking /etc/fstab..."
+          log_warning "Permissions are $CURRENT_PERM (wanted 700). Checking /etc/fstab..."
 
           # Backup fstab
           sudo cp /etc/fstab "/etc/fstab.backup.$(date +%Y%m%d_%H%M%S)"
@@ -187,6 +192,9 @@ fix_boot_permissions() {
           log_info "Remounting $BOOT_MOUNT with secure permissions..."
           sudo mount -o remount,umask=0077,fmask=0077,dmask=0077 "$BOOT_MOUNT"
       fi
+
+      # Ensure ownership again (just in case)
+      sudo chown root:root "$BOOT_MOUNT" 2>/dev/null
 
       # Check again
       CURRENT_PERM=$(stat -c "%a" "$BOOT_MOUNT")
