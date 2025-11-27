@@ -314,6 +314,30 @@ handle_de_packages() {
 	fi
 }
 
+handle_flatpak_packages() {
+	if [[ "$INSTALL_MODE" == "server" || "$INSTALL_MODE" == "custom" ]]; then
+		return
+	fi
+
+	local de
+	de=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
+	[[ -z "$de" ]] && de="generic"
+
+	local de_flatpaks=()
+	local de_descriptions=()
+
+	read_yaml_packages "$PROGRAMS_YAML" ".flatpak.$de.$INSTALL_MODE" de_flatpaks de_descriptions
+
+	if [[ ${#de_flatpaks[@]} -eq 0 && "$de" != "generic" ]]; then
+		read_yaml_packages "$PROGRAMS_YAML" ".flatpak.generic.$INSTALL_MODE" de_flatpaks de_descriptions
+	fi
+
+	if [[ ${#de_flatpaks[@]} -gt 0 ]]; then
+		ui_info "Adding Flatpak packages for $de ($INSTALL_MODE)..."
+		flatpak_programs+=("${de_flatpaks[@]}")
+	fi
+}
+
 # ===== Server Configuration Functions =====
 configure_server_applications() {
 	ui_info "Configuring server applications..."
@@ -485,6 +509,7 @@ main() {
 	load_package_lists_from_yaml
 	determine_package_lists
 	handle_de_packages
+	handle_flatpak_packages
 	install_pacman_packages "${essential_programs[@]}"
 	install_aur_packages "${yay_programs[@]}"
 	install_flatpak_packages "${flatpak_programs[@]}"

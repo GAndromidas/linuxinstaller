@@ -172,16 +172,20 @@ fix_boot_permissions() {
               else
                   log_info "Adding umask=0077 to $BOOT_MOUNT entry in /etc/fstab..."
                   # Attempt to append umask=0077 to the options field (4th column usually)
-                  sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/\(vfat[[:space:]]\+\)\([^[:space:]]\+\)/\1\2,umask=0077/" /etc/fstab
+                  if grep -q "[[:space:]]$BOOT_ESC[[:space:]]\+vfat" /etc/fstab; then
+                      sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]\+vfat/ s/\(vfat[[:space:]]\+\)\([^[:space:]]\+\)/\1\2,umask=0077,fmask=0077,dmask=0077/" /etc/fstab
+                  else
+                      # Generic attempt to append to options (4th column)
+                      sudo sed -i "/[[:space:]]$BOOT_ESC[[:space:]]/ s/\([[:space:]]\+\)\([^[:space:]]\+\)\([[:space:]]\+\)\([^[:space:]]\+\)/\1\2\3\4,umask=0077,fmask=0077,dmask=0077/" /etc/fstab
+                  fi
               fi
 
-              log_info "Reloading systemd and remounting $BOOT_MOUNT..."
+              log_info "Reloading systemd..."
               sudo systemctl daemon-reload
-              sudo mount -o remount "$BOOT_MOUNT"
-          else
-              log_info "$BOOT_MOUNT not found in /etc/fstab. Attempting runtime remount..."
-              sudo mount -o remount,umask=0077 "$BOOT_MOUNT"
           fi
+
+          log_info "Remounting $BOOT_MOUNT with secure permissions..."
+          sudo mount -o remount,umask=0077,fmask=0077,dmask=0077 "$BOOT_MOUNT"
       fi
 
       # Check again
