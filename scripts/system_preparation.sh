@@ -32,10 +32,10 @@ detect_network_speed() {
 
   log_info "Testing internet speed (this may take a moment)..."
 
-  # Run speedtest and capture download speed
-  local speed_test_output=$(speedtest-cli --simple 2>/dev/null)
+  # Run speedtest and capture download speed (with 30s timeout)
+  local speed_test_output=$(timeout 30s speedtest-cli --simple 2>/dev/null)
 
-  if [ $? -eq 0 ]; then
+  if [ $? -eq 0 ] && [ -n "$speed_test_output" ]; then
     local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
 
     if [ -n "$download_speed" ]; then
@@ -83,6 +83,13 @@ check_prerequisites() {
     log_error "This script is intended for Arch Linux systems with pacman."
     return 1
   fi
+
+  # Check internet connection
+  if ! ping -c 1 -W 5 archlinux.org &>/dev/null; then
+    log_error "No internet connection detected. Please check your network."
+    return 1
+  fi
+
   log_success "Prerequisites OK."
 }
 
@@ -361,7 +368,54 @@ install_lts_kernel() {
 }
 
 generate_locales() {
-  run_step "Generating locales" bash -c "sudo sed -i 's/#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' /etc/locale.gen && sudo locale-gen"
+  step "Configuring system locales"
+
+  # Always enable en_US.UTF-8 as fallback/default
+  if grep -q "^#en_US.UTF-8" /etc/locale.gen; then
+    sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    log_info "Uncommented en_US.UTF-8 locale (default)"
+  fi
+
+  # Smart detection based on location
+  log_info "Detecting location for local language support..."
+  local country_code=""
+
+  # Try to get country code (ISO 3166-1 alpha-2)
+  if command -v curl >/dev/null; then
+    country_code=$(curl -s --connect-timeout 5 https://ifconfig.co/country-iso 2>/dev/null)
+    # Fallback if first service fails
+    if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
+      country_code=$(curl -s --connect-timeout 5 http://ip-api.com/line/?fields=countryCode 2>/dev/null)
+    fi
+  fi
+
+  if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
+    log_success "Detected location: $country_code"
+
+    # Find matching UTF-8 locale in /etc/locale.gen
+    # Look for lines like "#el_GR.UTF-8" or "#de_DE.UTF-8"
+    # We grep for "_<COUNTRY_CODE>.UTF-8"
+    local locale_entry=$(grep "^#.*_${country_code}\.UTF-8" /etc/locale.gen | head -n 1)
+
+    if [[ -n "$locale_entry" ]]; then
+      # Extract the locale name (remove # and trailing stuff)
+      local locale_name=$(echo "$locale_entry" | awk '{print $1}' | sed 's/^#//')
+
+      if [[ -n "$locale_name" ]]; then
+        # Uncomment the specific locale
+        sudo sed -i "s/^#${locale_name}/${locale_name}/" /etc/locale.gen
+        log_success "Enabled detected locale: $locale_name"
+      else
+        log_warning "Could not parse locale entry for $country_code"
+      fi
+    else
+      log_info "No specific UTF-8 locale found for country code: $country_code"
+    fi
+  else
+    log_warning "Could not detect location. Only en_US.UTF-8 enabled."
+  fi
+
+  run_step "Regenerating locales" sudo locale-gen
 }
 
 # Execute ultra-fast preparation

@@ -14,9 +14,10 @@ install_yay() {
     return 0
   fi
 
-  # Check if base-devel is installed (required for building packages)
-  if ! pacman -Q base-devel &>/dev/null; then
-    log_error "base-devel package is required but not installed. Please install it first."
+  # Ensure base-devel and git are installed (required for building packages)
+  log_info "Ensuring base-devel and git are installed..."
+  if ! sudo pacman -S --noconfirm --needed base-devel git >/dev/null 2>&1; then
+    log_error "Failed to install base-devel or git. Cannot proceed with yay installation."
     return 1
   fi
 

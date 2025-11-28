@@ -537,13 +537,28 @@ configure_plymouth_hook_and_initramfs() {
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   local HOOK_ADDED=false
 
-  if ! grep -q "plymouth" "$mkinitcpio_conf"; then
+  if ! grep -q "plymouth" "$mkinitcpio_conf" && ! grep -q "sd-plymouth" "$mkinitcpio_conf"; then
     log_info "Adding plymouth hook to mkinitcpio.conf..."
-    # Look for "filesystems" hook as anchor, or add before closing quote
-    if grep -q "filesystems" "$mkinitcpio_conf"; then
-        sudo sed -i "s/\\(HOOKS=.*\\)filesystems/\\1plymouth filesystems/" "$mkinitcpio_conf"
+
+    # Check if using systemd hook (implies systemd initramfs)
+    # We check for 'systemd' in HOOKS line to avoid false positives in comments if possible,
+    # but for simplicity and robustness with existing code structure:
+    if grep -q "^HOOKS=.*systemd" "$mkinitcpio_conf" && ! grep -q "^HOOKS=.*udev" "$mkinitcpio_conf"; then
+        # Use sd-plymouth for systemd based initramfs, place after systemd
+        sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd sd-plymouth/" "$mkinitcpio_conf"
+        log_info "Added sd-plymouth hook (systemd detected)."
+    elif grep -q "udev" "$mkinitcpio_conf"; then
+        # Standard udev based initramfs, place after udev
+        sudo sed -i "s/\\(HOOKS=.*\\)udev/\\1udev plymouth/" "$mkinitcpio_conf"
+        log_info "Added plymouth hook (udev detected)."
     else
-        sudo sed -i "s/^\\(HOOKS=.*\\)\\\"$/\\1 plymouth\\\"/" "$mkinitcpio_conf"
+        # Fallback: add before filesystems
+        if grep -q "filesystems" "$mkinitcpio_conf"; then
+            sudo sed -i "s/\\(HOOKS=.*\\)filesystems/\\1plymouth filesystems/" "$mkinitcpio_conf"
+        else
+            sudo sed -i "s/^\\(HOOKS=.*\\)\\\"$/\\1 plymouth\\\"/" "$mkinitcpio_conf"
+        fi
+        log_info "Added plymouth hook (fallback placement)."
     fi
 
     if [ $? -eq 0 ]; then
@@ -916,16 +931,14 @@ prompt_reboot() {
   echo ""
   # Cleanup if no errors occurred
   if [ ${#ERRORS[@]} -eq 0 ]; then
-    echo -e "${CYAN}Cleaning up installer files...${RESET}"
-
-    # Silently uninstall figlet and gum
-    sudo pacman -R figlet gum yq --noconfirm >/dev/null 2>&1 || true
-
-    # Remove state file, log file, and archinstaller folder
-    rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
-    cd "$SCRIPT_DIR/.." 2>/dev/null && rm -rf "$(basename "$SCRIPT_DIR")" 2>/dev/null || true
-
-    echo -e "${GREEN}✓ Installer files cleaned up${RESET}"
+    # Optional cleanup that doesn't destroy the repo
+    if gum_confirm "Do you want to clean up temporary logs?" "This will remove the installation log and state file."; then
+      echo -e "${CYAN}Cleaning up temporary files...${RESET}"
+      rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
+      echo -e "${GREEN}✓ Temporary files cleaned up${RESET}"
+    else
+      echo -e "${CYAN}Skipping cleanup.${RESET}"
+    fi
   fi
 }
 

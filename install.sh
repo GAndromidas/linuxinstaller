@@ -476,10 +476,7 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
     ui_info "Log: $INSTALL_LOG"
   fi
 
-  # Automatically clean up installation files after successful installation
-  echo ""
-  ui_info "Installation successful. Cleaning up installer files automatically..."
-  (sleep 3 && rm -rf "$SCRIPT_DIR" "$STATE_FILE" "$INSTALL_LOG") &
+
 else
   if supports_gum; then
     echo ""
