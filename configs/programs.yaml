@@ -67,6 +67,8 @@ essential:
       description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
+    - name: "zed"
+      description: "High-performance multiplayer code editor"
 
   minimal:
     - name: "mpv"
@@ -242,6 +244,8 @@ custom:
       description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
+    - name: "zed"
+      description: "High-performance multiplayer code editor"
 
   aur:
     - name: "dropbox"
