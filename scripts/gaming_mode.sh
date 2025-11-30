@@ -19,14 +19,54 @@ flatpak_gaming_programs=()
 
 # ===== Local Helper Functions =====
 
+check_and_enable_multilib() {
+	local needs_sync=false
+
+	# 1. Check if multilib is configured in pacman.conf
+	if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+		if grep -q "^#\[multilib\]" /etc/pacman.conf; then
+			ui_info "Enabling multilib repository in /etc/pacman.conf..."
+			# Uncomment [multilib] and the following Include line
+			sudo sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
+			needs_sync=true
+		else
+			ui_warn "Multilib repository section not found in /etc/pacman.conf. Adding it..."
+			echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+			needs_sync=true
+		fi
+	fi
+
+	# 2. Check if the database file exists
+	if [[ ! -f "/var/lib/pacman/sync/multilib.db" ]]; then
+		ui_info "Multilib database not found. Syncing repositories..."
+		needs_sync=true
+	fi
+
+	# 3. Sync if needed
+	if [[ "$needs_sync" == "true" ]]; then
+		if sudo pacman -Sy; then
+			log_success "Repositories synced successfully."
+		else
+			log_error "Failed to sync repositories. 'wine' and other 32-bit packages might fail."
+			return 1
+		fi
+	else
+		log_success "Multilib repository is enabled and synced."
+	fi
+	return 0
+}
+
 pacman_install() {
 	local pkg="$1"
 	printf "${CYAN}Installing Pacman package:${RESET} %-30s" "$pkg"
-	if sudo pacman -S --noconfirm --needed "$pkg" >/dev/null 2>&1; then
+	local output
+	if output=$(sudo pacman -S --noconfirm --needed "$pkg" 2>&1); then
 		printf "${GREEN} ✓ Success${RESET}\n"
 		return 0
 	else
 		printf "${RED} ✗ Failed${RESET}\n"
+		# Indent output for readability
+		echo "$output" | sed 's/^/    /'
 		return 1
 	fi
 }
@@ -34,11 +74,13 @@ pacman_install() {
 flatpak_install() {
 	local pkg="$1"
 	printf "${CYAN}Installing Flatpak app:${RESET} %-30s" "$pkg"
-	if flatpak install -y --noninteractive flathub "$pkg" >/dev/null 2>&1; then
+	local output
+	if output=$(sudo flatpak install -y --noninteractive flathub "$pkg" 2>&1); then
 		printf "${GREEN} ✓ Success${RESET}\n"
 		return 0
 	else
 		printf "${RED} ✗ Failed${RESET}\n"
+		echo "$output" | sed 's/^/    /'
 		return 1
 	fi
 }
@@ -103,13 +145,16 @@ install_pacman_packages() {
 
 	# Try batch install first
 	printf "${CYAN}Attempting batch installation...${RESET}\n"
-	if sudo pacman -S --noconfirm --needed "${pacman_gaming_programs[@]}" >/dev/null 2>&1; then
+	# We capture stderr to a variable to print if it fails
+	local batch_output
+	if batch_output=$(sudo pacman -S --noconfirm --needed "${pacman_gaming_programs[@]}" 2>&1); then
 		printf "${GREEN} ✓ Batch installation successful${RESET}\n"
 		GAMING_INSTALLED+=("${pacman_gaming_programs[@]}")
 		return
 	fi
 
 	printf "${YELLOW} ! Batch installation failed. Falling back to individual installation...${RESET}\n"
+
 	for pkg in "${pacman_gaming_programs[@]}"; do
 		if pacman_install "$pkg"; then GAMING_INSTALLED+=("$pkg"); else GAMING_ERRORS+=("$pkg (pacman)"); fi
 	done
@@ -117,10 +162,13 @@ install_pacman_packages() {
 
 install_flatpak_packages() {
 	if ! command -v flatpak >/dev/null; then ui_warn "flatpak is not installed. Skipping gaming Flatpaks."; return; fi
-	if ! flatpak remote-list | grep -q flathub; then
+
+	# Ensure flathub remote exists (system-wide)
+	if ! sudo flatpak remote-list | grep -q flathub; then
 		step "Adding Flathub remote"
-		flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+		sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 	fi
+
 	if [[ ${#flatpak_gaming_programs[@]} -eq 0 ]]; then
 		ui_info "No Flatpak applications for gaming mode to install."
 		return
@@ -150,6 +198,7 @@ configure_mangohud() {
 
 enable_gamemode() {
 	step "Enabling GameMode service"
+	# GameMode is a user service
 	if systemctl --user daemon-reload &>/dev/null && systemctl --user enable --now gamemoded &>/dev/null; then
 		log_success "GameMode service enabled and started successfully."
 	else
@@ -186,6 +235,9 @@ main() {
 	if ! load_package_lists; then
 		return 1
 	fi
+
+	# Crucial: Ensure multilib is actually working before attempting to install steam/wine
+	check_and_enable_multilib
 
 	install_pacman_packages
 	install_flatpak_packages
