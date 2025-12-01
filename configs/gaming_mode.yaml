@@ -14,8 +14,6 @@ pacman:
       description: "Vulkan/OpenGL overlay for monitoring FPS, temps, and load."
     - name: lib32-mangohud
       description: "32-bit libraries for MangoHud."
-    - name: obs-studio
-      description: "Software for video recording and live streaming."
     - name: steam
       description: "Digital distribution platform by Valve."
     - name: wine

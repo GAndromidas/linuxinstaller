@@ -63,8 +63,6 @@ essential:
   default:
     - name: "filezilla"
       description: "FTP client for file transfers"
-    - name: "gimp"
-      description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
     - name: "solaar"
@@ -242,8 +240,6 @@ custom:
   essential:
     - name: "filezilla"
       description: "FTP client for file transfers"
-    - name: "gimp"
-      description: "GNU Image Manipulation Program"
     - name: "kdenlive"
       description: "Video editing software"
     - name: "solaar"
