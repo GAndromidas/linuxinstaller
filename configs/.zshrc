@@ -142,18 +142,11 @@ alias aliases='cat ~/.zshrc | grep "^alias" | sed "s/alias //" | column -t -s="#
 # -----------------------------------------------------------------------------
 # SSH Connections
 # -----------------------------------------------------------------------------
-# Add your SSH connection aliases here for quick remote access
-# Syntax: alias name='ssh user@hostname'
-#
+
 # Examples:
 # alias server='ssh user@192.168.1.100'
 # alias vps='ssh root@example.com'
 # alias pi='ssh pi@raspberrypi.local'
-# alias work='ssh user@work-server.com -p 2222'
-#
-# Uncomment and customize the examples below:
-# alias myserver='ssh user@server.local'
-# alias mypi='ssh pi@192.168.1.50'
 
 # -----------------------------------------------------------------------------
 # Package Management
@@ -166,8 +159,6 @@ alias orphans='sudo pacman -Rns $(pacman -Qtdq) 2>/dev/null'                    
 # Utilities
 # -----------------------------------------------------------------------------
 alias weather='curl wttr.in'                                                       # Show weather
-alias map='telnet mapscii.me'                                                      # ASCII world map
-alias clock='tty-clock -sct'                                                       # Terminal clock
 alias matrix='cmatrix'                                                             # Matrix effect
 alias ports-used='netstat -tulanp | grep ESTABLISHED'                              # Show active connections
 
