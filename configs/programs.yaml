@@ -55,6 +55,8 @@ pacman:
       description: "Liberation font family"
     - name: "unrar"
       description: "RAR archive extractor"
+    - name: "wakeonlan"
+      description: "Utility to send Wake-on-LAN magic packets"
     - name: "xdg-desktop-portal-gtk"
       description: "GTK portal for desktop integration"
 
@@ -123,6 +125,8 @@ essential:
       description: "Liberation font family"
     - name: "unrar"
       description: "RAR archive extractor"
+    - name: "wakeonlan"
+      description: "Utility to send Wake-on-LAN magic packets"
 
 # AUR packages for different installation modes
 aur:
