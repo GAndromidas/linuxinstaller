@@ -76,10 +76,10 @@ configure_snapper() {
   sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
   sudo sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
-  sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
+  sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="5"/' /etc/snapper/configs/root
   sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
 
-  log_success "Snapper configuration completed (boot snapshots only, max 10 total)"
+  log_success "Snapper configuration completed (boot snapshots only, max 5 total)"
 }
 
 # Configure btrfs-assistant GUI settings
@@ -444,7 +444,7 @@ setup_btrfs_snapshots() {
     gum style --foreground 226 "Btrfs snapshot setup available:"
     gum style --margin "0 2" --foreground 15 "• Automatic snapshots before/after package operations"
     gum style --margin "0 2" --foreground 15 "• Automatic snapshots on every system boot"
-    gum style --margin "0 2" --foreground 15 "• Retention: boot snapshots only (max 10 total)"
+    gum style --margin "0 2" --foreground 15 "• Retention: boot snapshots only (max 5 total)"
 
     gum style --margin "0 2" --foreground 15 "• LTS kernel fallback for recovery"
     gum style --margin "0 2" --foreground 15 "• Automated maintenance: scrub, balance, defrag"
@@ -458,7 +458,7 @@ setup_btrfs_snapshots() {
     echo -e "${YELLOW}Btrfs snapshot setup available:${RESET}"
     echo -e "  • Automatic snapshots before/after package operations"
     echo -e "  • Automatic snapshots on every system boot"
-    echo -e "  • Retention: boot snapshots only (max 10 total)"
+    echo -e "  • Retention: boot snapshots only (max 5 total)"
 
     echo -e "  • LTS kernel fallback for recovery"
     echo -e "  • Automated maintenance: scrub, balance, defrag"
@@ -611,7 +611,7 @@ setup_btrfs_snapshots() {
     echo -e "${CYAN}Snapshot system configured:${RESET}"
     echo -e "  • Automatic snapshots before/after package operations"
     echo -e "  • Automatic snapshots on every system boot"
-    echo -e "  • Retention: 1 hourly, 1 daily, 1 weekly (max 10 snapshots)"
+    echo -e "  • Retention: 1 hourly, 1 daily, 1 weekly (max 5 snapshots)"
     echo -e "  • LTS kernel fallback: Available in boot menu"
     echo -e "  • Automated maintenance:"
     echo -e "    - Scrub (monthly): /, /home, /var/log"
