@@ -353,38 +353,28 @@ check_traditional_swap() {
       return 1
     fi
 
+    local should_disable=false
     if command -v gum >/dev/null 2>&1; then
-      if gum confirm --default=true "Disable traditional swap in favor of ZRAM?"; then
-        log_info "Disabling traditional swap..."
-        sudo swapoff -a
-
-        # Comment out swap entries in fstab
-        if grep -q '^[^#].*swap' /etc/fstab; then
-          sudo sed -i.bak '/^[^#].*swap/s/^/# /' /etc/fstab
-          log_success "Traditional swap disabled and fstab updated (backup saved)"
-          log_warning "Hibernation will not work without disk swap"
-        fi
-      else
-        log_warning "Traditional swap kept active alongside ZRAM"
-        return 1
-      fi
+      gum confirm --default=true "Disable traditional swap in favor of ZRAM?" && should_disable=true
     else
       read -r -p "Disable traditional swap in favor of ZRAM? [Y/n]: " response
       response=${response,,}
-      if [[ "$response" != "n" && "$response" != "no" ]]; then
-        log_info "Disabling traditional swap..."
-        sudo swapoff -a
+      [[ "$response" != "n" && "$response" != "no" ]] && should_disable=true
+    fi
+    
+    if [ "$should_disable" = true ]; then
+      log_info "Disabling traditional swap..."
+      sudo swapoff -a
 
-        # Comment out swap entries in fstab
-        if grep -q '^[^#].*swap' /etc/fstab; then
-          sudo sed -i.bak '/^[^#].*swap/s/^/# /' /etc/fstab
-          log_success "Traditional swap disabled and fstab updated (backup saved)"
-          log_warning "Hibernation will not work without disk swap"
-        fi
-      else
-        log_warning "Traditional swap kept active alongside ZRAM"
-        return 1
+      # Comment out swap entries in fstab
+      if grep -q '^[^#].*swap' /etc/fstab; then
+        sudo sed -i.bak '/^[^#].*swap/s/^/# /' /etc/fstab
+        log_success "Traditional swap disabled and fstab updated (backup saved)"
+        log_warning "Hibernation will not work without disk swap"
       fi
+    else
+      log_warning "Traditional swap kept active alongside ZRAM"
+      return 1
     fi
   else
     log_info "No traditional swap detected - good for ZRAM setup"
@@ -462,18 +452,18 @@ setup_zram_swap() {
         log_info "  1. Use ZRAM (better performance, no hibernation)"
         log_info "  2. Keep disk swap (hibernation works, slower swap)"
 
+        local enable_zram_anyway=false
         if command -v gum >/dev/null 2>&1; then
-          if ! gum confirm --default=false "Enable ZRAM anyway (disables hibernation)?"; then
-            log_info "Keeping disk swap for hibernation support"
-            return
-          fi
+          gum confirm --default=false "Enable ZRAM anyway (disables hibernation)?" && enable_zram_anyway=true
         else
           read -r -p "Enable ZRAM anyway (disables hibernation)? [y/N]: " response
           response=${response,,}
-          if [[ "$response" != "y" && "$response" != "yes" ]]; then
-            log_info "Keeping disk swap for hibernation support"
-            return
-          fi
+          [[ "$response" == "y" || "$response" == "yes" ]] && enable_zram_anyway=true
+        fi
+        
+        if [ "$enable_zram_anyway" = false ]; then
+          log_info "Keeping disk swap for hibernation support"
+          return
         fi
       fi
 
@@ -498,26 +488,22 @@ setup_zram_swap() {
         return
       fi
 
+      local enable_zram=false
       if command -v gum >/dev/null 2>&1; then
-        if gum confirm --default=false "Enable ZRAM swap for additional performance?"; then
-          check_traditional_swap
-          sudo systemctl enable systemd-zram-setup@zram0
-          sudo systemctl start systemd-zram-setup@zram0
-        else
-          log_info "ZRAM configuration skipped"
-          return
-        fi
+        gum confirm --default=false "Enable ZRAM swap for additional performance?" && enable_zram=true
       else
         read -r -p "Enable ZRAM swap for additional performance? [y/N]: " response
         response=${response,,}
-        if [[ "$response" == "y" || "$response" == "yes" ]]; then
-          check_traditional_swap
-          sudo systemctl enable systemd-zram-setup@zram0
-          sudo systemctl start systemd-zram-setup@zram0
-        else
-          log_info "ZRAM configuration skipped"
-          return
-        fi
+        [[ "$response" == "y" || "$response" == "yes" ]] && enable_zram=true
+      fi
+      
+      if [ "$enable_zram" = true ]; then
+        check_traditional_swap
+        sudo systemctl enable systemd-zram-setup@zram0
+        sudo systemctl start systemd-zram-setup@zram0
+      else
+        log_info "ZRAM configuration skipped"
+        return
       fi
     fi
   else
@@ -1390,145 +1376,70 @@ install_touchpad_gestures() {
   fi
 
   # Install touchpad gesture support
-  if command -v gum >/dev/null 2>&1; then
-    if [ "$touchpad_detected" = false ]; then
-      log_warning "No touchpad detected. Gesture support may not work on this device."
-      if ! gum confirm --default=false "Install touchpad gesture support anyway (for troubleshooting)?"; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
-    elif [ "$touchpad_multitouch" = false ]; then
-      log_warning "Touchpad has limited multi-touch. 3-finger gestures may not work."
-      log_info "This is common on budget laptops with PS/2 touchpads."
-      if ! gum confirm --default=false "Install touchpad gesture support anyway (2-finger gestures might work)?"; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
+  local should_install=false
+  
+  # Get user confirmation (using gum if available, otherwise read)
+  if [ "$touchpad_detected" = false ]; then
+    log_warning "No touchpad detected. Gesture support may not work on this device."
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm --default=false "Install touchpad gesture support anyway (for troubleshooting)?" && should_install=true
     else
-      if ! gum confirm --default=false "Install touchpad gesture support (3-finger swipe, pinch-to-zoom)?"; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
-    fi
-
-    log_info "Installing libinput-gestures..."
-
-    # Check if yay is available for AUR installation
-    if ! command -v yay &>/dev/null; then
-      log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
-      log_warning "Touchpad gestures require libinput-gestures from AUR"
-      log_info "Please install yay first, then run: yay -S libinput-gestures"
-      log_info "Continuing with installation..."
-      return
-    fi
-
-    # libinput-gestures is in AUR, not official repos
-    if ! install_aur_quietly libinput-gestures; then
-      log_error "Failed to install libinput-gestures from AUR"
-      log_warning "Touchpad gestures will not be available"
-      log_info "You can try manually later with: yay -S libinput-gestures"
-    fi
-
-    # xdotool and wmctrl are in official repos
-    install_packages_quietly xdotool wmctrl
-
-    # Add user to input group
-    sudo usermod -a -G input "$USER"
-
-    # Create default gestures configuration
-    mkdir -p "$HOME/.config"
-    cat << 'EOF' > "$HOME/.config/libinput-gestures.conf"
-# Gestures configuration for libinput-gestures
-# Swipe up with 3 fingers - Show desktop overview
-gesture swipe up 3 xdotool key super+w
-
-# Swipe down with 3 fingers - Show all windows
-gesture swipe down 3 xdotool key super+d
-
-# Swipe left with 3 fingers - Previous workspace/desktop
-gesture swipe left 3 xdotool key super+ctrl+Left
-
-# Swipe right with 3 fingers - Next workspace/desktop
-gesture swipe right 3 xdotool key super+ctrl+Right
-
-# Pinch in - Zoom out (Ctrl+Minus)
-gesture pinch in xdotool key ctrl+minus
-
-# Pinch out - Zoom in (Ctrl+Plus)
-gesture pinch out xdotool key ctrl+plus
-EOF
-
-    log_success "Touchpad gestures configured"
-    log_info "Gestures will be available after next login"
-    log_info "To customize: edit ~/.config/libinput-gestures.conf"
-
-    # Provide troubleshooting info if touchpad has limitations
-    if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
-      echo ""
-      log_warning "Touchpad gesture troubleshooting:"
-      log_info "If gestures don't work after reboot, try:"
-      log_info "  1. Check device: libinput list-devices"
-      log_info "  2. Test touchpad: sudo libinput debug-events"
-      log_info "  3. Check logs: journalctl -xe | grep libinput"
-      log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
-      log_info ""
-      log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
-      log_info "which may only support 2-finger gestures, not 3-finger."
-      echo ""
-    fi
-  else
-    if [ "$touchpad_detected" = false ]; then
-      log_warning "No touchpad detected. Gesture support may not work on this device."
       read -r -p "Install touchpad gesture support anyway (for troubleshooting)? [y/N]: " response
       response=${response,,}
-      if [[ "$response" != "y" && "$response" != "yes" ]]; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
-    elif [ "$touchpad_multitouch" = false ]; then
-      log_warning "Touchpad has limited multi-touch. 3-finger gestures may not work."
+      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
+    fi
+  elif [ "$touchpad_multitouch" = false ]; then
+    log_warning "Touchpad has limited multi-touch. 3-finger gestures may not work."
+    log_info "This is common on budget laptops with PS/2 touchpads."
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm --default=false "Install touchpad gesture support anyway (2-finger gestures might work)?" && should_install=true
+    else
       read -r -p "Install touchpad gesture support anyway (2-finger gestures might work)? [y/N]: " response
       response=${response,,}
-      if [[ "$response" != "y" && "$response" != "yes" ]]; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
+      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
+    fi
+  else
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm --default=false "Install touchpad gesture support (3-finger swipe, pinch-to-zoom)?" && should_install=true
     else
       read -r -p "Install touchpad gesture support (3-finger swipe, pinch-to-zoom)? [y/N]: " response
       response=${response,,}
-      if [[ "$response" != "y" && "$response" != "yes" ]]; then
-        log_info "Touchpad gesture installation skipped"
-        return
-      fi
+      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
     fi
+  fi
+  
+  if [ "$should_install" = false ]; then
+    log_info "Touchpad gesture installation skipped"
+    return
+  fi
 
-    log_info "Installing libinput-gestures..."
+  log_info "Installing libinput-gestures..."
 
-    # Check if yay is available for AUR installation
-    if ! command -v yay &>/dev/null; then
-      log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
-      log_warning "Touchpad gestures require libinput-gestures from AUR"
-      log_info "Please install yay first, then run: yay -S libinput-gestures"
-      log_info "Continuing with installation..."
-      return
-    fi
+  # Check if yay is available for AUR installation
+  if ! command -v yay &>/dev/null; then
+    log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
+    log_warning "Touchpad gestures require libinput-gestures from AUR"
+    log_info "Please install yay first, then run: yay -S libinput-gestures"
+    log_info "Continuing with installation..."
+    return
+  fi
 
-    # libinput-gestures is in AUR, not official repos
-    if ! install_aur_quietly libinput-gestures; then
-      log_error "Failed to install libinput-gestures from AUR"
-      log_warning "Touchpad gestures will not be available"
-      log_info "You can try manually later with: yay -S libinput-gestures"
-    fi
+  # libinput-gestures is in AUR, not official repos
+  if ! install_aur_quietly libinput-gestures; then
+    log_error "Failed to install libinput-gestures from AUR"
+    log_warning "Touchpad gestures will not be available"
+    log_info "You can try manually later with: yay -S libinput-gestures"
+  fi
 
-    # xdotool and wmctrl are in official repos
-    install_packages_quietly xdotool wmctrl
+  # xdotool and wmctrl are in official repos
+  install_packages_quietly xdotool wmctrl
 
-    # Add user to input group
-    sudo usermod -a -G input "$USER"
+  # Add user to input group
+  sudo usermod -a -G input "$USER"
 
-    # Create default gestures configuration
-    mkdir -p "$HOME/.config"
-    cat << 'EOF' > "$HOME/.config/libinput-gestures.conf"
+  # Create default gestures configuration
+  mkdir -p "$HOME/.config"
+  cat << 'EOF' > "$HOME/.config/libinput-gestures.conf"
 # Gestures configuration for libinput-gestures
 # Swipe up with 3 fingers - Show desktop overview
 gesture swipe up 3 xdotool key super+w
@@ -1549,24 +1460,23 @@ gesture pinch in xdotool key ctrl+minus
 gesture pinch out xdotool key ctrl+plus
 EOF
 
-    log_success "Touchpad gestures configured"
-    log_info "Gestures will be available after next login"
-    log_info "To customize: edit ~/.config/libinput-gestures.conf"
+  log_success "Touchpad gestures configured"
+  log_info "Gestures will be available after next login"
+  log_info "To customize: edit ~/.config/libinput-gestures.conf"
 
-    # Provide troubleshooting info if touchpad has limitations
-    if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
-      echo ""
-      log_warning "Touchpad gesture troubleshooting:"
-      log_info "If gestures don't work after reboot, try:"
-      log_info "  1. Check device: libinput list-devices"
-      log_info "  2. Test touchpad: sudo libinput debug-events"
-      log_info "  3. Check logs: journalctl -xe | grep libinput"
-      log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
-      log_info ""
-      log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
-      log_info "which may only support 2-finger gestures, not 3-finger."
-      echo ""
-    fi
+  # Provide troubleshooting info if touchpad has limitations
+  if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
+    echo ""
+    log_warning "Touchpad gesture troubleshooting:"
+    log_info "If gestures don't work after reboot, try:"
+    log_info "  1. Check device: libinput list-devices"
+    log_info "  2. Test touchpad: sudo libinput debug-events"
+    log_info "  3. Check logs: journalctl -xe | grep libinput"
+    log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
+    log_info ""
+    log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
+    log_info "which may only support 2-finger gestures, not 3-finger."
+    echo ""
   fi
 }
 
@@ -1661,43 +1571,20 @@ detect_ethernet_adapters() {
     # Skip known virtual/wireless interfaces
     [[ "$iface" =~ ^(docker|veth|br-|virbr|vmnet|wlan|wifi|wl-|wwan|wwp) ]] && continue
     
-    # Check if interface has ethernet link type (most reliable method)
-    if ip link show "$iface" 2>/dev/null | grep -q "link/ether"; then
-      # Double-check it's not wireless by checking sysfs
-      if [ -d "/sys/class/net/$iface/wireless" ]; then
-        continue
-      fi
-      
-      # Verify interface type via sysfs (1 = Ethernet, ARPHRD_ETHER)
-      if [ -d "/sys/class/net/$iface" ]; then
-        local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
-        if [[ "$iface_type" == "1" ]]; then
+    # Skip if wireless interface (check sysfs)
+    [ -d "/sys/class/net/$iface/wireless" ] && continue
+    
+    # Check interface type via sysfs (1 = Ethernet, ARPHRD_ETHER)
+    if [ -d "/sys/class/net/$iface" ]; then
+      local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
+      if [[ "$iface_type" == "1" ]]; then
+        # Double-check it has ethernet link type
+        if ip link show "$iface" 2>/dev/null | grep -q "link/ether"; then
           adapters+=("$iface")
         fi
-      else
-        # Fallback: if link/ether exists and not wireless, assume ethernet
-        adapters+=("$iface")
       fi
     fi
   done
-  
-  # If still no adapters found, try more permissive detection
-  if [ ${#adapters[@]} -eq 0 ]; then
-    log_info "Trying alternative Ethernet adapter detection..."
-    for iface in $all_interfaces; do
-      [[ "$iface" == "lo" ]] && continue
-      [[ "$iface" =~ ^(docker|veth|br-|virbr|vmnet|wlan|wifi|wl-|wwan|wwp) ]] && continue
-      
-      # Check sysfs for interface type
-      if [ -d "/sys/class/net/$iface" ]; then
-        local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
-        # Type 1 = Ethernet (ARPHRD_ETHER)
-        if [[ "$iface_type" == "1" ]]; then
-          adapters+=("$iface")
-        fi
-      fi
-    done
-  fi
   
   printf '%s\n' "${adapters[@]}"
 }
