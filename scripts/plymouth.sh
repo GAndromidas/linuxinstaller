@@ -5,16 +5,15 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Override progress bar to be minimalist, showing only the percentage.
+# Override progress bar to be minimalist
 print_progress() {
   local current="$1"
   local total="$2"
   local description="$3"
-  local percentage=$((current * 100 / total))
 
   # Use printf to avoid a newline, allowing print_status to append to it.
   # \r and \033[K ensure the line is overwritten on each update.
-  printf "\r\033[K${CYAN}[%3d%%]${RESET} %s..." "$percentage" "$description"
+  printf "\r\033[K${CYAN}[%d/%d]${RESET} %s..." "$current" "$total" "$description"
 }
 
 # Use different variable names to avoid conflicts

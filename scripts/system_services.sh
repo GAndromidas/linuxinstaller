@@ -24,34 +24,56 @@ setup_firewall_and_services() {
 
 configure_firewalld() {
   # Start and enable firewalld
-  sudo systemctl start firewalld
-  sudo systemctl enable firewalld
+  if ! sudo systemctl start firewalld 2>/dev/null; then
+    log_error "Failed to start firewalld"
+    return 1
+  fi
+  
+  if ! sudo systemctl enable firewalld 2>/dev/null; then
+    log_warning "Failed to enable firewalld (may already be enabled)"
+  fi
 
-  # Set default policies
-  sudo firewall-cmd --set-default-zone=drop
-  log_success "Default policy set to deny all incoming connections."
+  # Verify firewalld is active
+  if ! sudo systemctl is-active --quiet firewalld; then
+    log_error "Firewalld failed to start"
+    return 1
+  fi
+  log_success "Firewalld is active"
 
-  sudo firewall-cmd --set-default-zone=public
-  log_success "Default policy set to allow all outgoing connections."
+  # Set default zone to public (allows outgoing, denies incoming by default)
+  sudo firewall-cmd --set-default-zone=public --permanent 2>/dev/null
+  sudo firewall-cmd --reload 2>/dev/null
+  log_success "Default zone set to public (deny incoming, allow outgoing)"
 
   # Allow SSH
-  if ! sudo firewall-cmd --list-all | grep -q "22/tcp"; then
-    sudo firewall-cmd --add-service=ssh --permanent
-    sudo firewall-cmd --reload
-    log_success "SSH allowed through Firewalld."
+  if ! sudo firewall-cmd --list-all 2>/dev/null | grep -qE "\b22/tcp\b|ssh"; then
+    if sudo firewall-cmd --add-service=ssh --permanent 2>/dev/null; then
+      sudo firewall-cmd --reload 2>/dev/null
+      log_success "SSH allowed through Firewalld"
+    else
+      log_error "Failed to allow SSH through Firewalld"
+    fi
   else
-    log_warning "SSH is already allowed. Skipping SSH service configuration."
+    log_info "SSH is already allowed"
+  fi
+
+  # Verify SSH is actually allowed
+  if sudo firewall-cmd --list-all 2>/dev/null | grep -qE "\b22/tcp\b|ssh"; then
+    log_success "SSH access verified"
+  else
+    log_warning "SSH may not be properly configured - please verify manually"
   fi
 
   # Check if KDE Connect is installed
-  if pacman -Q kdeconnect &>/dev/null; then
+  if pacman -Q kdeconnect &>/dev/null 2>&1; then
     # Allow specific ports for KDE Connect
-    sudo firewall-cmd --add-port=1714-1764/udp --permanent
-    sudo firewall-cmd --add-port=1714-1764/tcp --permanent
-    sudo firewall-cmd --reload
-    log_success "KDE Connect ports allowed through Firewalld."
-  else
-    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+    if sudo firewall-cmd --add-port=1714-1764/udp --permanent 2>/dev/null && \
+       sudo firewall-cmd --add-port=1714-1764/tcp --permanent 2>/dev/null; then
+      sudo firewall-cmd --reload 2>/dev/null
+      log_success "KDE Connect ports allowed through Firewalld"
+    else
+      log_warning "Failed to allow KDE Connect ports"
+    fi
   fi
 }
 
@@ -59,36 +81,63 @@ configure_ufw() {
   # Install UFW if not present
   if ! command -v ufw >/dev/null 2>&1; then
     install_packages_quietly ufw
-    log_success "UFW installed successfully."
+    log_success "UFW installed successfully"
+  fi
+
+  # Set default policies first (before enabling)
+  sudo ufw default deny incoming 2>/dev/null
+  sudo ufw default allow outgoing 2>/dev/null
+  log_success "Default policies set (deny incoming, allow outgoing)"
+
+  # Allow SSH before enabling (prevents lockout)
+  if ! sudo ufw status 2>/dev/null | grep -qE "\b22/tcp\b|SSH"; then
+    if sudo ufw allow ssh 2>/dev/null; then
+      log_success "SSH rule added to UFW"
+    else
+      log_error "Failed to add SSH rule to UFW"
+    fi
+  else
+    log_info "SSH is already allowed"
   fi
 
   # Enable UFW
-  sudo ufw enable
-  sudo systemctl enable --now ufw
-
-  # Set default policies
-  sudo ufw default deny incoming
-  log_success "Default policy set to deny all incoming connections."
-
-  sudo ufw default allow outgoing
-  log_success "Default policy set to allow all outgoing connections."
-
-  # Allow SSH
-  if ! sudo ufw status | grep -q "22/tcp"; then
-    sudo ufw allow ssh
-    log_success "SSH allowed through UFW."
+  if echo "y" | sudo ufw enable 2>/dev/null; then
+    log_success "UFW enabled"
   else
-    log_warning "SSH is already allowed. Skipping SSH service configuration."
+    log_warning "UFW may already be enabled"
+  fi
+
+  # Enable and start UFW service
+  if sudo systemctl enable --now ufw 2>/dev/null; then
+    log_success "UFW service enabled and started"
+  else
+    log_warning "UFW service may already be running"
+  fi
+
+  # Verify UFW is active
+  if sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+    log_success "UFW is active and running"
+  else
+    log_error "UFW is not active - please check manually"
+    return 1
+  fi
+
+  # Verify SSH is allowed
+  if sudo ufw status 2>/dev/null | grep -qE "\b22/tcp\b|SSH"; then
+    log_success "SSH access verified in UFW"
+  else
+    log_warning "SSH may not be properly configured - please verify manually"
   fi
 
   # Check if KDE Connect is installed
-  if pacman -Q kdeconnect &>/dev/null; then
+  if pacman -Q kdeconnect &>/dev/null 2>&1; then
     # Allow specific ports for KDE Connect
-    sudo ufw allow 1714:1764/udp
-    sudo ufw allow 1714:1764/tcp
-    log_success "KDE Connect ports allowed through UFW."
-  else
-    log_warning "KDE Connect is not installed. Skipping KDE Connect service configuration."
+    if sudo ufw allow 1714:1764/udp 2>/dev/null && \
+       sudo ufw allow 1714:1764/tcp 2>/dev/null; then
+      log_success "KDE Connect ports allowed through UFW"
+    else
+      log_warning "Failed to allow KDE Connect ports"
+    fi
   fi
 }
 
@@ -122,14 +171,40 @@ configure_user_groups() {
 
   local groups=("wheel" "input" "video" "storage" "optical" "scanner" "lp" "rfkill")
 
+  # Dynamic hardware/software detection for additional groups
+  if command -v docker >/dev/null 2>&1; then
+    groups+=("docker")
+    log_info "Docker detected - will add user to docker group"
+  fi
+  if command -v libvirtd >/dev/null 2>&1 || systemctl list-unit-files | grep -q libvirtd.service; then
+    groups+=("libvirt")
+    log_info "Libvirt detected - will add user to libvirt group"
+  fi
+
+  local added_count=0
+  local skipped_count=0
+
   for group in "${groups[@]}"; do
     if getent group "$group" >/dev/null; then
       if ! groups "$USER" | grep -q "\b$group\b"; then
-        sudo usermod -aG "$group" "$USER"
-        log_success "Added $USER to $group group"
+        if sudo usermod -aG "$group" "$USER" 2>/dev/null; then
+          log_success "Added $USER to $group group"
+          ((added_count++))
+        else
+          log_warning "Failed to add $USER to $group group"
+        fi
+      else
+        log_info "User already in $group group"
+        ((skipped_count++))
       fi
+    else
+      log_info "Group '$group' not present on system (skipping)"
     fi
   done
+
+  if [ $added_count -gt 0 ]; then
+    log_info "Added user to $added_count group(s). Logout and login required for changes to take effect."
+  fi
 }
 
 enable_services() {
@@ -1565,6 +1640,248 @@ show_laptop_summary() {
   echo ""
 }
 
+# Function to detect all Ethernet adapters (universal detection)
+# Detects interfaces using modern (enp*, eno*, ens*) and legacy (eth*) naming schemes
+# Also handles any interface with ethernet link type regardless of name
+detect_ethernet_adapters() {
+  local adapters=()
+  
+  # Use ip command to get all network interfaces
+  local all_interfaces=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || echo "")
+  
+  if [ -z "$all_interfaces" ]; then
+    log_warning "Could not detect network interfaces"
+    return 1
+  fi
+  
+  for iface in $all_interfaces; do
+    # Skip loopback interface
+    [[ "$iface" == "lo" ]] && continue
+    
+    # Skip known virtual/wireless interfaces
+    [[ "$iface" =~ ^(docker|veth|br-|virbr|vmnet|wlan|wifi|wl-|wwan|wwp) ]] && continue
+    
+    # Check if interface has ethernet link type (most reliable method)
+    if ip link show "$iface" 2>/dev/null | grep -q "link/ether"; then
+      # Double-check it's not wireless by checking sysfs
+      if [ -d "/sys/class/net/$iface/wireless" ]; then
+        continue
+      fi
+      
+      # Verify interface type via sysfs (1 = Ethernet, ARPHRD_ETHER)
+      if [ -d "/sys/class/net/$iface" ]; then
+        local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
+        if [[ "$iface_type" == "1" ]]; then
+          adapters+=("$iface")
+        fi
+      else
+        # Fallback: if link/ether exists and not wireless, assume ethernet
+        adapters+=("$iface")
+      fi
+    fi
+  done
+  
+  # If still no adapters found, try more permissive detection
+  if [ ${#adapters[@]} -eq 0 ]; then
+    log_info "Trying alternative Ethernet adapter detection..."
+    for iface in $all_interfaces; do
+      [[ "$iface" == "lo" ]] && continue
+      [[ "$iface" =~ ^(docker|veth|br-|virbr|vmnet|wlan|wifi|wl-|wwan|wwp) ]] && continue
+      
+      # Check sysfs for interface type
+      if [ -d "/sys/class/net/$iface" ]; then
+        local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
+        # Type 1 = Ethernet (ARPHRD_ETHER)
+        if [[ "$iface_type" == "1" ]]; then
+          adapters+=("$iface")
+        fi
+      fi
+    done
+  fi
+  
+  printf '%s\n' "${adapters[@]}"
+}
+
+# Function to get MAC address of an interface
+get_interface_mac() {
+  local iface="$1"
+  ip link show "$iface" 2>/dev/null | grep -oP 'link/ether \K[0-9a-f:]+' | head -1
+}
+
+# Function to check if Wake-on-LAN is supported on an interface
+check_wol_support() {
+  local iface="$1"
+  
+  # Check if ethtool is available
+  if ! command -v ethtool >/dev/null 2>&1; then
+    return 1
+  fi
+  
+  # Check if interface supports WoL
+  if sudo ethtool "$iface" 2>/dev/null | grep -q "Wake-on:"; then
+    return 0
+  fi
+  
+  return 1
+}
+
+# Function to get current Wake-on-LAN status
+get_wol_status() {
+  local iface="$1"
+  sudo ethtool "$iface" 2>/dev/null | grep "Wake-on:" | awk '{print $2}' | tr -d ' '
+}
+
+# Function to setup Wake-on-LAN for all Ethernet adapters
+setup_wake_on_lan() {
+  step "Configuring Wake-on-LAN for Ethernet adapters"
+  
+  # Install ethtool if not available
+  if ! command -v ethtool >/dev/null 2>&1; then
+    log_info "Installing ethtool for Wake-on-LAN support..."
+    if ! install_packages_quietly ethtool; then
+      log_error "Failed to install ethtool. Wake-on-LAN cannot be configured."
+      return 1
+    fi
+  fi
+  
+  # Detect all Ethernet adapters
+  local adapters=($(detect_ethernet_adapters))
+  
+  if [ ${#adapters[@]} -eq 0 ]; then
+    log_warning "No Ethernet adapters detected. Skipping Wake-on-LAN configuration."
+    return 0
+  fi
+  
+  log_info "Detected ${#adapters[@]} Ethernet adapter(s): ${adapters[*]}"
+  
+  local configured_count=0
+  local skipped_count=0
+  local failed_count=0
+  
+  for adapter in "${adapters[@]}"; do
+    log_info "Configuring Wake-on-LAN for $adapter..."
+    
+    # Check if WoL is supported
+    if ! check_wol_support "$adapter"; then
+      log_warning "$adapter does not support Wake-on-LAN (skipping)"
+      ((skipped_count++))
+      continue
+    fi
+    
+    # Get current status
+    local current_status=$(get_wol_status "$adapter")
+    
+    # Check if already enabled
+    if [[ "$current_status" == "g" ]]; then
+      log_info "$adapter: Wake-on-LAN already enabled (magic packet mode)"
+      
+      # Check if systemd service exists
+      if [ -f "/etc/systemd/system/wol-$adapter.service" ]; then
+        log_info "$adapter: Systemd service already exists"
+        ((configured_count++))
+        continue
+      fi
+    fi
+    
+    # Enable Wake-on-LAN (magic packet mode)
+    if sudo ethtool -s "$adapter" wol g 2>/dev/null; then
+      log_success "$adapter: Wake-on-LAN enabled (magic packet mode)"
+      
+      # Get MAC address for user information
+      local mac_address=$(get_interface_mac "$adapter")
+      if [ -n "$mac_address" ]; then
+        log_info "$adapter MAC address: $mac_address"
+      fi
+      
+      # Create systemd service for persistence
+      create_wol_systemd_service "$adapter"
+      
+      if [ $? -eq 0 ]; then
+        ((configured_count++))
+      else
+        log_warning "$adapter: WoL enabled but systemd service creation failed"
+        ((failed_count++))
+      fi
+    else
+      log_error "$adapter: Failed to enable Wake-on-LAN"
+      ((failed_count++))
+    fi
+  done
+  
+  # Summary
+  echo ""
+  if [ $configured_count -gt 0 ]; then
+    log_success "Wake-on-LAN configured for $configured_count adapter(s)"
+    
+    # Show MAC addresses for all configured adapters
+    echo ""
+    log_info "Wake-on-LAN MAC addresses:"
+    for adapter in "${adapters[@]}"; do
+      local mac=$(get_interface_mac "$adapter")
+      if [ -n "$mac" ] && check_wol_support "$adapter"; then
+        local status=$(get_wol_status "$adapter")
+        if [[ "$status" == "g" ]]; then
+          echo -e "  ${GREEN}$adapter${RESET}: $mac ${GREEN}(enabled)${RESET}"
+        fi
+      fi
+    done
+    echo ""
+    log_info "To wake this computer remotely, use: wakeonlan <MAC_ADDRESS>"
+  fi
+  
+  if [ $skipped_count -gt 0 ]; then
+    log_warning "$skipped_count adapter(s) skipped (no WoL support)"
+  fi
+  
+  if [ $failed_count -gt 0 ]; then
+    log_warning "$failed_count adapter(s) failed to configure"
+  fi
+  
+  return 0
+}
+
+# Function to create systemd service for Wake-on-LAN persistence
+create_wol_systemd_service() {
+  local adapter="$1"
+  local service_file="/etc/systemd/system/wol-$adapter.service"
+  
+  # Check if service already exists
+  if [ -f "$service_file" ]; then
+    log_info "$adapter: Systemd service already exists"
+    return 0
+  fi
+  
+  # Create the systemd service file
+  sudo tee "$service_file" > /dev/null <<EOF
+[Unit]
+Description=Enable Wake-on-LAN for $adapter
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ethtool -s $adapter wol g
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  if [ $? -eq 0 ]; then
+    # Reload systemd and enable the service
+    sudo systemctl daemon-reload 2>/dev/null
+    if sudo systemctl enable "wol-$adapter.service" 2>/dev/null; then
+      log_success "$adapter: Systemd service created and enabled"
+      return 0
+    else
+      log_warning "$adapter: Systemd service created but failed to enable"
+      return 1
+    fi
+  else
+    log_error "$adapter: Failed to create systemd service"
+    return 1
+  fi
+}
+
 # Execute all service and maintenance steps
 setup_firewall_and_services
 check_battery_status
@@ -1580,3 +1897,4 @@ detect_bluetooth_hardware
 detect_and_install_gpu_drivers
 detect_hybrid_graphics
 setup_laptop_optimizations
+setup_wake_on_lan

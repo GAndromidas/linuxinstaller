@@ -29,6 +29,13 @@ INSTALLATION_START_TIME=0   # Overall installation start time
 TOTAL_STEPS=10
 : "${VERBOSE:=false}"   # Can be overridden/exported by caller
 
+# Configuration constants
+readonly MIN_DISK_SPACE_KB=2097152  # 2GB in KB
+readonly DEFAULT_TIMEOUT=3
+readonly MAX_RETRIES=3
+readonly HIGH_MEMORY_THRESHOLD_GB=32
+readonly LOW_MEMORY_THRESHOLD_GB=4
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script directory
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
@@ -59,7 +66,7 @@ print_progress() {
   local current="$1"
   local total="$2"
   local description="$3"
-  local max_width=$((TERM_WIDTH - 25))  # Leave space for progress indicator
+  local max_width=$((TERM_WIDTH - 20))  # Leave space for progress indicator
 
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
@@ -68,8 +75,7 @@ print_progress() {
 
   clear_line
 
-  local percentage=$((current * 100 / total))
-  printf "${CYAN}[%d/%d] %s: %d%%${RESET}" "$current" "$total" "$description" "$percentage"
+  printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
 }
 
 # Enhanced progress bar for long operations with speed indicator
@@ -78,7 +84,7 @@ show_progress_bar() {
   local total="$2"
   local description="$3"
   local speed="${4:-}"
-  local max_width=$((TERM_WIDTH - 30))
+  local max_width=$((TERM_WIDTH - 25))
 
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
@@ -87,8 +93,7 @@ show_progress_bar() {
 
   clear_line
 
-  local percentage=$((current * 100 / total))
-  printf "${CYAN}[%d/%d] %s: %d%%" "$current" "$total" "$description" "$percentage"
+  printf "${CYAN}[%d/%d] %s" "$current" "$total" "$description"
 
   if [ -n "$speed" ]; then
     printf " ${GREEN}%s${RESET}" "$speed"
@@ -520,6 +525,79 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# Function: validate_package_name
+# Description: Validates package name format
+# Parameters: $1 - Package name
+# Returns: 0 if valid, 1 if invalid
+validate_package_name() {
+  local pkg="$1"
+  
+  if [[ -z "$pkg" ]]; then
+    log_error "Package name cannot be empty"
+    return 1
+  fi
+  
+  # Package names should only contain alphanumeric, -, _, and .
+  if [[ ! "$pkg" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+    log_error "Invalid package name format: $pkg"
+    return 1
+  fi
+  
+  return 0
+}
+
+# Function: check_sudo_access
+# Description: Validates sudo is available and user has privileges
+# Returns: 0 on success, 1 on failure
+check_sudo_access() {
+  if ! command -v sudo &>/dev/null; then
+    log_error "sudo is not installed. Please install it: pacman -S sudo"
+    return 1
+  fi
+  
+  # Test sudo access
+  if ! sudo -n true 2>/dev/null; then
+    ui_info "Please enter your sudo password:"
+    if ! sudo -v; then
+      log_error "Sudo authentication failed"
+      return 1
+    fi
+  fi
+  
+  return 0
+}
+
+# Function: handle_package_error
+# Description: Provides actionable error messages for package installation failures
+# Parameters: $1 - Package name, $2 - Error output
+handle_package_error() {
+  local pkg="$1"
+  local error_output="$2"
+  
+  case "$error_output" in
+    *"not found"*|*"target not found"*)
+      log_error "Package '$pkg' not found in repositories"
+      log_info "Try searching: pacman -Ss $pkg"
+      ;;
+    *"conflict"*|*"conflicts"*)
+      log_error "Package '$pkg' conflicts with installed packages"
+      log_info "Try: pacman -Rs $(pacman -Qq | head -1)"
+      ;;
+    *"signature"*|*"PGP"*)
+      log_error "Package signature verification failed for '$pkg'"
+      log_info "Try: sudo pacman-key --refresh-keys"
+      ;;
+    *"permission"*|*"Permission denied"*)
+      log_error "Permission denied installing '$pkg'"
+      log_info "Check sudo access: sudo -v"
+      ;;
+    *)
+      log_error "Failed to install $pkg"
+      log_info "Check log for details: $INSTALL_LOG"
+      ;;
+  esac
+}
+
 # Function to get all installed kernel types
 get_installed_kernel_types() {
   local kernel_types=()
@@ -685,6 +763,12 @@ install_package_generic() {
   fi
 
   for pkg in "${pkgs[@]}"; do
+    # Add validation
+    if ! validate_package_name "$pkg"; then
+      ((failed++))
+      continue
+    fi
+    
     ((current++))
 
     # Check if already installed
@@ -732,19 +816,20 @@ install_package_generic() {
       if error_output=$(eval "$install_cmd" 2>&1); then
         $VERBOSE && ui_success "[$current/$total] $pkg [OK]"
         INSTALLED_PACKAGES+=("$pkg")
-      else
-        ui_error "[$current/$total] $pkg [FAIL]"
-        FAILED_PACKAGES+=("$pkg")
-        log_error "Failed to install $pkg via $manager_name"
-        # Log the actual error for debugging
-        echo "$error_output" >> "$INSTALL_LOG"
-        # Show last line of error if verbose or if it's a critical error
-        if $VERBOSE || [[ "$error_output" == *"error:"* ]]; then
-          local last_error=$(echo "$error_output" | grep -i "error" | tail -1)
-          [ -n "$last_error" ] && log_warning "  Error: $last_error"
-        fi
-        ((failed++))
+    else
+      ui_error "[$current/$total] $pkg [FAIL]"
+      FAILED_PACKAGES+=("$pkg")
+      handle_package_error "$pkg" "$error_output"
+      log_error "Failed to install $pkg via $manager_name"
+      # Log the actual error for debugging
+      echo "$error_output" >> "$INSTALL_LOG"
+      # Show last line of error if verbose or if it's a critical error
+      if $VERBOSE || [[ "$error_output" == *"error:"* ]]; then
+        local last_error=$(echo "$error_output" | grep -i "error" | tail -1)
+        [ -n "$last_error" ] && log_warning "  Error: $last_error"
       fi
+      ((failed++))
+    fi
     fi
   done
 

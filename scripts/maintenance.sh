@@ -642,10 +642,38 @@ setup_btrfs_snapshots() {
   fi
 }
 
+# Function to verify essential tools are installed
+verify_essential_tools() {
+  step "Verifying essential tools"
+  
+  local missing_tools=()
+  
+  # Check yay (AUR helper)
+  if command -v yay >/dev/null 2>&1; then
+    log_success "yay (AUR helper) is installed"
+  else
+    log_warning "yay (AUR helper) is not installed"
+    missing_tools+=("yay")
+  fi
+  
+  # Check flatpak (optional but useful)
+  if command -v flatpak >/dev/null 2>&1; then
+    log_success "flatpak is installed"
+  else
+    log_info "flatpak is not installed (optional)"
+  fi
+  
+  if [ ${#missing_tools[@]} -gt 0 ]; then
+    log_info "Missing tools: ${missing_tools[*]}"
+    log_info "These can be installed later if needed"
+  fi
+}
+
 # Execute all maintenance and snapshot steps
 cleanup_and_optimize
 setup_maintenance
 cleanup_helpers
+verify_essential_tools
 setup_btrfs_snapshots
 
 # Final message

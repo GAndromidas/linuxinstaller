@@ -24,6 +24,8 @@ install_yay() {
   # Create temporary directory for building
   local temp_dir
   temp_dir=$(mktemp -d)
+  chmod 700 "$temp_dir"  # Secure permissions
+  trap "rm -rf '$temp_dir'" EXIT  # Ensure cleanup on exit
   cd "$temp_dir" || { log_error "Failed to create temporary directory"; return 1; }
 
   # Clone yay repository
@@ -33,7 +35,6 @@ install_yay() {
   else
     print_status " [FAIL]" "$RED"
     log_error "Failed to clone yay repository"
-    cd - >/dev/null && rm -rf "$temp_dir"
     return 1
   fi
 
@@ -46,7 +47,6 @@ install_yay() {
   else
     print_status " [FAIL]" "$RED"
     log_error "Failed to build yay"
-    cd - >/dev/null && rm -rf "$temp_dir"
     return 1
   fi
 
@@ -57,13 +57,12 @@ install_yay() {
   else
     print_status " [FAIL]" "$RED"
     log_error "yay installation verification failed"
-    cd - >/dev/null && rm -rf "$temp_dir"
     return 1
   fi
 
-  # Clean up
+  # Clean up (handled by trap)
   print_progress 4 4 "Cleaning up"
-  cd - >/dev/null && rm -rf "$temp_dir"
+  cd - >/dev/null
   print_status " [OK]" "$GREEN"
 
   echo -e "\n${GREEN}yay AUR helper installed successfully${RESET}"

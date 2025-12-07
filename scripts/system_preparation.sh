@@ -20,6 +20,24 @@ install_speedtest_cli() {
   return 0
 }
 
+# Function to check internet connection with retry logic
+check_internet_with_retry() {
+  local max_attempts=3
+  local attempt=1
+  
+  while [ $attempt -le $max_attempts ]; do
+    if ping -c 1 -W 5 archlinux.org &>/dev/null; then
+      return 0
+    fi
+    log_warning "Internet check attempt $attempt/$max_attempts failed"
+    [ $attempt -lt $max_attempts ] && sleep 2
+    ((attempt++))
+  done
+  
+  log_error "No internet connection after $max_attempts attempts"
+  return 1
+}
+
 # Function to detect network speed and optimize downloads
 detect_network_speed() {
   step "Testing network speed and optimizing download settings"
@@ -84,8 +102,8 @@ check_prerequisites() {
     return 1
   fi
 
-  # Check internet connection
-  if ! ping -c 1 -W 5 archlinux.org &>/dev/null; then
+  # Check internet connection with retry
+  if ! check_internet_with_retry; then
     log_error "No internet connection detected. Please check your network."
     return 1
   fi
@@ -221,8 +239,13 @@ install_all_packages() {
 }
 
 update_system() {
-  # Update system
-  run_step "System update" sudo pacman -Syyu --noconfirm
+  step "System update"
+  if ! sudo pacman -Syyu --noconfirm; then
+    log_error "System update failed. Please check your internet connection and try again."
+    log_info "You can retry this step by running: sudo pacman -Syyu"
+    return 1
+  fi
+  log_success "System updated successfully"
 }
 
 set_sudo_pwfeedback() {

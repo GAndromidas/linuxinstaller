@@ -40,7 +40,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 *   **Flexible Installation Modes**: Choose between a feature-rich **Standard** setup, a lightweight **Minimal** installation, a true headless **Server** mode, or an interactive **Custom** mode to select your own packages.
 *   **Enhanced Shell**: Comes with a pre-configured Zsh environment powered by Oh-My-Zsh and the Starship prompt.
 *   **Smart Resume Functionality**: The installer tracks its progress and can be safely re-run to resume from the last completed step with an interactive menu showing completed steps.
-*   **Real-time Progress Tracking**: Visual progress bars with percentage completion and time estimation for all installation steps.
+*   **Real-time Progress Tracking**: Visual progress bars with step counters and time estimation for all installation steps.
 *   **Professional Interface**: Clean, minimal design following Arch Linux principles with enhanced visual feedback and status updates.
 
 ## Installation
@@ -67,7 +67,7 @@ The script will present a menu where you can choose your desired installation mo
 #### Installation Experience
 The installer provides a modern, user-friendly experience with:
 *   **Interactive Menu**: Clean interface powered by `gum` for mode selection and confirmations
-*   **Progress Visualization**: Real-time progress bars showing completion percentage for each step
+*   **Progress Visualization**: Real-time progress bars showing step counters for each step
 *   **Time Estimation**: Dynamic time estimates that improve as installation progresses
 *   **Resume Support**: If interrupted, the installer can resume from the last completed step
 *   **Professional Summary**: Minimal, clean installation summary following Arch Linux principles

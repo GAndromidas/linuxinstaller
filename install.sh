@@ -7,7 +7,7 @@ INSTALL_LOG="$HOME/.archinstaller.log"
 # Function to show help
 show_help() {
   cat << EOF
-Archinstaller - Comprehensive Arch Linux Post-Installation Script
+Archinstaller v$VERSION - Comprehensive Arch Linux Post-Installation Script
 
 USAGE:
     ./install.sh [OPTIONS]
@@ -66,6 +66,9 @@ clear
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
+
+# Get version
+VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "dev")
 
 # State tracking for error recovery
 STATE_FILE="$HOME/.archinstaller.state"
@@ -144,16 +147,26 @@ check_system_requirements() {
     exit 1
   fi
 
-  # Check internet connection
+  # Check internet connection (will use retry logic from common.sh if available)
   if ! ping -c 1 archlinux.org &>/dev/null; then
-    echo -e "${RED}Error: No internet connection detected!${RESET}"
-    echo -e "${YELLOW}   Please check your network connection and try again.${RESET}"
-    exit 1
+    # Try with retry if function is available
+    if declare -f check_internet_with_retry >/dev/null 2>&1; then
+      if ! check_internet_with_retry; then
+        echo -e "${RED}Error: No internet connection detected!${RESET}"
+        echo -e "${YELLOW}   Please check your network connection and try again.${RESET}"
+        exit 1
+      fi
+    else
+      echo -e "${RED}Error: No internet connection detected!${RESET}"
+      echo -e "${YELLOW}   Please check your network connection and try again.${RESET}"
+      exit 1
+    fi
   fi
 
   # Check available disk space (at least 2GB)
   local available_space=$(df / | awk 'NR==2 {print $4}')
-  if [[ $available_space -lt 2097152 ]]; then
+  local min_disk_space_kb=2097152  # 2GB in KB
+  if [[ $available_space -lt $min_disk_space_kb ]]; then
     echo -e "${RED}Error: Insufficient disk space!${RESET}"
     echo -e "${YELLOW}   At least 2GB free space is required.${RESET}"
     echo -e "${YELLOW}   Available: $((available_space / 1024 / 1024))GB${RESET}"
@@ -186,6 +199,9 @@ fi
 
 # Prompt for sudo using UI helpers
 if [ "$DRY_RUN" = false ]; then
+  if ! check_sudo_access; then
+    exit 1
+  fi
   ui_info "Please enter your sudo password to begin the installation:"
   sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
 else
@@ -196,14 +212,22 @@ fi
 if [ "$DRY_RUN" = false ]; then
   while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
   SUDO_KEEPALIVE_PID=$!
-  trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null; save_log_on_exit' EXIT INT TERM
+  trap 'cleanup_on_exit' EXIT INT TERM
 else
-  trap 'save_log_on_exit' EXIT INT TERM
+  trap 'cleanup_on_exit' EXIT INT TERM
 fi
 
-# Function to mark step as completed
+# Function to mark step as completed (with file locking to prevent race conditions)
 mark_step_complete() {
-  echo "$1" >> "$STATE_FILE"
+  local step="$1"
+  # Use file locking to prevent race conditions
+  (
+    flock -x 200 2>/dev/null || true
+    echo "$step" >> "$STATE_FILE"
+  ) 200>"$STATE_FILE.lock" 2>/dev/null || {
+    # Fallback if flock not available
+    echo "$step" >> "$STATE_FILE"
+  }
 }
 
 # Function to check if step was completed
@@ -276,13 +300,12 @@ mark_step_complete_with_progress() {
 
   # Show overall progress
   local completed_count=$(wc -l < "$STATE_FILE" 2>/dev/null || echo "0")
-  local progress_percentage=$((completed_count * 100 / TOTAL_STEPS))
 
   if supports_gum; then
     echo ""
-    gum style --margin "0 2" --foreground 10 "✓ Step completed! Overall progress: $progress_percentage% ($completed_count/$TOTAL_STEPS)"
+    gum style --margin "0 2" --foreground 10 "✓ Step completed! Progress: $completed_count/$TOTAL_STEPS"
   else
-    ui_success "Step completed! Overall progress: $progress_percentage% ($completed_count/$TOTAL_STEPS)"
+    ui_success "Step completed! Progress: $completed_count/$TOTAL_STEPS"
   fi
 }
 
@@ -294,6 +317,26 @@ save_log_on_exit() {
     echo "Installation ended: $(date)"
     echo "=========================================="
   } >> "$INSTALL_LOG"
+}
+
+# Function to cleanup on exit
+cleanup_on_exit() {
+  local exit_code=$?
+  
+  # Kill background processes
+  jobs -p | xargs -r kill 2>/dev/null || true
+  
+  # If failed, show recovery instructions
+  if [ $exit_code -ne 0 ] && [ "$DRY_RUN" != "true" ]; then
+    echo ""
+    ui_error "Installation failed. Recovery steps:"
+    ui_info "1. Check log: $INSTALL_LOG"
+    ui_info "2. Resume: ./install.sh (will skip completed steps)"
+    ui_info "3. Fresh start: rm $STATE_FILE && ./install.sh"
+  fi
+  
+  # Save final log entry
+  save_log_on_exit
 }
 
 # Installation start header
