@@ -28,7 +28,7 @@ configure_firewalld() {
     log_error "Failed to start firewalld"
     return 1
   fi
-  
+
   if ! sudo systemctl enable firewalld 2>/dev/null; then
     log_warning "Failed to enable firewalld (may already be enabled)"
   fi
@@ -141,30 +141,7 @@ configure_ufw() {
   fi
 }
 
-# Function to provide instructions for virt-manager guest integration
-configure_virt_manager_guest_integration() {
-  step "Checking for Virt-Manager and providing guest integration instructions"
-  if command -v virt-manager >/dev/null 2>&1; then
-    ui_info "Virt-Manager detected. For optimal virtual machine experience (copy/paste, file sharing, display resizing), you need to install guest agents inside your VMs."
-    echo ""
-    gum style --foreground 226 "Recommended packages for Linux guest VMs:"
-    gum style --margin "0 2" --foreground 15 "• spice-vdagent: Enables clipboard sharing (copy/paste), automatic display resizing, and cursor integration."
-    gum style --margin "0 2" --foreground 15 "• qemu-guest-agent: Allows the host to send commands to the guest (e.g., graceful shutdown) and retrieve information."
-    echo ""
-    gum style --foreground 226 "Installation steps inside your Linux guest VM (e.g., for Arch Linux guests):"
-    gum style --margin "0 2" --foreground 15 "1. Open a terminal in your guest VM."
-    gum style --margin "0 2" --foreground 15 "2. Run: ${GREEN}sudo pacman -S spice-vdagent qemu-guest-agent${RESET}"
-    gum style --margin "0 2" --foreground 15 "3. Enable the QEMU guest agent service: ${GREEN}sudo systemctl enable --now qemu-guest-agent${RESET}"
-    echo ""
-    gum style --foreground 226 "Ensure your VM configuration in Virt-Manager includes:"
-    gum style --margin "0 2" --foreground 15 "• A 'Channel' device with 'Spice agent (qemu-ga)' type."
-    gum style --margin "0 2" --foreground 15 "• A 'Video' device with 'QXL' or 'Virtio' model and a 'Spice server' display."
-    echo ""
-    log_success "Virt-Manager guest integration instructions provided."
-  else
-    log_info "Virt-Manager not installed. Skipping guest integration instructions."
-  fi
-}
+
 
 configure_user_groups() {
   step "Configuring user groups"
@@ -236,8 +213,7 @@ enable_services() {
     sshd.service
   )
 
-  # Check and configure virt-manager guest integration
-  configure_virt_manager_guest_integration
+
 
   # Conditionally add rustdesk.service if installed
   if pacman -Q rustdesk-bin &>/dev/null || pacman -Q rustdesk &>/dev/null; then
@@ -361,7 +337,7 @@ check_traditional_swap() {
       response=${response,,}
       [[ "$response" != "n" && "$response" != "no" ]] && should_disable=true
     fi
-    
+
     if [ "$should_disable" = true ]; then
       log_info "Disabling traditional swap..."
       sudo swapoff -a
@@ -460,7 +436,7 @@ setup_zram_swap() {
           response=${response,,}
           [[ "$response" == "y" || "$response" == "yes" ]] && enable_zram_anyway=true
         fi
-        
+
         if [ "$enable_zram_anyway" = false ]; then
           log_info "Keeping disk swap for hibernation support"
           return
@@ -496,7 +472,7 @@ setup_zram_swap() {
         response=${response,,}
         [[ "$response" == "y" || "$response" == "yes" ]] && enable_zram=true
       fi
-      
+
       if [ "$enable_zram" = true ]; then
         check_traditional_swap
         sudo systemctl enable systemd-zram-setup@zram0
@@ -545,28 +521,6 @@ EOF
 
 detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
-
-  # VM detection function (from gamemode.sh)
-  is_vm() {
-    if grep -q -i 'hypervisor' /proc/cpuinfo; then
-      return 0
-    fi
-    if systemd-detect-virt --quiet; then
-      return 0
-    fi
-    if [ -d /proc/xen ]; then
-      return 0
-    fi
-    return 1
-  }
-
-  if is_vm; then
-    echo -e "${YELLOW}Virtual machine detected. Installing VM guest utilities and skipping physical GPU drivers.${RESET}"
-    install_packages_quietly qemu-guest-agent spice-vdagent xf86-video-qxl
-    log_success "VM guest utilities installed."
-    return
-  fi
-
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
     echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
@@ -595,76 +549,24 @@ detect_and_install_gpu_drivers() {
       nvidia_family="Maxwell or newer"
       nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
       nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
-    elif lspci | grep -Eiq 'GK|Kepler'; then
-      nvidia_family="Kepler"
-      nvidia_pkg="nvidia-470xx-dkms"
-      nvidia_note="(legacy, AUR, unsupported)"
-    elif lspci | grep -Eiq 'GF|Fermi'; then
-      nvidia_family="Fermi"
-      nvidia_pkg="nvidia-390xx-dkms"
-      nvidia_note="(legacy, AUR, unsupported)"
-    elif lspci | grep -Eiq 'G8|Tesla'; then
-      nvidia_family="Tesla"
-      nvidia_pkg="nvidia-340xx-dkms"
-      nvidia_note="(legacy, AUR, unsupported)"
     else
-      nvidia_family="Unknown"
-      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(defaulting to latest proprietary driver)"
+      # All other older cards (Kepler, Fermi, Tesla) are considered legacy
+      nvidia_family="Legacy (Kepler/Fermi/Tesla/Other)"
+      nvidia_pkg="nouveau"
+      nvidia_note="(legacy, utilizing Nouveau open-source drivers)"
     fi
 
     echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
-    echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
 
-    if [[ "$nvidia_family" == "Kepler" || "$nvidia_family" == "Fermi" || "$nvidia_family" == "Tesla" ]]; then
-      echo -e "${YELLOW}Your NVIDIA GPU is legacy and may not be well supported by the proprietary driver, especially on Wayland.${RESET}"
-      echo "For best Wayland support, it is recommended to use the open-source Nouveau driver."
-      echo "Choose driver to install:"
-      echo "  1) Nouveau (open source, best for Wayland, basic 3D support)"
-      echo "  2) Proprietary legacy NVIDIA driver (AUR, may not work with Wayland, unsupported)"
-      local legacy_choice
-      while true; do
-        read -r -p "Enter your choice [1-2]: " legacy_choice
-        case "$legacy_choice" in
-          1)
-            echo -e "${CYAN}Installing Nouveau drivers...${RESET}"
-            install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-            log_success "Nouveau drivers installed."
-            break
-            ;;
-          2)
-            echo -e "${CYAN}Installing legacy proprietary NVIDIA drivers...${RESET}"
-            if [[ "$nvidia_family" == "Kepler" ]]; then
-              yay -S --noconfirm --needed nvidia-470xx-dkms
-            elif [[ "$nvidia_family" == "Fermi" ]]; then
-              yay -S --noconfirm --needed nvidia-390xx-dkms
-            elif [[ "$nvidia_family" == "Tesla" ]]; then
-              yay -S --noconfirm --needed nvidia-340xx-dkms
-            fi
-            log_success "Legacy proprietary NVIDIA drivers installed."
-            break
-            ;;
-          *)
-            echo -e "${RED}Invalid choice! Please enter 1 or 2.${RESET}"
-            ;;
-        esac
-      done
-      return
-    fi
-
-    # If AUR package, warn user
-    if [[ "$nvidia_pkg" == *"dkms"* && "$nvidia_pkg" != *"nvidia-open-dkms"* ]]; then
-      log_warning "This is a legacy/unsupported NVIDIA card. The driver will be installed from the AUR if yay is available."
-      if ! command -v yay &>/dev/null; then
-        log_error "yay (AUR helper) is not installed. Cannot install legacy NVIDIA driver."
-        return 1
-      fi
-      yay -S --noconfirm --needed $nvidia_pkg
+    if [[ "$nvidia_pkg" == "nouveau" ]]; then
+      echo -e "${YELLOW}Your NVIDIA GPU is legacy. Installing open-source Nouveau drivers...${RESET}"
+      install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
+      log_success "Nouveau drivers installed."
     else
+      echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
       install_packages_quietly $nvidia_pkg
+      log_success "NVIDIA drivers installed."
     fi
-
-    log_success "NVIDIA drivers installed."
     return
   else
     echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
@@ -1053,55 +955,6 @@ detect_kernel_type() {
   esac
 }
 
-# Function to detect VM hypervisor
-detect_vm_hypervisor() {
-  step "Detecting virtual machine environment"
-
-  if command -v systemd-detect-virt >/dev/null 2>&1; then
-    local virt_type=$(systemd-detect-virt)
-
-    if [ "$virt_type" != "none" ]; then
-      log_success "Virtual machine detected: $virt_type"
-
-      case "$virt_type" in
-        kvm|qemu)
-          log_info "KVM/QEMU detected - qemu-guest-agent already installed"
-          ;;
-        vmware)
-          log_info "VMware detected - consider installing open-vm-tools"
-          if ! pacman -Q open-vm-tools &>/dev/null; then
-            install_packages_quietly open-vm-tools
-            sudo systemctl enable --now vmtoolsd.service
-            log_success "VMware tools installed and enabled"
-          fi
-          ;;
-        oracle)
-          log_info "VirtualBox detected - consider installing virtualbox-guest-utils"
-          if ! pacman -Q virtualbox-guest-utils &>/dev/null; then
-            install_packages_quietly virtualbox-guest-utils
-            sudo systemctl enable --now vboxservice.service
-            log_success "VirtualBox guest utilities installed"
-          fi
-          ;;
-        microsoft)
-          log_info "Hyper-V detected"
-          if ! pacman -Q hyperv &>/dev/null; then
-            install_packages_quietly hyperv
-            log_success "Hyper-V utilities installed"
-          fi
-          ;;
-        *)
-          log_info "Running in virtual machine: $virt_type"
-          ;;
-      esac
-    else
-      log_info "Running on bare metal (physical hardware)"
-    fi
-  else
-    log_warning "systemd-detect-virt not available"
-  fi
-}
-
 # Function to detect desktop environment version
 detect_de_version() {
   step "Detecting desktop environment version"
@@ -1377,7 +1230,7 @@ install_touchpad_gestures() {
 
   # Install touchpad gesture support
   local should_install=false
-  
+
   # Get user confirmation (using gum if available, otherwise read)
   if [ "$touchpad_detected" = false ]; then
     log_warning "No touchpad detected. Gesture support may not work on this device."
@@ -1407,7 +1260,7 @@ install_touchpad_gestures() {
       [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
     fi
   fi
-  
+
   if [ "$should_install" = false ]; then
     log_info "Touchpad gesture installation skipped"
     return
@@ -1555,25 +1408,25 @@ show_laptop_summary() {
 # Also handles any interface with ethernet link type regardless of name
 detect_ethernet_adapters() {
   local adapters=()
-  
+
   # Use ip command to get all network interfaces
   local all_interfaces=$(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || echo "")
-  
+
   if [ -z "$all_interfaces" ]; then
     log_warning "Could not detect network interfaces"
     return 1
   fi
-  
+
   for iface in $all_interfaces; do
     # Skip loopback interface
     [[ "$iface" == "lo" ]] && continue
-    
+
     # Skip known virtual/wireless interfaces
     [[ "$iface" =~ ^(docker|veth|br-|virbr|vmnet|wlan|wifi|wl-|wwan|wwp) ]] && continue
-    
+
     # Skip if wireless interface (check sysfs)
     [ -d "/sys/class/net/$iface/wireless" ] && continue
-    
+
     # Check interface type via sysfs (1 = Ethernet, ARPHRD_ETHER)
     if [ -d "/sys/class/net/$iface" ]; then
       local iface_type=$(cat "/sys/class/net/$iface/type" 2>/dev/null || echo "")
@@ -1585,7 +1438,7 @@ detect_ethernet_adapters() {
       fi
     fi
   done
-  
+
   printf '%s\n' "${adapters[@]}"
 }
 
@@ -1598,17 +1451,17 @@ get_interface_mac() {
 # Function to check if Wake-on-LAN is supported on an interface
 check_wol_support() {
   local iface="$1"
-  
+
   # Check if ethtool is available
   if ! command -v ethtool >/dev/null 2>&1; then
     return 1
   fi
-  
+
   # Check if interface supports WoL
   if sudo ethtool "$iface" 2>/dev/null | grep -q "Wake-on:"; then
     return 0
   fi
-  
+
   return 1
 }
 
@@ -1621,7 +1474,7 @@ get_wol_status() {
 # Function to setup Wake-on-LAN for all Ethernet adapters
 setup_wake_on_lan() {
   step "Configuring Wake-on-LAN for Ethernet adapters"
-  
+
   # Install ethtool if not available
   if ! command -v ethtool >/dev/null 2>&1; then
     log_info "Installing ethtool for Wake-on-LAN support..."
@@ -1630,38 +1483,38 @@ setup_wake_on_lan() {
       return 1
     fi
   fi
-  
+
   # Detect all Ethernet adapters
   local adapters=($(detect_ethernet_adapters))
-  
+
   if [ ${#adapters[@]} -eq 0 ]; then
     log_warning "No Ethernet adapters detected. Skipping Wake-on-LAN configuration."
     return 0
   fi
-  
+
   log_info "Detected ${#adapters[@]} Ethernet adapter(s): ${adapters[*]}"
-  
+
   local configured_count=0
   local skipped_count=0
   local failed_count=0
-  
+
   for adapter in "${adapters[@]}"; do
     log_info "Configuring Wake-on-LAN for $adapter..."
-    
+
     # Check if WoL is supported
     if ! check_wol_support "$adapter"; then
       log_warning "$adapter does not support Wake-on-LAN (skipping)"
       ((skipped_count++))
       continue
     fi
-    
+
     # Get current status
     local current_status=$(get_wol_status "$adapter")
-    
+
     # Check if already enabled
     if [[ "$current_status" == "g" ]]; then
       log_info "$adapter: Wake-on-LAN already enabled (magic packet mode)"
-      
+
       # Check if systemd service exists
       if [ -f "/etc/systemd/system/wol-$adapter.service" ]; then
         log_info "$adapter: Systemd service already exists"
@@ -1669,20 +1522,20 @@ setup_wake_on_lan() {
         continue
       fi
     fi
-    
+
     # Enable Wake-on-LAN (magic packet mode)
     if sudo ethtool -s "$adapter" wol g 2>/dev/null; then
       log_success "$adapter: Wake-on-LAN enabled (magic packet mode)"
-      
+
       # Get MAC address for user information
       local mac_address=$(get_interface_mac "$adapter")
       if [ -n "$mac_address" ]; then
         log_info "$adapter MAC address: $mac_address"
       fi
-      
+
       # Create systemd service for persistence
       create_wol_systemd_service "$adapter"
-      
+
       if [ $? -eq 0 ]; then
         ((configured_count++))
       else
@@ -1694,12 +1547,12 @@ setup_wake_on_lan() {
       ((failed_count++))
     fi
   done
-  
+
   # Summary
   echo ""
   if [ $configured_count -gt 0 ]; then
     log_success "Wake-on-LAN configured for $configured_count adapter(s)"
-    
+
     # Show MAC addresses for all configured adapters
     echo ""
     log_info "Wake-on-LAN MAC addresses:"
@@ -1715,15 +1568,15 @@ setup_wake_on_lan() {
     echo ""
     log_info "To wake this computer remotely, use: wakeonlan <MAC_ADDRESS>"
   fi
-  
+
   if [ $skipped_count -gt 0 ]; then
     log_warning "$skipped_count adapter(s) skipped (no WoL support)"
   fi
-  
+
   if [ $failed_count -gt 0 ]; then
     log_warning "$failed_count adapter(s) failed to configure"
   fi
-  
+
   return 0
 }
 
@@ -1731,13 +1584,13 @@ setup_wake_on_lan() {
 create_wol_systemd_service() {
   local adapter="$1"
   local service_file="/etc/systemd/system/wol-$adapter.service"
-  
+
   # Check if service already exists
   if [ -f "$service_file" ]; then
     log_info "$adapter: Systemd service already exists"
     return 0
   fi
-  
+
   # Create the systemd service file
   sudo tee "$service_file" > /dev/null <<EOF
 [Unit]
@@ -1778,7 +1631,6 @@ detect_filesystem_type
 detect_storage_type
 detect_audio_system
 detect_kernel_type
-detect_vm_hypervisor
 detect_de_version
 detect_bluetooth_hardware
 detect_and_install_gpu_drivers
