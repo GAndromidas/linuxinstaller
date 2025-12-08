@@ -523,12 +523,12 @@ detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
   if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
     echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
+    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon libva-mesa-driver lib32-libva-mesa-driver
     log_success "AMD drivers and Vulkan support installed"
     log_info "AMD GPU will use AMDGPU driver after reboot"
   elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
     echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel mesa-vdpau libva-mesa-driver lib32-mesa-vdpau lib32-libva-mesa-driver
+    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel libva-mesa-driver lib32-libva-mesa-driver
     log_success "Intel drivers and Vulkan support installed"
     log_info "Intel GPU will use i915 or xe driver after reboot"
   elif lspci | grep -qi nvidia; then
