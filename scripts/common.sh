@@ -1,6 +1,12 @@
 #!/bin/bash
 set -uo pipefail
 
+# Prevent multiple sourcing
+if [[ "${COMMON_SH_LOADED:-}" == "true" ]]; then
+    return 0
+fi
+readonly COMMON_SH_LOADED=true
+
 # Color variables for output formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -531,18 +537,18 @@ command_exists() {
 # Returns: 0 if valid, 1 if invalid
 validate_package_name() {
   local pkg="$1"
-  
+
   if [[ -z "$pkg" ]]; then
     log_error "Package name cannot be empty"
     return 1
   fi
-  
+
   # Package names should only contain alphanumeric, -, _, and .
   if [[ ! "$pkg" =~ ^[a-zA-Z0-9._-]+$ ]]; then
     log_error "Invalid package name format: $pkg"
     return 1
   fi
-  
+
   return 0
 }
 
@@ -554,7 +560,7 @@ check_sudo_access() {
     log_error "sudo is not installed. Please install it: pacman -S sudo"
     return 1
   fi
-  
+
   # Test sudo access
   if ! sudo -n true 2>/dev/null; then
     ui_info "Please enter your sudo password:"
@@ -563,7 +569,7 @@ check_sudo_access() {
       return 1
     fi
   fi
-  
+
   return 0
 }
 
@@ -573,7 +579,7 @@ check_sudo_access() {
 handle_package_error() {
   local pkg="$1"
   local error_output="$2"
-  
+
   case "$error_output" in
     *"not found"*|*"target not found"*)
       log_error "Package '$pkg' not found in repositories"
@@ -768,7 +774,7 @@ install_package_generic() {
       ((failed++))
       continue
     fi
-    
+
     ((current++))
 
     # Check if already installed

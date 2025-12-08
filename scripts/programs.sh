@@ -92,18 +92,18 @@ ensure_yq() {
 # Returns: 0 if valid, 1 if invalid
 validate_programs_yaml() {
 	local yaml_file="$1"
-	
+
 	if [ ! -f "$yaml_file" ]; then
 		log_error "Programs YAML file not found: $yaml_file"
 		return 1
 	fi
-	
+
 	# Validate YAML syntax
 	if ! yq eval '.' "$yaml_file" &>/dev/null; then
 		log_error "Invalid YAML syntax in $yaml_file"
 		return 1
 	fi
-	
+
 	# Validate required sections exist
 	local required_sections=("pacman" "essential")
 	for section in "${required_sections[@]}"; do
@@ -112,7 +112,7 @@ validate_programs_yaml() {
 			return 1
 		fi
 	done
-	
+
 	return 0
 }
 
@@ -157,12 +157,12 @@ read_yaml_simple_packages() {
 # ===== Load All Package Lists from YAML =====
 load_package_lists_from_yaml() {
 	PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
-	
-	if ! validate_programs_yaml "$PROGRAMS_YAML"; then
+
+	if ! ensure_yq; then
 		return 1
 	fi
 
-	if ! ensure_yq; then
+	if ! validate_programs_yaml "$PROGRAMS_YAML"; then
 		return 1
 	fi
 
