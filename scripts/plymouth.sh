@@ -13,7 +13,7 @@ print_progress() {
 
   # Use printf to avoid a newline, allowing print_status to append to it.
   # \r and \033[K ensure the line is overwritten on each update.
-  printf "\r\033[K${CYAN}[%d/%d]${RESET} %s..." "$current" "$total" "$description"
+  printf "\r\033[K${CYAN}%s...${RESET}" "$description"
 }
 
 # Use different variable names to avoid conflicts
@@ -129,7 +129,7 @@ add_kernel_parameters() {
   fi
 }
 
-print_summary() {
+print_plymouth_summary() {
   echo -e "\\n${CYAN}========= PLYMOUTH SUMMARY =========${RESET}"
   if [ ${#PLYMOUTH_ERRORS[@]} -eq 0 ]; then
     echo -e "${GREEN}Plymouth configured successfully!${RESET}"
@@ -200,7 +200,7 @@ main() {
   run_step "Setting Plymouth theme" set_plymouth_theme
   run_step "Adding 'splash' to all kernel parameters" add_kernel_parameters
 
-  print_summary
+  print_plymouth_summary
 }
 
 main "$@"

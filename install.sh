@@ -322,10 +322,10 @@ save_log_on_exit() {
 # Function to cleanup on exit
 cleanup_on_exit() {
   local exit_code=$?
-  
+
   # Kill background processes
   jobs -p | xargs -r kill 2>/dev/null || true
-  
+
   # If failed, show recovery instructions
   if [ $exit_code -ne 0 ] && [ "$DRY_RUN" != "true" ]; then
     echo ""
@@ -334,7 +334,7 @@ cleanup_on_exit() {
     ui_info "2. Resume: ./install.sh (will skip completed steps)"
     ui_info "3. Fresh start: rm $STATE_FILE && ./install.sh"
   fi
-  
+
   # Save final log entry
   save_log_on_exit
 }
@@ -486,6 +486,11 @@ fi
 if declare -f print_programs_summary >/dev/null 2>&1; then
   print_programs_summary
 fi
+
+if declare -f print_gaming_summary >/dev/null 2>&1; then
+  print_gaming_summary
+fi
+
 print_summary
 log_performance "Total installation time"
 

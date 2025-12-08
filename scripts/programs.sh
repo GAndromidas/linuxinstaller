@@ -280,6 +280,15 @@ custom_flatpak_selection() {
 
 # ===== Package List Determination =====
 
+detect_logitech_devices() {
+	if grep -qi "Logitech" /sys/bus/usb/devices/*/manufacturer 2>/dev/null; then
+		ui_info "Logitech device detected. Adding 'solaar' to installation list."
+		if [[ ! " ${essential_programs[*]} " =~ " solaar " ]]; then
+			essential_programs+=("solaar")
+		fi
+	fi
+}
+
 determine_package_lists() {
 	ui_info "Determining package lists for '$INSTALL_MODE' mode..."
 	essential_programs=("${pacman_programs[@]}")
@@ -288,6 +297,7 @@ determine_package_lists() {
 	"default")
 		essential_programs+=("${essential_programs_default[@]}")
 		yay_programs=("${yay_programs_default[@]}")
+		detect_logitech_devices
 		;;
 	"minimal")
 		essential_programs+=("${essential_programs_minimal[@]}")

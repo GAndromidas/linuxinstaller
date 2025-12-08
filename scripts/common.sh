@@ -72,7 +72,7 @@ print_progress() {
   local current="$1"
   local total="$2"
   local description="$3"
-  local max_width=$((TERM_WIDTH - 20))  # Leave space for progress indicator
+  local max_width=$((TERM_WIDTH - 5))
 
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
@@ -81,7 +81,7 @@ print_progress() {
 
   clear_line
 
-  printf "${CYAN}[%d/%d] %s${RESET}" "$current" "$total" "$description"
+  printf "${CYAN}%s${RESET}" "$description"
 }
 
 # Enhanced progress bar for long operations with speed indicator
@@ -90,7 +90,7 @@ show_progress_bar() {
   local total="$2"
   local description="$3"
   local speed="${4:-}"
-  local max_width=$((TERM_WIDTH - 25))
+  local max_width=$((TERM_WIDTH - 15))
 
   # Truncate description if too long
   if [ ${#description} -gt $max_width ]; then
@@ -99,7 +99,7 @@ show_progress_bar() {
 
   clear_line
 
-  printf "${CYAN}[%d/%d] %s" "$current" "$total" "$description"
+  printf "${CYAN}%s" "$description"
 
   if [ -n "$speed" ]; then
     printf " ${GREEN}%s${RESET}" "$speed"

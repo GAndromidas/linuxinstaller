@@ -67,8 +67,6 @@ essential:
       description: "FTP client for file transfers"
     - name: "kdenlive"
       description: "Video editing software"
-    - name: "solaar"
-      description: "Device manager for Logitech's Unifying Receiver peripherals"
     - name: "zed"
       description: "High-performance multiplayer code editor"
 

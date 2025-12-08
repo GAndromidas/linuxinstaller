@@ -207,7 +207,11 @@ enable_gamemode() {
 }
 
 # ===== Summary =====
-print_summary() {
+print_gaming_summary() {
+	if [[ ${#GAMING_INSTALLED[@]} -eq 0 && ${#GAMING_ERRORS[@]} -eq 0 ]]; then
+		return
+	fi
+
 	echo ""
 	ui_header "Gaming Mode Setup Summary"
 	if [[ ${#GAMING_INSTALLED[@]} -gt 0 ]]; then
@@ -243,7 +247,6 @@ main() {
 	install_flatpak_packages
 	configure_mangohud
 	enable_gamemode
-	print_summary
 	ui_success "Gaming Mode setup completed."
 }
 
