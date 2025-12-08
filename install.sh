@@ -217,22 +217,66 @@ else
   trap 'cleanup_on_exit' EXIT INT TERM
 fi
 
-# Function to mark step as completed (with file locking to prevent race conditions)
+# Function to get file hash
+get_file_hash() {
+  local file="$1"
+  if [ -f "$file" ]; then
+    md5sum "$file" | awk '{print $1}'
+  else
+    echo "nohash"
+  fi
+}
+
+# Function to mark step as completed (with file locking and optional versioning)
 mark_step_complete() {
   local step="$1"
+  local config_file="${2:-}"
+
+  local entry="$step"
+  if [ -n "$config_file" ]; then
+    local hash=$(get_file_hash "$config_file")
+    entry="$step:$hash"
+  fi
+
   # Use file locking to prevent race conditions
   (
     flock -x 200 2>/dev/null || true
-    echo "$step" >> "$STATE_FILE"
+    # Remove old entry for this step before adding new one
+    grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
+    mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
+    echo "$entry" >> "$STATE_FILE"
   ) 200>"$STATE_FILE.lock" 2>/dev/null || {
     # Fallback if flock not available
-    echo "$step" >> "$STATE_FILE"
+    grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
+    mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
+    echo "$entry" >> "$STATE_FILE"
   }
 }
 
 # Function to check if step was completed
 is_step_complete() {
-  [ -f "$STATE_FILE" ] && grep -q "^$1$" "$STATE_FILE"
+  local step="$1"
+  local config_file="${2:-}"
+
+  if [ ! -f "$STATE_FILE" ]; then
+    return 1
+  fi
+
+  if [ -n "$config_file" ]; then
+    local current_hash=$(get_file_hash "$config_file")
+    if grep -q "^$step:$current_hash$" "$STATE_FILE"; then
+      return 0 # Completed and config is up-to-date
+    else
+      return 1 # Not completed or config has changed
+    fi
+  else
+    # For steps without config files, check for simple existence
+    if grep -q "^$step" "$STATE_FILE"; then
+      return 0
+    else
+      return 1
+    fi
+  fi
 }
 
 # Enhanced resume functionality
@@ -242,8 +286,13 @@ show_resume_menu() {
     ui_info "Previous installation detected. The following steps were completed:"
 
     local completed_steps=()
-    while IFS= read -r step; do
-      completed_steps+=("$step")
+    while IFS= read -r line; do
+      # Extract step name (remove hash if present)
+      step=$(echo "$line" | cut -d':' -f1)
+      # Avoid duplicates in the displayed list
+      if [[ ! " ${completed_steps[*]} " =~ " ${step} " ]]; then
+        completed_steps+=("$step")
+      fi
     done < "$STATE_FILE"
 
     if supports_gum; then
@@ -259,7 +308,7 @@ show_resume_menu() {
         return 0
       else
         if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
-          rm -f "$STATE_FILE" 2>/dev/null || true
+          rm -f "$STATE_FILE" "$STATE_FILE.lock" 2>/dev/null || true
           ui_info "Starting fresh installation..."
           return 0
         else
@@ -280,7 +329,7 @@ show_resume_menu() {
         read -r -p "Start fresh installation? [y/N]: " response
         response=${response,,}
         if [[ "$response" == "y" || "$response" == "yes" ]]; then
-          rm -f "$STATE_FILE" 2>/dev/null || true
+          rm -f "$STATE_FILE" "$STATE_FILE.lock" 2>/dev/null || true
           ui_info "Starting fresh installation..."
         else
           ui_info "Installation cancelled by user"
@@ -296,10 +345,12 @@ show_resume_menu() {
 # Enhanced step completion with progress tracking
 mark_step_complete_with_progress() {
   local step_name="$1"
-  echo "$step_name" >> "$STATE_FILE"
+  local config_file="${2:-}"
 
-  # Show overall progress
-  local completed_count=$(wc -l < "$STATE_FILE" 2>/dev/null || echo "0")
+  mark_step_complete "$step_name" "$config_file"
+
+  # Show overall progress by counting unique step names
+  local completed_count=$(cut -d':' -f1 < "$STATE_FILE" | sort -u | wc -l 2>/dev/null || echo "0")
 
   if supports_gum; then
     echo ""
@@ -389,11 +440,11 @@ else
 fi
 
 # Step 5: Programs Installation
-if ! is_step_complete "programs_installation"; then
+if ! is_step_complete "programs_installation" "$CONFIGS_DIR/programs.yaml"; then
   print_step_header_with_timing 5 "$TOTAL_STEPS" "Programs Installation"
   ui_info "Installing applications based on your desktop environment..."
   step "Programs Installation" && source "$SCRIPTS_DIR/programs.sh" || log_error "Programs installation failed"
-  mark_step_complete_with_progress "programs_installation"
+  mark_step_complete_with_progress "programs_installation" "$CONFIGS_DIR/programs.yaml"
 else
   ui_info "Step 5 (Programs Installation) already completed - skipping"
 fi
