@@ -327,7 +327,7 @@ figlet_banner() {
 }
 
 arch_ascii() {
-  echo -e "${CYAN}"
+  echo -e "${BLUE}"
   cat << "EOF"
       _             _     ___           _        _ _
      / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
