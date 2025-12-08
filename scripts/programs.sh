@@ -99,7 +99,7 @@ validate_programs_yaml() {
 	fi
 
 	# Validate YAML syntax
-	if ! yq eval '.' "$yaml_file" &>/dev/null; then
+	if ! yq '.' "$yaml_file" &>/dev/null; then
 		log_error "Invalid YAML syntax in $yaml_file"
 		return 1
 	fi
@@ -107,7 +107,7 @@ validate_programs_yaml() {
 	# Validate required sections exist
 	local required_sections=("pacman" "essential")
 	for section in "${required_sections[@]}"; do
-		if ! yq eval ".$section" "$yaml_file" &>/dev/null; then
+		if ! yq ".$section" "$yaml_file" &>/dev/null; then
 			log_error "Missing required section in YAML: $section"
 			return 1
 		fi
@@ -525,7 +525,9 @@ print_programs_summary() {
 
 # ===== Main Execution =====
 main() {
-	load_package_lists_from_yaml
+	if ! load_package_lists_from_yaml; then
+		return 1
+	fi
 	determine_package_lists
 	handle_de_packages
 	handle_flatpak_packages
