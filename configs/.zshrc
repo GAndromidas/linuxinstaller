@@ -84,7 +84,6 @@ alias ports='netstat -tulanp'                                                   
 alias listenports='sudo lsof -i -P -n | grep LISTEN'                               # Show listening ports
 alias scanports='nmap -p 1-1000'                                                   # Scan ports 1-1000
 alias ping='ping -c 5'                                                             # Ping with 5 packets
-alias fastping='ping -c 100 -s.2'                                                  # Fast ping test
 alias wget='wget -c'                                                               # Resume wget downloads by default
 
 # -----------------------------------------------------------------------------
