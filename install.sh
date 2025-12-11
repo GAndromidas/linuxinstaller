@@ -7,7 +7,7 @@ INSTALL_LOG="$HOME/.archinstaller.log"
 # Function to show help
 show_help() {
   cat << EOF
-Archinstaller v$VERSION - Comprehensive Arch Linux Post-Installation Script
+Archinstaller - Comprehensive Arch Linux Post-Installation Script
 
 USAGE:
     ./install.sh [OPTIONS]
@@ -66,9 +66,6 @@ clear
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
-
-# Get version
-VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "dev")
 
 # State tracking for error recovery
 STATE_FILE="$HOME/.archinstaller.state"
