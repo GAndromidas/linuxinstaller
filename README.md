@@ -48,7 +48,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     *   I/O scheduler optimization (none for NVMe, mq-deadline for SSD, bfq for HDD)
     *   Memory-based swappiness tuning (1-60 based on RAM)
     *   Filesystem optimizations (ext4 reserved blocks, Btrfs snapshots)
-    *   Network speed detection with adaptive parallel downloads
+    *   Optimized parallel downloads configuration
 
 *   **Desktop Environment Integration**: 
     *   Detects and optimizes for KDE Plasma, GNOME, and Cosmic
@@ -144,7 +144,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 
 The installer performs 10 comprehensive steps:
 
-1.  **System Preparation**: Updates package lists, installs essential utilities, detects network speed, and optimizes download settings
+1.  **System Preparation**: Updates package lists, installs essential utilities, and optimizes download settings
 2.  **Shell Setup**: Installs and configures Zsh with Oh-My-Zsh and Starship prompt
 3.  **Plymouth Setup**: Configures graphical boot screen (skipped in server mode)
 4.  **Yay Installation**: Installs AUR helper for additional software packages
@@ -249,7 +249,7 @@ This installer is designed to be easily customized. The package lists for all in
 ### Network Support
 *   Universal Ethernet adapter detection (eth0, enp*, eno*, ens*, etc.)
 *   Wake-on-LAN configuration for all supported adapters
-*   Network speed detection and adaptive parallel downloads
+*   Optimized pacman configuration with parallel downloads
 
 ## Troubleshooting
 
