@@ -24,7 +24,7 @@ install_speedtest_cli() {
 check_internet_with_retry() {
   local max_attempts=3
   local attempt=1
-  
+
   while [ $attempt -le $max_attempts ]; do
     if ping -c 1 -W 5 archlinux.org &>/dev/null; then
       return 0
@@ -33,7 +33,7 @@ check_internet_with_retry() {
     [ $attempt -lt $max_attempts ] && sleep 2
     ((attempt++))
   done
-  
+
   log_error "No internet connection after $max_attempts attempts"
   return 1
 }
@@ -150,13 +150,8 @@ configure_pacman() {
     log_success "Added ILoveCandy setting"
   fi
 
-  # Enable multilib if not already enabled
-  if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-    echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
-    log_success "Enabled multilib repository"
-  else
-    log_success "Multilib repository already enabled"
-  fi
+  # Enable multilib
+  check_and_enable_multilib
 
   echo ""
 }

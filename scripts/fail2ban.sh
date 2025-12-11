@@ -5,100 +5,73 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Use different variable names to avoid conflicts
-INSTALLED=()
-ENABLED=()
-CONFIGURED=()
+setup_fail2ban() {
+  step "Setting up Fail2ban SSH Protection"
 
-# ======= Fail2ban Setup Steps =======
-install_fail2ban() {
-  if pacman -Q fail2ban >/dev/null 2>&1; then
-    echo -e "${YELLOW}Installing: fail2ban ... [SKIP] Already installed${RESET}"
-    return 0
-  fi
-  echo -ne "${CYAN}Installing: fail2ban ...${RESET} "
-  if sudo pacman -S --needed --noconfirm fail2ban >/dev/null 2>&1; then
-    echo -e "${GREEN}[OK]${RESET}"
-    INSTALLED+=("fail2ban")
-    return 0
-  else
-    echo -e "${RED}[FAIL]${RESET}"
+  # Install fail2ban
+  # install_packages_quietly handles checking if installed and logging
+  if ! install_packages_quietly fail2ban; then
+    log_error "Failed to install fail2ban. Skipping configuration."
     return 1
   fi
-}
 
-enable_and_start_fail2ban() {
-  echo -ne "${CYAN}Enabling & starting: fail2ban ...${RESET} "
-  if sudo systemctl enable --now fail2ban >/dev/null 2>&1; then
-    echo -e "${GREEN}[OK]${RESET}"
-    ENABLED+=("fail2ban")
-    return 0
-  else
-    echo -e "${RED}[FAIL]${RESET}"
-    return 1
-  fi
-}
-
-configure_fail2ban() {
+  # Configure jail.local
   local jail_local="/etc/fail2ban/jail.local"
-  if [ ! -f "$jail_local" ]; then
-    echo -ne "${CYAN}Configuring: jail.local ...${RESET} "
-    sudo cp /etc/fail2ban/jail.conf "$jail_local"
-    sudo sed -i 's/^backend = auto/backend = systemd/' "$jail_local"
-    sudo sed -i 's/^bantime  = 10m/bantime = 1h/' "$jail_local"
-    sudo sed -i 's/^findtime  = 10m/findtime = 10m/' "$jail_local"
-    sudo sed -i 's/^maxretry = 5/maxretry = 3/' "$jail_local"
-    echo -e "${GREEN}[OK]${RESET}"
-    CONFIGURED+=("jail.local")
-  else
-    echo -e "${YELLOW}Configuring: jail.local ... [SKIP] Already exists${RESET}"
-    log_warning "jail.local already exists. Skipping creation."
-  fi
-}
 
-status_fail2ban() {
-  echo -ne "${CYAN}Checking: fail2ban status ...${RESET} "
-  if sudo systemctl status fail2ban --no-pager >/dev/null 2>&1; then
-    echo -e "${GREEN}[OK]${RESET}"
-    return 0
+  if [ ! -f "$jail_local" ]; then
+    log_info "Creating default jail.local configuration..."
+
+    # Copy default config to local config to avoid overwriting on updates
+    if sudo cp /etc/fail2ban/jail.conf "$jail_local"; then
+
+      # Configure systemd backend (essential for Arch Linux)
+      sudo sed -i 's/^backend = auto/backend = systemd/' "$jail_local"
+
+      # Apply stricter security policies
+      # Increase ban time to 1 hour (default 10m)
+      sudo sed -i 's/^bantime  = 10m/bantime = 1h/' "$jail_local"
+
+      # Keep find time at 10m
+      sudo sed -i 's/^findtime  = 10m/findtime = 10m/' "$jail_local"
+
+      # Decrease max retries to 3 (default 5)
+      sudo sed -i 's/^maxretry = 5/maxretry = 3/' "$jail_local"
+
+      log_success "Configured jail.local with hardened defaults (systemd backend, 1h ban, 3 retries)"
+    else
+      log_error "Failed to create $jail_local from jail.conf"
+    fi
   else
-    echo -e "${RED}[FAIL]${RESET}"
+    log_info "Configuration file $jail_local already exists. Skipping default configuration."
+  fi
+
+  # Enable and start the service
+  log_info "Enabling and starting fail2ban service..."
+  if sudo systemctl enable --now fail2ban >/dev/null 2>&1; then
+    log_success "Fail2ban service enabled and started"
+  else
+    log_error "Failed to enable fail2ban service"
+    return 1
+  fi
+
+  # Verify service status
+  if systemctl is-active --quiet fail2ban; then
+    log_success "Fail2ban is active and protecting your system"
+
+    # Optional: Display active jails if any
+    if command -v fail2ban-client >/dev/null; then
+      local status_output
+      status_output=$(sudo fail2ban-client status 2>/dev/null)
+      if [ $? -eq 0 ]; then
+        local jails=$(echo "$status_output" | grep "Jail list" | cut -d: -f2 | tr -d '\t')
+        log_info "Active jails:${jails}"
+      fi
+    fi
+  else
+    log_warning "Fail2ban service is not running correctly. Check logs: sudo journalctl -u fail2ban"
     return 1
   fi
 }
 
-print_summary() {
-  echo -e "\n${CYAN}========= FAIL2BAN SUMMARY =========${RESET}"
-  if [ ${#INSTALLED[@]} -gt 0 ]; then
-    echo -e "${GREEN}Installed:${RESET} ${INSTALLED[*]}"
-  fi
-  if [ ${#ENABLED[@]} -gt 0 ]; then
-    echo -e "${GREEN}Enabled:${RESET} ${ENABLED[*]}"
-  fi
-  if [ ${#CONFIGURED[@]} -gt 0 ]; then
-    echo -e "${GREEN}Configured:${RESET} ${CONFIGURED[*]}"
-  fi
-  if [ ${#ERRORS[@]} -eq 0 ]; then
-    echo -e "${GREEN}Fail2ban installed and configured successfully!${RESET}"
-  else
-    echo -e "${RED}Some steps failed:${RESET}"
-    for err in "${ERRORS[@]}"; do
-      echo -e "  - ${YELLOW}$err${RESET}"
-    done
-  fi
-  echo -e "${CYAN}====================================${RESET}"
-}
-
-# ======= Main =======
-main() {
-  echo -e "${CYAN}=== Fail2ban Setup ===${RESET}"
-
-  run_step "Installing fail2ban" install_fail2ban
-  run_step "Enabling and starting fail2ban" enable_and_start_fail2ban
-  run_step "Configuring fail2ban (jail.local)" configure_fail2ban
-  run_step "Checking fail2ban status" status_fail2ban
-
-  print_summary
-}
-
-main "$@"
+# Execute the setup
+setup_fail2ban

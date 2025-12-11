@@ -1182,3 +1182,40 @@ install_flatpak_quietly() {
   fi
   install_package_generic "flatpak" "$@"
 }
+
+check_and_enable_multilib() {
+  local needs_sync=false
+
+  # 1. Check if multilib is configured in pacman.conf
+  if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+    if grep -q "^#\[multilib\]" /etc/pacman.conf; then
+      ui_info "Enabling multilib repository in /etc/pacman.conf..."
+      # Uncomment [multilib] and the following Include line
+      sudo sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
+      needs_sync=true
+    else
+      ui_warn "Multilib repository section not found in /etc/pacman.conf. Adding it..."
+      echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+      needs_sync=true
+    fi
+  fi
+
+  # 2. Check if the database file exists
+  if [[ ! -f "/var/lib/pacman/sync/multilib.db" ]]; then
+    ui_info "Multilib database not found. Syncing repositories..."
+    needs_sync=true
+  fi
+
+  # 3. Sync if needed
+  if [[ "$needs_sync" == "true" ]]; then
+    if sudo pacman -Sy; then
+      log_success "Repositories synced successfully."
+    else
+      log_error "Failed to sync repositories. 'wine' and other 32-bit packages might fail."
+      return 1
+    fi
+  else
+    log_success "Multilib repository is enabled and synced."
+  fi
+  return 0
+}
