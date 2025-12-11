@@ -46,9 +46,6 @@ check_prerequisites() {
 configure_pacman() {
   step "Configuring pacman optimizations"
 
-  # Backup pacman.conf before making changes
-  backup_file "/etc/pacman.conf"
-
   # Use sensible default for parallel downloads
   local parallel_downloads=10
 
@@ -323,8 +320,7 @@ install_lts_kernel() {
 generate_locales() {
   step "Configuring system locales"
 
-  # Backup locale.gen
-  backup_file "/etc/locale.gen"
+
 
   # Always enable en_US.UTF-8 as fallback/default
   if grep -q "^#en_US.UTF-8" /etc/locale.gen; then

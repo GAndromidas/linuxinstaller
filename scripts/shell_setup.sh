@@ -25,14 +25,12 @@ setup_shell() {
 
   # Copy ZSH configuration
   if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-    backup_file "$HOME/.zshrc"
     cp "$CONFIGS_DIR/.zshrc" "$HOME/" 2>/dev/null && log_success "ZSH configuration updated"
   fi
 
   # Copy Starship prompt configuration
   if [ -f "$CONFIGS_DIR/starship.toml" ]; then
     mkdir -p "$HOME/.config"
-    backup_file "$HOME/.config/starship.toml"
     cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/" 2>/dev/null && log_success "Starship prompt configuration updated"
   fi
 

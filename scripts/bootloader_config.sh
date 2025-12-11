@@ -19,7 +19,6 @@ add_systemd_boot_kernel_params() {
     ((entries_found++))
     local entry_name=$(basename "$entry")
     if ! grep -q "quiet loglevel=3" "$entry"; then # Check for existing parameters more generically
-      backup_file "$entry"
       if sudo sed -i '/^options / s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$entry"; then
         log_success "Added kernel parameters to $entry_name"
         ((modified_count++))
@@ -47,7 +46,6 @@ configure_boot() {
   run_step "Adding kernel parameters to systemd-boot entries" add_systemd_boot_kernel_params
 
   if [ -f "/boot/loader/loader.conf" ]; then
-    backup_file "/boot/loader/loader.conf"
     sudo sed -i \
       -e '/^default /d' \
       -e '1i default @saved' \
@@ -170,9 +168,6 @@ secure_boot_permissions() {
     if [ -f /etc/fstab ]; then
       log_info "Updating /etc/fstab to persist secure permissions..."
 
-      # Backup fstab
-      backup_file "/etc/fstab"
-
       # Escape mount point for sed
       local boot_esc=$(echo "$boot_mount" | sed 's/\//\\\//g')
 
@@ -221,7 +216,6 @@ configure_grub() {
     step "Configuring GRUB: set default kernel to 'linux'"
 
     # /etc/default/grub settings
-    backup_file "/etc/default/grub"
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub || echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub && sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
@@ -277,7 +271,6 @@ configure_grub() {
 # --- Console Font Setup ---
 setup_console_font() {
     run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
-    backup_file "/etc/vconsole.conf"
     run_step "Configuring /etc/vconsole.conf" bash -c "(grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null && sudo sed -i 's/^FONT=.*/FONT=ter-v16n/' /etc/vconsole.conf) || echo 'FONT=ter-v16n' | sudo tee -a /etc/vconsole.conf >/dev/null"
     run_step "Rebuilding initramfs" sudo mkinitcpio -P
 }
