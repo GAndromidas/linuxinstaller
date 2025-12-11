@@ -19,6 +19,7 @@ add_systemd_boot_kernel_params() {
     ((entries_found++))
     local entry_name=$(basename "$entry")
     if ! grep -q "quiet loglevel=3" "$entry"; then # Check for existing parameters more generically
+      backup_file "$entry"
       if sudo sed -i '/^options / s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$entry"; then
         log_success "Added kernel parameters to $entry_name"
         ((modified_count++))
@@ -46,6 +47,7 @@ configure_boot() {
   run_step "Adding kernel parameters to systemd-boot entries" add_systemd_boot_kernel_params
 
   if [ -f "/boot/loader/loader.conf" ]; then
+    backup_file "/boot/loader/loader.conf"
     sudo sed -i \
       -e '/^default /d' \
       -e '1i default @saved' \
@@ -57,7 +59,7 @@ configure_boot() {
         grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
     run_step "Ensuring console-mode is set in loader.conf" \
         grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
-    
+
     # Verify configuration was applied
     if grep -q '^timeout' /boot/loader/loader.conf && grep -q '^console-mode' /boot/loader/loader.conf; then
       log_success "Systemd-boot configuration verified"
@@ -69,7 +71,7 @@ configure_boot() {
   fi
 
   run_step "Removing systemd-boot fallback entries" sudo rm -f /boot/loader/entries/*fallback.conf
-  
+
   # Check for fallback kernels (informational)
   local boot_mount=$(detect_boot_mount)
   local fallback_count=$(ls "$boot_mount"/*fallback* 2>/dev/null | wc -l)
@@ -89,7 +91,7 @@ IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false")
 # Function to detect boot mount point
 detect_boot_mount() {
   local boot_mount="/boot"
-  
+
   # Try to detect ESP for systemd-boot
   if command -v bootctl >/dev/null 2>&1; then
     local esp_path=$(bootctl -p 2>/dev/null)
@@ -97,14 +99,14 @@ detect_boot_mount() {
       boot_mount="$esp_path"
     fi
   fi
-  
+
   # Fallback checks
   if [ ! -d "$boot_mount" ] && [ -d "/efi" ]; then
     boot_mount="/efi"
   elif [ ! -d "$boot_mount" ] && [ -d "/boot/efi" ]; then
     boot_mount="/boot/efi"
   fi
-  
+
   echo "$boot_mount"
 }
 
@@ -113,26 +115,26 @@ detect_boot_mount() {
 # Reference: Arch Linux Wiki - EFI System Partition security
 secure_boot_permissions() {
   step "Securing boot partition permissions"
-  
+
   local boot_mount=$(detect_boot_mount)
-  
+
   if [ ! -d "$boot_mount" ]; then
     log_warning "Boot directory not accessible: $boot_mount"
     return 0  # Not a fatal error
   fi
-  
+
   log_info "Boot partition detected at: $boot_mount"
-  
+
   # Check current permissions
   local current_perm=$(stat -c "%a" "$boot_mount" 2>/dev/null || echo "unknown")
   log_info "Current permissions: $current_perm"
-  
+
   # Check if already secure (700)
   if [ "$current_perm" = "700" ]; then
     log_success "Boot partition permissions are already secure (700)"
     return 0
   fi
-  
+
   # Try standard chmod first (works for ext4, btrfs, etc.)
   log_info "Attempting to set permissions to 700..."
   if sudo chmod 700 "$boot_mount" 2>/dev/null; then
@@ -143,16 +145,16 @@ secure_boot_permissions() {
       return 0
     fi
   fi
-  
+
   # If chmod failed, likely FAT32 (ESP) - need mount options
   log_info "chmod failed (likely FAT32 filesystem). Using mount options..."
-  
+
   # Get filesystem type
   local fstype=$(findmnt -no FSTYPE "$boot_mount" 2>/dev/null || echo "unknown")
-  
+
   if [[ "$fstype" =~ ^(vfat|fat|msdos)$ ]]; then
     log_info "FAT32 filesystem detected - using mount options (fmask/dmask)"
-    
+
     # Try remounting with secure permissions
     if sudo mount -o remount,fmask=0077,dmask=0077 "$boot_mount" 2>/dev/null; then
       log_success "Remounted with secure permissions (fmask=0077,dmask=0077)"
@@ -163,17 +165,17 @@ secure_boot_permissions() {
       log_info "This may require manual intervention or a reboot"
       return 1
     fi
-    
+
     # Update /etc/fstab for persistence
     if [ -f /etc/fstab ]; then
       log_info "Updating /etc/fstab to persist secure permissions..."
-      
+
       # Backup fstab
-      sudo cp /etc/fstab /etc/fstab.backup.$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
-      
+      backup_file "/etc/fstab"
+
       # Escape mount point for sed
       local boot_esc=$(echo "$boot_mount" | sed 's/\//\\\//g')
-      
+
       if grep -q "[[:space:]]$boot_mount[[:space:]]" /etc/fstab; then
         # Check if mask options already exist
         if grep "[[:space:]]$boot_mount[[:space:]]" /etc/fstab | grep -qE "mask="; then
@@ -187,7 +189,7 @@ secure_boot_permissions() {
           sudo sed -i "/[[:space:]]$boot_esc[[:space:]]/ s/\(vfat\|auto\|msdos\|fat\)\([[:space:]]\+\)\([^[:space:]]\+\)/\1\2\3,fmask=0077,dmask=0077/" /etc/fstab
           log_success "Added mask options to /etc/fstab"
         fi
-        
+
         # Reload systemd to apply changes
         sudo systemctl daemon-reload 2>/dev/null || true
       else
@@ -195,7 +197,7 @@ secure_boot_permissions() {
         log_info "Permissions fix will be lost on reboot. Please add mount options manually."
       fi
     fi
-    
+
     # Also fix random-seed permissions if it exists (systemd-boot)
     if [ -f "$boot_mount/loader/random-seed" ]; then
       local seed_perm=$(stat -c "%a" "$boot_mount/loader/random-seed" 2>/dev/null || echo "unknown")
@@ -204,7 +206,7 @@ secure_boot_permissions() {
         sudo chmod 600 "$boot_mount/loader/random-seed" 2>/dev/null || true
       fi
     fi
-    
+
     log_success "Boot partition permissions secured"
     return 0
   else
@@ -219,6 +221,7 @@ configure_grub() {
     step "Configuring GRUB: set default kernel to 'linux'"
 
     # /etc/default/grub settings
+    backup_file "/etc/default/grub"
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub || echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub && sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
@@ -274,6 +277,7 @@ configure_grub() {
 # --- Console Font Setup ---
 setup_console_font() {
     run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
+    backup_file "/etc/vconsole.conf"
     run_step "Configuring /etc/vconsole.conf" bash -c "(grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null && sudo sed -i 's/^FONT=.*/FONT=ter-v16n/' /etc/vconsole.conf) || echo 'FONT=ter-v16n' | sudo tee -a /etc/vconsole.conf >/dev/null"
     run_step "Rebuilding initramfs" sudo mkinitcpio -P
 }

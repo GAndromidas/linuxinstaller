@@ -623,6 +623,7 @@ configure_plymouth_hook_and_initramfs() {
 
   if ! grep -q "plymouth" "$mkinitcpio_conf" && ! grep -q "sd-plymouth" "$mkinitcpio_conf"; then
     log_info "Adding plymouth hook to mkinitcpio.conf..."
+    backup_file "$mkinitcpio_conf"
 
     # Check if using systemd hook (implies systemd initramfs)
     # We check for 'systemd' in HOOKS line to avoid false positives in comments if possible,
@@ -1142,6 +1143,25 @@ validate_file_operation() {
     return 1
   fi
 
+  return 0
+}
+
+# Function: backup_file
+# Description: Creates a timestamped backup of a file
+# Parameters: $1 - File path
+# Returns: 0 on success, 1 on failure
+backup_file() {
+  local file="$1"
+  if [ -f "$file" ]; then
+    local backup="${file}.backup.$(date +%Y%m%d_%H%M%S)"
+    log_info "Backing up $file to $backup"
+    if sudo cp "$file" "$backup"; then
+      return 0
+    else
+      log_error "Failed to backup $file"
+      return 1
+    fi
+  fi
   return 0
 }
 

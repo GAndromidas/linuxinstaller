@@ -32,6 +32,7 @@ set_plymouth_theme() {
   if [ -f "$bgrt_config" ]; then
     # Fix the double slash in ImageDir path
     if grep -q "ImageDir=/usr/share/plymouth/themes//spinner" "$bgrt_config"; then
+      backup_file "$bgrt_config"
       sudo sed -i 's|ImageDir=/usr/share/plymouth/themes//spinner|ImageDir=/usr/share/plymouth/themes/spinner|g' "$bgrt_config"
       log_success "Fixed double slash in bgrt theme configuration"
     fi
@@ -100,6 +101,7 @@ add_kernel_parameters() {
       local entry_name=$(basename "$entry")
       print_progress "$current" "$total" "Adding splash to $entry_name"
       if ! grep -q "splash" "$entry"; then
+        backup_file "$entry"
         if sudo sed -i '/^options / s/$/ splash/' "$entry"; then
           print_status " [OK]" "$GREEN"
           log_success "Added 'splash' to $entry_name"
@@ -119,6 +121,7 @@ add_kernel_parameters() {
     if grep -q 'splash' /etc/default/grub; then
       log_warning "'splash' already present in GRUB_CMDLINE_LINUX_DEFAULT."
     else
+      backup_file "/etc/default/grub"
       sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="splash /' /etc/default/grub
       log_success "Added 'splash' to GRUB_CMDLINE_LINUX_DEFAULT."
       sudo grub-mkconfig -o /boot/grub/grub.cfg

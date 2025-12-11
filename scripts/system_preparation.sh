@@ -5,21 +5,6 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Function to install speedtest-cli silently if not available
-install_speedtest_cli() {
-  if ! command -v speedtest-cli >/dev/null 2>&1; then
-    log_info "Installing speedtest-cli for network speed detection..."
-    if sudo pacman -S --noconfirm --needed speedtest-cli >/dev/null 2>&1; then
-      log_success "speedtest-cli installed successfully"
-      return 0
-    else
-      log_warning "Failed to install speedtest-cli - will skip network speed test"
-      return 1
-    fi
-  fi
-  return 0
-}
-
 # Function to check internet connection with retry logic
 check_internet_with_retry() {
   local max_attempts=3
@@ -36,59 +21,6 @@ check_internet_with_retry() {
 
   log_error "No internet connection after $max_attempts attempts"
   return 1
-}
-
-# Function to detect network speed and optimize downloads
-detect_network_speed() {
-  step "Testing network speed and optimizing download settings"
-
-  # Install speedtest-cli if not available
-  if ! install_speedtest_cli; then
-    log_warning "speedtest-cli not available - skipping network speed test"
-    return
-  fi
-
-  log_info "Testing internet speed (this may take a moment)..."
-
-  # Run speedtest and capture download speed (with 30s timeout)
-  local speed_test_output=$(timeout 30s speedtest-cli --simple 2>/dev/null)
-
-  if [ $? -eq 0 ] && [ -n "$speed_test_output" ]; then
-    local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
-
-    if [ -n "$download_speed" ]; then
-      log_success "Download speed: ${download_speed} Mbit/s"
-
-      # Convert to integer for comparison
-      local speed_int=$(echo "$download_speed" | cut -d. -f1)
-
-      # Adjust parallel downloads based on speed
-      if [ "$speed_int" -lt 5 ]; then
-        log_warning "Slow connection detected (< 5 Mbit/s)"
-        log_info "Reducing parallel downloads to 3 for stability"
-        log_info "Installation will take longer - consider using ethernet"
-        export PACMAN_PARALLEL=3
-      elif [ "$speed_int" -lt 25 ]; then
-        log_info "Moderate connection speed (5-25 Mbit/s)"
-        log_info "Using standard parallel downloads (10)"
-        export PACMAN_PARALLEL=10
-      elif [ "$speed_int" -lt 100 ]; then
-        log_success "Good connection speed (25-100 Mbit/s)"
-        log_info "Using standard parallel downloads (10)"
-        export PACMAN_PARALLEL=10
-      else
-        log_success "Excellent connection speed (100+ Mbit/s)"
-        log_info "Increasing parallel downloads to 15 for faster installation"
-        export PACMAN_PARALLEL=15
-      fi
-    else
-      log_warning "Could not parse speed test results"
-      export PACMAN_PARALLEL=10
-    fi
-  else
-    log_warning "Speed test failed - using default settings"
-    export PACMAN_PARALLEL=10
-  fi
 }
 
 check_prerequisites() {
@@ -114,8 +46,11 @@ check_prerequisites() {
 configure_pacman() {
   step "Configuring pacman optimizations"
 
-  # Use network-speed-based parallel downloads value (default 10 if not set)
-  local parallel_downloads="${PACMAN_PARALLEL:-10}"
+  # Backup pacman.conf before making changes
+  backup_file "/etc/pacman.conf"
+
+  # Use sensible default for parallel downloads
+  local parallel_downloads=10
 
   # Handle ParallelDownloads - works whether commented or uncommented
   if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
@@ -388,6 +323,9 @@ install_lts_kernel() {
 generate_locales() {
   step "Configuring system locales"
 
+  # Backup locale.gen
+  backup_file "/etc/locale.gen"
+
   # Always enable en_US.UTF-8 as fallback/default
   if grep -q "^#en_US.UTF-8" /etc/locale.gen; then
     sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
@@ -438,7 +376,6 @@ generate_locales() {
 
 # Execute ultra-fast preparation
 check_prerequisites
-detect_network_speed  # This now installs speedtest-cli silently before testing
 configure_pacman
 install_all_packages
 update_system
