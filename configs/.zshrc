@@ -1,5 +1,5 @@
 # =============================================================================
-# ZSH Configuration (Standalone - Optimized for Performance)
+# ZSH Configuration
 # =============================================================================
 
 # Initialize completion
