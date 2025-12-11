@@ -8,6 +8,13 @@ source "$SCRIPT_DIR/common.sh"
 setup_shell() {
   step "Setting up ZSH shell environment"
 
+  # Cleanup legacy Oh-My-Zsh installation if present
+  if [ -d "$HOME/.oh-my-zsh" ]; then
+    log_info "Removing legacy Oh-My-Zsh installation..."
+    rm -rf "$HOME/.oh-my-zsh"
+    log_success "Oh-My-Zsh removed (migrated to standalone Zsh config)"
+  fi
+
   # Change default shell to ZSH
   log_info "Setting ZSH as default shell..."
   if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
@@ -18,13 +25,15 @@ setup_shell() {
 
   # Copy ZSH configuration
   if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-    cp "$CONFIGS_DIR/.zshrc" "$HOME/" 2>/dev/null && log_success "ZSH configuration copied"
+    backup_file "$HOME/.zshrc"
+    cp "$CONFIGS_DIR/.zshrc" "$HOME/" 2>/dev/null && log_success "ZSH configuration updated"
   fi
 
   # Copy Starship prompt configuration
   if [ -f "$CONFIGS_DIR/starship.toml" ]; then
     mkdir -p "$HOME/.config"
-    cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/" 2>/dev/null && log_success "Starship prompt configuration copied"
+    backup_file "$HOME/.config/starship.toml"
+    cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/" 2>/dev/null && log_success "Starship prompt configuration updated"
   fi
 
   # Fastfetch setup
