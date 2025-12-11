@@ -29,6 +29,27 @@ HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 
+# =============================================================================
+# History Function (Mimics Bash 'history -c' SILENTLY)
+# =============================================================================
+
+function history() {
+  if [[ "$1" == "-c" ]]; then
+    # 1. Clear history in the current shell session
+    fc -p
+
+    # 2. Silently clear the contents of the history file.
+    # The 'if' ensures $HISTFILE is set, and '2>/dev/null' suppresses any errors
+    # (e.g., if the file doesn't exist or permissions are wrong).
+    if [[ -n "$HISTFILE" ]]; then
+      >| "$HISTFILE" 2>/dev/null
+    fi
+  else
+    # For any other history command, run the built-in Zsh command
+    builtin history "$@"
+  fi
+}
+
 # Keybindings (Standard Arch / Linux keys)
 bindkey -e                                                      # Emacs key bindings
 bindkey '^[[7~' beginning-of-line                               # Home key
