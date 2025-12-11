@@ -521,17 +521,20 @@ EOF
 
 detect_and_install_gpu_drivers() {
   step "Detecting and installing graphics drivers"
-  if lspci | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
+  local lspci_out
+  lspci_out=$(lspci)
+
+  if echo "$lspci_out" | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
     echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon libva-mesa-driver lib32-libva-mesa-driver
     log_success "AMD drivers and Vulkan support installed"
     log_info "AMD GPU will use AMDGPU driver after reboot"
-  elif lspci | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
+  elif echo "$lspci_out" | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
     echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
     install_packages_quietly mesa vulkan-intel lib32-vulkan-intel libva-mesa-driver lib32-libva-mesa-driver
     log_success "Intel drivers and Vulkan support installed"
     log_info "Intel GPU will use i915 or xe driver after reboot"
-  elif lspci | grep -qi nvidia; then
+  elif echo "$lspci_out" | grep -qi nvidia; then
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
 
     # Get PCI ID and map to family
@@ -541,11 +544,11 @@ detect_and_install_gpu_drivers() {
     nvidia_note=""
 
     # Map PCI ID to family (simplified, for full mapping see ArchWiki and Nouveau code names)
-    if lspci | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
+    if echo "$lspci_out" | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
       nvidia_family="Turing or newer"
       nvidia_pkg="nvidia-open-dkms nvidia-utils lib32-nvidia-utils"
       nvidia_note="(open kernel modules, recommended for Turing/Ampere/Lovelace)"
-    elif lspci | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
+    elif echo "$lspci_out" | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
       nvidia_family="Maxwell or newer"
       nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
       nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
@@ -580,11 +583,13 @@ detect_and_install_gpu_drivers() {
 # Function to verify GPU driver is loaded correctly
 verify_gpu_driver() {
   step "Verifying GPU driver installation"
+  local lspci_k_out
+  lspci_k_out=$(lspci -k)
 
   # Check which driver is in use
-  if lspci -k | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
+  if echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
     log_info "GPU driver status:"
-    lspci -k | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
+    echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
     log_success "GPU driver is loaded and in use"
   else
     log_warning "Could not verify GPU driver status"

@@ -768,22 +768,57 @@ install_package_generic() {
     echo -e "${CYAN}Installing ${total} packages via ${manager_name}...${RESET}"
   fi
 
+  # Filter valid packages
+  local valid_pkgs=()
   for pkg in "${pkgs[@]}"; do
-    # Add validation
-    if ! validate_package_name "$pkg"; then
+    if validate_package_name "$pkg"; then
+      valid_pkgs+=("$pkg")
+    else
       ((failed++))
-      continue
     fi
+  done
 
+  if [ ${#valid_pkgs[@]} -eq 0 ]; then
+    return 1
+  fi
+
+  # Attempt batch installation first (except for dry-run)
+  if [ "${DRY_RUN:-false}" = false ]; then
+    local batch_cmd=""
+    local batch_args="${valid_pkgs[*]}"
+
+    case "$pkg_manager" in
+      pacman)
+        batch_cmd="sudo pacman -S --noconfirm --needed $batch_args"
+        ;;
+      aur)
+        batch_cmd="yay -S --noconfirm --needed $batch_args"
+        ;;
+      flatpak)
+        batch_cmd="sudo flatpak install --noninteractive -y $batch_args"
+        ;;
+    esac
+
+    if [ -n "$batch_cmd" ]; then
+      ui_info "Attempting batch installation for improved performance..."
+      if eval "$batch_cmd" >> "$INSTALL_LOG" 2>&1; then
+        ui_success "Batch installation successful"
+        INSTALLED_PACKAGES+=("${valid_pkgs[@]}")
+        return 0
+      else
+        ui_warn "Batch installation failed. Falling back to individual installation..."
+      fi
+    fi
+  fi
+
+  # Fallback to individual installation
+  for pkg in "${valid_pkgs[@]}"; do
     ((current++))
 
     # Check if already installed
     local already_installed=false
     case "$pkg_manager" in
-      pacman)
-        pacman -Q "$pkg" &>/dev/null && already_installed=true
-        ;;
-      aur)
+      pacman|aur)
         pacman -Q "$pkg" &>/dev/null && already_installed=true
         ;;
       flatpak)
@@ -792,11 +827,11 @@ install_package_generic() {
     esac
 
     if [ "$already_installed" = true ]; then
-      $VERBOSE && ui_info "[$current/$total] $pkg [SKIP] Already installed"
+      $VERBOSE && ui_info "[$current/${#valid_pkgs[@]}] $pkg [SKIP] Already installed"
       continue
     fi
 
-    $VERBOSE && ui_info "[$current/$total] Installing $pkg..."
+    $VERBOSE && ui_info "[$current/${#valid_pkgs[@]}] Installing $pkg..."
 
     local install_cmd
     case "$pkg_manager" in
@@ -813,17 +848,17 @@ install_package_generic() {
 
     # Dry-run mode: simulate installation
     if [ "${DRY_RUN:-false}" = true ]; then
-      ui_info "[$current/$total] $pkg [DRY-RUN]"
+      ui_info "[$current/${#valid_pkgs[@]}] $pkg [DRY-RUN]"
       ui_info "  Would execute: $install_cmd"
       INSTALLED_PACKAGES+=("$pkg")
     else
       # Capture both stdout and stderr for better error diagnostics
       local error_output
       if error_output=$(eval "$install_cmd" 2>&1); then
-        $VERBOSE && ui_success "[$current/$total] $pkg [OK]"
+        $VERBOSE && ui_success "[$current/${#valid_pkgs[@]}] $pkg [OK]"
         INSTALLED_PACKAGES+=("$pkg")
     else
-      ui_error "[$current/$total] $pkg [FAIL]"
+      ui_error "[$current/${#valid_pkgs[@]}] $pkg [FAIL]"
       FAILED_PACKAGES+=("$pkg")
       handle_package_error "$pkg" "$error_output"
       log_error "Failed to install $pkg via $manager_name"
@@ -840,10 +875,10 @@ install_package_generic() {
   done
 
   if [ $failed -eq 0 ]; then
-    ui_success "Package installation completed (${current}/${total} packages processed)"
+    ui_success "Package installation completed (${current}/${#valid_pkgs[@]} packages processed)"
     return 0
   else
-    ui_warn "Package installation completed with $failed failures (${current}/${total} packages processed)"
+    ui_warn "Package installation completed with $failed failures (${current}/${#valid_pkgs[@]} packages processed)"
     return 1
   fi
 }
