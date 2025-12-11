@@ -1,30 +1,77 @@
 # =============================================================================
-# ZSH Configuration for Archinstaller
+# ZSH Configuration (Standalone - Optimized for Performance)
 # =============================================================================
 
-# Path to your oh-my-zsh installation
-export ZSH="$HOME/.oh-my-zsh"
+# Initialize completion
+autoload -U compinit
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'      # Case insensitive tab completion
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"         # Colored completion (like ls)
+zstyle ':completion:*' rehash true                              # Automatically find new executables in path
+# Speed up completion
+zstyle ':completion:*' accept-exact '*(N)'
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path ~/.zsh/cache
+compinit
+_comp_options+=(globdots)                                       # Include hidden files
 
-# Add local bin to PATH if it exists
-[ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"
+# Basic Options
+setopt HIST_IGNORE_ALL_DUPS      # Don't record dupes in history
+setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks
+setopt SHARE_HISTORY             # Share history between sessions
+setopt EXTENDED_HISTORY          # Write the history file in the ":start:elapsed;command" format
+setopt AUTO_CD                   # cd by typing directory name
+setopt CORRECT                   # Spelling correction
+setopt INTERACTIVE_COMMENTS      # Allow comments in interactive shell
 
-# Themes
-ZSH_THEME="agnoster"
-DEFAULT_USER=$USER
+# History
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
 
-# Oh-My-ZSH Auto Update
-zstyle ':omz:update' mode auto      # Update automatically without asking
+# Keybindings (Standard Arch / Linux keys)
+bindkey -e                                                      # Emacs key bindings
+bindkey '^[[7~' beginning-of-line                               # Home key
+bindkey '^[[H' beginning-of-line                                # Home key
+bindkey '^[[8~' end-of-line                                     # End key
+bindkey '^[[F' end-of-line                                      # End key
+bindkey '^[[2~' overwrite-mode                                  # Insert key
+bindkey '^[[3~' delete-char                                     # Delete key
+bindkey '^[[C'  forward-char                                    # Right key
+bindkey '^[[D'  backward-char                                   # Left key
+bindkey '^[[5~' history-beginning-search-backward               # Page up key
+bindkey '^[[6~' history-beginning-search-forward                # Page down key
+# Navigate words with ctrl+arrow keys
+bindkey '^[Oc' forward-word                                     # Ctrl+Right
+bindkey '^[Od' backward-word                                    # Ctrl+Left
+bindkey '^[[1;5D' backward-word                                 # Ctrl+Left
+bindkey '^[[1;5C' forward-word                                  # Ctrl+Right
+bindkey '^H' backward-kill-word                                 # Ctrl+Backspace
+bindkey '^[[Z' undo                                             # Shift+Tab undo
 
-# Plugins
-# git: Git integration with aliases and prompt info
-# fzf: Fuzzy finder for commands (Ctrl+R), files (Ctrl+T), and directories (Alt+C)
-plugins=(git fzf)
+# =============================================================================
+# Plugins (Sourced from system locations)
+# =============================================================================
 
-source $ZSH/oh-my-zsh.sh
+# FZF (Fuzzy Finder) - Ctrl+R (History), Ctrl+T (Files), Alt+C (Dirs)
+if [ -f /usr/share/fzf/key-bindings.zsh ]; then
+    source /usr/share/fzf/key-bindings.zsh
+fi
+if [ -f /usr/share/fzf/completion.zsh ]; then
+    source /usr/share/fzf/completion.zsh
+fi
 
-# Manually source additional plugins
-source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# Autosuggestions
+if [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+    ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+fi
+
+# Syntax Highlighting (Must be sourced last)
+if [ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+fi
 
 # =============================================================================
 # Aliases
@@ -54,12 +101,18 @@ alias hibernate='systemctl hibernate'                                           
 # -----------------------------------------------------------------------------
 # File Listing (eza replaces ls)
 # -----------------------------------------------------------------------------
-alias ls='eza -al --color=always --group-directories-first --icons'               # Detailed listing with icons
-alias la='eza -a --color=always --group-directories-first --icons'                # All files with icons
-alias ll='eza -l --color=always --group-directories-first --icons'                # Long format
-alias lt='eza -aT --color=always --group-directories-first --icons'               # Tree listing
-alias l.="eza -a | grep -e '^\.'"                                                 # Show only dotfiles
-alias lh='eza -ahl --color=always --group-directories-first --icons'              # Human-readable sizes
+if command -v eza >/dev/null; then
+  alias ls='eza -al --color=always --group-directories-first --icons'               # Detailed listing with icons
+  alias la='eza -a --color=always --group-directories-first --icons'                # All files with icons
+  alias ll='eza -l --color=always --group-directories-first --icons'                # Long format
+  alias lt='eza -aT --color=always --group-directories-first --icons'               # Tree listing
+  alias l.="eza -a | grep -e '^\.'"                                                 # Show only dotfiles
+  alias lh='eza -ahl --color=always --group-directories-first --icons'              # Human-readable sizes
+else
+  alias ls='ls --color=auto'
+  alias ll='ls -lv --group-directories-first'
+  alias la='ls -A'
+fi
 
 # -----------------------------------------------------------------------------
 # Navigation
@@ -133,20 +186,26 @@ alias fgrep='fgrep --color=auto'                                                
 alias egrep='egrep --color=auto'                                                   # Colored egrep
 
 # -----------------------------------------------------------------------------
+# Git Aliases (Replacements for OMZ git plugin)
+# -----------------------------------------------------------------------------
+alias g='git'
+alias ga='git add'
+alias gaa='git add --all'
+alias gb='git branch'
+alias gc='git commit -v'
+alias gcam='git commit -a -m'
+alias gco='git checkout'
+alias gd='git diff'
+alias gl='git pull'
+alias gp='git push'
+alias gst='git status'
+
+# -----------------------------------------------------------------------------
 # Configuration & Editing
 # -----------------------------------------------------------------------------
 alias zshconfig='nano ~/.zshrc'                                                      # Edit zsh config
 alias zshreload='source ~/.zshrc'                                                    # Reload zsh config
 alias aliases='cat ~/.zshrc | grep "^alias" | sed "s/alias //" | column -t -s="# "'  # List all aliases
-
-# -----------------------------------------------------------------------------
-# SSH Connections
-# -----------------------------------------------------------------------------
-
-# Examples:
-# alias server='ssh user@192.168.1.100'
-# alias vps='ssh root@example.com'
-# alias pi='ssh pi@raspberrypi.local'
 
 # -----------------------------------------------------------------------------
 # Package Management
@@ -166,15 +225,24 @@ alias ports-used='netstat -tulanp | grep ESTABLISHED'                           
 # Tool Initialization
 # =============================================================================
 
+# Add local bin to PATH if it exists
+[ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"
+
 # Zoxide - Smart cd replacement (use 'z dirname' to jump to frequently used directories)
-eval "$(zoxide init zsh)"
-alias cd='z'  # Replace cd with zoxide for smart directory jumping
+if command -v zoxide >/dev/null; then
+  eval "$(zoxide init zsh)"
+  alias cd='z'  # Replace cd with zoxide for smart directory jumping
+fi
 
 # Starship - Modern prompt with git integration
-eval "$(starship init zsh)"
+if command -v starship >/dev/null; then
+  eval "$(starship init zsh)"
+fi
 
 # Fastfetch - Display system information on shell start
-fastfetch
+if command -v fastfetch >/dev/null; then
+  fastfetch
+fi
 
 # =============================================================================
 # Additional Functions

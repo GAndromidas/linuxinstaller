@@ -119,7 +119,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     *   **Custom**: Interactive selection of packages to install
 
 *   **Enhanced Shell**: 
-    *   Pre-configured Zsh environment with Oh-My-Zsh
+    *   Pre-configured high-performance Zsh environment
     *   Starship prompt for modern terminal experience
     *   Syntax highlighting and autocompletion
 
@@ -145,7 +145,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 The installer performs 10 comprehensive steps:
 
 1.  **System Preparation**: Updates package lists, installs essential utilities, and optimizes download settings
-2.  **Shell Setup**: Installs and configures Zsh with Oh-My-Zsh and Starship prompt
+2.  **Shell Setup**: Installs and configures Zsh with Starship prompt
 3.  **Plymouth Setup**: Configures graphical boot screen (skipped in server mode)
 4.  **Yay Installation**: Installs AUR helper for additional software packages
 5.  **Programs Installation**: Installs applications based on desktop environment and installation mode

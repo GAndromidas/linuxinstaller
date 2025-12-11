@@ -8,21 +8,6 @@ source "$SCRIPT_DIR/common.sh"
 setup_shell() {
   step "Setting up ZSH shell environment"
 
-  # Install Oh-My-Zsh
-  if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    log_info "Installing Oh-My-Zsh framework..."
-    RUNZSH=no CHSH=no KEEP_ZSHRC=yes yes | \
-      sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" >/dev/null 2>&1 || true
-
-    if [ -d "$HOME/.oh-my-zsh" ]; then
-      log_success "Oh-My-Zsh installed successfully"
-    else
-      log_warning "Oh-My-Zsh installation may have failed"
-    fi
-  else
-    log_info "Oh-My-Zsh already installed"
-  fi
-
   # Change default shell to ZSH
   log_info "Setting ZSH as default shell..."
   if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
