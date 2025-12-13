@@ -83,9 +83,11 @@ if ! command -v figlet >/dev/null 2>&1; then
   if sudo pacman -S --noconfirm figlet >/dev/null 2>&1; then
     FIGLET_INSTALLED_BY_SCRIPT=true
     export FIGLET_INSTALLED_BY_SCRIPT
-    log_info "Installed temporary helper: figlet (will remove before reboot)"
+    # Record to installer log only (no console output)
+    log_to_file "INFO: Installed temporary helper: figlet (will remove before reboot)"
   else
-    log_warning "Could not install figlet automatically - some banners may be plain text"
+    # Record to installer log only (no console output)
+    log_to_file "WARNING: Could not install figlet automatically - some banners may be plain text"
   fi
 fi
 
@@ -94,9 +96,11 @@ if ! command -v gum >/dev/null 2>&1; then
   if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
     GUM_INSTALLED_BY_SCRIPT=true
     export GUM_INSTALLED_BY_SCRIPT
-    log_info "Installed temporary helper: gum (will remove before reboot)"
+    # Record to installer log only (no console output)
+    log_to_file "INFO: Installed temporary helper: gum (will remove before reboot)"
   else
-    log_warning "Could not install gum automatically - installer will fall back to text prompts"
+    # Record to installer log only (no console output)
+    log_to_file "WARNING: Could not install gum automatically - installer will fall back to text prompts"
   fi
 fi
 
@@ -537,7 +541,8 @@ prompt_reboot() {
   if [ ${#TO_REMOVE[@]} -gt 0 ]; then
     # Remove without prompting and suppress output; ignore failures
     sudo pacman -Rns --noconfirm "${TO_REMOVE[@]}" >/dev/null 2>&1 || true
-    log_info "Removed temporary helpers: ${TO_REMOVE[*]}"
+    # Record removal only in the installer log (no console output)
+    log_to_file "INFO: Removed temporary helpers: ${TO_REMOVE[*]}"
   fi
 
   # Perform reboot or skip based on choice
