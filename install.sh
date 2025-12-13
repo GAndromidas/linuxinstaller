@@ -70,6 +70,13 @@ else
   exit 1
 fi
 
+# Show ASCII banner and interactive menu (uses gum if available)
+# This restores the original behavior: display the arch ASCII art and prompt
+# the user to choose installation mode (Standard, Minimal, Server, Custom, Exit).
+# The functions `arch_ascii` and `show_menu` are defined in common.sh.
+arch_ascii
+show_menu
+
 # State tracking for step resume and idempotency
 STATE_FILE="$HOME/.archinstaller.state"
 mkdir -p "$(dirname "$STATE_FILE")"
