@@ -316,6 +316,7 @@ cleanup_on_exit() {
 trap 'cleanup_on_exit' EXIT INT TERM
 
 # Initialize log
+START_TIME=$(date +%s)
 echo "==========================================" > "$INSTALL_LOG"
 echo "Archinstaller Installation Log" >> "$INSTALL_LOG"
 echo "Started: $(date)" >> "$INSTALL_LOG"
