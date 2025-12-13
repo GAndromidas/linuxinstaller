@@ -23,6 +23,40 @@ check_internet_with_retry() {
   return 1
 }
 
+# Ensure pacman's keyring is initialized and populated
+ensure_pacman_keyring() {
+  # If gnupg directory or pubring is missing, attempt init/populate
+  if [ ! -d /etc/pacman.d/gnupg ] || [ ! -f /etc/pacman.d/gnupg/pubring.gpg ]; then
+    log_info "Pacman keyring not detected or incomplete. Initializing pacman keyring..."
+
+    # Initialize the keyring (may take a short while); tolerate transient failures and retry once
+    if ! sudo pacman-key --init >/dev/null 2>&1; then
+      log_warning "pacman-key --init failed on first attempt; retrying after short delay..."
+      sleep 2
+      if ! sudo pacman-key --init >/dev/null 2>&1; then
+        log_error "pacman-key --init failed. Skipping keyring initialization."
+        return 1
+      fi
+    fi
+
+    # Populate the keyring for archlinux; try explicit archlinux populate first, then general populate as fallback
+    log_info "Populating pacman keyring..."
+    if ! sudo pacman-key --populate archlinux >/dev/null 2>&1; then
+      log_warning "pacman-key --populate archlinux failed; attempting generic populate..."
+      if ! sudo pacman-key --populate >/dev/null 2>&1; then
+        log_error "pacman-key --populate failed. Keyring may be incomplete."
+        return 1
+      fi
+    fi
+
+    log_success "Pacman keyring initialized and populated."
+  else
+    log_info "Pacman keyring already present; skipping initialization."
+  fi
+
+  return 0
+}
+
 check_prerequisites() {
   step "Checking system prerequisites"
   if [[ $EUID -eq 0 ]]; then
@@ -37,6 +71,12 @@ check_prerequisites() {
   # Check internet connection with retry
   if ! check_internet_with_retry; then
     log_error "No internet connection detected. Please check your network."
+    return 1
+  fi
+
+  # Ensure pacman keyring is available and populated before attempting package installs
+  if ! ensure_pacman_keyring; then
+    log_error "Pacman keyring initialization/population failed. Please check network and GPG configuration."
     return 1
   fi
 

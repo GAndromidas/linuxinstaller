@@ -19,10 +19,40 @@ print_progress() {
 # Use different variable names to avoid conflicts
 PLYMOUTH_ERRORS=()
 
+# Custom run_step to capture errors and output details on failure
+run_plymouth_step() {
+  local description="$1"
+  shift
+
+  print_unified_substep "$description"
+
+  # Create a temporary file to capture output
+  local temp_log
+  temp_log=$(mktemp)
+
+  # Run command, redirecting both stdout and stderr to temp log
+  if "$@" > "$temp_log" 2>&1; then
+      # Success: Append log to main log file (hidden from user)
+      cat "$temp_log" >> "$INSTALL_LOG"
+      print_unified_success "$description"
+      rm -f "$temp_log"
+      return 0
+  else
+      # Failure: Append to main log and SHOW to user
+      local exit_code=$?
+      cat "$temp_log" >> "$INSTALL_LOG"
+      print_unified_error "$description failed"
+
+      echo -e "${RED}Command output:${RESET}"
+      cat "$temp_log" | sed 's/^/  /' # Indent output
+
+      PLYMOUTH_ERRORS+=("$description failed")
+      rm -f "$temp_log"
+      return $exit_code
+  fi
+}
+
 # ======= Plymouth Setup Steps =======
-
-# ======= Kernel Detection Function =======
-
 
 set_plymouth_theme() {
   local theme="bgrt"
@@ -37,41 +67,51 @@ set_plymouth_theme() {
     fi
   fi
 
-  # Try to set the bgrt theme
-  if plymouth-set-default-theme -l | grep -qw "$theme"; then
-    if sudo plymouth-set-default-theme -R "$theme" 2>/dev/null; then
-      log_success "Set plymouth theme to '$theme'."
-      return 0
+  # Helper function to try setting a theme
+  try_set_theme() {
+    local target="$1"
+    local desc="$2"
+
+    if plymouth-set-default-theme -l | grep -qw "$target"; then
+      local output
+      if output=$(sudo plymouth-set-default-theme -R "$target" 2>&1); then
+        log_success "Set plymouth theme to '$target' ($desc)."
+        return 0
+      else
+        log_warning "Failed to set '$target' theme. Output: $output"
+        return 1
+      fi
     else
-      log_warning "Failed to set '$theme' theme. Trying fallback themes..."
+      # Only warn if it's the primary theme we really wanted
+      if [[ "$desc" == "primary" ]]; then
+         log_warning "Theme '$target' not found in available themes."
+      fi
+      return 2
     fi
-  else
-    log_warning "Theme '$theme' not found in available themes."
+  }
+
+  # 1. Try bgrt (primary)
+  if try_set_theme "$theme" "primary"; then
+    return 0
   fi
 
-  # Fallback to spinner theme (which bgrt depends on anyway)
+  # 2. Try spinner (fallback)
   local fallback_theme="spinner"
-  if plymouth-set-default-theme -l | grep -qw "$fallback_theme"; then
-    if sudo plymouth-set-default-theme -R "$fallback_theme" 2>/dev/null; then
-      log_success "Set plymouth theme to fallback '$fallback_theme'."
-      return 0
-    fi
+  if try_set_theme "$fallback_theme" "fallback"; then
+    return 0
   fi
 
-  # Last resort: use the first available theme
+  # 3. Last resort: use the first available theme
   local first_theme
   first_theme=$(plymouth-set-default-theme -l | head -n1)
   if [ -n "$first_theme" ]; then
-    if sudo plymouth-set-default-theme -R "$first_theme" 2>/dev/null; then
-      log_success "Set plymouth theme to first available theme: '$first_theme'."
-    else
-      log_error "Failed to set any plymouth theme"
-      return 1
+    if try_set_theme "$first_theme" "last resort"; then
+      return 0
     fi
-  else
-    log_error "No plymouth themes available"
-    return 1
   fi
+
+  log_error "No suitable Plymouth theme could be set."
+  return 1
 }
 
 add_kernel_parameters() {
@@ -148,7 +188,7 @@ is_plymouth_configured() {
   local plymouth_theme_set=false
   local splash_parameter_set=false
 
-  # Check if plymouth hook is in mkinitcpio.conf using the command_exists utility
+  # Check if plymouth hook is in mkinitcpio.conf
   if grep -q "plymouth" /etc/mkinitcpio.conf 2>/dev/null; then
     plymouth_hook_present=true
   fi
@@ -195,10 +235,10 @@ main() {
     return 0
   fi
 
-  # Use the centralized function from common.sh
-  run_step "Configuring Plymouth hook and rebuilding initramfs" configure_plymouth_hook_and_initramfs
-  run_step "Setting Plymouth theme" set_plymouth_theme
-  run_step "Adding 'splash' to all kernel parameters" add_kernel_parameters
+  # Use the centralized function from common.sh, but our overridden run_step handles it
+  run_plymouth_step "Configuring Plymouth hook and rebuilding initramfs" configure_plymouth_hook_and_initramfs
+  run_plymouth_step "Setting Plymouth theme" set_plymouth_theme
+  run_plymouth_step "Adding 'splash' to all kernel parameters" add_kernel_parameters
 
   print_plymouth_summary
 }

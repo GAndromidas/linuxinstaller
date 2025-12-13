@@ -621,16 +621,32 @@ configure_plymouth_hook_and_initramfs() {
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   local HOOK_ADDED=false
 
+  # Validate that plymouth is installed
+  if [ ! -f "/usr/lib/initcpio/install/plymouth" ] && [ ! -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+    log_error "Plymouth initcpio hooks not found. Is plymouth installed?"
+    log_info "Attempting to install plymouth package via pacman (no AUR fallback)..."
+
+    if sudo pacman -S --noconfirm plymouth; then
+       log_success "Installed plymouth via pacman."
+    else
+       log_error "Could not install plymouth via pacman. Please install it manually (sudo pacman -S plymouth) and re-run the installer."
+       return 1
+    fi
+  fi
+
   if ! grep -q "plymouth" "$mkinitcpio_conf" && ! grep -q "sd-plymouth" "$mkinitcpio_conf"; then
     log_info "Adding plymouth hook to mkinitcpio.conf..."
 
     # Check if using systemd hook (implies systemd initramfs)
-    # We check for 'systemd' in HOOKS line to avoid false positives in comments if possible,
-    # but for simplicity and robustness with existing code structure:
     if grep -q "^HOOKS=.*systemd" "$mkinitcpio_conf" && ! grep -q "^HOOKS=.*udev" "$mkinitcpio_conf"; then
-        # Use sd-plymouth for systemd based initramfs, place after systemd
-        sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd sd-plymouth/" "$mkinitcpio_conf"
-        log_info "Added sd-plymouth hook (systemd detected)."
+        # Use sd-plymouth for systemd based initramfs if available
+        if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+            sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd sd-plymouth/" "$mkinitcpio_conf"
+            log_info "Added sd-plymouth hook (systemd detected)."
+        else
+            sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd plymouth/" "$mkinitcpio_conf"
+            log_info "Added plymouth hook (systemd detected, sd-plymouth missing)."
+        fi
     elif grep -q "udev" "$mkinitcpio_conf"; then
         # Standard udev based initramfs, place after udev
         sudo sed -i "s/\\(HOOKS=.*\\)udev/\\1udev plymouth/" "$mkinitcpio_conf"
@@ -654,7 +670,18 @@ configure_plymouth_hook_and_initramfs() {
     fi
   else
     log_info "Plymouth hook already present in mkinitcpio.conf."
-    HOOK_ADDED=true # Assume it's correctly there if it exists
+
+    # Fix broken config: if sd-plymouth is configured but missing, try to switch to plymouth
+    if grep -q "sd-plymouth" "$mkinitcpio_conf" && [ ! -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+        if [ -f "/usr/lib/initcpio/install/plymouth" ]; then
+            log_warning "Hook 'sd-plymouth' missing, switching to 'plymouth'..."
+            sudo sed -i "s/sd-plymouth/plymouth/g" "$mkinitcpio_conf"
+        else
+            log_error "Configured hook 'sd-plymouth' is missing and no fallback found."
+            return 1
+        fi
+    fi
+    HOOK_ADDED=true
   fi
 
   if [ "$HOOK_ADDED" = true ]; then
@@ -676,13 +703,15 @@ configure_plymouth_hook_and_initramfs() {
       ((current++))
       print_progress "$current" "$total" "Rebuilding initramfs for $kernel (for Plymouth)"
 
-      if sudo mkinitcpio -p "$kernel" >/dev/null 2>&1; then
+      local mkinitcpio_output
+      if mkinitcpio_output=$(sudo mkinitcpio -p "$kernel" 2>&1); then
         print_status " [OK]" "$GREEN"
         log_success "Rebuilt initramfs for $kernel"
         ((success_count++))
       else
         print_status " [FAIL]" "$RED"
         log_error "Failed to rebuild initramfs for $kernel (for Plymouth)"
+        echo -e "${RED}mkinitcpio output:${RESET}\n$mkinitcpio_output"
       fi
     done
 
@@ -715,7 +744,12 @@ run_step() {
   shift
   step "$description"
 
-  if "$@" 2>&1 | tee -a "$INSTALL_LOG" >/dev/null; then
+  local temp_log
+  temp_log=$(mktemp)
+
+  if "$@" > "$temp_log" 2>&1; then
+    cat "$temp_log" >> "$INSTALL_LOG"
+    rm -f "$temp_log"
     log_success "$description"
 
     # Track installed packages
@@ -732,7 +766,11 @@ run_step() {
     fi
     return 0
   else
+    cat "$temp_log" >> "$INSTALL_LOG"
     log_error "$description failed"
+    echo -e "${RED}Command output:${RESET}"
+    sed 's/^/  /' "$temp_log"
+    rm -f "$temp_log"
     return 1
   fi
 }
@@ -1010,23 +1048,15 @@ prompt_reboot() {
   echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.${RESET}"
   echo ""
 
-  # Use gum menu for reboot confirmation
+  # Use gum menu for reboot confirmation if available
   if command -v gum >/dev/null 2>&1; then
     echo ""
     gum style --foreground 226 "Ready to reboot your system?"
     echo ""
     if gum confirm --default=true "Reboot now?"; then
-      echo ""
-      echo -e "${CYAN}Rebooting your system...${RESET}"
-      echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
-      echo ""
-      sleep 2
-      sudo reboot
+      REBOOT_CHOICE=1
     else
-      echo ""
-      echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
-      echo -e "${CYAN}   sudo reboot${RESET}"
-      echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
+      REBOOT_CHOICE=0
     fi
   else
     # Fallback to text prompt if gum is not available
@@ -1035,23 +1065,44 @@ prompt_reboot() {
       reboot_ans=${reboot_ans,,}
       case "$reboot_ans" in
         ""|y|yes)
-          echo ""
-          echo -e "${CYAN}Rebooting your system...${RESET}"
-          echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
-          echo ""
-          sleep 2
-          sudo reboot
+          REBOOT_CHOICE=1
           break
           ;;
         n|no)
-          echo ""
-          echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
-          echo -e "${CYAN}   sudo reboot${RESET}"
-          echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
+          REBOOT_CHOICE=0
           break
           ;;
       esac
     done
+  fi
+
+  # Always remove figlet and gum silently (no confirmation), if installed
+  local TO_REMOVE=()
+  if pacman -Q figlet &>/dev/null || command -v figlet >/dev/null 2>&1; then
+    TO_REMOVE+=("figlet")
+  fi
+  if pacman -Q gum &>/dev/null || command -v gum >/dev/null 2>&1; then
+    TO_REMOVE+=("gum")
+  fi
+
+  if [ ${#TO_REMOVE[@]} -gt 0 ]; then
+    # Remove without prompting and suppress output
+    sudo pacman -Rns --noconfirm "${TO_REMOVE[@]}" >/dev/null 2>&1 || true
+  fi
+
+  # Perform reboot or skip based on choice
+  if [ "${REBOOT_CHOICE:-0}" -eq 1 ]; then
+    echo ""
+    echo -e "${CYAN}Rebooting your system...${RESET}"
+    echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
+    echo ""
+    sleep 2
+    sudo reboot
+  else
+    echo ""
+    echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
+    echo -e "${CYAN}   sudo reboot${RESET}"
+    echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
   fi
 
   echo ""

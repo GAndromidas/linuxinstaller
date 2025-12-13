@@ -15,206 +15,67 @@ USAGE:
 OPTIONS:
     -h, --help      Show this help message and exit
     -v, --verbose   Enable verbose output (show all package installation details)
-    -q, --quiet     Quiet mode (minimal output)
-    -d, --dry-run   Preview what will be installed without making changes
+    -m, --mode      Installation mode (default, server, minimal)
 
 DESCRIPTION:
     Archinstaller transforms a fresh Arch Linux installation into a fully
     configured, optimized system. It installs essential packages, configures
     the desktop environment, sets up security features, and applies performance
     optimizations.
-
-INSTALLATION MODES:
-    Standard        Complete setup with all recommended packages
-    Minimal         Essential tools only for lightweight installations
-    Custom          Interactive selection of packages to install
-
-FEATURES:
-    - Desktop environment detection and optimization (KDE, GNOME, Cosmic)
-    - Security hardening (Fail2ban, Firewall)
-    - Performance tuning (ZRAM, Plymouth boot screen)
-    - Optional gaming mode with performance optimizations
-    - Btrfs snapshot support with automatic configuration
-
-    - Automatic GPU driver detection and installation
-
-REQUIREMENTS:
-    - Fresh Arch Linux installation
-    - Active internet connection
-    - Regular user account with sudo privileges
-    - Minimum 2GB free disk space
-
-EXAMPLES:
-    ./install.sh                Run installer with interactive prompts
-    ./install.sh --verbose      Run with detailed package installation output
-    ./install.sh --help         Show this help message
-
-LOG FILE:
-    Installation log saved to: ~/.archinstaller.log
-
-MORE INFO:
-    https://github.com/gandromidas/archinstaller
-
 EOF
   exit 0
 }
 
-# Clear terminal for clean interface
-clear
-
-# Get the directory where this script is located (archinstaller root)
+# Determine directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 
-# State tracking for error recovery
-STATE_FILE="$HOME/.archinstaller.state"
-mkdir -p "$(dirname "$STATE_FILE")"
+# Default configuration
+INSTALL_MODE="default"
+VERBOSE="false"
+TOTAL_STEPS=10
 
-source "$SCRIPTS_DIR/common.sh"
-
-# Initialize log file
-{
-  echo "=========================================="
-  echo "Archinstaller Installation Log"
-  echo "Started: $(date)"
-  echo "=========================================="
-  echo ""
-} > "$INSTALL_LOG"
-
-# Function to log to both console and file
-log_both() {
-  echo "$1" | tee -a "$INSTALL_LOG"
-}
-
-START_TIME=$(date +%s)
-
-# Parse flags
-VERBOSE=false
-DRY_RUN=false
-for arg in "$@"; do
-  case "$arg" in
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
     -h|--help)
       show_help
       ;;
-    --verbose|-v)
-      VERBOSE=true
+    -v|--verbose)
+      VERBOSE="true"
+      export VERBOSE
+      shift
       ;;
-    --quiet|-q)
-      VERBOSE=false
-      ;;
-    --dry-run|-d)
-      DRY_RUN=true
-      VERBOSE=true
+    -m|--mode)
+      INSTALL_MODE="$2"
+      shift 2
       ;;
     *)
-      echo "Unknown option: $arg"
-      echo "Use --help for usage information"
-      exit 1
+      # Ignore unknown args or handle as needed, but for now just pass
+      shift
       ;;
   esac
 done
-export VERBOSE
-export DRY_RUN
-export INSTALL_LOG
 
-arch_ascii
-
-# Silently install gum for beautiful UI before menu
-if ! command -v gum >/dev/null 2>&1; then
-  sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
-fi
-
-# Check system requirements for new users
-check_system_requirements() {
-  local requirements_failed=false
-
-  # Check if running as root
-  if [[ $EUID -eq 0 ]]; then
-    echo -e "${RED}Error: This script should NOT be run as root!${RESET}"
-    echo -e "${YELLOW}   Please run as a regular user with sudo privileges.${RESET}"
-    echo -e "${YELLOW}   Example: ./install.sh (not sudo ./install.sh)${RESET}"
-    exit 1
-  fi
-
-  # Check if we're on Arch Linux
-  if [[ ! -f /etc/arch-release ]]; then
-    echo -e "${RED}Error: This script is designed for Arch Linux only!${RESET}"
-    echo -e "${YELLOW}   Please run this on a fresh Arch Linux installation.${RESET}"
-    exit 1
-  fi
-
-  # Check internet connection (will use retry logic from common.sh if available)
-  if ! ping -c 1 archlinux.org &>/dev/null; then
-    # Try with retry if function is available
-    if declare -f check_internet_with_retry >/dev/null 2>&1; then
-      if ! check_internet_with_retry; then
-        echo -e "${RED}Error: No internet connection detected!${RESET}"
-        echo -e "${YELLOW}   Please check your network connection and try again.${RESET}"
-        exit 1
-      fi
-    else
-      echo -e "${RED}Error: No internet connection detected!${RESET}"
-      echo -e "${YELLOW}   Please check your network connection and try again.${RESET}"
-      exit 1
-    fi
-  fi
-
-  # Check available disk space (at least 2GB)
-  local available_space=$(df / | awk 'NR==2 {print $4}')
-  local min_disk_space_kb=2097152  # 2GB in KB
-  if [[ $available_space -lt $min_disk_space_kb ]]; then
-    echo -e "${RED}Error: Insufficient disk space!${RESET}"
-    echo -e "${YELLOW}   At least 2GB free space is required.${RESET}"
-    echo -e "${YELLOW}   Available: $((available_space / 1024 / 1024))GB${RESET}"
-    exit 1
-  fi
-
-  # Only show success message if we had to check something specific
-  # For now, we'll just silently continue if all requirements are met
-}
-
-check_system_requirements
-show_menu
 export INSTALL_MODE
+export SCRIPTS_DIR
+export CONFIGS_DIR
 
-# Show resume menu if previous installation detected
-show_resume_menu
-
-# Dry-run mode banner
-if [ "$DRY_RUN" = true ]; then
-  echo ""
-  echo -e "${YELLOW}========================================${RESET}"
-  echo -e "${YELLOW}         DRY-RUN MODE ENABLED${RESET}"
-  echo -e "${YELLOW}========================================${RESET}"
-  echo -e "${CYAN}Preview mode: No changes will be made${RESET}"
-  echo -e "${CYAN}Package installations will be simulated${RESET}"
-  echo -e "${CYAN}System configurations will be previewed${RESET}"
-  echo ""
-  sleep 2
-fi
-
-# Prompt for sudo using UI helpers
-if [ "$DRY_RUN" = false ]; then
-  if ! check_sudo_access; then
-    exit 1
-  fi
-  ui_info "Please enter your sudo password to begin the installation:"
-  sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
+# Source common functions
+if [ -f "$SCRIPTS_DIR/common.sh" ]; then
+  source "$SCRIPTS_DIR/common.sh"
 else
-  ui_info "Dry-run mode: Skipping sudo authentication"
+  echo "Error: common.sh not found in $SCRIPTS_DIR"
+  exit 1
 fi
 
-# Keep sudo alive (skip in dry-run mode)
-if [ "$DRY_RUN" = false ]; then
-  while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-  SUDO_KEEPALIVE_PID=$!
-  trap 'cleanup_on_exit' EXIT INT TERM
-else
-  trap 'cleanup_on_exit' EXIT INT TERM
-fi
+# State tracking for step resume and idempotency
+STATE_FILE="$HOME/.archinstaller.state"
+mkdir -p "$(dirname "$STATE_FILE")"
+touch "$STATE_FILE" 2>/dev/null || true
 
-# Function to get file hash
+# Helper: compute simple file hash
 get_file_hash() {
   local file="$1"
   if [ -f "$file" ]; then
@@ -224,33 +85,33 @@ get_file_hash() {
   fi
 }
 
-# Function to mark step as completed (with file locking and optional versioning)
+# Mark step as completed (supports optional config-file hashing)
 mark_step_complete() {
   local step="$1"
   local config_file="${2:-}"
 
   local entry="$step"
   if [ -n "$config_file" ]; then
-    local hash=$(get_file_hash "$config_file")
+    local hash
+    hash=$(get_file_hash "$config_file")
     entry="$step:$hash"
   fi
 
-  # Use file locking to prevent race conditions
+  # Use file locking to avoid races
   (
     flock -x 200 2>/dev/null || true
-    # Remove old entry for this step before adding new one
     grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
     mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
     echo "$entry" >> "$STATE_FILE"
   ) 200>"$STATE_FILE.lock" 2>/dev/null || {
-    # Fallback if flock not available
+    # fallback if flock is not available
     grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
     mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
     echo "$entry" >> "$STATE_FILE"
   }
 }
 
-# Function to check if step was completed
+# Check whether a step (optionally tied to a config file) is complete
 is_step_complete() {
   local step="$1"
   local config_file="${2:-}"
@@ -260,14 +121,14 @@ is_step_complete() {
   fi
 
   if [ -n "$config_file" ]; then
-    local current_hash=$(get_file_hash "$config_file")
+    local current_hash
+    current_hash=$(get_file_hash "$config_file")
     if grep -q "^$step:$current_hash$" "$STATE_FILE"; then
-      return 0 # Completed and config is up-to-date
+      return 0
     else
-      return 1 # Not completed or config has changed
+      return 1
     fi
   else
-    # For steps without config files, check for simple existence
     if grep -q "^$step" "$STATE_FILE"; then
       return 0
     else
@@ -276,29 +137,80 @@ is_step_complete() {
   fi
 }
 
-# Enhanced resume functionality
+# Mark step complete and print progress
+mark_step_complete_with_progress() {
+  local step_name="$1"
+  local config_file="${2:-}"
+
+  mark_step_complete "$step_name" "$config_file"
+
+  local completed_count=0
+  if [ -f "$STATE_FILE" ]; then
+    completed_count=$(cut -d':' -f1 < "$STATE_FILE" | sort -u | wc -l 2>/dev/null || echo "0")
+  fi
+
+  ui_success "Step completed! Progress: ${completed_count}/${TOTAL_STEPS}"
+}
+
+# Basic pre-checks (non-invasive)
+check_system_requirements() {
+  # Do not run as root
+  if [[ $EUID -eq 0 ]]; then
+    ui_error "Do not run this script as root. Please run as a regular user with sudo privileges."
+    exit 1
+  fi
+
+  # Ensure Arch
+  if [[ ! -f /etc/arch-release ]]; then
+    ui_error "This script is designed for Arch Linux only."
+    exit 1
+  fi
+
+  # Internet check: prefer reusable helper if available
+  if declare -f check_internet_with_retry >/dev/null 2>&1; then
+    if ! check_internet_with_retry; then
+      ui_error "No internet connection detected. Please check your network."
+      exit 1
+    fi
+  else
+    if ! ping -c 1 -W 5 archlinux.org &>/dev/null; then
+      ui_error "No internet connection detected. Please check your network."
+      exit 1
+    fi
+  fi
+
+  # Disk space check (uses MIN_DISK_SPACE_KB from common.sh)
+  if [ -n "${MIN_DISK_SPACE_KB:-}" ]; then
+    local avail_kb
+    avail_kb=$(df / | awk 'NR==2 {print $4}' || echo 0)
+    if [ "$avail_kb" -lt "$MIN_DISK_SPACE_KB" ]; then
+      ui_error "Insufficient disk space. Need at least $((MIN_DISK_SPACE_KB/1024/1024)) GB free."
+      exit 1
+    fi
+  fi
+
+  ui_success "Prerequisites OK."
+}
+
+# Resume prompt - offer to resume or start fresh
 show_resume_menu() {
   if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
     echo ""
     ui_info "Previous installation detected. The following steps were completed:"
-
     local completed_steps=()
     while IFS= read -r line; do
-      # Extract step name (remove hash if present)
-      step=$(echo "$line" | cut -d':' -f1)
-      # Avoid duplicates in the displayed list
-      if [[ ! " ${completed_steps[*]} " =~ " ${step} " ]]; then
-        completed_steps+=("$step")
+      step_name=$(echo "$line" | cut -d':' -f1)
+      # avoid duplicates
+      if [[ ! " ${completed_steps[*]} " =~ " ${step_name} " ]]; then
+        completed_steps+=("$step_name")
       fi
     done < "$STATE_FILE"
 
-    if supports_gum; then
-      echo ""
-      gum style --margin "0 2" --foreground 15 "Completed steps:"
-      for step in "${completed_steps[@]}"; do
-        gum style --margin "0 4" --foreground 10 "✓ $step"
-      done
+    for step_name in "${completed_steps[@]}"; do
+      echo -e "  ${GREEN}✓${RESET} $step_name"
+    done
 
+    if supports_gum; then
       echo ""
       if gum confirm --default=true "Resume installation from where you left off?"; then
         ui_success "Resuming installation..."
@@ -314,18 +226,13 @@ show_resume_menu() {
         fi
       fi
     else
-      # Fallback for systems without gum
-      for step in "${completed_steps[@]}"; do
-        echo -e "  ${GREEN}✓${RESET} $step"
-      done
-
       echo ""
       read -r -p "Resume installation? [Y/n]: " response
       response=${response,,}
       if [[ "$response" == "n" || "$response" == "no" ]]; then
-        read -r -p "Start fresh installation? [y/N]: " response
-        response=${response,,}
-        if [[ "$response" == "y" || "$response" == "yes" ]]; then
+        read -r -p "Start fresh installation? [y/N]: " response2
+        response2=${response2,,}
+        if [[ "$response2" == "y" || "$response2" == "yes" ]]; then
           rm -f "$STATE_FILE" "$STATE_FILE.lock" 2>/dev/null || true
           ui_info "Starting fresh installation..."
         else
@@ -339,25 +246,7 @@ show_resume_menu() {
   fi
 }
 
-# Enhanced step completion with progress tracking
-mark_step_complete_with_progress() {
-  local step_name="$1"
-  local config_file="${2:-}"
-
-  mark_step_complete "$step_name" "$config_file"
-
-  # Show overall progress by counting unique step names
-  local completed_count=$(cut -d':' -f1 < "$STATE_FILE" | sort -u | wc -l 2>/dev/null || echo "0")
-
-  if supports_gum; then
-    echo ""
-    gum style --margin "0 2" --foreground 10 "✓ Step completed! Progress: $completed_count/$TOTAL_STEPS"
-  else
-    ui_success "Step completed! Progress: $completed_count/$TOTAL_STEPS"
-  fi
-}
-
-# Function to save log on exit
+# Logging cleanup helpers
 save_log_on_exit() {
   {
     echo ""
@@ -367,32 +256,58 @@ save_log_on_exit() {
   } >> "$INSTALL_LOG"
 }
 
-# Function to cleanup on exit
 cleanup_on_exit() {
   local exit_code=$?
-
-  # Kill background processes
+  # Kill background jobs if any
   jobs -p | xargs -r kill 2>/dev/null || true
 
-  # If failed, show recovery instructions
-  if [ $exit_code -ne 0 ] && [ "$DRY_RUN" != "true" ]; then
-    echo ""
-    ui_error "Installation failed. Recovery steps:"
-    ui_info "1. Check log: $INSTALL_LOG"
-    ui_info "2. Resume: ./install.sh (will skip completed steps)"
-    ui_info "3. Fresh start: rm $STATE_FILE && ./install.sh"
+  if [ $exit_code -ne 0 ]; then
+    ui_error "Installation failed. Check the log: $INSTALL_LOG"
+    if [ ${#ERRORS[@]} -gt 0 ]; then
+      ui_info "Errors encountered:"
+      for e in "${ERRORS[@]}"; do
+        ui_info "  - $e"
+      done
+    fi
   fi
 
-  # Save final log entry
   save_log_on_exit
 }
 
-# Installation start header
+trap 'cleanup_on_exit' EXIT INT TERM
+
+# Initialize log
+echo "==========================================" > "$INSTALL_LOG"
+echo "Archinstaller Installation Log" >> "$INSTALL_LOG"
+echo "Started: $(date)" >> "$INSTALL_LOG"
+echo "==========================================" >> "$INSTALL_LOG"
+
+# Prompt for sudo (ensure we have credentials early)
+if ! check_sudo_access; then
+  ui_error "Sudo required. Exiting."
+  exit 1
+fi
+ui_info "Please enter your sudo password to begin the installation:"
+sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
+
+# Keep sudo alive in background
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+SUDO_KEEPALIVE_PID=$!
+
+# Offer resume if previous run exists
+show_resume_menu
+
+# Run lightweight prerequisite checks
+check_system_requirements
+
+# Main Installation Loop
+
 print_header "Starting Arch Linux Installation" \
   "This process will take approximately 10-20 minutes depending on your internet speed." \
   "You can safely leave this running - it will handle everything automatically!"
 
 # Step 1: System Preparation
+# Essential for setting up pacman, mirrors, and base utilities
 if ! is_step_complete "system_preparation"; then
   print_step_header_with_timing 1 "$TOTAL_STEPS" "System Preparation"
   ui_info "Updating package lists and installing system utilities..."
@@ -402,75 +317,82 @@ else
   ui_info "Step 1 (System Preparation) already completed - skipping"
 fi
 
-# Step 2: Shell Setup
-if ! is_step_complete "shell_setup"; then
-  print_step_header_with_timing 2 "$TOTAL_STEPS" "Shell Setup"
-  ui_info "Installing ZSH shell with autocompletion and syntax highlighting..."
-  step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
-  mark_step_complete_with_progress "shell_setup"
-else
-  ui_info "Step 2 (Shell Setup) already completed - skipping"
-fi
-
-# Step 3: Plymouth Setup
-if [[ "$INSTALL_MODE" == "server" ]]; then
-  ui_info "Server mode selected, skipping Plymouth (graphical boot) setup."
-else
-  if ! is_step_complete "plymouth_setup"; then
-    print_step_header_with_timing 3 "$TOTAL_STEPS" "Plymouth Setup"
-    ui_info "Setting up boot screen..."
-    step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
-    mark_step_complete_with_progress "plymouth_setup"
-  else
-    ui_info "Step 3 (Plymouth Setup) already completed - skipping"
-  fi
-fi
-
-# Step 4: Yay Installation
+# Step 2: Yay Installation
+# Moved early so AUR packages are available for subsequent steps (like Plymouth themes)
 if ! is_step_complete "yay_installation"; then
-  print_step_header_with_timing 4 "$TOTAL_STEPS" "Yay Installation"
+  print_step_header_with_timing 2 "$TOTAL_STEPS" "Yay Installation"
   ui_info "Installing AUR helper for additional software..."
   step "Yay Installation" && source "$SCRIPTS_DIR/yay.sh" || log_error "Yay installation failed"
   mark_step_complete_with_progress "yay_installation"
 else
-  ui_info "Step 4 (Yay Installation) already completed - skipping"
+  ui_info "Step 2 (Yay Installation) already completed - skipping"
 fi
 
-# Step 5: Programs Installation
+# Step 3: Shell Setup
+# Sets up ZSH/Fish so user environment is ready
+if ! is_step_complete "shell_setup"; then
+  print_step_header_with_timing 3 "$TOTAL_STEPS" "Shell Setup"
+  ui_info "Installing ZSH shell with autocompletion and syntax highlighting..."
+  step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
+  mark_step_complete_with_progress "shell_setup"
+else
+  ui_info "Step 3 (Shell Setup) already completed - skipping"
+fi
+
+# Step 4: Programs Installation
+# Installs kernels, headers, and desktop apps. Must run BEFORE Bootloader config.
 if ! is_step_complete "programs_installation" "$CONFIGS_DIR/programs.yaml"; then
-  print_step_header_with_timing 5 "$TOTAL_STEPS" "Programs Installation"
+  print_step_header_with_timing 4 "$TOTAL_STEPS" "Programs Installation"
   ui_info "Installing applications based on your desktop environment..."
   step "Programs Installation" && source "$SCRIPTS_DIR/programs.sh" || log_error "Programs installation failed"
   mark_step_complete_with_progress "programs_installation" "$CONFIGS_DIR/programs.yaml"
 else
-  ui_info "Step 5 (Programs Installation) already completed - skipping"
+  ui_info "Step 4 (Programs Installation) already completed - skipping"
 fi
 
-# Step 6: Gaming Mode
-if [[ "$INSTALL_MODE" == "server" ]]; then
-  ui_info "Server mode selected, skipping Gaming Mode setup."
-else
-  if ! is_step_complete "gaming_mode"; then
-    print_step_header_with_timing 6 "$TOTAL_STEPS" "Gaming Mode"
-    ui_info "Setting up gaming tools (optional)..."
-    step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
-    mark_step_complete_with_progress "gaming_mode"
-  else
-    ui_info "Step 6 (Gaming Mode) already completed - skipping"
-  fi
-fi
-
-# Step 7: Bootloader and Kernel Configuration
+# Step 5: Bootloader and Kernel Configuration
+# Must run AFTER Programs (to detect new kernels) and BEFORE Plymouth (base config)
 if ! is_step_complete "bootloader_config"; then
-  print_step_header_with_timing 7 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
+  print_step_header_with_timing 5 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
   ui_info "Configuring bootloader..."
   step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
   mark_step_complete_with_progress "bootloader_config"
 else
-  ui_info "Step 7 (Bootloader Configuration) already completed - skipping"
+  ui_info "Step 5 (Bootloader Configuration) already completed - skipping"
+fi
+
+# Step 6: Plymouth Setup
+# Configures boot splash. Depends on Bootloader config being present.
+if [[ "$INSTALL_MODE" == "server" ]]; then
+  ui_info "Server mode selected, skipping Plymouth (graphical boot) setup."
+else
+  if ! is_step_complete "plymouth_setup"; then
+    print_step_header_with_timing 6 "$TOTAL_STEPS" "Plymouth Setup"
+    ui_info "Setting up boot screen..."
+    step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
+    mark_step_complete_with_progress "plymouth_setup"
+  else
+    ui_info "Step 6 (Plymouth Setup) already completed - skipping"
+  fi
+fi
+
+# Step 7: Gaming Mode
+# Optional gaming optimizations
+if [[ "$INSTALL_MODE" == "server" ]]; then
+  ui_info "Server mode selected, skipping Gaming Mode setup."
+else
+  if ! is_step_complete "gaming_mode"; then
+    print_step_header_with_timing 7 "$TOTAL_STEPS" "Gaming Mode"
+    ui_info "Setting up gaming tools (optional)..."
+    step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
+    mark_step_complete_with_progress "gaming_mode"
+  else
+    ui_info "Step 7 (Gaming Mode) already completed - skipping"
+  fi
 fi
 
 # Step 8: Fail2ban Setup
+# Security
 if ! is_step_complete "fail2ban_setup"; then
   print_step_header_with_timing 8 "$TOTAL_STEPS" "Fail2ban Setup"
   ui_info "Setting up security protection for SSH..."
@@ -481,6 +403,7 @@ else
 fi
 
 # Step 9: System Services
+# Enabling services should happen after everything is installed and configured
 if ! is_step_complete "system_services"; then
   print_step_header_with_timing 9 "$TOTAL_STEPS" "System Services"
   ui_info "Enabling and configuring system services..."
@@ -491,6 +414,7 @@ else
 fi
 
 # Step 10: Maintenance
+# Final cleanup
 if ! is_step_complete "maintenance"; then
   print_step_header_with_timing 10 "$TOTAL_STEPS" "Maintenance"
   ui_info "Final cleanup and system optimization..."
@@ -499,89 +423,13 @@ if ! is_step_complete "maintenance"; then
 else
   ui_info "Step 10 (Maintenance) already completed - skipping"
 fi
-if [ "$DRY_RUN" = true ]; then
-  print_header "Dry-Run Preview Completed"
-  echo ""
-  echo -e "${YELLOW}This was a preview run. No changes were made to your system.${RESET}"
-  echo ""
-  echo -e "${CYAN}To perform the actual installation, run:${RESET}"
-  echo -e "${GREEN}  ./install.sh${RESET}"
-  echo ""
-else
-  print_header "Installation Completed Successfully"
-fi
+
+# Final Summary
 echo ""
-if supports_gum; then
-  echo ""
-  gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Installation Summary"
-  echo ""
-  gum style --margin "0 2" --foreground 10 "Desktop Environment: Configured"
-  gum style --margin "0 2" --foreground 10 "System Utilities: Installed"
-  gum style --margin "0 2" --foreground 10 "Security Features: Enabled"
-  gum style --margin "0 2" --foreground 10 "Performance Optimizations: Applied"
-  gum style --margin "0 2" --foreground 10 "Shell Configuration: Complete"
-  echo ""
-else
-  echo -e "${CYAN}Installation Summary${RESET}"
-  echo ""
-  echo -e "${GREEN}Desktop Environment:${RESET} Configured"
-  echo -e "${GREEN}System Utilities:${RESET} Installed"
-  echo -e "${GREEN}Security Features:${RESET} Enabled"
-  echo -e "${GREEN}Performance Optimizations:${RESET} Applied"
-  echo -e "${GREEN}Shell Configuration:${RESET} Complete"
-  echo ""
-fi
-if declare -f print_programs_summary >/dev/null 2>&1; then
-  print_programs_summary
-fi
+echo "==========================================" >> "$INSTALL_LOG"
+echo "Installation ended: $(date)" >> "$INSTALL_LOG"
+echo "==========================================" >> "$INSTALL_LOG"
 
-if declare -f print_gaming_summary >/dev/null 2>&1; then
-  print_gaming_summary
-fi
-
-print_summary
-log_performance "Total installation time"
-
-# Save final log
-{
-  echo ""
-  echo "=========================================="
-  echo "Installation Summary"
-  echo "=========================================="
-  echo "Completed steps:"
-  [ -f "$STATE_FILE" ] && cat "$STATE_FILE" | sed 's/^/  - /'
-  echo ""
-  if [ ${#ERRORS[@]} -gt 0 ]; then
-    echo "Errors encountered:"
-    for error in "${ERRORS[@]}"; do
-      echo "  - $error"
-    done
-  fi
-  echo ""
-  echo "Installation log saved to: $INSTALL_LOG"
-} >> "$INSTALL_LOG"
-
-# Handle installation results with minimal styling
-if [ ${#ERRORS[@]} -eq 0 ]; then
-  if supports_gum; then
-    echo ""
-    gum style --margin "0 2" --foreground 10 "Installation completed successfully"
-    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
-  else
-    ui_success "Installation completed successfully"
-    ui_info "Log: $INSTALL_LOG"
-  fi
-
-
-else
-  if supports_gum; then
-    echo ""
-    gum style --margin "0 2" --foreground 196 "Installation completed with warnings"
-    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
-  else
-    ui_warn "Installation completed with warnings"
-    ui_info "Log: $INSTALL_LOG"
-  fi
-fi
-
-prompt_reboot
+ui_success "Installation completed successfully!"
+ui_info "A log of the installation has been saved to: $INSTALL_LOG"
+echo ""

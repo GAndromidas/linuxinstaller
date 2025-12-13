@@ -258,7 +258,7 @@ configure_grub() {
     fi
 
     # Regenerate grub.cfg
-    sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1 || { log_error "grub-mkconfig failed"; return 1; }
+    run_step "Regenerating grub.cfg" sudo grub-mkconfig -o /boot/grub/grub.cfg || return 1
 
     # Verify GRUB configuration
     if grep -q '^GRUB_DEFAULT=saved' /etc/default/grub && grep -q '^GRUB_SAVEDEFAULT=true' /etc/default/grub; then
