@@ -202,7 +202,6 @@ add_kernel_parameters() {
 
   echo -e "\\n${GREEN}Kernel parameters updated for systemd-boot entries (${modified_count} modified)${RESET}\\n"
   return
-  fi
 
   # GRUB handling
   if [ -f /etc/default/grub ]; then
