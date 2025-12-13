@@ -22,7 +22,25 @@ cleanup_and_optimize() {
 setup_maintenance() {
   step "Performing comprehensive system cleanup"
   run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
-  run_step "Cleaning yay cache" yay -Sc --noconfirm
+
+  # Robust yay cache cleanup:
+  # - Only attempt to use yay if present
+  # - If yay runs but fails (broken yay, libalpm errors), fallback to manual cache cleanup
+  if command -v yay >/dev/null 2>&1; then
+    # Try to run yay cache clean; hide output but detect failure
+    if yay -Sc --noconfirm >/dev/null 2>&1; then
+      # Record success via run_step with a no-op command (so logs show the step as completed)
+      run_step "Cleaning yay cache" true
+    else
+      # yay present but failed -> likely broken (libalpm errors etc). Fall back to manual cleanup.
+      log_warning "yay cache cleanup failed (yay reported errors). Falling back to manual cleanup of yay caches."
+      # Remove typical yay cache/build dirs as fallback (no failure should stop the installer)
+      run_step "Removing yay user cache" sudo rm -rf "$HOME/.cache/yay" || true
+      run_step "Removing yay /tmp build dir" sudo rm -rf /tmp/yay || true
+    fi
+  else
+    log_info "yay not installed; skipping yay cache cleanup"
+  fi
 
   # Flatpak cleanup - remove unused packages and runtimes
   if command -v flatpak >/dev/null 2>&1; then
@@ -228,7 +246,7 @@ BTRFS_SCRUB_MOUNTPOINTS="/:/home:/var/log"
 BTRFS_SCRUB_PERIOD="monthly"
 
 ## Path:        System/File systems/btrfs
-## Type:        string(idle,normal)
+## Type:        string
 ## Default:     "idle"
 #
 # Priority of IO at which the scrub process will run. Idle should not degrade
@@ -277,8 +295,8 @@ BTRFS_TRIM_MOUNTPOINTS="/"
 # out other tasks from using the file systems.  This option will force
 # these jobs to run in FIFO order when scheduled at overlapping times.  This
 # may include tasks scheduled to run when a system resumes or boots when
-# the timer for these tasks(s) elapsed while the system was suspended
-# or powered off.
+# the timer for these tasks(s) elapsed while the system was suspended or
+# powered off.
 BTRFS_ALLOW_CONCURRENCY="false"
 EOF
 
@@ -645,9 +663,9 @@ setup_btrfs_snapshots() {
 # Function to verify essential tools are installed
 verify_essential_tools() {
   step "Verifying essential tools"
-  
+
   local missing_tools=()
-  
+
   # Check yay (AUR helper)
   if command -v yay >/dev/null 2>&1; then
     log_success "yay (AUR helper) is installed"
@@ -655,14 +673,14 @@ verify_essential_tools() {
     log_warning "yay (AUR helper) is not installed"
     missing_tools+=("yay")
   fi
-  
+
   # Check flatpak (optional but useful)
   if command -v flatpak >/dev/null 2>&1; then
     log_success "flatpak is installed"
   else
     log_info "flatpak is not installed (optional)"
   fi
-  
+
   if [ ${#missing_tools[@]} -gt 0 ]; then
     log_info "Missing tools: ${missing_tools[*]}"
     log_info "These can be installed later if needed"

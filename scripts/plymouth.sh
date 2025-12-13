@@ -41,6 +41,18 @@ set_plymouth_theme() {
     fi
   fi
 
+  # If plymouth utilities are missing, attempt to install plymouth (non-AUR)
+  if ! command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    log_info "plymouth tools not found. Attempting to install 'plymouth' package via pacman..."
+    if sudo pacman -S --noconfirm plymouth >/dev/null 2>&1; then
+      log_success "Installed 'plymouth' package via pacman."
+    else
+      log_warning "Could not install 'plymouth' via pacman. Continuing without setting a theme."
+      # Non-fatal: do not abort installation if theme can't be set
+      return 0
+    fi
+  fi
+
   # Helper: try to set a single theme (returns 0 on success)
   try_set_theme() {
     local t="$1"
@@ -52,9 +64,8 @@ set_plymouth_theme() {
         log_warning "plymouth-set-default-theme failed for '$t'"
         return 1
       fi
-    else
-      return 2
     fi
+    return 2
   }
 
   # 1) Try primary theme
@@ -76,8 +87,9 @@ set_plymouth_theme() {
     fi
   fi
 
-  log_error "No suitable Plymouth theme could be set."
-  return 1
+  # Make theme failure non-fatal: warn and continue.
+  log_warning "No suitable Plymouth theme could be set. Continuing without a configured theme."
+  return 0
 }
 
 # Add recommended kernel parameters to boot entries (systemd-boot or GRUB)
