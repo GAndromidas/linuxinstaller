@@ -14,6 +14,8 @@ source "$SCRIPT_DIR/common.sh"
 # ===== Globals =====
 pacman_gaming_programs=()
 flatpak_gaming_programs=()
+GAMING_INSTALLED=()
+GAMING_ERRORS=()
 
 # ===== YAML Parsing Functions =====
 
@@ -70,8 +72,22 @@ install_gaming_pacman_packages() {
 	fi
 	ui_info "Installing ${#pacman_gaming_programs[@]} pacman packages for gaming..."
 
-    # leverage common.sh optimized batch installer
-    install_packages_quietly "${pacman_gaming_programs[@]}"
+	# Try batch install first (faster). install_packages_quietly returns 0 on success.
+	if install_packages_quietly "${pacman_gaming_programs[@]}"; then
+		for pkg in "${pacman_gaming_programs[@]}"; do
+			GAMING_INSTALLED+=("$pkg (pacman)")
+		done
+		return
+	fi
+
+	# Batch install failed or partial; install individually to capture successes/failures.
+	for pkg in "${pacman_gaming_programs[@]}"; do
+		if install_packages_quietly "$pkg"; then
+			GAMING_INSTALLED+=("$pkg (pacman)")
+		else
+			GAMING_ERRORS+=("$pkg (pacman)")
+		fi
+	done
 }
 
 install_gaming_flatpak_packages() {
@@ -89,8 +105,22 @@ install_gaming_flatpak_packages() {
 	fi
 	ui_info "Installing ${#flatpak_gaming_programs[@]} Flatpak applications for gaming..."
 
-    # leverage common.sh optimized batch installer (if supported by flatpak installer in common.sh)
-    install_flatpak_quietly "${flatpak_gaming_programs[@]}"
+	# Try batch install first (if supported)
+	if install_flatpak_quietly "${flatpak_gaming_programs[@]}"; then
+		for pkg in "${flatpak_gaming_programs[@]}"; do
+			GAMING_INSTALLED+=("$pkg (flatpak)")
+		done
+		return
+	fi
+
+	# Fallback to per-package installs to track failures
+	for pkg in "${flatpak_gaming_programs[@]}"; do
+		if install_flatpak_quietly "$pkg"; then
+			GAMING_INSTALLED+=("$pkg (flatpak)")
+		else
+			GAMING_ERRORS+=("$pkg (flatpak)")
+		fi
+	done
 }
 
 # ===== Configuration Functions =====
@@ -117,6 +147,25 @@ enable_gamemode() {
 	else
 		log_warning "Failed to enable or start GameMode service. It may require manual configuration."
 	fi
+}
+
+print_gaming_summary() {
+	# If nothing was attempted, don't print
+	if [[ ${#GAMING_INSTALLED[@]} -eq 0 && ${#GAMING_ERRORS[@]} -eq 0 ]]; then
+		return
+	fi
+
+	echo ""
+	ui_header "Gaming Mode Setup Summary"
+	if [[ ${#GAMING_INSTALLED[@]} -gt 0 ]]; then
+		echo -e "${GREEN}Installed:${RESET}"
+		printf "  - %s\n" "${GAMING_INSTALLED[@]}"
+	fi
+	if [[ ${#GAMING_ERRORS[@]} -gt 0 ]]; then
+		echo -e "${RED}Errors:${RESET}"
+		printf "  - %s\n" "${GAMING_ERRORS[@]}"
+	fi
+	echo ""
 }
 
 # ===== Main Execution =====

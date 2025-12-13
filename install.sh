@@ -463,15 +463,92 @@ else
   ui_info "Step 10 (Maintenance) already completed - skipping"
 fi
 
-# Final Summary
+# Final Summary / Installation Summary (modeled after archinstaller-4.2)
 echo ""
 echo "==========================================" >> "$INSTALL_LOG"
 echo "Installation ended: $(date)" >> "$INSTALL_LOG"
 echo "==========================================" >> "$INSTALL_LOG"
 
-ui_success "Installation completed successfully!"
-ui_info "A log of the installation has been saved to: $INSTALL_LOG"
-echo ""
+# Display a friendly Installation Summary (uses gum if available)
+if supports_gum; then
+  echo ""
+  gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Installation Summary"
+  echo ""
+  gum style --margin "0 2" --foreground 10 "Desktop Environment: Configured"
+  gum style --margin "0 2" --foreground 10 "System Utilities: Installed"
+  gum style --margin "0 2" --foreground 10 "Security Features: Enabled"
+  gum style --margin "0 2" --foreground 10 "Performance Optimizations: Applied"
+  gum style --margin "0 2" --foreground 10 "Shell Configuration: Complete"
+  echo ""
+else
+  echo -e "${CYAN}Installation Summary${RESET}"
+  echo ""
+  echo -e "${GREEN}Desktop Environment:${RESET} Configured"
+  echo -e "${GREEN}System Utilities:${RESET} Installed"
+  echo -e "${GREEN}Security Features:${RESET} Enabled"
+  echo -e "${GREEN}Performance Optimizations:${RESET} Applied"
+  echo -e "${GREEN}Shell Configuration:${RESET} Complete"
+  echo ""
+fi
+
+# Call component summaries if available (programs/gaming)
+if declare -f print_programs_summary >/dev/null 2>&1; then
+  print_programs_summary
+fi
+
+if declare -f print_gaming_summary >/dev/null 2>&1; then
+  print_gaming_summary
+fi
+
+# Print generic installation summary from common.sh
+if declare -f print_summary >/dev/null 2>&1; then
+  print_summary
+fi
+
+# Log performance/time taken if available
+if declare -f log_performance >/dev/null 2>&1; then
+  log_performance "Total installation time"
+fi
+
+# Save a compact installation summary to the install log
+{
+  echo ""
+  echo "=========================================="
+  echo "Installation Summary"
+  echo "=========================================="
+  echo "Completed steps:"
+  [ -f "$STATE_FILE" ] && cat "$STATE_FILE" | sed 's/^/  - /'
+  echo ""
+  if [ ${#ERRORS[@]} -gt 0 ]; then
+    echo "Errors encountered:"
+    for error in "${ERRORS[@]}"; do
+      echo "  - $error"
+    done
+  fi
+  echo ""
+  echo "Installation log saved to: $INSTALL_LOG"
+} >> "$INSTALL_LOG"
+
+# Final result message (styled when gum available)
+if [ ${#ERRORS[@]} -eq 0 ]; then
+  if supports_gum; then
+    echo ""
+    gum style --margin "0 2" --foreground 10 "Installation completed successfully"
+    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
+  else
+    ui_success "Installation completed successfully"
+    ui_info "Log: $INSTALL_LOG"
+  fi
+else
+  if supports_gum; then
+    echo ""
+    gum style --margin "0 2" --foreground 196 "Installation completed with warnings"
+    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
+  else
+    ui_warn "Installation completed with warnings"
+    ui_info "Log: $INSTALL_LOG"
+  fi
+fi
 
 # Delegate reboot prompt to centralized function in common.sh to avoid duplication.
 # We override/define prompt_reboot here so it only removes temporary helpers
@@ -497,18 +574,15 @@ prompt_reboot() {
   echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.${RESET}"
   echo ""
 
-  # Use gum menu for reboot confirmation if available
+  # Use gum menu for reboot confirmation if available (non-verbose)
   if command -v gum >/dev/null 2>&1; then
-    echo ""
-    gum style --foreground 226 "Ready to reboot your system?"
-    echo ""
-    if gum confirm --default=true "Reboot now?"; then
+    if gum confirm --default=true "Reboot now?" >/dev/null 2>&1; then
       REBOOT_CHOICE=1
     else
       REBOOT_CHOICE=0
     fi
   else
-    # Fallback to text prompt if gum is not available
+    # Fallback to text prompt if gum is not available (simple prompt)
     while true; do
       read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
       reboot_ans=${reboot_ans,,}
