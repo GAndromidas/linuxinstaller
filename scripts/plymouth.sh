@@ -125,64 +125,83 @@ add_kernel_parameters() {
   local params="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
 
   # systemd-boot (bootctl) handling
-  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
-    local boot_entries_dir="/boot/loader/entries"
-    if [ ! -d "$boot_entries_dir" ]; then
-      log_warning "Boot entries directory not found. Skipping kernel parameter addition."
-      return
+  # Robust systemd-boot detection: check common ESP mount locations and use sudo checks.
+  # This handles cases where /boot is root-only (700) or the ESP is mounted at /efi or /boot/efi.
+  local boot_entries_dir=""
+  # First try bootctl if available (it returns the ESP path)
+  if command -v bootctl >/dev/null 2>&1; then
+    local esp_path
+    esp_path=$(bootctl -p 2>/dev/null || true)
+    if [ -n "$esp_path" ] && sudo test -d "$esp_path/loader/entries" 2>/dev/null; then
+      boot_entries_dir="$esp_path/loader/entries"
     fi
+  fi
 
-    local boot_entries=()
-    while IFS= read -r -d '' entry; do
-      boot_entries+=("$entry")
-    done < <(find "$boot_entries_dir" -name "*.conf" -print0 2>/dev/null)
-
-    if [ ${#boot_entries[@]} -eq 0 ]; then
-      log_warning "No boot entries found. Skipping kernel parameter addition."
-      return
+  # Common candidate locations (check with sudo to handle restrictive /boot perms)
+  for candidate in "/boot/loader/entries" "/efi/loader/entries" "/boot/efi/loader/entries" "/boot/EFI/loader/entries" "/efi/EFI/loader/entries"; do
+    if [ -z "$boot_entries_dir" ] && sudo test -d "$candidate" 2>/dev/null; then
+      boot_entries_dir="$candidate"
+      break
     fi
+  done
 
-    echo -e "${CYAN}Found ${#boot_entries[@]} boot entries${RESET}"
-    local total=${#boot_entries[@]}
-    local current=0
-    local modified_count=0
-
-    for entry in "${boot_entries[@]}"; do
-      ((current++))
-      local entry_name
-      entry_name=$(basename "$entry")
-      print_progress "$current" "$total" "Ensuring kernel params for $entry_name"
-
-      # Ensure each recommended param is present in the options line
-      if [ -f "$entry" ]; then
-        local changed=false
-        for p in $params; do
-          if ! grep -q -E "(^|[[:space:]])$p($|[[:space:]])" "$entry" 2>/dev/null; then
-            # Append missing parameter to the options line
-            if sudo sed -i "/^options / s/$/ $p/" "$entry"; then
-              changed=true
-            else
-              log_error "Failed to add '$p' to $entry_name"
-            fi
-          fi
-        done
-
-        if [ "$changed" = true ]; then
-          print_status " [OK]" "$GREEN"
-          log_success "Updated kernel params in $entry_name"
-          ((modified_count++))
-        else
-          print_status " [SKIP] Already configured" "$YELLOW"
-          log_info "Kernel params already present in $entry_name"
-        fi
-      else
-        print_status " [FAIL]" "$RED"
-        log_error "Entry $entry_name not readable"
-      fi
-    done
-
-    echo -e "\\n${GREEN}Kernel parameters updated for systemd-boot entries (${modified_count} modified)${RESET}\\n"
+  # If we still don't have entries, skip gracefully
+  if [ -z "$boot_entries_dir" ]; then
+    log_warning "Boot entries directory not found in common locations. Skipping kernel parameter addition."
     return
+  fi
+
+  # Collect boot entries using sudo (entries may be root-only)
+  local boot_entries=()
+  while IFS= read -r -d '' entry; do
+    boot_entries+=("$entry")
+  done < <(sudo find "$boot_entries_dir" -maxdepth 1 -name "*.conf" -print0 2>/dev/null)
+
+  if [ ${#boot_entries[@]} -eq 0 ]; then
+    log_warning "No boot entries found under $boot_entries_dir. Skipping kernel parameter addition."
+    return
+  fi
+
+  echo -e "${CYAN}Found ${#boot_entries[@]} boot entries (${boot_entries_dir})${RESET}"
+  local total=${#boot_entries[@]}
+  local current=0
+  local modified_count=0
+
+  for entry in "${boot_entries[@]}"; do
+    ((current++))
+    local entry_name
+    entry_name=$(basename "$entry")
+    print_progress "$current" "$total" "Ensuring kernel params for $entry_name"
+
+    # Use sudo for reads and edits because the ESP/entries may be root-only
+    if sudo test -f "$entry" 2>/dev/null; then
+      local changed=false
+      for p in $params; do
+        if ! sudo grep -q -E "(^|[[:space:]])$p($|[[:space:]])" "$entry" 2>/dev/null; then
+          if sudo sed -i "/^options / s/$/ $p/" "$entry"; then
+            changed=true
+          else
+            log_error "Failed to add '$p' to $entry_name"
+          fi
+        fi
+      done
+
+      if [ "$changed" = true ]; then
+        print_status " [OK]" "$GREEN"
+        log_success "Updated kernel params in $entry_name"
+        ((modified_count++))
+      else
+        print_status " [SKIP] Already configured" "$YELLOW"
+        log_info "Kernel params already present in $entry_name"
+      fi
+    else
+      print_status " [FAIL]" "$RED"
+      log_error "Entry $entry_name not readable (permission or missing)"
+    fi
+  done
+
+  echo -e "\\n${GREEN}Kernel parameters updated for systemd-boot entries (${modified_count} modified)${RESET}\\n"
+  return
   fi
 
   # GRUB handling

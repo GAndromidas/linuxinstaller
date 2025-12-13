@@ -68,21 +68,21 @@ install_yay() {
   echo -e "\n${GREEN}yay AUR helper installed successfully${RESET}"
   echo ""
 
-  # Install rate-mirrors to get the fastest mirrors
-  step "Installing rate-mirrors"
-  if yay -S --noconfirm rate-mirrors-bin >/dev/null 2>&1; then
-    log_success "rate-mirrors-bin installed successfully"
-
-    # Update mirrorlist
-    step "Updating mirrorlist with rate-mirrors"
-    if sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch >/dev/null 2>&1; then
-      log_success "Mirrorlist updated successfully"
-    else
-      log_error "Failed to update mirrorlist"
-    fi
+  # Install rate-mirrors to get the fastest mirrors (idempotent and visible)
+  # Check for existing installation first to avoid unnecessary rebuilds
+  if pacman -Q rate-mirrors-bin &>/dev/null || command -v rate-mirrors &>/dev/null; then
+    log_success "rate-mirrors (rate-mirrors-bin) is already installed"
   else
-    log_error "Failed to install rate-mirrors-bin"
+    # Use run_step so installation output is captured and visible in logs/UI
+    run_step "Installing rate-mirrors" yay -S --noconfirm rate-mirrors-bin || {
+      log_error "Failed to install rate-mirrors-bin"
+    }
   fi
+
+  # Update mirrorlist using rate-mirrors (always try, but capture failures)
+  run_step "Updating mirrorlist with rate-mirrors" sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch || {
+    log_error "Failed to update mirrorlist with rate-mirrors"
+  }
 }
 
 # Execute yay installation
