@@ -440,3 +440,47 @@ echo "==========================================" >> "$INSTALL_LOG"
 ui_success "Installation completed successfully!"
 ui_info "A log of the installation has been saved to: $INSTALL_LOG"
 echo ""
+
+# Final reboot prompt with figlet banner (if available) and gum confirmation (default: yes).
+# Fallback to a simple prompt if gum is not installed. After the prompt, silently
+# remove `figlet` and `gum` packages (if present) so the environment is cleaned up.
+# Default choice is 'yes' when the user just presses Enter.
+
+# Show a prominent banner if figlet is available
+if command -v figlet >/dev/null 2>&1; then
+  figlet -w 120 "Reboot System?"
+fi
+
+# Default to yes
+REBOOT_ANSWER="yes"
+
+if supports_gum; then
+  # Use gum for a nicer yes/no prompt; default=true makes Enter mean yes
+  if gum confirm --default=true "Reboot system now?"; then
+    REBOOT_ANSWER="yes"
+  else
+    REBOOT_ANSWER="no"
+  fi
+else
+  # Traditional fallback prompt (default to yes)
+  read -r -p "Reboot system now? [Y/n]: " response
+  response=${response,,} # tolower
+  if [[ -z "$response" || "$response" == "y" || "$response" == "yes" ]]; then
+    REBOOT_ANSWER="yes"
+  else
+    REBOOT_ANSWER="no"
+  fi
+fi
+
+# Silent cleanup of UI helper packages (do not fail the script if removal fails)
+# Attempt a pacman remove; ignore errors (e.g., if packages not installed or removal fails)
+sudo pacman -Rns --noconfirm figlet gum >/dev/null 2>&1 || true
+
+if [ "$REBOOT_ANSWER" = "yes" ]; then
+  ui_info "Rebooting the system now..."
+  # Give a moment for messages to flush
+  sleep 1
+  sudo reboot
+else
+  ui_info "Reboot skipped. You can reboot later with: sudo reboot"
+fi
