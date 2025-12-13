@@ -56,6 +56,48 @@ HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch flatpak fzf gi
 : "${XDG_CURRENT_DESKTOP:=}"
 : "${INSTALL_LOG:=$HOME/.archinstaller.log}"
 
+# Helper: detect whether Plymouth is fully configured end-to-end.
+# Returns 0 when:
+#  - mkinitcpio.conf contains a plymouth hook (sd-plymouth or plymouth)
+#  - a plymouth theme is available/set (plymouth-set-default-theme prints something)
+#  - the kernel 'splash' parameter is present in systemd-boot entries OR in /etc/default/grub
+# Otherwise returns 1.
+is_plymouth_fully_configured() {
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  local hook_present=false
+  local theme_set=false
+  local splash_present=false
+
+  # Check for plymouth hook in mkinitcpio.conf
+  if grep -q "plymouth" "$mkinitcpio_conf" 2>/dev/null; then
+    hook_present=true
+  fi
+
+  # Check if plymouth-set-default-theme exists and reports themes
+  if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    if plymouth-set-default-theme 2>/dev/null | grep -qv "^$"; then
+      theme_set=true
+    fi
+  fi
+
+  # Check for splash kernel parameter in common bootloader locations
+  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
+    if grep -q "splash" /boot/loader/entries/*.conf 2>/dev/null; then
+      splash_present=true
+    fi
+  elif [ -f /etc/default/grub ]; then
+    if grep -q 'splash' /etc/default/grub 2>/dev/null; then
+      splash_present=true
+    fi
+  fi
+
+  if [ "$hook_present" = true ] && [ "$theme_set" = true ] && [ "$splash_present" = true ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 # ===== Logging Functions =====
 
 # Log to both console and log file
