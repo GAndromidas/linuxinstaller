@@ -115,58 +115,118 @@ set_plymouth_theme() {
 }
 
 add_kernel_parameters() {
-  # Detect bootloader
+  # Recommended kernel parameters for a clean plymouth boot:
+  # - quiet: reduce kernel messages on console
+  # - splash: enable splash screen
+  # - loglevel=3: reduce kernel verbosity
+  # - systemd.show_status=auto: nicer systemd status behavior
+  # - rd.udev.log_level=3: reduce udev verbose logs during early boot
+  # - plymouth.ignore-serial-consoles: avoid plymouth trying to use serial consoles
+  local params="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
+
+  # systemd-boot (bootctl) handling
   if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
-    # systemd-boot logic (existing)
     local boot_entries_dir="/boot/loader/entries"
     if [ ! -d "$boot_entries_dir" ]; then
       log_warning "Boot entries directory not found. Skipping kernel parameter addition."
       return
     fi
+
     local boot_entries=()
     while IFS= read -r -d '' entry; do
       boot_entries+=("$entry")
     done < <(find "$boot_entries_dir" -name "*.conf" -print0 2>/dev/null)
+
     if [ ${#boot_entries[@]} -eq 0 ]; then
       log_warning "No boot entries found. Skipping kernel parameter addition."
       return
     fi
+
     echo -e "${CYAN}Found ${#boot_entries[@]} boot entries${RESET}"
     local total=${#boot_entries[@]}
     local current=0
     local modified_count=0
+
     for entry in "${boot_entries[@]}"; do
       ((current++))
-      local entry_name=$(basename "$entry")
-      print_progress "$current" "$total" "Adding splash to $entry_name"
-      if ! grep -q "splash" "$entry"; then
-        if sudo sed -i '/^options / s/$/ splash/' "$entry"; then
+      local entry_name
+      entry_name=$(basename "$entry")
+      print_progress "$current" "$total" "Ensuring kernel params for $entry_name"
+
+      # Ensure each recommended param is present in the options line
+      if [ -f "$entry" ]; then
+        local changed=false
+        for p in $params; do
+          if ! grep -q -E "(^|[[:space:]])$p($|[[:space:]])" "$entry" 2>/dev/null; then
+            # Append missing parameter to the options line
+            if sudo sed -i "/^options / s/$/ $p/" "$entry"; then
+              changed=true
+            else
+              log_error "Failed to add '$p' to $entry_name"
+            fi
+          fi
+        done
+
+        if [ "$changed" = true ]; then
           print_status " [OK]" "$GREEN"
-          log_success "Added 'splash' to $entry_name"
+          log_success "Updated kernel params in $entry_name"
           ((modified_count++))
         else
-          print_status " [FAIL]" "$RED"
-          log_error "Failed to add 'splash' to $entry_name"
+          print_status " [SKIP] Already configured" "$YELLOW"
+          log_info "Kernel params already present in $entry_name"
         fi
       else
-        print_status " [SKIP] Already has splash" "$YELLOW"
-        log_warning "'splash' already set in $entry_name"
+        print_status " [FAIL]" "$RED"
+        log_error "Entry $entry_name not readable"
       fi
     done
-    echo -e "\\n${GREEN}Kernel parameters updated for all boot entries (${modified_count} modified)${RESET}\\n"
-  elif [ -d /boot/grub ] || [ -f /etc/default/grub ]; then
-    # GRUB logic
-    if grep -q 'splash' /etc/default/grub; then
-      log_warning "'splash' already present in GRUB_CMDLINE_LINUX_DEFAULT."
-    else
-      sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="splash /' /etc/default/grub
-      log_success "Added 'splash' to GRUB_CMDLINE_LINUX_DEFAULT."
-      sudo grub-mkconfig -o /boot/grub/grub.cfg
-      log_success "Regenerated grub.cfg after adding 'splash'."
-    fi
-  else
-    log_warning "No supported bootloader detected for kernel parameter addition."
+
+    echo -e "\\n${GREEN}Kernel parameters updated for systemd-boot entries (${modified_count} modified)${RESET}\\n"
+    return
   fi
+
+  # GRUB handling
+  if [ -f /etc/default/grub ]; then
+    # Read current GRUB_CMDLINE_LINUX_DEFAULT
+    local current_line
+    current_line=$(grep -E "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub 2>/dev/null || true)
+
+    # If no line exists, create one
+    if [ -z "$current_line" ]; then
+      sudo bash -c "echo 'GRUB_CMDLINE_LINUX_DEFAULT=\"${params}\"' >> /etc/default/grub"
+      log_success "Added GRUB_CMDLINE_LINUX_DEFAULT with recommended kernel params"
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
+      log_success "Regenerated grub.cfg after adding kernel params."
+      return
+    fi
+
+    # If line exists, ensure each recommended param is present inside the quotes
+    local new_cmdline
+    # Extract the quoted content
+    local quoted
+    quoted=$(echo "$current_line" | sed -E 's/^GRUB_CMDLINE_LINUX_DEFAULT=(.*)/\1/' | sed -E 's/^"(.*)"$/\1/')
+
+    # Add missing params
+    new_cmdline="$quoted"
+    for p in $params; do
+      if ! echo "$quoted" | grep -q -E "(^|[[:space:]])$p($|[[:space:]])"; then
+        new_cmdline="$new_cmdline $p"
+      fi
+    done
+
+    # Update only if changes were made
+    if [ "$new_cmdline" != "$quoted" ]; then
+      sudo sed -i "s@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT=\"${new_cmdline}\"@" /etc/default/grub
+      log_success "Updated GRUB_CMDLINE_LINUX_DEFAULT with recommended kernel params"
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
+      log_success "Regenerated grub.cfg after updating kernel params."
+    else
+      log_info "GRUB_CMDLINE_LINUX_DEFAULT already contains the recommended kernel params"
+    fi
+    return
+  fi
+
+  log_warning "No supported bootloader detected for kernel parameter addition."
 }
 
 print_plymouth_summary() {

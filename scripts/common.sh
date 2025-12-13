@@ -620,70 +620,72 @@ configure_plymouth_hook_and_initramfs() {
   step "Configuring Plymouth hook and rebuilding initramfs"
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   local HOOK_ADDED=false
+  local HOOK_NAME=""
 
-  # Validate that plymouth is installed
-  if [ ! -f "/usr/lib/initcpio/install/plymouth" ] && [ ! -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+  # ===== Determine which initcpio hook is actually available =====
+  # Prefer sd-plymouth (systemd variant) if present; otherwise fallback to plymouth.
+  if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+    HOOK_NAME="sd-plymouth"
+  elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
+    HOOK_NAME="plymouth"
+  else
+    # Try pacman installation (pacman-only policy; no AUR)
     log_error "Plymouth initcpio hooks not found. Is plymouth installed?"
     log_info "Attempting to install plymouth package via pacman (no AUR fallback)..."
+    if sudo pacman -S --noconfirm plymouth >/dev/null 2>&1; then
+      log_success "Installed plymouth via pacman."
+      if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+        HOOK_NAME="sd-plymouth"
+      elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
+        HOOK_NAME="plymouth"
+      fi
+    fi
 
-    if sudo pacman -S --noconfirm plymouth; then
-       log_success "Installed plymouth via pacman."
-    else
-       log_error "Could not install plymouth via pacman. Please install it manually (sudo pacman -S plymouth) and re-run the installer."
-       return 1
+    if [ -z "$HOOK_NAME" ]; then
+      log_error "Could not find or install a plymouth initcpio hook. Please install 'plymouth' via pacman and re-run the installer."
+      return 1
     fi
   fi
 
-  if ! grep -q "plymouth" "$mkinitcpio_conf" && ! grep -q "sd-plymouth" "$mkinitcpio_conf"; then
-    log_info "Adding plymouth hook to mkinitcpio.conf..."
+  # ===== Ensure mkinitcpio.conf contains the correct hook name =====
+  if grep -q "$HOOK_NAME" "$mkinitcpio_conf" 2>/dev/null; then
+    log_info "Plymouth hook ($HOOK_NAME) already present in mkinitcpio.conf."
+    HOOK_ADDED=true
+  else
+    log_info "Adding $HOOK_NAME hook to mkinitcpio.conf..."
 
-    # Check if using systemd hook (implies systemd initramfs)
+    # Place the hook sensibly: after systemd (if present), otherwise after udev, otherwise before filesystems, otherwise append.
     if grep -q "^HOOKS=.*systemd" "$mkinitcpio_conf" && ! grep -q "^HOOKS=.*udev" "$mkinitcpio_conf"; then
-        # Use sd-plymouth for systemd based initramfs if available
-        if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
-            sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd sd-plymouth/" "$mkinitcpio_conf"
-            log_info "Added sd-plymouth hook (systemd detected)."
-        else
-            sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd plymouth/" "$mkinitcpio_conf"
-            log_info "Added plymouth hook (systemd detected, sd-plymouth missing)."
-        fi
+        sudo sed -i "s/\\(HOOKS=.*\\)systemd/\\1systemd $HOOK_NAME/" "$mkinitcpio_conf"
+        log_info "Added $HOOK_NAME hook (systemd detected)."
     elif grep -q "udev" "$mkinitcpio_conf"; then
-        # Standard udev based initramfs, place after udev
-        sudo sed -i "s/\\(HOOKS=.*\\)udev/\\1udev plymouth/" "$mkinitcpio_conf"
-        log_info "Added plymouth hook (udev detected)."
+        sudo sed -i "s/\\(HOOKS=.*\\)udev/\\1udev $HOOK_NAME/" "$mkinitcpio_conf"
+        log_info "Added $HOOK_NAME hook (udev detected)."
     else
-        # Fallback: add before filesystems
         if grep -q "filesystems" "$mkinitcpio_conf"; then
-            sudo sed -i "s/\\(HOOKS=.*\\)filesystems/\\1plymouth filesystems/" "$mkinitcpio_conf"
+            sudo sed -i "s/\\(HOOKS=.*\\)filesystems/\\1$HOOK_NAME filesystems/" "$mkinitcpio_conf"
         else
-            sudo sed -i "s/^\\(HOOKS=.*\\)\\\"$/\\1 plymouth\\\"/" "$mkinitcpio_conf"
+            sudo sed -i "s/^\\(HOOKS=.*\\)\\\"$/\\1 $HOOK_NAME\\\"/" "$mkinitcpio_conf"
         fi
-        log_info "Added plymouth hook (fallback placement)."
+        log_info "Added $HOOK_NAME hook (fallback placement)."
     fi
 
     if [ $? -eq 0 ]; then
-      log_success "Added plymouth hook to mkinitcpio.conf."
+      log_success "Added $HOOK_NAME hook to mkinitcpio.conf."
       HOOK_ADDED=true
     else
-      log_error "Failed to add plymouth hook to mkinitcpio.conf."
+      log_error "Failed to add $HOOK_NAME hook to mkinitcpio.conf."
       return 1
     fi
-  else
-    log_info "Plymouth hook already present in mkinitcpio.conf."
-
-    # Fix broken config: if sd-plymouth is configured but missing, try to switch to plymouth
-    if grep -q "sd-plymouth" "$mkinitcpio_conf" && [ ! -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
-        if [ -f "/usr/lib/initcpio/install/plymouth" ]; then
-            log_warning "Hook 'sd-plymouth' missing, switching to 'plymouth'..."
-            sudo sed -i "s/sd-plymouth/plymouth/g" "$mkinitcpio_conf"
-        else
-            log_error "Configured hook 'sd-plymouth' is missing and no fallback found."
-            return 1
-        fi
-    fi
-    HOOK_ADDED=true
   fi
 
+  # If mkinitcpio.conf contains sd-plymouth but the system only provides 'plymouth', normalize to the available hook.
+  if grep -q "sd-plymouth" "$mkinitcpio_conf" 2>/dev/null && [ "$HOOK_NAME" != "sd-plymouth" ]; then
+      sudo sed -i "s/sd-plymouth/$HOOK_NAME/g" "$mkinitcpio_conf"
+      log_info "Replaced sd-plymouth with $HOOK_NAME in mkinitcpio.conf"
+  fi
+
+  # ===== Rebuild initramfs for all detected kernels (if we added a hook) =====
   if [ "$HOOK_ADDED" = true ]; then
     local kernel_types
     kernel_types=($(get_installed_kernel_types))
@@ -724,6 +726,7 @@ configure_plymouth_hook_and_initramfs() {
       return 1
     fi
   fi
+
   return 0
 }
 
