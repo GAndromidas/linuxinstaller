@@ -70,9 +70,37 @@ else
   exit 1
 fi
 
+# Ensure figlet and gum are available for the UI.
+# Install them silently if missing and record that we installed them so they
+# can be removed before reboot. This keeps menus and banners working.
+FIGLET_INSTALLED_BY_SCRIPT=false
+GUM_INSTALLED_BY_SCRIPT=false
+export FIGLET_INSTALLED_BY_SCRIPT
+export GUM_INSTALLED_BY_SCRIPT
+
+# Install figlet if not present (silent)
+if ! command -v figlet >/dev/null 2>&1; then
+  if sudo pacman -S --noconfirm figlet >/dev/null 2>&1; then
+    FIGLET_INSTALLED_BY_SCRIPT=true
+    export FIGLET_INSTALLED_BY_SCRIPT
+    log_info "Installed temporary helper: figlet (will remove before reboot)"
+  else
+    log_warning "Could not install figlet automatically - some banners may be plain text"
+  fi
+fi
+
+# Install gum if not present (silent)
+if ! command -v gum >/dev/null 2>&1; then
+  if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
+    GUM_INSTALLED_BY_SCRIPT=true
+    export GUM_INSTALLED_BY_SCRIPT
+    log_info "Installed temporary helper: gum (will remove before reboot)"
+  else
+    log_warning "Could not install gum automatically - installer will fall back to text prompts"
+  fi
+fi
+
 # Show ASCII banner and interactive menu (uses gum if available)
-# This restores the original behavior: display the arch ASCII art and prompt
-# the user to choose installation mode (Standard, Minimal, Server, Custom, Exit).
 # The functions `arch_ascii` and `show_menu` are defined in common.sh.
 arch_ascii
 show_menu
@@ -442,10 +470,86 @@ ui_info "A log of the installation has been saved to: $INSTALL_LOG"
 echo ""
 
 # Delegate reboot prompt to centralized function in common.sh to avoid duplication.
-# If the function `prompt_reboot` is available in common.sh, call it.
-# Otherwise, log info and advise manual reboot.
-if declare -f prompt_reboot >/dev/null 2>&1; then
-  prompt_reboot
-else
-  ui_info "Centralized reboot prompt not available; to reboot manually run: sudo reboot"
-fi
+# We override/define prompt_reboot here so it only removes temporary helpers
+# that this installer installed (figlet/gum). This avoids removing user-owned
+# packages that were present before running the installer.
+prompt_reboot() {
+  # Use figlet_banner if available for nicer heading, otherwise plain text
+  if declare -f figlet_banner >/dev/null 2>&1; then
+    figlet_banner "Reboot System"
+  else
+    echo -e "${CYAN}==================== Reboot System ====================${RESET}"
+  fi
+
+  echo -e "${YELLOW}Congratulations! Your Arch Linux system is now fully configured!${RESET}"
+  echo ""
+  echo -e "${CYAN}What happens after reboot:${RESET}"
+  echo -e "  - Boot screen will appear"
+  echo -e "  - Your desktop environment will be ready to use"
+  echo -e "  - Security features will be active"
+  echo -e "  - Performance optimizations will be enabled"
+  echo -e "  - Gaming tools will be available (if installed)"
+  echo ""
+  echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.${RESET}"
+  echo ""
+
+  # Use gum menu for reboot confirmation if available
+  if command -v gum >/dev/null 2>&1; then
+    echo ""
+    gum style --foreground 226 "Ready to reboot your system?"
+    echo ""
+    if gum confirm --default=true "Reboot now?"; then
+      REBOOT_CHOICE=1
+    else
+      REBOOT_CHOICE=0
+    fi
+  else
+    # Fallback to text prompt if gum is not available
+    while true; do
+      read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
+      reboot_ans=${reboot_ans,,}
+      case "$reboot_ans" in
+        ""|y|yes)
+          REBOOT_CHOICE=1
+          break
+          ;;
+        n|no)
+          REBOOT_CHOICE=0
+          break
+          ;;
+      esac
+    done
+  fi
+
+  # Remove only the helper packages that this installer installed.
+  local TO_REMOVE=()
+  if [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ]; then
+    if pacman -Q figlet &>/dev/null || command -v figlet >/dev/null 2>&1; then
+      TO_REMOVE+=("figlet")
+    fi
+  fi
+  if [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ]; then
+    if pacman -Q gum &>/dev/null || command -v gum >/dev/null 2>&1; then
+      TO_REMOVE+=("gum")
+    fi
+  fi
+
+  if [ ${#TO_REMOVE[@]} -gt 0 ]; then
+    # Remove without prompting and suppress output; ignore failures
+    sudo pacman -Rns --noconfirm "${TO_REMOVE[@]}" >/dev/null 2>&1 || true
+    log_info "Removed temporary helpers: ${TO_REMOVE[*]}"
+  fi
+
+  # Perform reboot or skip based on choice
+  if [ "${REBOOT_CHOICE:-0}" -eq 1 ]; then
+    echo ""
+    echo -e "${CYAN}Rebooting your system...${RESET}"
+    echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
+    sudo systemctl reboot
+  else
+    ui_info "Reboot skipped. You can reboot later with: sudo reboot"
+  fi
+}
+
+# Call our overridden prompt_reboot
+prompt_reboot
