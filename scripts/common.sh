@@ -1121,18 +1121,24 @@ prompt_reboot() {
     done
   fi
 
-  # Always remove figlet and gum silently (no confirmation), if installed
+  # Remove only the helper packages that this installer installed
   local TO_REMOVE=()
-  if pacman -Q figlet &>/dev/null || command -v figlet >/dev/null 2>&1; then
-    TO_REMOVE+=("figlet")
+  if [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ]; then
+    if pacman -Q figlet &>/dev/null || command -v figlet >/dev/null 2>&1; then
+      TO_REMOVE+=("figlet")
+    fi
   fi
-  if pacman -Q gum &>/dev/null || command -v gum >/dev/null 2>&1; then
-    TO_REMOVE+=("gum")
+  if [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ]; then
+    if pacman -Q gum &>/dev/null || command -v gum >/dev/null 2>&1; then
+      TO_REMOVE+=("gum")
+    fi
   fi
 
   if [ ${#TO_REMOVE[@]} -gt 0 ]; then
     # Remove without prompting and suppress output
     sudo pacman -Rns --noconfirm "${TO_REMOVE[@]}" >/dev/null 2>&1 || true
+    # Record removal
+    log_to_file "INFO: Removed temporary helpers: ${TO_REMOVE[*]}"
   fi
 
   # Perform reboot or skip based on choice
@@ -1154,6 +1160,7 @@ prompt_reboot() {
   # Cleanup if no errors occurred
   if [ ${#ERRORS[@]} -eq 0 ]; then
     # Optional cleanup that doesn't destroy the repo
+    # gum_confirm handles fallback if gum was removed
     if gum_confirm "Do you want to clean up temporary logs?" "This will remove the installation log and state file."; then
       echo -e "${CYAN}Cleaning up temporary files...${RESET}"
       rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
