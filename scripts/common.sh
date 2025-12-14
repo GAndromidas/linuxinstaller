@@ -728,6 +728,11 @@ configure_plymouth_hook_and_initramfs() {
   fi
 
   # ===== Rebuild initramfs for all detected kernels (if we added a hook) =====
+  if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
+    log_info "Skipping initramfs rebuild (SKIP_MKINITCPIO is set). It will be handled later."
+    return 0
+  fi
+
   if [ "$HOOK_ADDED" = true ]; then
     local kernel_types
     kernel_types=($(get_installed_kernel_types))
@@ -1133,6 +1138,11 @@ prompt_reboot() {
       TO_REMOVE+=("gum")
     fi
   fi
+  if [ "${YQ_INSTALLED_BY_SCRIPT:-false}" = true ]; then
+    if pacman -Q yq &>/dev/null || command -v yq >/dev/null 2>&1; then
+      TO_REMOVE+=("yq")
+    fi
+  fi
 
   if [ ${#TO_REMOVE[@]} -gt 0 ]; then
     # Remove without prompting and suppress output
@@ -1257,6 +1267,44 @@ is_btrfs_system() {
 }
 
 # Detect bootloader type
+detect_boot_mount() {
+  local boot_mount="/boot"
+
+  # Try to detect ESP for systemd-boot
+  if command -v bootctl >/dev/null 2>&1; then
+    local esp_path=$(bootctl -p 2>/dev/null)
+    if [ -n "$esp_path" ] && [ -d "$esp_path" ]; then
+      boot_mount="$esp_path"
+    fi
+  fi
+
+  # Fallback checks
+  if [ ! -d "$boot_mount" ] && [ -d "/efi" ]; then
+    boot_mount="/efi"
+  elif [ ! -d "$boot_mount" ] && [ -d "/boot/efi" ]; then
+    boot_mount="/boot/efi"
+  fi
+
+  echo "$boot_mount"
+}
+
+detect_uki() {
+  # Check if UKI is configured in mkinitcpio presets
+  if grep -q "default_uki=" /etc/mkinitcpio.d/*.preset 2>/dev/null; then
+    echo "true"
+    return 0
+  fi
+
+  # Check for UKI files in standard locations
+  local boot_mount=$(detect_boot_mount)
+  if [ -d "$boot_mount/EFI/Linux" ] && ls "$boot_mount/EFI/Linux"/*.efi >/dev/null 2>&1; then
+    echo "true"
+    return 0
+  fi
+
+  echo "false"
+}
+
 detect_bootloader() {
   if [ -d "/boot/grub" ] || [ -d "/boot/grub2" ] || [ -d "/boot/efi/EFI/grub" ] || command -v grub-mkconfig &>/dev/null || pacman -Q grub &>/dev/null 2>&1; then
     echo "grub"

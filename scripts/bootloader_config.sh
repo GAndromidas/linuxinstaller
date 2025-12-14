@@ -14,22 +14,57 @@ add_systemd_boot_kernel_params() {
   local modified_count=0
   local entries_found=0
 
-  # Find non-fallback .conf files and process them
-  while IFS= read -r -d $'\0' entry; do
-    ((entries_found++))
-    local entry_name=$(basename "$entry")
-    if ! grep -q "quiet loglevel=3" "$entry"; then # Check for existing parameters more generically
-      if sudo sed -i '/^options / s/$/ quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3/' "$entry"; then
-        log_success "Added kernel parameters to $entry_name"
-        ((modified_count++))
-      else
-        log_error "Failed to add kernel parameters to $entry_name"
-        # Continue to try other entries, but log the error
+  # Helper function to process entries
+  process_boot_entries() {
+    while IFS= read -r -d $'\0' entry; do
+      ((entries_found++))
+      local entry_name=$(basename "$entry")
+
+      # Extract current options line
+      local current_line=$(grep "^options " "$entry" || true)
+
+      if [ -n "$current_line" ]; then
+          local current_opts=${current_line#options }
+
+          # Define desired params
+          local desired_params="quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
+
+          # Use awk to deduplicate existing options and append missing desired ones
+          local new_opts=$(echo "$current_opts $desired_params" | awk '{
+              for (i=1; i<=NF; i++) {
+                  if (!seen[$i]++) {
+                      printf "%s%s", (count++ ? " " : ""), $i
+                  }
+              }
+              printf "\n"
+          }')
+
+          # Check if change is needed
+          if [ "$current_opts" != "$new_opts" ]; then
+               # Escape slashes and ampersands for sed replacement
+               local esc_new_opts=$(echo "$new_opts" | sed 's/[\/&]/\\&/g')
+
+               if sudo sed -i "s|^options .*|options $esc_new_opts|" "$entry"; then
+                   log_success "Cleaned and updated kernel parameters in $entry_name"
+                   ((modified_count++))
+               else
+                   log_error "Failed to update $entry_name"
+               fi
+          else
+               log_info "Parameters already optimized in $entry_name"
+          fi
       fi
-    else
-      log_info "Kernel parameters already present in $entry_name - skipping."
-    fi
-  done < <(find "$boot_entries_dir" -name "*.conf" ! -name "*fallback.conf" -print0)
+    done
+  }
+
+  # First pass: Look for specific Linux entries (*linux*.conf) to correspond with archinstall naming
+  process_boot_entries < <(find "$boot_entries_dir" -name "*linux*.conf" ! -name "*fallback.conf" -print0)
+
+  # Fallback pass: If no entries found, check generic .conf files (e.g., custom naming)
+  if [ "$entries_found" -eq 0 ]; then
+    log_info "No standard *linux*.conf entries found. Searching all .conf files..."
+    process_boot_entries < <(find "$boot_entries_dir" -name "*.conf" ! -name "*fallback.conf" -print0)
+  fi
 
   if [ "$entries_found" -eq 0 ]; then
     log_warning "No systemd-boot entries found to modify."
@@ -86,27 +121,6 @@ BOOTLOADER=$(detect_bootloader)
 IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false")
 
 # --- Boot Partition Security ---
-# Function to detect boot mount point
-detect_boot_mount() {
-  local boot_mount="/boot"
-
-  # Try to detect ESP for systemd-boot
-  if command -v bootctl >/dev/null 2>&1; then
-    local esp_path=$(bootctl -p 2>/dev/null)
-    if [ -n "$esp_path" ] && [ -d "$esp_path" ]; then
-      boot_mount="$esp_path"
-    fi
-  fi
-
-  # Fallback checks
-  if [ ! -d "$boot_mount" ] && [ -d "/efi" ]; then
-    boot_mount="/efi"
-  elif [ ! -d "$boot_mount" ] && [ -d "/boot/efi" ]; then
-    boot_mount="/boot/efi"
-  fi
-
-  echo "$boot_mount"
-}
 
 # Function to secure boot partition permissions
 # This fixes the common issue where ESP (FAT32) partitions have insecure permissions
@@ -268,24 +282,117 @@ configure_grub() {
     fi
 }
 
+# --- Secure Boot / UKI Configuration ---
+configure_secure_boot() {
+    step "Configuring Secure Boot (sbctl)"
+
+    if ! command -v sbctl >/dev/null 2>&1; then
+        run_step "Installing sbctl for Secure Boot management" sudo pacman -S --noconfirm --needed sbctl
+    fi
+
+    # Optimize Kernel Parameters in /etc/kernel/cmdline (Primarily for UKI)
+    if [ -f "/etc/kernel/cmdline" ] && [ "$(detect_uki)" = "true" ]; then
+        log_info "Checking kernel parameters in /etc/kernel/cmdline..."
+        local current_cmdline=$(cat /etc/kernel/cmdline)
+        local new_cmdline="$current_cmdline"
+        local modified=false
+
+        # Add parameters if missing
+        if [[ ! "$new_cmdline" =~ "quiet" ]]; then
+            new_cmdline="$new_cmdline quiet"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "loglevel=3" ]]; then
+            new_cmdline="$new_cmdline loglevel=3"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "systemd.show_status=auto" ]]; then
+            new_cmdline="$new_cmdline systemd.show_status=auto"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "rd.udev.log_level=3" ]]; then
+            new_cmdline="$new_cmdline rd.udev.log_level=3"
+            modified=true
+        fi
+
+        if [ "$modified" = "true" ]; then
+            echo "$new_cmdline" | sudo tee /etc/kernel/cmdline >/dev/null
+            log_success "Updated /etc/kernel/cmdline with optimized parameters"
+        else
+            log_info "Kernel parameters already optimized."
+        fi
+    fi
+
+    if [ "$(detect_uki)" = "true" ]; then
+        log_info "UKI detected."
+    else
+        log_info "Standard bootloader detected. Secure Boot will sign existing binaries."
+    fi
+
+    log_info "Secure Boot can be managed with 'sbctl'."
+    log_info "If you have Windows 11 dual-boot, ensure you enroll Microsoft keys."
+    log_info "You can check status with: sudo sbctl status"
+
+    # Check if secure boot is enabled (informational)
+    if command -v sbctl >/dev/null 2>&1; then
+        if sudo sbctl status 2>/dev/null | grep -q "Secure Boot:.*Enabled"; then
+            log_success "Secure Boot is currently ENABLED."
+        else
+            log_warning "Secure Boot is currently DISABLED or in Setup Mode."
+            log_info "To set up: sudo sbctl create-keys && sudo sbctl enroll-keys -m"
+        fi
+
+    fi
+}
+
 # --- Console Font Setup ---
 setup_console_font() {
     run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
     run_step "Configuring /etc/vconsole.conf" bash -c "(grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null && sudo sed -i 's/^FONT=.*/FONT=ter-v16n/' /etc/vconsole.conf) || echo 'FONT=ter-v16n' | sudo tee -a /etc/vconsole.conf >/dev/null"
-    run_step "Rebuilding initramfs" sudo mkinitcpio -P
 }
 
 # --- Main execution ---
+
+# 1. Setup Configurations (Font, UKI Params, SBCTL)
+setup_console_font
+
+if [ "$(detect_uki)" = "true" ] || [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
+    if [ "$(detect_uki)" = "true" ]; then
+        log_info "Unified Kernel Image (UKI) setup detected."
+    else
+        log_info "Secure Boot setup requested via flag."
+    fi
+    configure_secure_boot
+fi
+
+# 2. Build Images (Consumes Font, Plymouth Config, UKI Params)
+# This serves as the single source of truth for initramfs/UKI generation.
+run_step "Rebuilding initramfs / Generating UKI" sudo mkinitcpio -P
+
+# 3. Configure Bootloader Entries (GRUB/Systemd-boot)
+# Runs after build to ensure it sees generated files (and cleans up fallbacks if configured to do so)
 if [ "$BOOTLOADER" = "grub" ]; then
     configure_grub
 elif [ "$BOOTLOADER" = "systemd-boot" ]; then
     configure_boot
-else
+elif [ "$(detect_uki)" != "true" ]; then
     log_warning "No bootloader detected or bootloader is unsupported. Defaulting to systemd-boot configuration."
     configure_boot
 fi
 
-# Secure boot partition permissions (important for ESP/FAT32 security)
-secure_boot_permissions
+# 4. Sign Boot Files (Must happen AFTER build)
+if [ "$(detect_uki)" = "true" ] || [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
+    if command -v sbctl >/dev/null 2>&1; then
+        if sudo sbctl verify 2>/dev/null | grep -q "not signed"; then
+             log_warning "Files need signing."
+             if [ -f /var/lib/sbctl/keys/db.key ] || [ -f /etc/secureboot/keys/db.key ]; then
+                 run_step "Signing all boot files" sudo sbctl sign-all
+             else
+                 log_info "No keys found. Please generate keys manually: sudo sbctl create-keys && sudo sbctl enroll-keys -m"
+             fi
+        fi
+    fi
+fi
 
-setup_console_font
+# 5. Secure Boot Partition Permissions (Lock down the partition last)
+secure_boot_permissions

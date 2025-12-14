@@ -77,11 +77,8 @@ pacman_remove() {
 
 ensure_yq() {
 	if ! command -v yq &>/dev/null; then
-		ui_info "yq is required for YAML parsing. Installing..."
-		if ! pacman_install "yq"; then
-			log_error "Failed to install yq. Please install it manually: sudo pacman -S yq"
-			return 1
-		fi
+		log_error "yq is required but not installed. Please install 'yq'."
+		return 1
 	fi
 	return 0
 }

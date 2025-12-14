@@ -57,8 +57,16 @@ set_plymouth_theme() {
   try_set_theme() {
     local t="$1"
     if plymouth-set-default-theme -l 2>/dev/null | grep -qw "$t"; then
-      if sudo plymouth-set-default-theme -R "$t" >/dev/null 2>&1; then
-        log_success "Set Plymouth theme to '$t'"
+      local opts="-R"
+      if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
+        opts=""
+      fi
+      if sudo plymouth-set-default-theme $opts "$t" >/dev/null 2>&1; then
+        if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
+            log_success "Set Plymouth theme to '$t' (rebuild skipped)"
+        else
+            log_success "Set Plymouth theme to '$t' and rebuilt initramfs"
+        fi
         return 0
       else
         log_warning "plymouth-set-default-theme failed for '$t'"

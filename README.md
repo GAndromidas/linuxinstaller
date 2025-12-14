@@ -39,7 +39,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 
 *   **Intelligent Driver Management**: 
     *   Installs correct graphics drivers based on GPU detection
-    *   Handles legacy NVIDIA drivers (Kepler, Fermi, Tesla) via AUR
+    *   Uses open-source Nouveau drivers for legacy NVIDIA GPUs (Kepler/Fermi/Tesla)
     *   Automatically installs VM guest utilities (QEMU, VMware, VirtualBox, Hyper-V)
     *   Configures Vulkan support for all GPU vendors
 
@@ -64,11 +64,13 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     *   Automatically opens KDE Connect ports when KDE Plasma is detected
     *   Verifies firewall is active and rules are properly applied
 
-*   **Boot Security**:
+*   **Boot Security & Secure Boot**:
+    *   **Secure Boot Support**: Integrated management with `sbctl` for signing kernels and bootloaders
+    *   **UKI Support**: Automatic detection and configuration of Unified Kernel Images
     *   Secures boot partition permissions (700 for Linux filesystems)
     *   Configures ESP mount options (fmask/dmask) for FAT32 partitions
     *   Protects random-seed file with 600 permissions
-    *   Works with both GRUB and systemd-boot
+    *   Works with GRUB, systemd-boot, and UKI setups
 
 *   **Fail2ban Integration**:
     *   Stricter policy for SSH protection
@@ -145,12 +147,12 @@ This project is built on the principle of **Intelligent Automation**. Instead of
 The installer performs 10 comprehensive steps:
 
 1.  **System Preparation**: Updates package lists, installs essential utilities, and optimizes download settings
-2.  **Shell Setup**: Installs and configures Zsh with Starship prompt
-3.  **Plymouth Setup**: Configures graphical boot screen (skipped in server mode)
-4.  **Yay Installation**: Installs AUR helper for additional software packages
-5.  **Programs Installation**: Installs applications based on desktop environment and installation mode
-6.  **Gaming Mode**: Optional setup for gaming tools and optimizations (skipped in server mode)
-7.  **Bootloader Configuration**: Configures GRUB or systemd-boot with kernel parameters and security
+2.  **Yay Installation**: Installs AUR helper for additional software packages
+3.  **Shell Setup**: Installs and configures Zsh with Starship prompt
+4.  **Programs Installation**: Installs applications based on desktop environment and installation mode
+5.  **Plymouth Setup**: Configures graphical boot screen (skipped in server mode)
+6.  **Bootloader and Kernel Configuration**: Configures GRUB, systemd-boot, or UKI with Secure Boot signing and optimized kernel parameters
+7.  **Gaming Mode**: Optional setup for gaming tools and optimizations (skipped in server mode)
 8.  **Fail2ban Setup**: Configures SSH protection with fail2ban
 9.  **System Services**: Comprehensive system configuration including:
     *   Firewall setup (Firewalld or UFW)
@@ -201,6 +203,8 @@ The script will present a menu where you can choose your desired installation mo
 **Options:**
 *   `-h, --help`: Show help message and exit
 *   `-v, --verbose`: Enable verbose output (show all package installation details)
+*   `-m, --mode`: Installation mode (default, server, minimal)
+*   `-sb, --secure-boot`: Force UKI/Secure Boot setup configuration
 *   `-q, --quiet`: Quiet mode (minimal output)
 *   `-d, --dry-run`: Preview what will be installed without making changes
 
@@ -235,7 +239,7 @@ This installer is designed to be easily customized. The package lists for all in
 *   AMD: Microcode installation, P-State detection (Ryzen 5000+), ACPI CPUfreq fallback
 
 ### GPU Support
-*   NVIDIA: Latest drivers, open-dkms for Turing+, legacy drivers via AUR (Kepler/Fermi/Tesla)
+*   NVIDIA: Latest drivers, open-dkms for Turing+, Nouveau for legacy GPUs (Kepler/Fermi/Tesla)
 *   AMD: Mesa, AMDGPU driver, Vulkan support
 *   Intel: Mesa, i915/xe driver, Vulkan support
 *   Virtual Machines: QEMU guest agent, Spice, VirtualBox tools, VMware tools, Hyper-V

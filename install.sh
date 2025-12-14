@@ -16,6 +16,7 @@ OPTIONS:
     -h, --help      Show this help message and exit
     -v, --verbose   Enable verbose output (show all package installation details)
     -m, --mode      Installation mode (default, server, minimal)
+    -sb, --secure-boot Force UKI/Secure Boot setup configuration
 
 DESCRIPTION:
     Archinstaller transforms a fresh Arch Linux installation into a fully
@@ -34,6 +35,7 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 # Default configuration
 INSTALL_MODE="default"
 VERBOSE="false"
+SECURE_BOOT_SETUP="false"
 TOTAL_STEPS=10
 
 # Parse arguments
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
       INSTALL_MODE="$2"
       shift 2
       ;;
+    -sb|--secure-boot)
+      SECURE_BOOT_SETUP="true"
+      shift
+      ;;
     *)
       # Ignore unknown args or handle as needed, but for now just pass
       shift
@@ -61,6 +67,7 @@ done
 export INSTALL_MODE
 export SCRIPTS_DIR
 export CONFIGS_DIR
+export SECURE_BOOT_SETUP
 
 # Source common functions
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then
@@ -75,8 +82,10 @@ fi
 # can be removed before reboot. This keeps menus and banners working.
 FIGLET_INSTALLED_BY_SCRIPT=false
 GUM_INSTALLED_BY_SCRIPT=false
+YQ_INSTALLED_BY_SCRIPT=false
 export FIGLET_INSTALLED_BY_SCRIPT
 export GUM_INSTALLED_BY_SCRIPT
+export YQ_INSTALLED_BY_SCRIPT
 
 # Install figlet if not present (silent)
 if ! command -v figlet >/dev/null 2>&1; then
@@ -101,6 +110,19 @@ if ! command -v gum >/dev/null 2>&1; then
   else
     # Record to installer log only (no console output)
     log_to_file "WARNING: Could not install gum automatically - installer will fall back to text prompts"
+  fi
+fi
+
+# Install yq if not present (silent)
+if ! command -v yq >/dev/null 2>&1; then
+  if sudo pacman -S --noconfirm yq >/dev/null 2>&1; then
+    YQ_INSTALLED_BY_SCRIPT=true
+    export YQ_INSTALLED_BY_SCRIPT
+    # Record to installer log only (no console output)
+    log_to_file "INFO: Installed temporary helper: yq (will remove before reboot)"
+  else
+    # Record to installer log only (no console output)
+    log_to_file "WARNING: Could not install yq automatically"
   fi
 fi
 
@@ -390,30 +412,33 @@ else
   ui_info "Step 4 (Programs Installation) already completed - skipping"
 fi
 
-# Step 5: Bootloader and Kernel Configuration
-# Must run AFTER Programs (to detect new kernels) and BEFORE Plymouth (base config)
-if ! is_step_complete "bootloader_config"; then
-  print_step_header_with_timing 5 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
-  ui_info "Configuring bootloader..."
-  step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
-  mark_step_complete_with_progress "bootloader_config"
-else
-  ui_info "Step 5 (Bootloader Configuration) already completed - skipping"
-fi
-
-# Step 6: Plymouth Setup
-# Configures boot splash. Depends on Bootloader config being present.
+# Step 5: Plymouth Setup
+# Configures boot splash.
 if [[ "$INSTALL_MODE" == "server" ]]; then
   ui_info "Server mode selected, skipping Plymouth (graphical boot) setup."
 else
   if ! is_step_complete "plymouth_setup"; then
-    print_step_header_with_timing 6 "$TOTAL_STEPS" "Plymouth Setup"
+    print_step_header_with_timing 5 "$TOTAL_STEPS" "Plymouth Setup"
     ui_info "Setting up boot screen..."
+    # Skip intermediate rebuilds; bootloader_config will handle the final rebuild
+    export SKIP_MKINITCPIO=true
     step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
+    unset SKIP_MKINITCPIO
     mark_step_complete_with_progress "plymouth_setup"
   else
-    ui_info "Step 6 (Plymouth Setup) already completed - skipping"
+    ui_info "Step 5 (Plymouth Setup) already completed - skipping"
   fi
+fi
+
+# Step 6: Bootloader and Kernel Configuration
+# Must run AFTER Programs (to detect new kernels)
+if ! is_step_complete "bootloader_config"; then
+  print_step_header_with_timing 6 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
+  ui_info "Configuring bootloader..."
+  step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
+  mark_step_complete_with_progress "bootloader_config"
+else
+  ui_info "Step 6 (Bootloader Configuration) already completed - skipping"
 fi
 
 # Step 7: Gaming Mode
