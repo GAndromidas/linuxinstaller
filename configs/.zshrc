@@ -3,7 +3,7 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Performance: Skip global compinit on Ubuntu (done in /etc/zsh/zshrc)
+# Performance: Skip global compinit (done in /etc/zsh/zshrc)
 # -----------------------------------------------------------------------------
 skip_global_compinit=1
 
@@ -136,13 +136,22 @@ fi
 # -----------------------------------------------------------------------------
 # Zsh-autosuggestions
 # -----------------------------------------------------------------------------
+# Try multiple possible locations for zsh-autosuggestions
 if [[ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  ZSH_AUTOSUGGEST_SOURCE="/usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+elif [[ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  ZSH_AUTOSUGGEST_SOURCE="/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+elif [[ -f /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  ZSH_AUTOSUGGEST_SOURCE="/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+fi
+
+if [[ -n "$ZSH_AUTOSUGGEST_SOURCE" ]]; then
   ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
   ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'        # subtle gray
   ZSH_AUTOSUGGEST_STRATEGY=(history completion)  # try history first, then completion
   ZSH_AUTOSUGGEST_USE_ASYNC=1                   # async for better performance
 
-  source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+  source "$ZSH_AUTOSUGGEST_SOURCE"
 
   # Right arrow to accept suggestion
   bindkey '^[[C' forward-char  # keep default
@@ -165,7 +174,7 @@ if command -v starship >/dev/null; then
   eval "$(starship init zsh)"
 fi
 
-# -----------------------------------------------------------------------------
+ -----------------------------------------------------------------------------
 # Package management aliases
 # -----------------------------------------------------------------------------
 alias sync='sudo pacman -Syy'
@@ -289,8 +298,17 @@ fcd() {
 # -----------------------------------------------------------------------------
 # Zsh-syntax-highlighting (must be last)
 # -----------------------------------------------------------------------------
+# Try multiple possible locations for zsh-syntax-highlighting
 if [[ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
-  source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  ZSH_HIGHLIGHT_SOURCE="/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+elif [[ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+  ZSH_HIGHLIGHT_SOURCE="/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+elif [[ -f /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+  ZSH_HIGHLIGHT_SOURCE="/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+fi
+
+if [[ -n "$ZSH_HIGHLIGHT_SOURCE" ]]; then
+  source "$ZSH_HIGHLIGHT_SOURCE"
 
   # Syntax highlighting styles
   ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
