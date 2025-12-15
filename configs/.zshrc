@@ -174,7 +174,7 @@ if command -v starship >/dev/null; then
   eval "$(starship init zsh)"
 fi
 
- -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Package management aliases
 # -----------------------------------------------------------------------------
 alias sync='sudo pacman -Syy'
@@ -248,7 +248,7 @@ alias glog='git log --oneline --graph --decorate'
 # -----------------------------------------------------------------------------
 # Config shortcuts
 # -----------------------------------------------------------------------------
-alias zshconfig='${EDITOR:-nano} ~/.zshrc'
+alias zshconfig='nano .zshrc'
 alias zshreload='source ~/.zshrc && echo "✓ Config reloaded"'
 
 # -----------------------------------------------------------------------------
