@@ -41,6 +41,11 @@ add_systemd_boot_kernel_params() {
 
           # Check if change is needed
           if [ "$current_opts" != "$new_opts" ]; then
+               # Ensure we can write to the file (handle potential secure permissions)
+               if [ ! -w "$entry" ]; then
+                   sudo chmod +w "$entry" 2>/dev/null
+               fi
+
                # Escape slashes and ampersands for sed replacement
                local esc_new_opts=$(echo "$new_opts" | sed 's/[\/&]/\\&/g')
 
