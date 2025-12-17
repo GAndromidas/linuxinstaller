@@ -42,6 +42,7 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     *   Uses open-source Nouveau drivers for legacy NVIDIA GPUs (Kepler/Fermi/Tesla)
     *   Automatically installs VM guest utilities (QEMU, VMware, VirtualBox, Hyper-V)
     *   Configures Vulkan support for all GPU vendors
+    *   Sets up Early KMS for flicker-free silent boot
 
 *   **Dynamic Performance Optimization**: 
     *   ZRAM swap configuration based on RAM size (disabled for 32GB+ systems)
@@ -109,7 +110,6 @@ This project is built on the principle of **Intelligent Automation**. Instead of
     *   Advanced power-saving features for laptops
     *   Intelligent daemon selection (power-profiles-daemon for modern systems, tuned-ppd for older)
     *   CPU-specific optimizations (Intel thermald, AMD P-State detection)
-    *   Touchpad gesture support with libinput-gestures
     *   Battery status monitoring and warnings
 
 ### User Experience
@@ -151,7 +151,7 @@ The installer performs 10 comprehensive steps:
 3.  **Shell Setup**: Installs and configures Zsh with Starship prompt
 4.  **Programs Installation**: Installs applications based on desktop environment and installation mode
 5.  **Plymouth Setup**: Configures graphical boot screen (skipped in server mode)
-6.  **Bootloader and Kernel Configuration**: Configures GRUB, systemd-boot, or UKI with Secure Boot signing and optimized kernel parameters
+6.  **Bootloader and Kernel Configuration**: Installs GPU drivers, configures Early KMS, rebuilds initramfs, and sets up GRUB/systemd-boot/UKI with Secure Boot signing
 7.  **Gaming Mode**: Optional setup for gaming tools and optimizations (skipped in server mode)
 8.  **Fail2ban Setup**: Configures SSH protection with fail2ban
 9.  **System Services**: Comprehensive system configuration including:
@@ -162,7 +162,6 @@ The installer performs 10 comprehensive steps:
     *   ZRAM swap configuration
     *   Laptop optimizations (if applicable)
     *   Wake-on-LAN configuration
-    *   GPU driver installation
     *   Audio system detection
     *   Storage and filesystem optimizations
 10. **Maintenance**: Final cleanup, package cache management, and system verification
@@ -242,7 +241,8 @@ This installer is designed to be easily customized. The package lists for all in
 *   NVIDIA: Latest drivers, open-dkms for Turing+, Nouveau for legacy GPUs (Kepler/Fermi/Tesla)
 *   AMD: Mesa, AMDGPU driver, Vulkan support
 *   Intel: Mesa, i915/xe driver, Vulkan support
-*   Virtual Machines: QEMU guest agent, Spice, VirtualBox tools, VMware tools, Hyper-V
+*   Virtual Machines: Automatic detection of virtual GPU drivers (virtio-gpu, qxl, vmwgfx, vboxvideo)
+*   Features: Early KMS configuration for silent boot, Vulkan support for all vendors
 
 ### Storage Support
 *   NVMe: None scheduler (multi-queue)

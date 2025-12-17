@@ -519,95 +519,6 @@ EOF
   fi
 }
 
-detect_and_install_gpu_drivers() {
-  step "Detecting and installing graphics drivers"
-  local lspci_out
-  lspci_out=$(lspci)
-
-  if echo "$lspci_out" | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
-    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon libva-mesa-driver lib32-libva-mesa-driver
-    log_success "AMD drivers and Vulkan support installed"
-    log_info "AMD GPU will use AMDGPU driver after reboot"
-  elif echo "$lspci_out" | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
-    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel libva-mesa-driver lib32-libva-mesa-driver
-    log_success "Intel drivers and Vulkan support installed"
-    log_info "Intel GPU will use i915 or xe driver after reboot"
-  elif echo "$lspci_out" | grep -qi nvidia; then
-    echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
-
-    # Get PCI ID and map to family
-    nvidia_pciid=$(lspci -n -d ::0300 | grep -i nvidia | awk '{print $3}' | head -n1)
-    nvidia_family=""
-    nvidia_pkg=""
-    nvidia_note=""
-
-    # Map PCI ID to family (simplified, for full mapping see ArchWiki and Nouveau code names)
-    if echo "$lspci_out" | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
-      nvidia_family="Turing or newer"
-      nvidia_pkg="nvidia-open-dkms nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(open kernel modules, recommended for Turing/Ampere/Lovelace)"
-    elif echo "$lspci_out" | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
-      nvidia_family="Maxwell or newer"
-      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
-    else
-      # All other older cards (Kepler, Fermi, Tesla) are considered legacy
-      nvidia_family="Legacy (Kepler/Fermi/Tesla/Other)"
-      nvidia_pkg="nouveau"
-      nvidia_note="(legacy, utilizing Nouveau open-source drivers)"
-    fi
-
-    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
-
-    if [[ "$nvidia_pkg" == "nouveau" ]]; then
-      echo -e "${YELLOW}Your NVIDIA GPU is legacy. Installing open-source Nouveau drivers...${RESET}"
-      install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-      log_success "Nouveau drivers installed."
-    else
-      echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
-      install_packages_quietly $nvidia_pkg
-      log_success "NVIDIA drivers installed."
-    fi
-    return
-  else
-    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
-    install_packages_quietly mesa
-  fi
-
-  # Verify GPU driver is loaded
-  verify_gpu_driver
-}
-
-# Function to verify GPU driver is loaded correctly
-verify_gpu_driver() {
-  step "Verifying GPU driver installation"
-  local lspci_k_out
-  lspci_k_out=$(lspci -k)
-
-  # Check which driver is in use
-  if echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
-    log_info "GPU driver status:"
-    echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
-    log_success "GPU driver is loaded and in use"
-  else
-    log_warning "Could not verify GPU driver status"
-    log_info "Run 'lspci -k | grep -A 3 -iE \"vga|3d|display\"' after reboot to check driver"
-  fi
-
-  # Check for Vulkan support
-  if command -v vulkaninfo >/dev/null 2>&1; then
-    if vulkaninfo --summary &>/dev/null; then
-      log_success "Vulkan support verified"
-    else
-      log_warning "Vulkan may not be properly configured"
-    fi
-  else
-    log_info "Install vulkan-tools to verify Vulkan support: sudo pacman -S vulkan-tools"
-  fi
-}
-
 # Function to detect if system is a laptop
 is_laptop() {
   # Check multiple indicators for laptop detection
@@ -1120,7 +1031,7 @@ setup_laptop_optimizations() {
     echo ""
     gum style --foreground 226 "Laptop-specific optimizations available:"
     gum style --margin "0 2" --foreground 15 "• Power profile management (tuned-ppd or power-profiles-daemon)"
-    gum style --margin "0 2" --foreground 15 "• Touchpad tap-to-click and gestures"
+    gum style --margin "0 2" --foreground 15 "• Touchpad tap-to-click"
     gum style --margin "0 2" --foreground 15 "• CPU-specific optimizations"
     echo ""
     if gum confirm --default=true "Enable laptop optimizations?"; then
@@ -1130,7 +1041,7 @@ setup_laptop_optimizations() {
     echo ""
     echo -e "${YELLOW}Laptop-specific optimizations available:${RESET}"
     echo -e "  • Power profile management (tuned-ppd or power-profiles-daemon)"
-    echo -e "  • Touchpad tap-to-click and gestures"
+    echo -e "  • Touchpad tap-to-click"
     echo -e "  • CPU-specific optimizations"
     echo ""
     read -r -p "Enable laptop optimizations? [Y/n]: " response
@@ -1187,155 +1098,8 @@ EOF
 
   log_success "Touchpad configured (tap-to-click, natural scrolling, disable-while-typing)"
 
-  # Install touchpad gestures
-  install_touchpad_gestures
-
   # Show summary
   show_laptop_summary
-}
-
-# Function to install touchpad gesture support
-install_touchpad_gestures() {
-  # Detect touchpad type and capabilities before installing gestures
-  step "Detecting touchpad hardware"
-
-  local touchpad_detected=false
-  local touchpad_multitouch=false
-  local touchpad_device=""
-
-  # Check if xinput detects a touchpad
-  if command -v xinput >/dev/null 2>&1; then
-    touchpad_device=$(xinput list --name-only | grep -i touchpad | head -1)
-    if [ -n "$touchpad_device" ]; then
-      touchpad_detected=true
-      log_success "Touchpad detected: $touchpad_device"
-
-      # Check if touchpad supports multi-touch
-      local touch_points=$(xinput list-props "$touchpad_device" 2>/dev/null | grep -i "touch count" | grep -oE '[0-9]+' | tail -1)
-      if [ -n "$touch_points" ] && [ "$touch_points" -ge 3 ]; then
-        touchpad_multitouch=true
-        log_success "Multi-touch supported: $touch_points touch points"
-      else
-        log_warning "Touchpad has limited multi-touch support"
-        log_info "Your touchpad may not support 3-finger gestures"
-      fi
-    else
-      log_warning "No touchpad detected by xinput"
-    fi
-  fi
-
-  # Check if libinput can see the touchpad
-  if command -v libinput >/dev/null 2>&1; then
-    if ! sudo libinput list-devices 2>/dev/null | grep -qi touchpad; then
-      log_warning "Touchpad not detected by libinput driver"
-      log_info "Your touchpad may be using PS/2 (psmouse) driver"
-      log_info "This is common on budget laptops like Lenovo 100S"
-    fi
-  fi
-
-  # Install touchpad gesture support
-  local should_install=false
-
-  # Get user confirmation (using gum if available, otherwise read)
-  if [ "$touchpad_detected" = false ]; then
-    log_warning "No touchpad detected. Gesture support may not work on this device."
-    if command -v gum >/dev/null 2>&1; then
-      gum confirm --default=false "Install touchpad gesture support anyway (for troubleshooting)?" && should_install=true
-    else
-      read -r -p "Install touchpad gesture support anyway (for troubleshooting)? [y/N]: " response
-      response=${response,,}
-      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
-    fi
-  elif [ "$touchpad_multitouch" = false ]; then
-    log_warning "Touchpad has limited multi-touch. 3-finger gestures may not work."
-    log_info "This is common on budget laptops with PS/2 touchpads."
-    if command -v gum >/dev/null 2>&1; then
-      gum confirm --default=false "Install touchpad gesture support anyway (2-finger gestures might work)?" && should_install=true
-    else
-      read -r -p "Install touchpad gesture support anyway (2-finger gestures might work)? [y/N]: " response
-      response=${response,,}
-      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
-    fi
-  else
-    if command -v gum >/dev/null 2>&1; then
-      gum confirm --default=false "Install touchpad gesture support (3-finger swipe, pinch-to-zoom)?" && should_install=true
-    else
-      read -r -p "Install touchpad gesture support (3-finger swipe, pinch-to-zoom)? [y/N]: " response
-      response=${response,,}
-      [[ "$response" == "y" || "$response" == "yes" ]] && should_install=true
-    fi
-  fi
-
-  if [ "$should_install" = false ]; then
-    log_info "Touchpad gesture installation skipped"
-    return
-  fi
-
-  log_info "Installing libinput-gestures..."
-
-  # Check if yay is available for AUR installation
-  if ! command -v yay &>/dev/null; then
-    log_error "AUR helper (yay) not found. Cannot install libinput-gestures."
-    log_warning "Touchpad gestures require libinput-gestures from AUR"
-    log_info "Please install yay first, then run: yay -S libinput-gestures"
-    log_info "Continuing with installation..."
-    return
-  fi
-
-  # libinput-gestures is in AUR, not official repos
-  if ! install_aur_quietly libinput-gestures; then
-    log_error "Failed to install libinput-gestures from AUR"
-    log_warning "Touchpad gestures will not be available"
-    log_info "You can try manually later with: yay -S libinput-gestures"
-  fi
-
-  # xdotool and wmctrl are in official repos
-  install_packages_quietly xdotool wmctrl
-
-  # Add user to input group
-  sudo usermod -a -G input "$USER"
-
-  # Create default gestures configuration
-  mkdir -p "$HOME/.config"
-  cat << 'EOF' > "$HOME/.config/libinput-gestures.conf"
-# Gestures configuration for libinput-gestures
-# Swipe up with 3 fingers - Show desktop overview
-gesture swipe up 3 xdotool key super+w
-
-# Swipe down with 3 fingers - Show all windows
-gesture swipe down 3 xdotool key super+d
-
-# Swipe left with 3 fingers - Previous workspace/desktop
-gesture swipe left 3 xdotool key super+ctrl+Left
-
-# Swipe right with 3 fingers - Next workspace/desktop
-gesture swipe right 3 xdotool key super+ctrl+Right
-
-# Pinch in - Zoom out (Ctrl+Minus)
-gesture pinch in xdotool key ctrl+minus
-
-# Pinch out - Zoom in (Ctrl+Plus)
-gesture pinch out xdotool key ctrl+plus
-EOF
-
-  log_success "Touchpad gestures configured"
-  log_info "Gestures will be available after next login"
-  log_info "To customize: edit ~/.config/libinput-gestures.conf"
-
-  # Provide troubleshooting info if touchpad has limitations
-  if [ "$touchpad_multitouch" = false ] || [ "$touchpad_detected" = false ]; then
-    echo ""
-    log_warning "Touchpad gesture troubleshooting:"
-    log_info "If gestures don't work after reboot, try:"
-    log_info "  1. Check device: libinput list-devices"
-    log_info "  2. Test touchpad: sudo libinput debug-events"
-    log_info "  3. Check logs: journalctl -xe | grep libinput"
-    log_info "  4. Verify driver: cat /proc/bus/input/devices | grep -A 5 Touchpad"
-    log_info ""
-    log_info "Budget laptops (like Lenovo 100S) often use PS/2 touchpads"
-    log_info "which may only support 2-finger gestures, not 3-finger."
-    echo ""
-  fi
 }
 
 # Continue setup_laptop_optimizations function
@@ -1384,9 +1148,6 @@ show_laptop_summary() {
   echo -e "  • Touchpad tap-to-click enabled"
   echo -e "  • Natural scrolling enabled"
   echo -e "  • Disable typing while typing enabled"
-  if [ -f "$HOME/.config/libinput-gestures.conf" ]; then
-    echo -e "  • Touchpad gestures (3-finger swipe, pinch-to-zoom)"
-  fi
   echo ""
   echo -e "${YELLOW}Tips:${RESET}"
   if command -v tuned-adm >/dev/null 2>&1; then
@@ -1400,10 +1161,6 @@ show_laptop_summary() {
   fi
   if [ "$cpu_vendor" = "intel" ]; then
     echo -e "  • Thermal status: ${CYAN}sudo systemctl status thermald${RESET}"
-  fi
-  if [ -f "$HOME/.config/libinput-gestures.conf" ]; then
-    echo -e "  • Start gestures: ${CYAN}libinput-gestures-setup start${RESET}"
-    echo -e "  • Autostart gestures: ${CYAN}libinput-gestures-setup autostart${RESET}"
   fi
   echo ""
 }
@@ -1638,7 +1395,6 @@ detect_audio_system
 detect_kernel_type
 detect_de_version
 detect_bluetooth_hardware
-detect_and_install_gpu_drivers
 detect_hybrid_graphics
 setup_laptop_optimizations
 setup_wake_on_lan

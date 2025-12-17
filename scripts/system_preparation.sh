@@ -360,8 +360,6 @@ install_lts_kernel() {
 generate_locales() {
   step "Configuring system locales"
 
-
-
   # Always enable en_US.UTF-8 as fallback/default
   if grep -q "^#en_US.UTF-8" /etc/locale.gen; then
     sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen

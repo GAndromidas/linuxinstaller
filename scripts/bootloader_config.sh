@@ -345,6 +345,175 @@ configure_secure_boot() {
     fi
 }
 
+# --- GPU Driver Installation ---
+detect_and_install_gpu_drivers() {
+  step "Detecting and installing graphics drivers"
+  local lspci_out
+  lspci_out=$(lspci)
+
+  if echo "$lspci_out" | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
+    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
+    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon libva-mesa-driver lib32-libva-mesa-driver
+    log_success "AMD drivers and Vulkan support installed"
+    log_info "AMD GPU will use AMDGPU driver after reboot"
+  elif echo "$lspci_out" | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
+    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
+    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel libva-mesa-driver lib32-libva-mesa-driver
+    log_success "Intel drivers and Vulkan support installed"
+    log_info "Intel GPU will use i915 or xe driver after reboot"
+  elif echo "$lspci_out" | grep -qi nvidia; then
+    echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
+
+    # Get PCI ID and map to family
+    nvidia_pciid=$(lspci -n -d ::0300 | grep -i nvidia | awk '{print $3}' | head -n1)
+    nvidia_family=""
+    nvidia_pkg=""
+    nvidia_note=""
+
+    # Map PCI ID to family (simplified, for full mapping see ArchWiki and Nouveau code names)
+    if echo "$lspci_out" | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
+      nvidia_family="Turing or newer"
+      nvidia_pkg="nvidia-open-dkms nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(open kernel modules, recommended for Turing/Ampere/Lovelace)"
+    elif echo "$lspci_out" | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
+      nvidia_family="Maxwell or newer"
+      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
+    else
+      # All other older cards (Kepler, Fermi, Tesla) are considered legacy
+      nvidia_family="Legacy (Kepler/Fermi/Tesla/Other)"
+      nvidia_pkg="nouveau"
+      nvidia_note="(legacy, utilizing Nouveau open-source drivers)"
+    fi
+
+    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
+
+    if [[ "$nvidia_pkg" == "nouveau" ]]; then
+      echo -e "${YELLOW}Your NVIDIA GPU is legacy. Installing open-source Nouveau drivers...${RESET}"
+      install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
+      log_success "Nouveau drivers installed."
+    else
+      echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
+      install_packages_quietly $nvidia_pkg
+      log_success "NVIDIA drivers installed."
+    fi
+    return
+  else
+    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
+    install_packages_quietly mesa
+  fi
+
+  # Verify GPU driver is loaded
+  verify_gpu_driver
+}
+
+# Function to verify GPU driver is loaded correctly
+verify_gpu_driver() {
+  step "Verifying GPU driver installation"
+  local lspci_k_out
+  lspci_k_out=$(lspci -k)
+
+  # Check which driver is in use
+  if echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
+    log_info "GPU driver status:"
+    echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
+    log_success "GPU driver is loaded and in use"
+  else
+    log_warning "Could not verify GPU driver status"
+    log_info "Run 'lspci -k | grep -A 3 -iE \"vga|3d|display\"' after reboot to check driver"
+  fi
+
+  # Check for Vulkan support
+  if command -v vulkaninfo >/dev/null 2>&1; then
+      if vulkaninfo --summary 2>/dev/null | grep -q "deviceName"; then
+          log_success "Vulkan support detected"
+      else
+          log_warning "Vulkan support issues detected (vulkaninfo ran but no deviceName)"
+      fi
+  fi
+}
+
+# --- Early KMS Configuration ---
+configure_early_kms() {
+  log_info "Configuring Early KMS/GPU Drivers..."
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  local gpu_modules=""
+
+  # Ensure lspci (pciutils) is installed
+  if ! command -v lspci >/dev/null; then
+    log_info "Installing pciutils for GPU detection..."
+    if ! sudo pacman -S --noconfirm pciutils >/dev/null 2>&1; then
+      log_error "Failed to install pciutils. Cannot detect GPU."
+      return 1
+    fi
+  fi
+
+  # Check for virtualization first to avoid loading physical drivers (like nvidia) in VMs
+  local virt_type=""
+  if command -v systemd-detect-virt >/dev/null; then
+      virt_type=$(systemd-detect-virt || true)
+  fi
+
+  if [ -n "$virt_type" ] && [ "$virt_type" != "none" ]; then
+      log_info "Virtualization detected ($virt_type). Checking for virtual GPU drivers..."
+      if lspci | grep -i "VGA" | grep -i "Virtio" >/dev/null; then
+          gpu_modules="virtio-gpu"
+      elif lspci | grep -i "VGA" | grep -i "QXL" >/dev/null; then
+          gpu_modules="qxl"
+      elif lspci | grep -i "VGA" | grep -i "VMware" >/dev/null; then
+          gpu_modules="vmwgfx"
+      elif lspci | grep -i "VGA" | grep -i "InnoTek" >/dev/null; then
+          gpu_modules="vboxvideo"
+      else
+          log_info "No specific virtual GPU detected. Skipping Early KMS modules for VM."
+      fi
+  else
+      # Physical Hardware Detection
+      log_info "Checking for physical GPU..."
+      if lspci | grep -i "VGA" | grep -i "Intel" >/dev/null; then
+        log_info "Detected Intel GPU."
+        gpu_modules="i915"
+      elif lspci | grep -i "VGA" | grep -i "AMD" >/dev/null || lspci | grep -i "VGA" | grep -i "ATI" >/dev/null; then
+        log_info "Detected AMD GPU."
+        gpu_modules="amdgpu"
+      elif lspci | grep -i "VGA" | grep -i "NVIDIA" >/dev/null; then
+        log_info "Detected NVIDIA GPU."
+        gpu_modules="nvidia nvidia_modeset nvidia_uvm nvidia_drm"
+      fi
+  fi
+
+  if [ -n "$gpu_modules" ]; then
+    log_info "Target modules: $gpu_modules"
+
+    # Read current modules
+    local current_modules
+    current_modules=$(grep "^MODULES=" "$mkinitcpio_conf" | sed 's/MODULES=(\(.*\))/\1/')
+
+    # Check if modules are already present
+    local modules_to_add=""
+    for mod in $gpu_modules; do
+      if ! echo "$current_modules" | grep -q "$mod"; then
+        modules_to_add="$modules_to_add $mod"
+      fi
+    done
+
+    if [ -n "$modules_to_add" ]; then
+      log_info "Adding modules to mkinitcpio.conf: $modules_to_add"
+      # Cleanly insert modules into the array
+      sudo sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $modules_to_add)/" "$mkinitcpio_conf"
+      # Remove double spaces if any
+      sudo sed -i "s/  / /g" "$mkinitcpio_conf"
+      log_success "Early KMS modules configured."
+      return 0
+    else
+      log_info "Early KMS modules already present in configuration."
+    fi
+  else
+    log_info "No specific GPU modules detected to add."
+  fi
+  return 0
+}
+
 # --- Console Font Setup ---
 setup_console_font() {
     run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
@@ -354,6 +523,14 @@ setup_console_font() {
 # --- Main execution ---
 
 # 1. Setup Configurations (Font, UKI Params, SBCTL)
+
+# Install GPU drivers first so modules are available for Early KMS
+detect_and_install_gpu_drivers
+
+if ! run_step "Configuring Early KMS Modules" configure_early_kms; then
+    log_warning "Early KMS configuration encountered issues."
+fi
+
 setup_console_font
 
 if [ "$(detect_uki)" = "true" ] || [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then

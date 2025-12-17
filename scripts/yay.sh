@@ -22,31 +22,71 @@ install_yay() {
   fi
 
   # Create temporary directory for building
+  # MUST NOT be run as root - makepkg refuses to run as root
   local temp_dir
   temp_dir=$(mktemp -d)
-  chmod 700 "$temp_dir"  # Secure permissions
+
+  # Ensure the directory is accessible by the user building the package
+  # If running via sudo, we need to ensure permissions are correct for the actual user
+  if [ -n "${SUDO_USER:-}" ]; then
+    chown "$SUDO_USER:$SUDO_USER" "$temp_dir"
+  fi
+  chmod 777 "$temp_dir"
+
   trap "rm -rf '$temp_dir'" EXIT  # Ensure cleanup on exit
+
+  # Switch to user context if running as root
+  local run_as_user=""
+  if [ "$EUID" -eq 0 ]; then
+    if [ -n "${SUDO_USER:-}" ]; then
+      run_as_user="sudo -u $SUDO_USER"
+    else
+      # Fallback to 'nobody' if absolutely necessary, though this usually fails with makepkg dependencies
+      log_warning "Running as root without SUDO_USER. Attempting to build as 'nobody'..."
+      run_as_user="sudo -u nobody"
+      chown nobody:nobody "$temp_dir"
+    fi
+  fi
+
   cd "$temp_dir" || { log_error "Failed to create temporary directory"; return 1; }
 
-  # Clone yay repository
+  # Clone yay repository with retry
   print_progress 1 4 "Cloning yay repository"
-  if git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
+  local clone_success=false
+  for i in {1..3}; do
+    if $run_as_user git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
+      clone_success=true
+      break
+    fi
+    sleep 2
+  done
+
+  if [ "$clone_success" = true ]; then
     print_status " [OK]" "$GREEN"
   else
     print_status " [FAIL]" "$RED"
-    log_error "Failed to clone yay repository"
+    log_error "Failed to clone yay repository after 3 attempts"
     return 1
   fi
 
   # Build yay
   print_progress 2 4 "Building yay"
-  echo -e "\n${YELLOW}Please enter your sudo password to build and install yay:${RESET}"
+  echo -e "\n${YELLOW}Building and installing yay...${RESET}"
+
+  # Ensure we have sudo rights for the install phase
   sudo -v
-  if makepkg -si --noconfirm --needed >/dev/null 2>&1; then
+
+  local build_success=false
+  # makepkg needs to run as user, but -i (install) will ask for sudo internally
+  if $run_as_user makepkg -si --noconfirm --needed >/dev/null 2>&1; then
+    build_success=true
+  fi
+
+  if [ "$build_success" = true ]; then
     print_status " [OK]" "$GREEN"
   else
     print_status " [FAIL]" "$RED"
-    log_error "Failed to build yay"
+    log_error "Failed to build yay. Check if base-devel is properly installed."
     return 1
   fi
 

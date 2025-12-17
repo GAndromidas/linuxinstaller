@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # Plymouth setup and configuration script
-# Updated for modern Arch Linux (Early KMS, Silent Boot, correct hooks)
+# Updated for modern Arch Linux (Silent Boot, correct hooks)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -16,64 +16,7 @@ print_progress() {
 }
 
 # -------------------------------------------------------------------------
-# Step 1: Configure Early KMS (Essential for flicker-free / silent boot)
-# -------------------------------------------------------------------------
-configure_early_kms() {
-  log_info "Configuring Early KMS for silent boot..."
-  local mkinitcpio_conf="/etc/mkinitcpio.conf"
-  local gpu_modules=""
-
-  # Ensure lspci (pciutils) is installed
-  if ! command -v lspci >/dev/null; then
-    log_info "Installing pciutils for GPU detection..."
-    sudo pacman -S --noconfirm pciutils || return 1
-  fi
-
-  # Detect GPU
-  if lspci | grep -i "VGA" | grep -i "Intel" >/dev/null; then
-    gpu_modules="i915"
-  elif lspci | grep -i "VGA" | grep -i "AMD" >/dev/null || lspci | grep -i "VGA" | grep -i "ATI" >/dev/null; then
-    gpu_modules="amdgpu"
-  elif lspci | grep -i "VGA" | grep -i "NVIDIA" >/dev/null; then
-    gpu_modules="nvidia nvidia_modeset nvidia_uvm nvidia_drm"
-  elif lspci | grep -i "VGA" | grep -i "VMware" >/dev/null; then
-    gpu_modules="vmwgfx"
-  fi
-
-  if [ -n "$gpu_modules" ]; then
-    log_info "Detected GPU modules: $gpu_modules"
-
-    # Read current modules
-    local current_modules
-    current_modules=$(grep "^MODULES=" "$mkinitcpio_conf" | sed 's/MODULES=(\(.*\))/\1/')
-
-    # Check if modules are already present
-    local modules_to_add=""
-    for mod in $gpu_modules; do
-      if ! echo "$current_modules" | grep -q "$mod"; then
-        modules_to_add="$modules_to_add $mod"
-      fi
-    done
-
-    if [ -n "$modules_to_add" ]; then
-      log_info "Adding modules to mkinitcpio.conf: $modules_to_add"
-      # Cleanly insert modules into the array
-      sudo sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $modules_to_add)/" "$mkinitcpio_conf"
-      # Remove double spaces if any
-      sudo sed -i "s/  / /g" "$mkinitcpio_conf"
-      log_success "Early KMS configured."
-      return 0
-    else
-      log_info "Early KMS modules already configured."
-    fi
-  else
-    log_warning "Could not detect GPU for Early KMS. Skipping."
-  fi
-  return 0
-}
-
-# -------------------------------------------------------------------------
-# Step 2: Configure Plymouth Hook
+# Step 1: Configure Plymouth Hook
 # -------------------------------------------------------------------------
 configure_plymouth_hook() {
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
@@ -126,7 +69,7 @@ configure_plymouth_hook() {
 }
 
 # -------------------------------------------------------------------------
-# Step 3: Set Theme (with Rebuild)
+# Step 2: Set Theme (with Rebuild)
 # -------------------------------------------------------------------------
 set_plymouth_theme() {
   local theme_primary="bgrt" # Arch default/preferred (uses UEFI logo)
@@ -182,7 +125,7 @@ set_plymouth_theme() {
 }
 
 # -------------------------------------------------------------------------
-# Step 4: Silent Boot Parameters
+# Step 3: Silent Boot Parameters
 # -------------------------------------------------------------------------
 add_silent_boot_params() {
   log_info "Configuring kernel parameters for silent boot..."
@@ -273,23 +216,18 @@ main() {
     echo -e "${CYAN}=== Plymouth Configuration (Silent Boot) ===${RESET}"
   fi
 
-  # 1. Early KMS
-  if ! run_step "Configuring Early KMS" configure_early_kms; then
-    log_warning "Early KMS configuration had issues."
-  fi
-
-  # 2. Configure Hook
+  # 1. Configure Hook
   if ! run_step "Configuring Plymouth Initcpio Hook" configure_plymouth_hook; then
     log_error "Failed to configure plymouth hook."
     return 1
   fi
 
-  # 3. Set Theme (Rebuilds initramfs)
+  # 2. Set Theme (Rebuilds initramfs)
   if ! run_step "Setting Plymouth Theme" set_plymouth_theme; then
     log_warning "Theme setting failed."
   fi
 
-  # 4. Silent Boot Params
+  # 3. Silent Boot Params
   if ! run_step "Adding Silent Boot Parameters" add_silent_boot_params; then
     log_warning "Kernel parameter configuration had issues."
   fi
