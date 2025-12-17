@@ -209,6 +209,26 @@ configure_secure_boot() {
             new_cmdline="$new_cmdline rd.udev.log_level=3"
             modified=true
         fi
+        if [[ ! "$new_cmdline" =~ "splash" ]]; then
+            new_cmdline="$new_cmdline splash"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "vt.global_cursor_default=0" ]]; then
+            new_cmdline="$new_cmdline vt.global_cursor_default=0"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "plymouth.ignore-serial-consoles" ]]; then
+            new_cmdline="$new_cmdline plymouth.ignore-serial-consoles"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "rd.systemd.show_status=auto" ]]; then
+            new_cmdline="$new_cmdline rd.systemd.show_status=auto"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "udev.log_priority=3" ]]; then
+            new_cmdline="$new_cmdline udev.log_priority=3"
+            modified=true
+        fi
 
         if [ "$modified" = "true" ]; then
             echo "$new_cmdline" | sudo tee /etc/kernel/cmdline >/dev/null
