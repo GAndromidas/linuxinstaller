@@ -83,12 +83,26 @@ set_plymouth_theme() {
 
   local target_theme=""
 
-  if echo "$themes" | grep -q "^$theme_primary$"; then
-    target_theme="$theme_primary"
-  elif echo "$themes" | grep -q "^$theme_fallback$"; then
-    target_theme="$theme_fallback"
-  else
-    target_theme=$(echo "$themes" | head -n1)
+  # Check if a theme is already configured (and is graphical)
+  local current_theme
+  current_theme=$(plymouth-set-default-theme 2>/dev/null || echo "")
+
+  if [ -n "$current_theme" ] && [ "$current_theme" != "text" ] && [ "$current_theme" != "details" ]; then
+    if echo "$themes" | grep -Fxq "$current_theme"; then
+      log_success "Preserving existing Plymouth theme: $current_theme"
+      target_theme="$current_theme"
+    fi
+  fi
+
+  # If no existing theme to preserve, pick default
+  if [ -z "$target_theme" ]; then
+    if echo "$themes" | grep -q "^$theme_primary$"; then
+      target_theme="$theme_primary"
+    elif echo "$themes" | grep -q "^$theme_fallback$"; then
+      target_theme="$theme_fallback"
+    else
+      target_theme=$(echo "$themes" | head -n1)
+    fi
   fi
 
   if [ -z "$target_theme" ]; then

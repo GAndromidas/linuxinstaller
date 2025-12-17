@@ -238,6 +238,30 @@ configure_secure_boot() {
         fi
     fi
 
+    # Ensure presets are configured if UKIs are present (prevents stale images)
+    if [ "$(detect_uki)" = "true" ]; then
+        local boot_mount=$(detect_boot_mount)
+        local presets_updated=false
+
+        for preset in /etc/mkinitcpio.d/*.preset; do
+            if [ -f "$preset" ] && ! grep -q "^default_uki=" "$preset"; then
+                local k_name=$(basename "$preset" .preset)
+                local uki_path="${boot_mount}/EFI/Linux/arch-${k_name}.efi"
+
+                # If the file exists but isn't in preset, mkinitcpio won't update it
+                if [ -f "$uki_path" ]; then
+                    log_info "Configuring $preset to update detected UKI..."
+                    echo -e "\ndefault_uki=\"$uki_path\"" | sudo tee -a "$preset" >/dev/null
+                    presets_updated=true
+                fi
+            fi
+        done
+
+        if [ "$presets_updated" = "true" ]; then
+            log_success "Updated mkinitcpio presets to ensure UKIs are rebuilt"
+        fi
+    fi
+
     if [ "$(detect_uki)" = "true" ]; then
         log_info "UKI detected."
     else
