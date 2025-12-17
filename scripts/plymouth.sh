@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # Plymouth setup and configuration script
-# Updated for modern Arch Linux (Silent Boot, correct hooks)
+# Updated for modern Arch Linux (correct hooks)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -124,96 +124,16 @@ set_plymouth_theme() {
   fi
 }
 
-# -------------------------------------------------------------------------
-# Step 3: Silent Boot Parameters
-# -------------------------------------------------------------------------
-add_silent_boot_params() {
-  log_info "Configuring kernel parameters for silent boot..."
 
-  # Comprehensive silent boot parameters
-  local params=(
-    "quiet"
-    "splash"
-    "loglevel=3"
-    "rd.udev.log_level=3"
-    "vt.global_cursor_default=0"
-    "systemd.show_status=auto"
-    "rd.systemd.show_status=auto"
-    "udev.log_priority=3"
-  )
-
-  # Detect Bootloader
-  local bootloader="unknown"
-  if [ -d "/boot/loader/entries" ]; then
-    bootloader="systemd-boot"
-  elif [ -f "/etc/default/grub" ]; then
-    bootloader="grub"
-  fi
-
-  if [ "$bootloader" == "systemd-boot" ]; then
-    # find all conf files
-    local entries=$(find /boot/loader/entries -name "*.conf")
-    for entry in $entries; do
-      log_info "Checking $entry..."
-      local current_options=$(grep "^options" "$entry" | sed 's/^options //')
-      local new_options="$current_options"
-      local modified=false
-
-      for p in "${params[@]}"; do
-        if ! echo "$current_options" | grep -q "$p"; then
-          new_options="$new_options $p"
-          modified=true
-        fi
-      done
-
-      if [ "$modified" = true ]; then
-        sudo sed -i "s|^options .*|options $new_options|" "$entry"
-        log_success "Updated kernel parameters in $entry"
-      fi
-    done
-
-  elif [ "$bootloader" == "grub" ]; then
-    log_info "Updating GRUB config..."
-    local grub_cfg="/etc/default/grub"
-    local needs_update=false
-
-    # Read current command line
-    local current_cmdline
-    current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$grub_cfg" | cut -d'"' -f2)
-
-    local new_cmdline="$current_cmdline"
-    for p in "${params[@]}"; do
-        if ! echo "$current_cmdline" | grep -q "$p"; then
-            new_cmdline="$new_cmdline $p"
-            needs_update=true
-        fi
-    done
-
-    if [ "$needs_update" = true ]; then
-        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$grub_cfg"
-        log_info "Regenerating GRUB configuration..."
-        if command -v grub-mkconfig >/dev/null; then
-            sudo grub-mkconfig -o /boot/grub/grub.cfg
-        else
-            log_warning "grub-mkconfig not found!"
-        fi
-        log_success "GRUB updated."
-    else
-        log_info "GRUB already has silent boot parameters."
-    fi
-  else
-    log_warning "Unsupported bootloader or unable to detect. Please add parameters manually: ${params[*]}"
-  fi
-}
 
 # -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
 main() {
   if command -v ui_header >/dev/null; then
-    ui_header "Plymouth Configuration (Silent Boot)"
+    ui_header "Plymouth Configuration"
   else
-    echo -e "${CYAN}=== Plymouth Configuration (Silent Boot) ===${RESET}"
+    echo -e "${CYAN}=== Plymouth Configuration ===${RESET}"
   fi
 
   # 1. Configure Hook
@@ -225,11 +145,6 @@ main() {
   # 2. Set Theme (Rebuilds initramfs)
   if ! run_step "Setting Plymouth Theme" set_plymouth_theme; then
     log_warning "Theme setting failed."
-  fi
-
-  # 3. Silent Boot Params
-  if ! run_step "Adding Silent Boot Parameters" add_silent_boot_params; then
-    log_warning "Kernel parameter configuration had issues."
   fi
 
   echo ""
