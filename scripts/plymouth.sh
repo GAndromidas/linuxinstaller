@@ -2,17 +2,8 @@
 set -uo pipefail
 
 # Plymouth setup and configuration script
-# This implementation is adapted from archinstaller-4.2 and integrated
-# with the project's common helpers (run_step, log_info, log_success, etc).
-#
-# Goals:
-#  - Ensure mkinitcpio contains a plymouth hook (sd-plymouth preferred)
-#  - Rebuild initramfs for all installed kernels when necessary
-#  - Set a suitable Plymouth theme (prefer 'bgrt', fallback to 'spinner' or first available)
-#  - Add recommended kernel parameters to systemd-boot or GRUB entries
-#  - Be robust to common ESP mountpoints and restrictive /boot permissions
+# Updated for modern Arch Linux (Early KMS, Silent Boot, correct hooks)
 
-# Get script directory and load common helpers
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
@@ -24,266 +15,287 @@ print_progress() {
   printf "\r\033[K${CYAN}%s...${RESET}" "$description"
 }
 
-# Try to set a plymouth theme, with helpful logging
-set_plymouth_theme() {
-  local theme_primary="bgrt"
-  local theme_fallback="spinner"
+# -------------------------------------------------------------------------
+# Step 1: Configure Early KMS (Essential for flicker-free / silent boot)
+# -------------------------------------------------------------------------
+configure_early_kms() {
+  log_info "Configuring Early KMS for silent boot..."
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  local gpu_modules=""
 
-  # If bgrt has a double-slash ImageDir bug, try to fix it first
-  local bgrt_cfg="/usr/share/plymouth/themes/bgrt/bgrt.plymouth"
-  if [ -f "$bgrt_cfg" ]; then
-    if grep -q "ImageDir=/usr/share/plymouth/themes//" "$bgrt_cfg" 2>/dev/null; then
-      if sudo sed -i 's|/usr/share/plymouth/themes//|/usr/share/plymouth/themes/|g' "$bgrt_cfg" 2>/dev/null; then
-        log_success "Fixed double-slash ImageDir in bgrt plymouth config"
-      else
-        log_warning "Could not fix bgrt ImageDir automatically"
-      fi
-    fi
+  # Ensure lspci (pciutils) is installed
+  if ! command -v lspci >/dev/null; then
+    log_info "Installing pciutils for GPU detection..."
+    sudo pacman -S --noconfirm pciutils || return 1
   fi
 
-  # If plymouth utilities are missing, attempt to install plymouth (non-AUR)
-  if ! command -v plymouth-set-default-theme >/dev/null 2>&1; then
-    log_info "plymouth tools not found. Attempting to install 'plymouth' package via pacman..."
-    if sudo pacman -S --noconfirm plymouth >/dev/null 2>&1; then
-      log_success "Installed 'plymouth' package via pacman."
-    else
-      log_warning "Could not install 'plymouth' via pacman. Continuing without setting a theme."
-      # Non-fatal: do not abort installation if theme can't be set
-      return 0
-    fi
+  # Detect GPU
+  if lspci | grep -i "VGA" | grep -i "Intel" >/dev/null; then
+    gpu_modules="i915"
+  elif lspci | grep -i "VGA" | grep -i "AMD" >/dev/null || lspci | grep -i "VGA" | grep -i "ATI" >/dev/null; then
+    gpu_modules="amdgpu"
+  elif lspci | grep -i "VGA" | grep -i "NVIDIA" >/dev/null; then
+    gpu_modules="nvidia nvidia_modeset nvidia_uvm nvidia_drm"
+  elif lspci | grep -i "VGA" | grep -i "VMware" >/dev/null; then
+    gpu_modules="vmwgfx"
   fi
 
-  # Helper: try to set a single theme (returns 0 on success)
-  try_set_theme() {
-    local t="$1"
-    if plymouth-set-default-theme -l 2>/dev/null | grep -qw "$t"; then
-      local opts="-R"
-      if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
-        opts=""
-      fi
-      if sudo plymouth-set-default-theme $opts "$t" >/dev/null 2>&1; then
-        if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
-            log_success "Set Plymouth theme to '$t' (rebuild skipped)"
-        else
-            log_success "Set Plymouth theme to '$t' and rebuilt initramfs"
-        fi
-        return 0
-      else
-        log_warning "plymouth-set-default-theme failed for '$t'"
-        return 1
-      fi
-    fi
-    return 2
-  }
+  if [ -n "$gpu_modules" ]; then
+    log_info "Detected GPU modules: $gpu_modules"
 
-  # 1) Try primary theme
-  if try_set_theme "$theme_primary"; then
-    return 0
-  fi
+    # Read current modules
+    local current_modules
+    current_modules=$(grep "^MODULES=" "$mkinitcpio_conf" | sed 's/MODULES=(\(.*\))/\1/')
 
-  # 2) Try fallback spinner
-  if try_set_theme "$theme_fallback"; then
-    return 0
-  fi
-
-  # 3) Last resort: first available theme from plymouth-set-default-theme -l
-  local first_theme
-  first_theme=$(plymouth-set-default-theme -l 2>/dev/null | head -n1 || true)
-  if [ -n "$first_theme" ]; then
-    if try_set_theme "$first_theme"; then
-      return 0
-    fi
-  fi
-
-  # Make theme failure non-fatal: warn and continue.
-  log_warning "No suitable Plymouth theme could be set. Continuing without a configured theme."
-  return 0
-}
-
-# Add recommended kernel parameters to boot entries (systemd-boot or GRUB)
-add_kernel_parameters() {
-  # Recommended params for a smooth plymouth boot
-  local params=(quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles)
-  local params_str="${params[*]}"
-
-  # Determine systemd-boot entries directory robustly:
-  # try bootctl -p, then common mountpoints
-  local boot_entries_dir=""
-  if command -v bootctl >/dev/null 2>&1; then
-    # bootctl -p prints the ESP path on systemd systems; suppress errors
-    local esp
-    esp=$(bootctl -p 2>/dev/null || true)
-    if [ -n "$esp" ] && [ -d "$esp/loader/entries" ]; then
-      boot_entries_dir="$esp/loader/entries"
-    fi
-  fi
-
-  for cand in "/boot/loader/entries" "/efi/loader/entries" "/boot/efi/loader/entries" "/boot/EFI/loader/entries" "/efi/EFI/loader/entries"; do
-    if [ -z "$boot_entries_dir" ] && [ -d "$cand" ]; then
-      boot_entries_dir="$cand"
-      break
-    fi
-  done
-
-  # If we have systemd-boot entries, update them (use sudo for reading/editing)
-  if [ -n "$boot_entries_dir" ]; then
-    # Gather entries with sudo to handle restrictive permissions
-    local -a entries=()
-    while IFS= read -r -d '' e; do
-      entries+=("$e")
-    done < <(sudo find "$boot_entries_dir" -maxdepth 1 -name "*.conf" -print0 2>/dev/null || true)
-
-    if [ ${#entries[@]} -eq 0 ]; then
-      log_warning "No boot entries found under $boot_entries_dir; skipping kernel param addition"
-    else
-      local total=${#entries[@]}
-      local count_mod=0
-      local i=0
-      for e in "${entries[@]}"; do
-        ((i++))
-        local name
-        name=$(basename "$e")
-        print_progress "$i" "$total" "Ensuring kernel params for $name"
-
-        # read and update with sudo safely
-        if sudo test -f "$e"; then
-          local changed=false
-          for p in "${params[@]}"; do
-            # word-boundary aware check
-            if ! sudo grep -q -E "(^|[[:space:]])$p($|[[:space:]])" "$e" 2>/dev/null; then
-              if sudo sed -i "/^options / s/$/ $p/" "$e" 2>/dev/null; then
-                changed=true
-              else
-                log_warning "Failed to append '$p' into $name"
-              fi
-            fi
-          done
-
-          if [ "$changed" = true ]; then
-            print_status " [OK]" "$GREEN"
-            log_success "Updated kernel params in $name"
-            ((count_mod++))
-          else
-            print_status " [SKIP]" "$YELLOW"
-            log_info "Kernel params already present in $name"
-          fi
-        else
-          print_status " [FAIL]" "$RED"
-          log_warning "Entry $name not accessible"
-        fi
-      done
-      echo -e "\n${GREEN}Kernel parameters updated for systemd-boot entries (${count_mod} modified)${RESET}\n"
-    fi
-
-    return 0
-  fi
-
-  # If no systemd-boot, attempt GRUB update
-  if [ -f /etc/default/grub ]; then
-    # Read current value
-    local current_line
-    current_line=$(grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null || true)
-    local quoted=""
-    if [ -n "$current_line" ]; then
-      # extract quoted contents
-      quoted=$(echo "$current_line" | sed -E 's/^GRUB_CMDLINE_LINUX_DEFAULT=(.*)/\1/' | sed -E 's/^"(.*)"$/\1/')
-    fi
-
-    local new_cmdline="$quoted"
-    for p in "${params[@]}"; do
-      if ! echo "$quoted" | grep -q -E "(^|[[:space:]])$p($|[[:space:]])"; then
-        new_cmdline="$new_cmdline $p"
+    # Check if modules are already present
+    local modules_to_add=""
+    for mod in $gpu_modules; do
+      if ! echo "$current_modules" | grep -q "$mod"; then
+        modules_to_add="$modules_to_add $mod"
       fi
     done
 
-    if [ "$new_cmdline" != "$quoted" ]; then
-      sudo sed -i "s@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT=\"${new_cmdline}\"@" /etc/default/grub
-      log_success "Updated GRUB_CMDLINE_LINUX_DEFAULT with recommended kernel params"
-      if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-        log_success "Regenerated grub.cfg after updating kernel params."
-      else
-        log_warning "Failed to regenerate grub.cfg; please run 'sudo grub-mkconfig -o /boot/grub/grub.cfg' manually."
-      fi
+    if [ -n "$modules_to_add" ]; then
+      log_info "Adding modules to mkinitcpio.conf: $modules_to_add"
+      # Cleanly insert modules into the array
+      sudo sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $modules_to_add)/" "$mkinitcpio_conf"
+      # Remove double spaces if any
+      sudo sed -i "s/  / /g" "$mkinitcpio_conf"
+      log_success "Early KMS configured."
+      return 0
     else
-      log_info "GRUB_CMDLINE_LINUX_DEFAULT already contains the recommended kernel params"
+      log_info "Early KMS modules already configured."
     fi
-
-    return 0
+  else
+    log_warning "Could not detect GPU for Early KMS. Skipping."
   fi
-
-  log_warning "No supported bootloader detected for kernel parameter addition."
   return 0
 }
 
-# Check whether plymouth is already configured end-to-end
-is_plymouth_configured() {
-  local hook_present=false
-  local theme_set=false
-  local splash_present=false
+# -------------------------------------------------------------------------
+# Step 2: Configure Plymouth Hook
+# -------------------------------------------------------------------------
+configure_plymouth_hook() {
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  local hook_name="plymouth"
 
-  if grep -q "plymouth" /etc/mkinitcpio.conf 2>/dev/null; then
-    hook_present=true
-  fi
-
-  # If plymouth-set-default-theme prints anything, consider theme available/set
-  if plymouth-set-default-theme 2>/dev/null | grep -qv "^$"; then
-    theme_set=true
-  fi
-
-  # Check splash param in systemd-boot or GRUB
-  if [ -d /boot/loader ] || [ -d /boot/EFI/systemd ]; then
-    if grep -q "splash" /boot/loader/entries/*.conf 2>/dev/null; then
-      splash_present=true
-    fi
-  elif [ -f /etc/default/grub ]; then
-    if grep -q 'splash' /etc/default/grub 2>/dev/null; then
-      splash_present=true
+  # Check for systemd hook preference
+  if grep -q "HOOKS=.*systemd" "$mkinitcpio_conf"; then
+    if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+      hook_name="sd-plymouth"
     fi
   fi
 
-  if [ "$hook_present" = true ] && [ "$theme_set" = true ] && [ "$splash_present" = true ]; then
-    return 0
+  log_info "Configuring Plymouth hook ($hook_name)..."
+
+  # Install plymouth if missing
+  if ! command -v plymouthd >/dev/null; then
+    log_info "Installing plymouth package..."
+    sudo pacman -S --noconfirm plymouth || return 1
   fi
-  return 1
+
+  # Add hook to mkinitcpio.conf if not present
+  if ! grep -q "$hook_name" "$mkinitcpio_conf"; then
+    # Placement logic:
+    # 1. After 'systemd' (if present)
+    # 2. After 'base' and 'udev' (standard)
+
+    if grep -q "HOOKS=.*systemd" "$mkinitcpio_conf"; then
+      sudo sed -i "s/systemd/systemd $hook_name/" "$mkinitcpio_conf"
+    elif grep -q "HOOKS=.*udev" "$mkinitcpio_conf"; then
+      sudo sed -i "s/udev/udev $hook_name/" "$mkinitcpio_conf"
+    else
+      # Fallback: append to beginning? No, usually after base.
+      # Just inserting after base if udev missing (unlikely)
+      sudo sed -i "s/base/base $hook_name/" "$mkinitcpio_conf"
+    fi
+    log_success "Added $hook_name to HOOKS."
+  else
+    log_info "Hook $hook_name already present."
+  fi
+
+  # Ensure sd-plymouth is used if systemd is present, replacing plymouth if necessary
+  if grep -q "HOOKS=.*systemd" "$mkinitcpio_conf" && grep -q "HOOKS=.* plymouth " "$mkinitcpio_conf"; then
+      if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+        log_info "Replacing 'plymouth' with 'sd-plymouth' for systemd initramfs..."
+        sudo sed -i "s/ plymouth / sd-plymouth /" "$mkinitcpio_conf"
+      fi
+  fi
+
+  return 0
 }
 
-# Main entry - orchestrates steps and uses run_step from common.sh
-main() {
-  echo -e "${CYAN}=== Plymouth Configuration ===${RESET}"
+# -------------------------------------------------------------------------
+# Step 3: Set Theme (with Rebuild)
+# -------------------------------------------------------------------------
+set_plymouth_theme() {
+  local theme_primary="bgrt" # Arch default/preferred (uses UEFI logo)
+  local theme_fallback="spinner"
 
-  # If everything already configured, skip
-  if is_plymouth_configured; then
-    log_success "Plymouth is already configured - skipping setup."
-    echo -e "${GREEN}Plymouth configuration detected:${RESET}"
-    echo -e "  ✓ Plymouth hook present in /etc/mkinitcpio.conf"
-    echo -e "  ✓ Plymouth theme available"
-    echo -e "  ✓ Splash kernel parameter set in bootloader"
-    echo -e "${CYAN}To force reconfiguration, edit /etc/mkinitcpio.conf or run this script with sudo to inspect logs.${RESET}"
-    return 0
-  fi
+  log_info "Setting Plymouth theme..."
 
-  # 1) Configure mkinitcpio hook and rebuild initramfs (uses function from common.sh)
-  if ! run_step "Configuring Plymouth hook and rebuilding initramfs" configure_plymouth_hook_and_initramfs; then
-    log_warning "configure_plymouth_hook_and_initramfs reported problems; continuing to other steps"
-  fi
+  # Check available themes
+  local themes
+  themes=$(plymouth-set-default-theme -l)
 
-  # 2) Set theme
-  if ! run_step "Setting Plymouth theme" set_plymouth_theme; then
-    log_warning "Plymouth theme configuration failed or no themes available"
-  fi
+  local target_theme=""
 
-  # 3) Add kernel parameters
-  if ! run_step "Adding 'splash' and recommended kernel parameters to boot entries" add_kernel_parameters; then
-    log_warning "Kernel parameter addition had issues"
-  fi
-
-  # Final summary
-  echo ""
-  if is_plymouth_configured; then
-    log_success "Plymouth configured successfully."
+  if echo "$themes" | grep -q "^$theme_primary$"; then
+    target_theme="$theme_primary"
+  elif echo "$themes" | grep -q "^$theme_fallback$"; then
+    target_theme="$theme_fallback"
   else
-    log_warning "Plymouth setup completed with warnings. Inspect the installer log for details."
+    target_theme=$(echo "$themes" | head -n1)
   fi
+
+  if [ -z "$target_theme" ]; then
+    log_warning "No Plymouth themes found!"
+    return 1
+  fi
+
+  log_info "Selected theme: $target_theme"
+
+  # Workaround for BGRT image path bug in some versions
+  if [ "$target_theme" == "bgrt" ]; then
+      local bgrt_cfg="/usr/share/plymouth/themes/bgrt/bgrt.plymouth"
+      if [ -f "$bgrt_cfg" ] && grep -q "ImageDir=.*//" "$bgrt_cfg"; then
+          log_info "Fixing BGRT theme configuration bug..."
+          sudo sed -i 's|//|/|g' "$bgrt_cfg"
+      fi
+  fi
+
+  # Set theme and rebuild initramfs
+  if [ "${SKIP_MKINITCPIO:-false}" = "true" ]; then
+      log_info "Setting theme to '$target_theme' (initramfs rebuild skipped by env)..."
+      sudo plymouth-set-default-theme "$target_theme"
+  else
+      log_info "Applying theme and rebuilding initramfs (this may take a moment)..."
+      if sudo plymouth-set-default-theme -R "$target_theme"; then
+        log_success "Theme set to '$target_theme' and initramfs rebuilt."
+      else
+        log_error "Failed to set theme via plymouth-set-default-theme -R."
+        # Fallback: manual rebuild
+        sudo plymouth-set-default-theme "$target_theme"
+        sudo mkinitcpio -P
+      fi
+  fi
+}
+
+# -------------------------------------------------------------------------
+# Step 4: Silent Boot Parameters
+# -------------------------------------------------------------------------
+add_silent_boot_params() {
+  log_info "Configuring kernel parameters for silent boot..."
+
+  # Comprehensive silent boot parameters
+  local params=(
+    "quiet"
+    "splash"
+    "loglevel=3"
+    "rd.udev.log_level=3"
+    "vt.global_cursor_default=0"
+    "systemd.show_status=auto"
+    "rd.systemd.show_status=auto"
+    "udev.log_priority=3"
+  )
+
+  # Detect Bootloader
+  local bootloader="unknown"
+  if [ -d "/boot/loader/entries" ]; then
+    bootloader="systemd-boot"
+  elif [ -f "/etc/default/grub" ]; then
+    bootloader="grub"
+  fi
+
+  if [ "$bootloader" == "systemd-boot" ]; then
+    # find all conf files
+    local entries=$(find /boot/loader/entries -name "*.conf")
+    for entry in $entries; do
+      log_info "Checking $entry..."
+      local current_options=$(grep "^options" "$entry" | sed 's/^options //')
+      local new_options="$current_options"
+      local modified=false
+
+      for p in "${params[@]}"; do
+        if ! echo "$current_options" | grep -q "$p"; then
+          new_options="$new_options $p"
+          modified=true
+        fi
+      done
+
+      if [ "$modified" = true ]; then
+        sudo sed -i "s|^options .*|options $new_options|" "$entry"
+        log_success "Updated kernel parameters in $entry"
+      fi
+    done
+
+  elif [ "$bootloader" == "grub" ]; then
+    log_info "Updating GRUB config..."
+    local grub_cfg="/etc/default/grub"
+    local needs_update=false
+
+    # Read current command line
+    local current_cmdline
+    current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$grub_cfg" | cut -d'"' -f2)
+
+    local new_cmdline="$current_cmdline"
+    for p in "${params[@]}"; do
+        if ! echo "$current_cmdline" | grep -q "$p"; then
+            new_cmdline="$new_cmdline $p"
+            needs_update=true
+        fi
+    done
+
+    if [ "$needs_update" = true ]; then
+        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$grub_cfg"
+        log_info "Regenerating GRUB configuration..."
+        if command -v grub-mkconfig >/dev/null; then
+            sudo grub-mkconfig -o /boot/grub/grub.cfg
+        else
+            log_warning "grub-mkconfig not found!"
+        fi
+        log_success "GRUB updated."
+    else
+        log_info "GRUB already has silent boot parameters."
+    fi
+  else
+    log_warning "Unsupported bootloader or unable to detect. Please add parameters manually: ${params[*]}"
+  fi
+}
+
+# -------------------------------------------------------------------------
+# Main
+# -------------------------------------------------------------------------
+main() {
+  if command -v ui_header >/dev/null; then
+    ui_header "Plymouth Configuration (Silent Boot)"
+  else
+    echo -e "${CYAN}=== Plymouth Configuration (Silent Boot) ===${RESET}"
+  fi
+
+  # 1. Early KMS
+  if ! run_step "Configuring Early KMS" configure_early_kms; then
+    log_warning "Early KMS configuration had issues."
+  fi
+
+  # 2. Configure Hook
+  if ! run_step "Configuring Plymouth Initcpio Hook" configure_plymouth_hook; then
+    log_error "Failed to configure plymouth hook."
+    return 1
+  fi
+
+  # 3. Set Theme (Rebuilds initramfs)
+  if ! run_step "Setting Plymouth Theme" set_plymouth_theme; then
+    log_warning "Theme setting failed."
+  fi
+
+  # 4. Silent Boot Params
+  if ! run_step "Adding Silent Boot Parameters" add_silent_boot_params; then
+    log_warning "Kernel parameter configuration had issues."
+  fi
+
+  echo ""
+  log_success "Plymouth configuration complete. Reboot to see changes."
 }
 
 main "$@"
