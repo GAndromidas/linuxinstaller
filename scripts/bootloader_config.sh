@@ -209,10 +209,6 @@ configure_secure_boot() {
             new_cmdline="$new_cmdline rd.udev.log_level=3"
             modified=true
         fi
-        if [[ ! "$new_cmdline" =~ "splash" ]]; then
-            new_cmdline="$new_cmdline splash"
-            modified=true
-        fi
         if [[ ! "$new_cmdline" =~ "vt.global_cursor_default=0" ]]; then
             new_cmdline="$new_cmdline vt.global_cursor_default=0"
             modified=true
