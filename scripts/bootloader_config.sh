@@ -27,7 +27,7 @@ add_systemd_boot_kernel_params() {
           local current_opts=${current_line#options }
 
           # Define desired params
-          local desired_params="quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
+          local desired_params="quiet splash vt.global_cursor_default=0 loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
 
           # Use awk to deduplicate existing options and append missing desired ones
           local new_opts=$(echo "$current_opts $desired_params" | awk '{

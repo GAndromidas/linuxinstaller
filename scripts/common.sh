@@ -1289,8 +1289,8 @@ detect_boot_mount() {
 }
 
 detect_uki() {
-  # Check if UKI is configured in mkinitcpio presets
-  if grep -q "default_uki=" /etc/mkinitcpio.d/*.preset 2>/dev/null; then
+  # Check if UKI is configured in mkinitcpio presets (ignoring commented lines)
+  if grep -E -q "^[[:space:]]*default_uki=" /etc/mkinitcpio.d/*.preset 2>/dev/null; then
     echo "true"
     return 0
   fi
