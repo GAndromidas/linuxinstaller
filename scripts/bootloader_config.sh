@@ -85,13 +85,13 @@ configure_boot() {
       -e '/^default /d' \
       -e '1i default @saved' \
       -e 's/^timeout.*/timeout 3/' \
-      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode max/' \
+      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode keep/' \
       /boot/loader/loader.conf
 
     run_step "Ensuring timeout is set in loader.conf" \
         grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
     run_step "Ensuring console-mode is set in loader.conf" \
-        grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode max" | sudo tee -a /boot/loader/loader.conf >/dev/null
+        grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode keep" | sudo tee -a /boot/loader/loader.conf >/dev/null
 
     # Verify configuration was applied
     if grep -q '^timeout' /boot/loader/loader.conf && grep -q '^console-mode' /boot/loader/loader.conf; then
@@ -207,6 +207,10 @@ configure_secure_boot() {
         fi
         if [[ ! "$new_cmdline" =~ "rd.udev.log_level=3" ]]; then
             new_cmdline="$new_cmdline rd.udev.log_level=3"
+            modified=true
+        fi
+        if [[ ! "$new_cmdline" =~ "splash" ]]; then
+            new_cmdline="$new_cmdline splash"
             modified=true
         fi
         if [[ ! "$new_cmdline" =~ "vt.global_cursor_default=0" ]]; then

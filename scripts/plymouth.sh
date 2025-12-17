@@ -72,6 +72,12 @@ configure_plymouth_hook() {
 # Step 2: Set Theme (with Rebuild)
 # -------------------------------------------------------------------------
 set_plymouth_theme() {
+  # Skip if UKI is detected (assumes theme is already configured/embedded)
+  if [ "$(detect_uki)" = "true" ]; then
+    log_info "UKI detected - skipping Plymouth theme configuration to preserve existing setup."
+    return 0
+  fi
+
   local theme_primary="bgrt" # Arch default/preferred (uses UEFI logo)
   local theme_fallback="spinner"
 
