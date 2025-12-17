@@ -4,87 +4,6 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-create_systemd_boot_entries() {
-  local boot_entries_dir="/boot/loader/entries"
-
-  # Only proceed if we are setting up systemd-boot
-  if [ ! -d "/boot/loader" ]; then
-    return 0
-  fi
-
-  sudo mkdir -p "$boot_entries_dir"
-
-  # We need the root UUID for the kernel options
-  local root_uuid=""
-  if [ -f /etc/fstab ]; then
-    # Try to find root mount in fstab
-    root_uuid=$(grep -E "[[:space:]]/[[:space:]]" /etc/fstab | grep "UUID=" | head -1 | sed -E 's/.*UUID=([^[:space:]]+).*/\1/')
-  fi
-
-  # Fallback: try findmnt
-  if [ -z "$root_uuid" ]; then
-    root_uuid=$(findmnt / -no UUID)
-  fi
-
-  if [ -z "$root_uuid" ]; then
-    log_warning "Could not determine root filesystem UUID. Skipping automatic entry creation."
-    return 0
-  fi
-
-  log_info "Detected Root UUID: $root_uuid"
-
-  # Iterate over installed kernels in /boot
-  local entries_created=0
-  for kernel in /boot/vmlinuz-*; do
-    [ -e "$kernel" ] || continue
-    local kernel_file=$(basename "$kernel")
-    # suffix is usually 'linux', 'linux-lts', 'linux-zen'
-    local pkg_name="${kernel_file#vmlinuz-}"
-    local entry_conf="${boot_entries_dir}/arch-${pkg_name}.conf"
-    local initrd="initramfs-${pkg_name}.img"
-
-    # Friendly name
-    local title="Arch Linux"
-    if [[ "$pkg_name" == "linux-lts" ]]; then title="Arch Linux (LTS)"; fi
-    if [[ "$pkg_name" == "linux-zen" ]]; then title="Arch Linux (Zen)"; fi
-    if [[ "$pkg_name" == "linux-hardened" ]]; then title="Arch Linux (Hardened)"; fi
-
-    # Check for existing config pointing to this kernel to avoid duplicates
-    local existing_entry=""
-    # Search in all .conf files for the kernel image path
-    existing_entry=$(grep -l -E "^[[:space:]]*linux[[:space:]]+/$kernel_file([[:space:]]|$)" "$boot_entries_dir"/*.conf 2>/dev/null | head -n 1)
-
-    if [ -n "$existing_entry" ]; then
-        log_info "Entry for $pkg_name already exists in $(basename "$existing_entry"). Skipping creation."
-        continue
-    fi
-
-    if [ ! -f "$entry_conf" ]; then
-      log_info "Creating missing entry: $entry_conf"
-
-      local entry_content="title   $title\nlinux   /$kernel_file"
-
-      # Check for microcode
-      if [ -f "/boot/intel-ucode.img" ]; then
-          entry_content="${entry_content}\ninitrd  /intel-ucode.img"
-      elif [ -f "/boot/amd-ucode.img" ]; then
-          entry_content="${entry_content}\ninitrd  /amd-ucode.img"
-      fi
-
-      entry_content="${entry_content}\ninitrd  /$initrd\noptions root=UUID=$root_uuid rw"
-
-      echo -e "$entry_content" | sudo tee "$entry_conf" >/dev/null
-      ((entries_created++))
-    else
-        log_info "Entry already exists: $entry_conf"
-    fi
-  done
-
-  if [ "$entries_created" -gt 0 ]; then
-    log_success "Created $entries_created systemd-boot entries."
-  fi
-}
-
 add_systemd_boot_kernel_params() {
   local boot_entries_dir="/boot/loader/entries"
   if [ ! -d "$boot_entries_dir" ]; then
@@ -159,7 +78,6 @@ add_systemd_boot_kernel_params() {
 
 # --- systemd-boot ---
 configure_boot() {
-  run_step "Creating systemd-boot entries if missing" create_systemd_boot_entries
   run_step "Adding kernel parameters to systemd-boot entries" add_systemd_boot_kernel_params
 
   if [ -f "/boot/loader/loader.conf" ]; then
