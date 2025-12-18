@@ -8,193 +8,157 @@ source "$SCRIPT_DIR/common.sh"
 setup_shell() {
   step "Setting up ZSH shell environment"
 
-  # Cleanup legacy Oh-My-Zsh installation if present
+  # Clean legacy
   if [ -d "$HOME/.oh-my-zsh" ]; then
-    log_info "Removing legacy Oh-My-Zsh installation..."
-    rm -rf "$HOME/.oh-my-zsh"
-    log_success "Oh-My-Zsh removed (migrated to standalone Zsh config)"
+    rm -rf "$HOME/.oh-my-zsh" && log_success "Removed legacy Oh-My-Zsh"
   fi
 
-  # Change default shell to ZSH
-  log_info "Setting ZSH as default shell..."
-  if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
-    log_success "Default shell changed to ZSH"
-  else
-    log_warning "Failed to change default shell. You may need to do this manually."
+  # Set ZSH as default
+  if [ "$SHELL" != "$(command -v zsh)" ]; then
+    log_info "Changing default shell to ZSH..."
+    if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+      log_success "Default shell changed to ZSH"
+    else
+      log_warning "Failed to change shell. You may need to do this manually."
+    fi
   fi
 
-  # Copy ZSH configuration
-  if [ -f "$CONFIGS_DIR/.zshrc" ]; then
-    cp "$CONFIGS_DIR/.zshrc" "$HOME/" 2>/dev/null && log_success "ZSH configuration updated"
-  fi
+  # Deploy config files (DRY loop)
+  local configs=(
+    ".zshrc:$HOME/.zshrc"
+    "starship.toml:$HOME/.config/starship.toml"
+  )
 
-  # Copy Starship prompt configuration
-  if [ -f "$CONFIGS_DIR/starship.toml" ]; then
-    mkdir -p "$HOME/.config"
-    cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/" 2>/dev/null && log_success "Starship prompt configuration updated"
-  fi
+  mkdir -p "$HOME/.config"
+
+  for cfg in "${configs[@]}"; do
+    local src="${cfg%%:*}"
+    local dest="${cfg##*:}"
+
+    if [ -f "$CONFIGS_DIR/$src" ]; then
+      cp "$CONFIGS_DIR/$src" "$dest" && log_success "Updated config: $src"
+    fi
+  done
 
   # Fastfetch setup
   if command -v fastfetch >/dev/null; then
-    if [ -f "$HOME/.config/fastfetch/config.jsonc" ]; then
-      log_warning "fastfetch config already exists. Skipping generation."
-    else
-      run_step "Creating fastfetch config" bash -c 'fastfetch --gen-config'
+    mkdir -p "$HOME/.config/fastfetch"
+
+    # Generate default if missing
+    if [ ! -f "$HOME/.config/fastfetch/config.jsonc" ]; then
+      fastfetch --gen-config &>/dev/null
     fi
 
-    # Copy safe config from configs directory
+    # Overwrite with custom if available
     if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
-      mkdir -p "$HOME/.config/fastfetch"
       cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-      log_success "fastfetch config copied from configs directory."
-    else
-      log_warning "config.jsonc not found in configs directory. Using generated config."
+      log_success "Applied custom fastfetch config"
     fi
-  else
-    log_warning "fastfetch not installed. Skipping config setup."
   fi
 }
 
 setup_kde_shortcuts() {
+  [[ "$XDG_CURRENT_DESKTOP" != "KDE" ]] && return
+
   step "Setting up KDE global shortcuts"
+  local src="$CONFIGS_DIR/kglobalshortcutsrc"
+  local dest="$HOME/.config/kglobalshortcutsrc"
 
-  # Only proceed if KDE Plasma is detected
-  if [[ "$XDG_CURRENT_DESKTOP" == "KDE" ]]; then
-    local kde_shortcuts_source="$CONFIGS_DIR/kglobalshortcutsrc"
-    local kde_shortcuts_dest="$HOME/.config/kglobalshortcutsrc"
-
-    if [ -f "$kde_shortcuts_source" ]; then
-      # Create .config directory if it doesn't exist
-      mkdir -p "$HOME/.config"
-
-      # Copy the KDE global shortcuts configuration, replacing the old one
-      cp "$kde_shortcuts_source" "$kde_shortcuts_dest"
-      log_success "KDE global shortcuts configuration copied successfully"
-      log_info "KDE shortcuts will be active after next login or KDE restart"
-      log_info "Custom shortcuts: Meta+Q (Close Window), Meta+Return (Konsole)"
-    else
-      log_warning "KDE shortcuts configuration file not found at $kde_shortcuts_source"
-    fi
+  if [ -f "$src" ]; then
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+    log_success "Applied KDE shortcuts (Meta+Q: Close, Meta+Ret: Terminal)"
+    log_info "Changes take effect after re-login"
   else
-    log_info "KDE Plasma not detected. Skipping KDE shortcuts configuration"
+    log_warning "KDE shortcuts config missing"
   fi
 }
 
 setup_gnome_configs() {
+  # GNOME check (covers standard GNOME, Ubuntu, Pop_OS, etc)
+  [[ "$XDG_CURRENT_DESKTOP" != *"GNOME"* ]] && return
+
   step "Setting up GNOME configurations"
 
-  # Only proceed if GNOME is detected
-  if [[ "$XDG_CURRENT_DESKTOP" == "GNOME" ]] || [[ "$XDG_CURRENT_DESKTOP" == *"GNOME"* ]]; then
-    log_info "GNOME detected. Applying optimizations..."
-
-    # Check if gsettings is available
-    if command -v gsettings >/dev/null 2>&1; then
-      # Helper function to check if schema exists
-      schema_exists() {
-        gsettings list-schemas 2>/dev/null | grep -q "^$1$"
-      }
-
-      # Helper function to check if schema key exists
-      key_exists() {
-        gsettings list-keys "$1" 2>/dev/null | grep -q "^$2$"
-      }
-
-      # Set dark theme preference (GNOME 42+)
-      if schema_exists "org.gnome.desktop.interface" && key_exists "org.gnome.desktop.interface" "color-scheme"; then
-        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' 2>/dev/null && \
-          log_success "Dark theme preference set"
-      fi
-
-      # Enable minimize and maximize buttons
-      if schema_exists "org.gnome.desktop.wm.preferences"; then
-        gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' 2>/dev/null && \
-          log_success "Window buttons configured (minimize, maximize, close)"
-      fi
-
-      # Set tap-to-click for touchpad
-      if schema_exists "org.gnome.desktop.peripherals.touchpad"; then
-        gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null && \
-          log_success "Tap-to-click enabled"
-      fi
-
-      # Disable hot corner
-      if schema_exists "org.gnome.desktop.interface" && key_exists "org.gnome.desktop.interface" "enable-hot-corners"; then
-        gsettings set org.gnome.desktop.interface enable-hot-corners false 2>/dev/null && \
-          log_success "Hot corners disabled"
-      fi
-
-      # Set font rendering
-      if schema_exists "org.gnome.desktop.interface"; then
-        gsettings set org.gnome.desktop.interface font-antialiasing 'rgba' 2>/dev/null
-        gsettings set org.gnome.desktop.interface font-hinting 'slight' 2>/dev/null && \
-          log_success "Font rendering optimized"
-      fi
-
-      # Set battery percentage
-      if schema_exists "org.gnome.desktop.interface"; then
-        gsettings set org.gnome.desktop.interface show-battery-percentage true 2>/dev/null && \
-          log_success "Battery percentage enabled"
-      fi
-
-      # Set Meta+Q to close windows
-      if schema_exists "org.gnome.desktop.wm.keybindings"; then
-        gsettings set org.gnome.desktop.wm.keybindings close "['<Super>q']" 2>/dev/null && \
-          log_success "Meta+Q set to close windows"
-      fi
-
-      # Set Meta+Enter to open terminal
-      # GNOME uses different terminal apps: kgx (Console), gnome-console, or gnome-terminal
-      if schema_exists "org.gnome.settings-daemon.plugins.media-keys"; then
-        if command -v kgx >/dev/null 2>&1; then
-          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'kgx' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
-            log_success "Meta+Enter set to open Console (kgx)"
-        elif command -v gnome-console >/dev/null 2>&1; then
-          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-console' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
-            log_success "Meta+Enter set to open Console (gnome-console)"
-        elif command -v gnome-terminal >/dev/null 2>&1; then
-          gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']" 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ name 'Terminal' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ command 'gnome-terminal' 2>/dev/null
-          gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/ binding '<Super>Return' 2>/dev/null && \
-            log_success "Meta+Enter set to open Terminal (gnome-terminal)"
-        else
-          log_warning "No GNOME terminal found (kgx, gnome-console, or gnome-terminal)"
-        fi
-      fi
-
-      # Set PrintScreen to take full screenshot
-      if schema_exists "org.gnome.shell.keybindings"; then
-        gsettings set org.gnome.shell.keybindings screenshot "['Print']" 2>/dev/null && \
-          log_success "PrintScreen set to capture full screen"
-      fi
-
-      # Set Ctrl+Alt+Delete to show power menu
-      # Try both possible schema locations (varies by GNOME version)
-      if schema_exists "org.gnome.settings-daemon.plugins.media-keys" && key_exists "org.gnome.settings-daemon.plugins.media-keys" "logout"; then
-        gsettings set org.gnome.settings-daemon.plugins.media-keys logout "['<Primary><Alt>Delete']" 2>/dev/null && \
-          log_success "Ctrl+Alt+Delete set to show power menu (Reboot/Shutdown/Logout)"
-      elif schema_exists "org.gnome.SessionManager"; then
-        gsettings set org.gnome.SessionManager logout "['<Primary><Alt>Delete']" 2>/dev/null && \
-          log_success "Ctrl+Alt+Delete set to show power menu (Reboot/Shutdown/Logout)"
-      fi
-
-      log_success "GNOME configurations applied successfully"
-      log_info "GNOME settings will be active after next login or session restart"
-      log_info "Tested and compatible with GNOME 40 through GNOME 49+"
-    else
-      log_warning "gsettings not found. Skipping GNOME configurations"
-    fi
-  else
-    log_info "GNOME not detected. Skipping GNOME configurations"
+  if ! command -v gsettings >/dev/null; then
+    log_warning "gsettings missing, skipping GNOME setup"
+    return
   fi
+
+  # Helper function to reduce boilerplate
+  set_gnome_key() {
+    local schema="$1"
+    local key="$2"
+    local val="$3"
+    local msg="${4:-}"
+
+    # Verify schema and key exist to prevent errors
+    if gsettings list-keys "$schema" 2>/dev/null | grep -q "^$key$"; then
+      if gsettings set "$schema" "$key" "$val"; then
+        [[ -n "$msg" ]] && log_success "$msg"
+      fi
+    fi
+  }
+
+  log_info "Applying GNOME optimizations..."
+
+  # array of settings: schema | key | value | success_message
+  local settings=(
+    "org.gnome.desktop.interface|color-scheme|'prefer-dark'|Dark theme enabled"
+    "org.gnome.desktop.wm.preferences|button-layout|'appmenu:minimize,maximize,close'|Window controls enabled"
+    "org.gnome.desktop.peripherals.touchpad|tap-to-click|true|Tap-to-click enabled"
+    "org.gnome.desktop.interface|enable-hot-corners|false|Hot corners disabled"
+    "org.gnome.desktop.interface|show-battery-percentage|true|Battery % shown"
+    "org.gnome.desktop.interface|font-antialiasing|'rgba'|"
+    "org.gnome.desktop.interface|font-hinting|'slight'|Font rendering optimized"
+    "org.gnome.desktop.wm.keybindings|close|['<Super>q']|Bind: Meta+Q closes windows"
+    "org.gnome.shell.keybindings|screenshot|['Print']|Bind: PrintScreen for screenshot"
+  )
+
+  for setting in "${settings[@]}"; do
+    IFS='|' read -r schema key val msg <<< "$setting"
+    set_gnome_key "$schema" "$key" "$val" "$msg"
+  done
+
+  # Power Menu (Ctrl+Alt+Del) - Handle version differences
+  local power_schema="org.gnome.settings-daemon.plugins.media-keys"
+  if gsettings list-schemas | grep -q "org.gnome.SessionManager"; then
+    power_schema="org.gnome.SessionManager"
+  fi
+  set_gnome_key "$power_schema" "logout" "['<Primary><Alt>Delete']" "Bind: Ctrl+Alt+Del for Power Menu"
+
+  # Terminal Shortcut (Meta+Enter) logic
+  # Detect installed terminal (preference order: Console -> Gnome Console -> Gnome Terminal)
+  local term_cmd=""
+  for term in kgx gnome-console gnome-terminal; do
+    if command -v "$term" >/dev/null; then
+      term_cmd="$term"
+      break
+    fi
+  done
+
+  if [[ -n "$term_cmd" ]]; then
+    # Custom keybinding setup requires relocatable schemas
+    local schema="org.gnome.settings-daemon.plugins.media-keys"
+    local path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/"
+    local binding_schema="org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$path"
+
+    set_gnome_key "$schema" "custom-keybindings" "['$path']"
+
+    # Apply binding details directly since we constructed the specific schema path
+    gsettings set "$binding_schema" name 'Terminal' 2>/dev/null
+    gsettings set "$binding_schema" command "$term_cmd" 2>/dev/null
+    gsettings set "$binding_schema" binding '<Super>Return' 2>/dev/null
+
+    log_success "Bind: Meta+Enter opens $term_cmd"
+  else
+    log_warning "No supported terminal found for Meta+Enter shortcut"
+  fi
+
+  log_info "GNOME settings will be active after session restart"
 }
 
+# Main execution
 setup_shell
 setup_kde_shortcuts
 setup_gnome_configs

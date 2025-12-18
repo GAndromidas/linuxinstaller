@@ -4,6 +4,18 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+# Helper to deduplicate kernel parameters
+merge_params() {
+  echo "$1 $2" | awk '{
+    for (i=1; i<=NF; i++) {
+      if (!seen[$i]++) {
+        printf "%s%s", (count++ ? " " : ""), $i
+      }
+    }
+    printf "\n"
+  }'
+}
+
 add_systemd_boot_kernel_params() {
   local boot_entries_dir="/boot/loader/entries"
   if [ ! -d "$boot_entries_dir" ]; then
@@ -29,15 +41,7 @@ add_systemd_boot_kernel_params() {
           # Define desired params
           local desired_params="quiet splash vt.global_cursor_default=0 loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
 
-          # Use awk to deduplicate existing options and append missing desired ones
-          local new_opts=$(echo "$current_opts $desired_params" | awk '{
-              for (i=1; i<=NF; i++) {
-                  if (!seen[$i]++) {
-                      printf "%s%s", (count++ ? " " : ""), $i
-                  }
-              }
-              printf "\n"
-          }')
+          local new_opts=$(merge_params "$current_opts" "$desired_params")
 
           # Check if change is needed
           if [ "$current_opts" != "$new_opts" ]; then
@@ -146,14 +150,7 @@ configure_grub() {
         local current_grub_params=$(echo "$current_grub_line" | cut -d'=' -f2- | sed "s/^['\"]//;s/['\"]$//")
 
         # Merge params
-        local new_grub_params=$(echo "$current_grub_params $desired_grub_params" | awk '{
-            for (i=1; i<=NF; i++) {
-                if (!seen[$i]++) {
-                    printf "%s%s", (count++ ? " " : ""), $i
-                }
-            }
-            printf "\n"
-        }')
+        local new_grub_params=$(merge_params "$current_grub_params" "$desired_grub_params")
 
         # Update file
         sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_grub_params\"|" /etc/default/grub

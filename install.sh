@@ -77,54 +77,22 @@ else
   exit 1
 fi
 
-# Ensure figlet and gum are available for the UI.
+# Ensure helper tools (figlet, gum, yq) are available for the UI.
 # Install them silently if missing and record that we installed them so they
-# can be removed before reboot. This keeps menus and banners working.
-FIGLET_INSTALLED_BY_SCRIPT=false
-GUM_INSTALLED_BY_SCRIPT=false
-YQ_INSTALLED_BY_SCRIPT=false
-export FIGLET_INSTALLED_BY_SCRIPT
-export GUM_INSTALLED_BY_SCRIPT
-export YQ_INSTALLED_BY_SCRIPT
+# can be removed before reboot.
+for tool in figlet gum yq; do
+  var_name="${tool^^}_INSTALLED_BY_SCRIPT"
+  declare -x "$var_name=false"
 
-# Install figlet if not present (silent)
-if ! command -v figlet >/dev/null 2>&1; then
-  if sudo pacman -S --noconfirm figlet >/dev/null 2>&1; then
-    FIGLET_INSTALLED_BY_SCRIPT=true
-    export FIGLET_INSTALLED_BY_SCRIPT
-    # Record to installer log only (no console output)
-    log_to_file "INFO: Installed temporary helper: figlet (will remove before reboot)"
-  else
-    # Record to installer log only (no console output)
-    log_to_file "WARNING: Could not install figlet automatically - some banners may be plain text"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    if sudo pacman -S --noconfirm "$tool" >/dev/null 2>&1; then
+      export "$var_name=true"
+      log_to_file "INFO: Installed temporary helper: $tool (will remove before reboot)"
+    else
+      log_to_file "WARNING: Could not install $tool automatically"
+    fi
   fi
-fi
-
-# Install gum if not present (silent)
-if ! command -v gum >/dev/null 2>&1; then
-  if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
-    GUM_INSTALLED_BY_SCRIPT=true
-    export GUM_INSTALLED_BY_SCRIPT
-    # Record to installer log only (no console output)
-    log_to_file "INFO: Installed temporary helper: gum (will remove before reboot)"
-  else
-    # Record to installer log only (no console output)
-    log_to_file "WARNING: Could not install gum automatically - installer will fall back to text prompts"
-  fi
-fi
-
-# Install yq if not present (silent)
-if ! command -v yq >/dev/null 2>&1; then
-  if sudo pacman -S --noconfirm yq >/dev/null 2>&1; then
-    YQ_INSTALLED_BY_SCRIPT=true
-    export YQ_INSTALLED_BY_SCRIPT
-    # Record to installer log only (no console output)
-    log_to_file "INFO: Installed temporary helper: yq (will remove before reboot)"
-  else
-    # Record to installer log only (no console output)
-    log_to_file "WARNING: Could not install yq automatically"
-  fi
-fi
+done
 
 # Show ASCII banner and interactive menu (uses gum if available)
 # The functions `arch_ascii` and `show_menu` are defined in common.sh.
