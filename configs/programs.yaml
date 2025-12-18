@@ -195,8 +195,6 @@ desktop_environments:
 flatpak:
   kde:
     default:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
     minimal:
