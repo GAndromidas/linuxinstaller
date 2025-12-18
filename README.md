@@ -14,7 +14,7 @@ Built with the Arch Linux philosophy of simplicity and minimalism, Archinstaller
 
 ## Demo
 <div align="center">
-<img width="666" height="369" alt="archinstaller" src="https://github.com/user-attachments/assets/f00f6518-2f10-42f5-b312-d098b3e0f913" />
+<img width="695" height="393" alt="Screenshot_20251218_133318" src="https://github.com/user-attachments/assets/4df087b2-30c5-4e42-85b1-dca6da3b6444" />
 </div>
 
 ## Core Philosophy
