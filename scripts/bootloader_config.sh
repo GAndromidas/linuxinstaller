@@ -133,8 +133,31 @@ configure_grub() {
     sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
     sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub || echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
     grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub && sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
-    sudo sed -i 's@^GRUB_CMDLINE_LINUX_DEFAULT=.*@GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"@' /etc/default/grub || \
-        echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"' | sudo tee -a /etc/default/grub >/dev/null
+    # robustly set GRUB_CMDLINE_LINUX_DEFAULT without wiping existing settings
+    local desired_grub_params="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
+
+    # Read current content (handle quotes)
+    local current_grub_line=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub || echo "")
+
+    if [ -z "$current_grub_line" ]; then
+        echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$desired_grub_params\"" | sudo tee -a /etc/default/grub >/dev/null
+    else
+        # Extract content inside quotes
+        local current_grub_params=$(echo "$current_grub_line" | cut -d'=' -f2- | sed "s/^['\"]//;s/['\"]$//")
+
+        # Merge params
+        local new_grub_params=$(echo "$current_grub_params $desired_grub_params" | awk '{
+            for (i=1; i<=NF; i++) {
+                if (!seen[$i]++) {
+                    printf "%s%s", (count++ ? " " : ""), $i
+                }
+            }
+            printf "\n"
+        }')
+
+        # Update file
+        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_grub_params\"|" /etc/default/grub
+    fi
 
     # Enable submenu for additional kernels (linux-lts, linux-zen)
     grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub && sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=notlinux/' /etc/default/grub || \
@@ -309,31 +332,43 @@ detect_and_install_gpu_drivers() {
     echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
 
     # Get PCI ID and map to family
-    nvidia_pciid=$(lspci -n -d ::0300 | grep -i nvidia | awk '{print $3}' | head -n1)
-    nvidia_family=""
-    nvidia_pkg=""
-    nvidia_note=""
+    # Improved NVIDIA detection and package selection for robustness
+    # We prefer DKMS modules for robustness across kernel updates (linux, linux-lts, etc.)
 
-    # Map PCI ID to family (simplified, for full mapping see ArchWiki and Nouveau code names)
-    if echo "$lspci_out" | grep -Eiq 'TU|GA|AD|Turing|Ampere|Lovelace'; then
+    if echo "$lspci_out" | grep -Eiq 'RTX|Turing|Ampere|Lovelace|Ada|Hopper|TU|GA|AD'; then
+      # Modern cards (Turing and newer)
+      # While open modules exist, proprietary DKMS is currently more robust/feature-complete for general use
       nvidia_family="Turing or newer"
-      nvidia_pkg="nvidia-open-dkms nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(open kernel modules, recommended for Turing/Ampere/Lovelace)"
-    elif echo "$lspci_out" | grep -Eiq 'GM|GP|Maxwell|Pascal'; then
-      nvidia_family="Maxwell or newer"
-      nvidia_pkg="nvidia nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(proprietary, recommended for Maxwell/Pascal)"
+      nvidia_pkg="nvidia-dkms nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(proprietary DKMS, recommended for stability)"
+
+    elif echo "$lspci_out" | grep -Eiq 'GTX 9|GTX 10|Maxwell|Pascal|GM|GP'; then
+      # Maxwell/Pascal series
+      nvidia_family="Maxwell/Pascal"
+      nvidia_pkg="nvidia-dkms nvidia-utils lib32-nvidia-utils"
+      nvidia_note="(proprietary DKMS, recommended for Maxwell/Pascal)"
+
     else
-      # All other older cards (Kepler, Fermi, Tesla) are considered legacy
-      nvidia_family="Legacy (Kepler/Fermi/Tesla/Other)"
+      # Fallback check: if it's a very old card or we can't identify it easily.
+      # Check if it supports the main driver by assuming it might unless proven legacy.
+      # For absolute safety on unknown cards, nouveau is the safest "bootable" option,
+      # but performance is poor.
+
+      nvidia_family="Legacy or Unknown"
       nvidia_pkg="nouveau"
-      nvidia_note="(legacy, utilizing Nouveau open-source drivers)"
+      nvidia_note="(legacy/unknown, defaulting to Nouveau for safety)"
+
+      if echo "$lspci_out" | grep -Eiq 'GK|Kepler|GTX 6|GTX 7'; then
+           nvidia_family="Kepler (Legacy)"
+      fi
     fi
 
     echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
 
     if [[ "$nvidia_pkg" == "nouveau" ]]; then
-      echo -e "${YELLOW}Your NVIDIA GPU is legacy. Installing open-source Nouveau drivers...${RESET}"
+      echo -e "${YELLOW}Your NVIDIA GPU seems legacy or wasn't positively identified as modern.${RESET}"
+      echo -e "${YELLOW}Installing open-source Nouveau drivers for safety.${RESET}"
+      echo -e "${YELLOW}If you have a Maxwell+ card (GTX 900+), consider installing 'nvidia-dkms' manually.${RESET}"
       install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
       log_success "Nouveau drivers installed."
     else
