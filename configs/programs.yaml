@@ -970,6 +970,7 @@ ubuntu:
 gaming:
   arch:
     native:
+      - discord
       - gamemode
       - goverlay
       - lib32-gamemode
@@ -992,6 +993,7 @@ gaming:
       - steam
       - wine
     flatpak:
+      - com.discordapp.Discord
       - com.heroicgameslauncher.hgl
       - com.vysp3r.ProtonPlus
       - it.mijorus.gearlever
@@ -1005,6 +1007,7 @@ gaming:
       - steam-installer
       - wine
     flatpak:
+      - com.discordapp.Discord
       - com.heroicgameslauncher.hgl
       - com.vysp3r.ProtonPlus
       - it.mijorus.gearlever
@@ -1017,8 +1020,8 @@ gaming:
       - mangohud
       - steam-installer
       - wine-installer
-    snap:
-      - heroic-games-launcher
     flatpak:
+      - com.discordapp.Discord
+      - com.heroicgameslauncher.hgl
       - com.vysp3r.ProtonPlus
       - it.mijorus.gearlever

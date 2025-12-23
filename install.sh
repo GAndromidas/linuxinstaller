@@ -4,611 +4,291 @@ set -uo pipefail
 # Installation log file
 INSTALL_LOG="$HOME/.linuxinstaller.log"
 
+# --- Script Setup ---
+# Get the directory where this script is located, resolving symlinks
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+CONFIGS_DIR="$SCRIPT_DIR/configs"
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
+
+# State flags for prerequisite cleanup
+FIGLET_INSTALLED_BY_SCRIPT=false
+GUM_INSTALLED_BY_SCRIPT=false
+YQ_INSTALLED_BY_SCRIPT=false
+
+# --- Helper Functions ---
+
 # Function to show help
 show_help() {
-  if command -v gum >/dev/null 2>&1; then
-    gum format << EOF
-# LinuxInstaller - Unified Linux Post-Installation Script
-
-**USAGE:**
-    \`./install.sh [OPTIONS]\`
-
-**OPTIONS:**
-    \`-h, --help\`      Show this help message and exit
-    \`-v, --verbose\`   Enable verbose output (show all package installation details)
-    \`-m, --mode\`      Installation mode (default, server, minimal)
-
-**DESCRIPTION:**
-    LinuxInstaller transforms a fresh Linux installation into a fully
-    configured, optimized system. It installs essential packages, configures
-    the desktop environment, sets up security features, and applies performance
-    optimizations.
-EOF
-  else
-    cat << EOF
-LinuxInstaller - Unified Linux Post-Installation Script
-
-USAGE:
-    ./install.sh [OPTIONS]
-
-OPTIONS:
-    -h, --help      Show this help message and exit
-    -v, --verbose   Enable verbose output (show all package installation details)
-    -m, --mode      Installation mode (default, server, minimal)
-
-DESCRIPTION:
-    LinuxInstaller transforms a fresh Linux installation into a fully
-    configured, optimized system. It installs essential packages, configures
-    the desktop environment, sets up security features, and applies performance
-    optimizations.
-EOF
-  fi
+  echo "LinuxInstaller - Unified Linux Post-Installation Script"
+  echo ""
+  echo "USAGE:"
+  echo "    ./install.sh [OPTIONS]"
+  echo ""
+  echo "OPTIONS:"
+  echo "    -h, --help      Show this help message and exit"
+  echo "    -v, --verbose   Enable verbose output (set -x)"
   exit 0
 }
 
-# Determine directories
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$SCRIPT_DIR/scripts"
-CONFIGS_DIR="$SCRIPT_DIR/configs"
+# Universal logging function
+log() {
+    local level="$1"
+    local message="$2"
+    # Fallback to echo if gum is not available yet
+    if command -v gum >/dev/null 2>&1; then
+        gum log --level "$level" "$message"
+    else
+        echo "[$level] $message"
+    fi
+}
 
-# Default configuration
-INSTALL_MODE="default"
-VERBOSE="false"
-TOTAL_STEPS=10
+# --- Distribution Detection ---
+detect_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO=$ID
+        PRETTY_NAME=${PRETTY_NAME:-$ID}
+    else
+        DISTRO=$(uname -s)
+        PRETTY_NAME=$DISTRO
+    fi
+    log "info" "Detected Distribution: $PRETTY_NAME"
+}
 
-# Parse arguments
-while [[ $# -gt 0 ]]; do
+# --- Prerequisite Management ---
+install_prerequisites() {
+    log "info" "Checking for required tools (figlet, gum, yq)..."
+    # Set package manager commands
+    case "$DISTRO" in
+        arch)
+            PKG_INSTALL="sudo pacman -S --noconfirm"
+            PKG_REMOVE="sudo pacman -Rns --noconfirm"
+            ;;
+        debian|ubuntu)
+            PKG_INSTALL="sudo apt-get install -y"
+            PKG_REMOVE="sudo apt-get remove -y"
+            sudo apt-get update >/dev/null 2>&1
+            ;;
+        fedora)
+            PKG_INSTALL="sudo dnf install -y"
+            PKG_REMOVE="sudo dnf remove -y"
+            ;;
+        *)
+            log "error" "Unsupported distribution for prerequisite installation: $DISTRO"
+            exit 1
+            ;;
+    esac
+
+    # Install figlet
+    if ! command -v figlet >/dev/null 2>&1; then
+        log "info" "figlet not found, installing silently..."
+        $PKG_INSTALL figlet >> "$INSTALL_LOG" 2>&1
+        FIGLET_INSTALLED_BY_SCRIPT=true
+    fi
+
+    # Install gum
+    if ! command -v gum >/dev/null 2>&1; then
+        log "info" "gum not found, installing silently..."
+        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+            $PKG_INSTALL gum >> "$INSTALL_LOG" 2>&1
+        else
+            # Binary install for Debian/Ubuntu to get the latest version
+            ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
+            VER="0.14.1" # Using a recent version
+            curl -sL -o /tmp/gum.deb "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.deb"
+            sudo dpkg -i /tmp/gum.deb >> "$INSTALL_LOG" 2>&1
+            rm /tmp/gum.deb
+        fi
+        GUM_INSTALLED_BY_SCRIPT=true
+    fi
+
+    # Install yq
+    if ! command -v yq >/dev/null 2>&1; then
+        log "info" "yq not found, installing silently..."
+        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+             $PKG_INSTALL yq >> "$INSTALL_LOG" 2>&1
+        else
+             # Binary install for others to avoid snap dependency
+             ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
+             sudo curl -sL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}"
+             sudo chmod +x /usr/local/bin/yq
+        fi
+        YQ_INSTALLED_BY_SCRIPT=true
+    fi
+    log "info" "Prerequisite check complete."
+}
+
+cleanup_prerequisites() {
+    log "info" "Cleaning up script-installed tools..."
+    if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then
+        log "info" "Removing yq..."
+        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+            $PKG_REMOVE yq >> "$INSTALL_LOG" 2>&1
+        else
+            sudo rm -f /usr/local/bin/yq
+        fi
+    fi
+    if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then
+        log "info" "Removing gum..."
+        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+            $PKG_REMOVE gum >> "$INSTALL_LOG" 2>&1
+        else
+            sudo dpkg -P gum >> "$INSTALL_LOG" 2>&1
+        fi
+    fi
+    if [ "$FIGLET_INSTALLED_BY_SCRIPT" = true ]; then
+        log "info" "Removing figlet..."
+        $PKG_REMOVE figlet >> "$INSTALL_LOG" 2>&1
+    fi
+    log "info" "Cleanup complete."
+}
+
+# --- Core Installation Logic ---
+# Function to install packages for a given category from programs.yaml
+install_packages() {
+    local category="$1"
+    log "info" "Installing packages for category: '$category'"
+
+    # Determine the correct package key (native, aur, snap, flatpak)
+    local pkg_keys="native"
+    if [ "$DISTRO" == "arch" ]; then pkg_keys="native aur"; fi
+    if [ "$DISTRO" == "ubuntu" ]; then pkg_keys="native snap flatpak"; fi
+    if [ "$DISTRO" == "fedora" ] || [ "$DISTRO" == "debian" ]; then pkg_keys="native flatpak"; fi
+
+    for pkg_type in $pkg_keys; do
+        packages=$(yq e ".${category}.${DISTRO}.${pkg_type}[]" "$PROGRAMS_YAML" 2>/dev/null)
+        if [ -z "$packages" ] || [ "$packages" == "null" ]; then
+            continue
+        fi
+
+        log "info" "Installing ${pkg_type} packages for '${category}'..."
+
+        # Determine install command based on package type
+        local INSTALL_CMD=""
+        case "$pkg_type" in
+            native)
+                case "$DISTRO" in
+                    arch) INSTALL_CMD="sudo pacman -S --noconfirm";;
+                    debian|ubuntu) INSTALL_CMD="sudo apt install -y";;
+                    fedora) INSTALL_CMD="sudo dnf install -y";;
+                esac
+                ;;
+            aur)
+                # Assuming yay is installed as a base/default package for Arch
+                INSTALL_CMD="yay -S --noconfirm"
+                ;;
+            snap)
+                INSTALL_CMD="sudo snap install"
+                ;;
+            flatpak)
+                INSTALL_CMD="flatpak install flathub -y"
+                ;;
+        esac
+
+        gum spin --spinner dot --title "Installing $category ($pkg_type) packages..." -- \
+        $INSTALL_CMD $packages >> "$INSTALL_LOG" 2>&1
+
+        if [ $? -eq 0 ]; then
+            log "info" "Successfully installed packages for $category ($pkg_type)."
+        else
+            log "error" "Failed to install some packages for $category ($pkg_type). Check $INSTALL_LOG."
+        fi
+    done
+}
+
+# Final reboot prompt
+prompt_reboot() {
+    if gum confirm "Reboot now to apply all changes?"; then
+        log "warn" "Rebooting system..."
+        sudo reboot
+    else
+        log "info" "Please reboot your system later to apply all changes."
+    fi
+}
+
+
+# --- Main Execution ---
+# Parse command-line options
+while [[ "$#" -gt 0 ]]; do
   case $1 in
-    -h|--help)
-      show_help
-      ;;
-    -v|--verbose)
-      VERBOSE="true"
-      export VERBOSE
-      shift
-      ;;
-    -m|--mode)
-      INSTALL_MODE="$2"
-      shift 2
-      ;;
-    *)
-      # Ignore unknown args or handle as needed, but for now just pass
-      shift
-      ;;
+    -h|--help) show_help ;;
+    -v|--verbose) set -x ;;
+    *) log "error" "Unknown parameter passed: $1"; exit 1 ;;
   esac
+  shift
 done
 
-export INSTALL_MODE
-export SCRIPTS_DIR
-export CONFIGS_DIR
+# Touch the log file to ensure it exists
+touch "$INSTALL_LOG"
 
-# Source common functions
-if [ -f "$SCRIPTS_DIR/common.sh" ]; then
-  source "$SCRIPTS_DIR/common.sh"
-else
-  echo "Error: common.sh not found in $SCRIPTS_DIR"
-  exit 1
-fi
+# Initial setup
+detect_distro
+install_prerequisites
 
-# Source distro detection
-if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
-  source "$SCRIPTS_DIR/distro_check.sh"
-  detect_distro
-else
-  echo "Error: distro_check.sh not found in $SCRIPTS_DIR"
-  exit 1
-fi
+# Welcome Banner
+figlet "LinuxInstaller" | gum style --foreground 212
+gum style --foreground 248 "Your friendly neighborhood post-install script."
+gum style --margin "1 0" --border double --padding "1" "Welcome! This script will guide you through setting up your new ${PRETTY_NAME} system."
 
-# Source programs installation
-if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
-  source "$SCRIPTS_DIR/programs.sh"
-else
-  echo "Error: programs.sh not found in $SCRIPTS_DIR"
-  exit 1
-fi
+# Interactive Menu
+log "info" "Please select an installation mode:"
+MODE=$(gum choose "Standard" "Minimal" "Server" "Custom" "Exit")
 
-# Prompt for sudo (ensure we have credentials early)
-if ! check_sudo_access; then
-  echo "Sudo required. Exiting."
-  exit 1
-fi
-echo "Please enter your sudo password to begin the installation:"
-sudo -v || { echo "Sudo required. Exiting."; exit 1; }
+log "info" "Starting installation in '$MODE' mode..."
 
-# Keep sudo alive in background
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-SUDO_KEEPALIVE_PID=$!
+case "$MODE" in
+    "Standard")
+        install_packages "base"
+        install_packages "default"
+        ;;
+    "Minimal")
+        install_packages "base"
+        install_packages "minimal"
+        ;;
+    "Server")
+        install_packages "base"
+        install_packages "server"
+        ;;
+    "Custom")
+        log "info" "Select optional package groups to install:"
+        CHOICES=$(gum choose --no-limit "Development Tools" "Gaming Software")
 
-# Ensure helper tools (figlet, gum, yq)
-# Install them silently if missing
-export FIGLET_INSTALLED_BY_SCRIPT=false
-export GUM_INSTALLED_BY_SCRIPT=false
-export YQ_INSTALLED_BY_SCRIPT=false
+        install_packages "base"
 
-# Ensure curl is present (needed for downloading helpers on non-Arch)
-if ! command -v curl >/dev/null 2>&1; then
-    $PKG_INSTALL $PKG_NOCONFIRM curl >/dev/null 2>&1
-fi
-
-if ! command -v figlet >/dev/null 2>&1; then
-    $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1
-    export FIGLET_INSTALLED_BY_SCRIPT=true
-fi
-
-if ! command -v gum >/dev/null 2>&1; then
-    if [ "$DISTRO_ID" == "arch" ]; then
-        $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
-    else
-        # Binary install for others to avoid repo mess
-        ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
-        VER="0.13.0"
-        curl -L -s -o /tmp/gum.tar.gz "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.tar.gz" >/dev/null 2>&1
-        tar -xzf /tmp/gum.tar.gz -C /tmp >/dev/null 2>&1
-        sudo mv /tmp/gum_${VER}_linux_${ARCH}/gum /usr/local/bin/gum >/dev/null 2>&1
-        sudo chmod +x /usr/local/bin/gum
-        rm -rf /tmp/gum*
-    fi
-    export GUM_INSTALLED_BY_SCRIPT=true
-fi
-
-if ! command -v yq >/dev/null 2>&1; then
-    if [ "$DISTRO_ID" == "arch" ]; then
-         $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
-    else
-         ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
-         sudo curl -L -s -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" >/dev/null 2>&1
-         sudo chmod +x /usr/local/bin/yq
-    fi
-    export YQ_INSTALLED_BY_SCRIPT=true
-fi
-
-# Show ASCII banner and interactive menu (uses gum if available)
-# The functions `linux_ascii` and `show_menu` are defined in common.sh.
-
-setup_package_providers
-detect_de
-define_common_packages
-linux_ascii
-show_menu
-
-# State tracking for step resume and idempotency
-STATE_FILE="$HOME/.linuxinstaller.state"
-mkdir -p "$(dirname "$STATE_FILE")"
-touch "$STATE_FILE" 2>/dev/null || true
-
-# Helper: compute simple file hash
-get_file_hash() {
-  local file="$1"
-  if [ -f "$file" ]; then
-    md5sum "$file" | awk '{print $1}'
-  else
-    echo "nohash"
-  fi
-}
-
-# Mark step as completed (supports optional config-file hashing)
-mark_step_complete() {
-  local step="$1"
-  local config_file="${2:-}"
-
-  local entry="$step"
-  if [ -n "$config_file" ]; then
-    local hash
-    hash=$(get_file_hash "$config_file")
-    entry="$step:$hash"
-  fi
-
-  # Use file locking to avoid races
-  (
-    flock -x 200 2>/dev/null || true
-    grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
-    mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
-    echo "$entry" >> "$STATE_FILE"
-  ) 200>"$STATE_FILE.lock" 2>/dev/null || {
-    # fallback if flock is not available
-    grep -v "^$step:" "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null || true
-    mv "$STATE_FILE.tmp" "$STATE_FILE" 2>/dev/null || true
-    echo "$entry" >> "$STATE_FILE"
-  }
-}
-
-# Check whether a step (optionally tied to a config file) is complete
-is_step_complete() {
-  local step="$1"
-  local config_file="${2:-}"
-
-  if [ ! -f "$STATE_FILE" ]; then
-    return 1
-  fi
-
-  if [ -n "$config_file" ]; then
-    local current_hash
-    current_hash=$(get_file_hash "$config_file")
-    if grep -q "^$step:$current_hash$" "$STATE_FILE"; then
-      return 0
-    else
-      return 1
-    fi
-  else
-    if grep -q "^$step" "$STATE_FILE"; then
-      return 0
-    else
-      return 1
-    fi
-  fi
-}
-
-# Mark step complete and print progress
-mark_step_complete_with_progress() {
-  local step_name="$1"
-  local config_file="${2:-}"
-
-  mark_step_complete "$step_name" "$config_file"
-
-  local completed_count=0
-  if [ -f "$STATE_FILE" ]; then
-    completed_count=$(cut -d':' -f1 < "$STATE_FILE" | sort -u | wc -l 2>/dev/null || echo "0")
-  fi
-
-  ui_success "Step completed! Progress: ${completed_count}/${TOTAL_STEPS}"
-}
-
-# Basic pre-checks (non-invasive)
-check_system_requirements() {
-  # Do not run as root
-  if [[ $EUID -eq 0 ]]; then
-    ui_error "Do not run this script as root. Please run as a regular user with sudo privileges."
-    exit 1
-  fi
-
-  # Ensure Arch
-
-  # Internet check: prefer reusable helper if available
-  if declare -f check_internet_with_retry >/dev/null 2>&1; then
-    if ! check_internet_with_retry; then
-      ui_error "No internet connection detected. Please check your network."
-      exit 1
-    fi
-  else
-    # Distro-agnostic internet check
-    local test_host="8.8.8.8"  # Google DNS - works on all distros
-    if ! ping -c 1 -W 5 "$test_host" &>/dev/null; then
-      ui_error "No internet connection detected. Please check your network."
-      exit 1
-    fi
-  fi
-
-  # Disk space check (uses MIN_DISK_SPACE_KB from common.sh)
-  if [ -n "${MIN_DISK_SPACE_KB:-}" ]; then
-    local avail_kb
-    avail_kb=$(df / | awk 'NR==2 {print $4}' || echo 0)
-    if [ "$avail_kb" -lt "$MIN_DISK_SPACE_KB" ]; then
-      ui_error "Insufficient disk space. Need at least $((MIN_DISK_SPACE_KB/1024/1024)) GB free."
-      exit 1
-    fi
-  fi
-
-  ui_success "Prerequisites OK."
-}
-
-# Resume prompt - offer to resume or start fresh
-show_resume_menu() {
-  if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
-    echo ""
-    ui_info "Previous installation detected. The following steps were completed:"
-    local completed_steps=()
-    while IFS= read -r line; do
-      step_name=$(echo "$line" | cut -d':' -f1)
-      # avoid duplicates
-      if [[ ! " ${completed_steps[*]} " =~ " ${step_name} " ]]; then
-        completed_steps+=("$step_name")
-      fi
-    done < "$STATE_FILE"
-
-    for step_name in "${completed_steps[@]}"; do
-      echo -e "  ${GREEN}✓${RESET} $step_name"
-    done
-
-    if supports_gum; then
-      echo ""
-      if gum confirm --default=true "Resume installation from where you left off?"; then
-        ui_success "Resuming installation..."
-        return 0
-      else
-        if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
-          rm -f "$STATE_FILE" "$STATE_FILE.lock" 2>/dev/null || true
-          ui_info "Starting fresh installation..."
-          return 0
-        else
-          ui_info "Installation cancelled by user"
-          exit 0
+        if [[ "$CHOICES" == *"Development Tools"* ]]; then
+            install_packages "optional_dev"
         fi
-      fi
-    else
-      echo ""
-      read -r -p "Resume installation? [Y/n]: " response
-      response=${response,,}
-      if [[ "$response" == "n" || "$response" == "no" ]]; then
-        read -r -p "Start fresh installation? [y/N]: " response2
-        response2=${response2,,}
-        if [[ "$response2" == "y" || "$response2" == "yes" ]]; then
-          rm -f "$STATE_FILE" "$STATE_FILE.lock" 2>/dev/null || true
-          ui_info "Starting fresh installation..."
-        else
-          ui_info "Installation cancelled by user"
-          exit 0
+        if [[ "$CHOICES" == *"Gaming Software"* ]]; then
+            install_packages "optional_gaming"
         fi
-      else
-        ui_success "Resuming installation..."
-      fi
+        ;;
+    "Exit")
+        log "info" "Installation cancelled by user."
+        exit 0
+        ;;
+esac
+
+# --- Configuration ---
+log "info" "Applying system configurations..."
+for script in "$SCRIPTS_DIR"/*.sh; do
+    if [ -f "$script" ]; then
+        log "info" "Executing configuration script: $(basename "$script")"
+        bash "$script" >> "$INSTALL_LOG" 2>&1
     fi
-  fi
-}
+done
 
-# Logging cleanup helpers
-save_log_on_exit() {
-  {
-    echo ""
-    echo "=========================================="
-    echo "Installation ended: $(date)"
-    echo "=========================================="
-  } >> "$INSTALL_LOG"
-}
+log "info" "Copying dotfiles and configs..."
+# Example: cp "$CONFIGS_DIR/.zshrc.$DISTRO" "$HOME/.zshrc"
 
-cleanup_on_exit() {
-  local exit_code=$?
-  # Kill background jobs if any
-  jobs -p | xargs -r kill 2>/dev/null || true
+# --- Finalization ---
+cleanup_prerequisites
 
-  if [ $exit_code -ne 0 ]; then
-    ui_error "Installation failed. Check the log: $INSTALL_LOG"
-    if [ ${#ERRORS[@]} -gt 0 ]; then
-      ui_info "Errors encountered:"
-      for e in "${ERRORS[@]}"; do
-        ui_info "  - $e"
-      done
-    fi
-  fi
+gum format "## Installation Complete!
 
-  save_log_on_exit
-}
+Your system is now set up. A log of the installation has been saved to \`$INSTALL_LOG\`.
 
-trap 'cleanup_on_exit' EXIT INT TERM
-
-# Initialize log
-START_TIME=$(date +%s)
-echo "==========================================" > "$INSTALL_LOG"
-echo "LinuxInstaller Installation Log" >> "$INSTALL_LOG"
-echo "Started: $(date)" >> "$INSTALL_LOG"
-echo "==========================================" >> "$INSTALL_LOG"
-
-
-
-# Offer resume if previous run exists
-show_resume_menu
-
-# Run lightweight prerequisite checks
-check_system_requirements
-
-# Main Installation Loop
-
-print_header "Starting Linux Installation" \
-  "This process will take approximately 10-20 minutes depending on your internet speed." \
-  "You can safely leave this running - it will handle everything automatically!"
-
-# Step 1: System Preparation
-# Essential for setting up pacman, mirrors, and base utilities
-if ! is_step_complete "system_preparation"; then
-  print_step_header_with_timing 1 "$TOTAL_STEPS" "System Preparation"
-  ui_info "Updating package lists and installing system utilities..."
-  step "System Preparation" && source "$SCRIPTS_DIR/system_preparation.sh" || log_error "System preparation failed"
-  mark_step_complete_with_progress "system_preparation"
-else
-  ui_info "Step 1 (System Preparation) already completed - skipping"
-fi
-
-# Step 2: Universal Package Setup
-# Moved early so AUR packages are available for subsequent steps (like Plymouth themes)
-if ! is_step_complete "universal_setup"; then
-  print_step_header_with_timing 2 "$TOTAL_STEPS" "Universal Package Setup"
-  ui_info "Setting up AUR/Flatpak/Snap support..."
-  step "Universal Package Setup" && source "$SCRIPTS_DIR/setup_universal.sh" || log_error "Yay installation failed"
-  mark_step_complete_with_progress "universal_setup"
-else
-  ui_info "Step 2 (Universal Package Setup) already completed - skipping"
-fi
-
-# Step 3: Shell Setup
-# Sets up ZSH/Fish so user environment is ready
-if ! is_step_complete "shell_setup"; then
-  print_step_header_with_timing 3 "$TOTAL_STEPS" "Shell Setup"
-  ui_info "Installing ZSH shell with autocompletion and syntax highlighting..."
-  step "Shell Setup" && source "$SCRIPTS_DIR/shell_setup.sh" || log_error "Shell setup failed"
-  mark_step_complete_with_progress "shell_setup"
-else
-  ui_info "Step 3 (Shell Setup) already completed - skipping"
-fi
-
-# Step 4: Programs Installation
-# Installs kernels, headers, and desktop apps. Must run BEFORE Bootloader config.
-if ! is_step_complete "programs_installation" "$CONFIGS_DIR/programs.yaml"; then
-  print_step_header_with_timing 4 "$TOTAL_STEPS" "Programs Installation"
-  ui_info "Installing applications based on your desktop environment..."
-  step "Programs Installation" && source "$SCRIPTS_DIR/programs.sh" || log_error "Programs installation failed"
-  mark_step_complete_with_progress "programs_installation" "$CONFIGS_DIR/programs.yaml"
-else
-  ui_info "Step 4 (Programs Installation) already completed - skipping"
-fi
-
-# Step 5: Plymouth Setup
-# Configures boot splash.
-if [[ "$INSTALL_MODE" == "server" ]]; then
-  ui_info "Server mode selected, skipping Plymouth (graphical boot) setup."
-else
-  if ! is_step_complete "plymouth_setup"; then
-    print_step_header_with_timing 5 "$TOTAL_STEPS" "Plymouth Setup"
-    ui_info "Setting up boot screen..."
-    # Skip intermediate rebuilds; bootloader_config will handle the final rebuild
-    export SKIP_MKINITCPIO=true
-    step "Plymouth Setup" && source "$SCRIPTS_DIR/plymouth.sh" || log_error "Plymouth setup failed"
-    unset SKIP_MKINITCPIO
-    mark_step_complete_with_progress "plymouth_setup"
-  else
-    ui_info "Step 5 (Plymouth Setup) already completed - skipping"
-  fi
-fi
-
-# Step 6: Bootloader and Kernel Configuration
-if ! is_step_complete "bootloader_config"; then
-  print_step_header_with_timing 6 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
-  ui_info "Configuring bootloader..."
-  step "Bootloader and Kernel Configuration" && source "$SCRIPTS_DIR/bootloader_config.sh" || log_error "Bootloader and kernel configuration failed"
-  mark_step_complete_with_progress "bootloader_config"
-else
-  ui_info "Step 6 (Bootloader Configuration) already completed - skipping"
-fi
-
-# Step 7: Gaming Mode
-# Optional gaming optimizations
-if [[ "$INSTALL_MODE" == "server" ]]; then
-  ui_info "Server mode selected, skipping Gaming Mode setup."
-else
-  if ! is_step_complete "gaming_mode"; then
-    print_step_header_with_timing 7 "$TOTAL_STEPS" "Gaming Mode"
-    ui_info "Setting up gaming tools (optional)..."
-    step "Gaming Mode" && source "$SCRIPTS_DIR/gaming_mode.sh" || log_error "Gaming Mode failed"
-    mark_step_complete_with_progress "gaming_mode"
-  else
-    ui_info "Step 7 (Gaming Mode) already completed - skipping"
-  fi
-fi
-
-# Step 8: Fail2ban Setup
-# Security
-if ! is_step_complete "fail2ban_setup"; then
-  print_step_header_with_timing 8 "$TOTAL_STEPS" "Fail2ban Setup"
-  ui_info "Setting up security protection for SSH..."
-  step "Fail2ban Setup" && source "$SCRIPTS_DIR/fail2ban.sh" || log_error "Fail2ban setup failed"
-  mark_step_complete_with_progress "fail2ban_setup"
-else
-  ui_info "Step 8 (Fail2ban Setup) already completed - skipping"
-fi
-
-# Step 9: System Services
-# Enabling services should happen after everything is installed and configured
-if ! is_step_complete "system_services"; then
-  print_step_header_with_timing 9 "$TOTAL_STEPS" "System Services"
-  ui_info "Enabling and configuring system services..."
-  step "System Services" && source "$SCRIPTS_DIR/system_services.sh" || log_error "System services failed"
-  mark_step_complete_with_progress "system_services"
-else
-  ui_info "Step 9 (System Services) already completed - skipping"
-fi
-
-# Step 10: Maintenance
-# Final cleanup
-if ! is_step_complete "maintenance"; then
-  print_step_header_with_timing 10 "$TOTAL_STEPS" "Maintenance"
-  ui_info "Final cleanup and system optimization..."
-  step "Maintenance" && source "$SCRIPTS_DIR/maintenance.sh" || log_error "Maintenance failed"
-  mark_step_complete_with_progress "maintenance"
-else
-  ui_info "Step 10 (Maintenance) already completed - skipping"
-fi
-
-echo ""
-echo "==========================================" >> "$INSTALL_LOG"
-echo "Installation ended: $(date)" >> "$INSTALL_LOG"
-echo "==========================================" >> "$INSTALL_LOG"
-
-# Display a friendly Installation Summary (uses gum if available)
-if supports_gum; then
-  echo ""
-  gum style --margin "1 2" --border thick --padding "1 2" --foreground 15 "Installation Summary"
-  echo ""
-  gum style --margin "0 2" --foreground 10 "Desktop Environment: Configured"
-  gum style --margin "0 2" --foreground 10 "System Utilities: Installed"
-  gum style --margin "0 2" --foreground 10 "Security Features: Enabled"
-  gum style --margin "0 2" --foreground 10 "Performance Optimizations: Applied"
-  gum style --margin "0 2" --foreground 10 "Shell Configuration: Complete"
-  echo ""
-else
-  echo -e "${CYAN}Installation Summary${RESET}"
-  echo ""
-  echo -e "${GREEN}Desktop Environment:${RESET} Configured"
-  echo -e "${GREEN}System Utilities:${RESET} Installed"
-  echo -e "${GREEN}Security Features:${RESET} Enabled"
-  echo -e "${GREEN}Performance Optimizations:${RESET} Applied"
-  echo -e "${GREEN}Shell Configuration:${RESET} Complete"
-  echo ""
-fi
-
-# Call component summaries if available (programs/gaming)
-if declare -f print_programs_summary >/dev/null 2>&1; then
-  print_programs_summary
-fi
-
-if declare -f print_gaming_summary >/dev/null 2>&1; then
-  print_gaming_summary
-fi
-
-# Print generic installation summary from common.sh
-if declare -f print_summary >/dev/null 2>&1; then
-  print_summary
-fi
-
-# Log performance/time taken if available
-if declare -f log_performance >/dev/null 2>&1; then
-  log_performance "Total installation time"
-fi
-
-# Save a compact installation summary to the install log
-{
-  echo ""
-  echo "=========================================="
-  echo "Installation Summary"
-  echo "=========================================="
-  echo "Completed steps:"
-  [ -f "$STATE_FILE" ] && cat "$STATE_FILE" | sed 's/^/  - /'
-  echo ""
-  if [ ${#ERRORS[@]} -gt 0 ]; then
-    echo "Errors encountered:"
-    for error in "${ERRORS[@]}"; do
-      echo "  - $error"
-    done
-  fi
-  echo ""
-  echo "Installation log saved to: $INSTALL_LOG"
-} >> "$INSTALL_LOG"
-
-# Final result message (styled when gum available)
-if [ ${#ERRORS[@]} -eq 0 ]; then
-  if supports_gum; then
-    echo ""
-    gum style --margin "0 2" --foreground 10 "Installation completed successfully"
-    gum style --margin "0 2" --foreground 15 "Log available at: $INSTALL_LOG"
-
-    if gum confirm "View installation log?"; then
-        gum pager < "$INSTALL_LOG"
-    fi
-  else
-    ui_success "Installation completed successfully"
-    ui_info "Log: $INSTALL_LOG"
-  fi
-else
-  if supports_gum; then
-    echo ""
-    gum style --margin "0 2" --foreground 196 "Installation completed with warnings"
-    gum style --margin "0 2" --foreground 15 "Log available at: $INSTALL_LOG"
-
-    if gum confirm "View installation log?"; then
-        gum pager < "$INSTALL_LOG"
-    fi
-  else
-    ui_warn "Installation completed with warnings"
-    ui_info "Log: $INSTALL_LOG"
-  fi
-fi
-
-# Delegate reboot prompt to centralized function in common.sh
+Thanks for using LinuxInstaller!
+"
 prompt_reboot
