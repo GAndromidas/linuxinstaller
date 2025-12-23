@@ -136,26 +136,21 @@ fi
 # -----------------------------------------------------------------------------
 # Zsh-autosuggestions
 # -----------------------------------------------------------------------------
-# Try multiple possible locations for zsh-autosuggestions
+# Try multiple possible locations for zsh-autosuggestions (from package manager)
 if [[ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
-  ZSH_AUTOSUGGEST_SOURCE="/usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
-elif [[ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
-  ZSH_AUTOSUGGEST_SOURCE="/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
-elif [[ -f /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
-  ZSH_AUTOSUGGEST_SOURCE="/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
-fi
-
-if [[ -n "$ZSH_AUTOSUGGEST_SOURCE" ]]; then
+  source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
   ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
   ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'        # subtle gray
   ZSH_AUTOSUGGEST_STRATEGY=(history completion)  # try history first, then completion
   ZSH_AUTOSUGGEST_USE_ASYNC=1                   # async for better performance
-
-  source "$ZSH_AUTOSUGGEST_SOURCE"
-
-  # Right arrow to accept suggestion
-  bindkey '^[[C' forward-char  # keep default
   bindkey '^ ' autosuggest-accept  # Ctrl+Space to accept
+elif [[ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+  ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+  ZSH_AUTOSUGGEST_USE_ASYNC=1
+  bindkey '^ ' autosuggest-accept
 fi
 
 # -----------------------------------------------------------------------------
@@ -175,37 +170,36 @@ if command -v starship >/dev/null; then
 fi
 
 # -----------------------------------------------------------------------------
-# Package management aliases
+# Package management aliases (Fedora)
 # -----------------------------------------------------------------------------
-alias sync='sudo pacman -Syy'
-alias update='yay -Syyu && sudo flatpak update'
-alias mirror='sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch && sudo pacman -Syy'
-alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo flatpak uninstall --unused && sudo pacman -Rns --noconfirm $(pacman -Qtdq) 2>/dev/null'
-alias cache='rm -rf ~/.cache/* && sudo paccache -r'
+alias sync='sudo dnf update --refresh'
+alias update='sudo dnf update && sudo dnf upgrade && sudo flatpak update'
+alias clean='sudo dnf -y autoremove && sudo dnf clean all && sudo flatpak uninstall --unused'
+alias cache='rm -rf ~/.cache/*'
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
+alias sr='sudo reboot'
+alias ss='sudo poweroff'
 alias jctl='journalctl -p 3 -xb'
-alias orphans='sudo pacman -Rns $(pacman -Qtdq) 2>/dev/null'
-alias unlock='sudo rm /var/lib/pacman/db.lck'
+alias orphans='sudo dnf autoremove -y'
+alias update-grub='sudo grub2-mkconfig -o /boot/grub2/grub.cfg'
 
 # -----------------------------------------------------------------------------
 # Power management
 # -----------------------------------------------------------------------------
-alias reboot='sudo reboot'
-alias sr='sudo reboot'
-alias shutdown='sudo poweroff'
-alias ss='sudo poweroff'
+alias reboot='sudo systemctl reboot'
+alias shutdown='sudo systemctl poweroff'
 alias suspend='systemctl suspend'
 alias bios='systemctl reboot --firmware-setup'
-alias windows='systemctl reboot --boot-loader-entry=auto-windows'
 
 # -----------------------------------------------------------------------------
 # Modern ls with eza
 # -----------------------------------------------------------------------------
 if command -v eza >/dev/null; then
-  alias ls='eza -al --group-directories-first --icons'
-  alias ll='eza -l --icons'
-  alias la='eza -a --icons'
-  alias lt='eza -T --icons'
+  alias ls='eza -al --color=always --group-directories-first --icons'  # preferred listing
+  alias la='eza -a --color=always --group-directories-first --icons'  # all files and dirs
+  alias ll='eza -l --color=always --group-directories-first --icons'  # long format
+  alias lt='eza -aT --color=always --group-directories-first --icons'  # tree listing
+  alias l.="eza -a | grep -e '^\.'"                                   # show only dotfiles
   alias l='eza -lah --icons --git'
 else
   alias ls='ls --color=auto -h'
@@ -220,16 +214,49 @@ alias cp='cp -iv'
 alias mv='mv -iv'
 alias rm='rm -Iv --preserve-root'
 alias mkdir='mkdir -pv'
-alias ln='ln -iv'
-
-# -----------------------------------------------------------------------------
-# Search and text tools
-# -----------------------------------------------------------------------------
 alias grep='grep --color=auto'
-alias egrep='egrep --color=auto'
-alias fgrep='fgrep --color=auto'
 command -v rg >/dev/null && alias grep='rg'
 command -v bat >/dev/null && alias cat='bat --paging=never'
+
+# -----------------------------------------------------------------------------
+# Navigation
+# -----------------------------------------------------------------------------
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias -- -='cd -'
+
+# -----------------------------------------------------------------------------
+# Networking
+# -----------------------------------------------------------------------------
+alias ip='ip addr'
+alias ports='netstat -tulanp'
+alias ping='ping -c 5'
+
+# -----------------------------------------------------------------------------
+# System Monitoring
+# -----------------------------------------------------------------------------
+alias top='btop'
+alias htop='btop'
+alias hw='hwinfo --short'
+alias cpu='lscpu'
+alias mem="free -mt"
+alias psf='ps auxf'
+
+# -----------------------------------------------------------------------------
+# Disk Usage
+# -----------------------------------------------------------------------------
+alias df='df -h'
+alias du='du -h'
+alias duh='du -h --max-depth=1'
+
+# -----------------------------------------------------------------------------
+# Archive Operations
+# -----------------------------------------------------------------------------
+alias tar='tar -acf '
+alias untar='tar -zxvf '
+alias zip='zip -r'
+alias unzip='unzip'
 
 # -----------------------------------------------------------------------------
 # Git shortcuts
@@ -248,45 +275,38 @@ alias glog='git log --oneline --graph --decorate'
 # -----------------------------------------------------------------------------
 # Config shortcuts
 # -----------------------------------------------------------------------------
-alias zshconfig='nano .zshrc'
+alias zshconfig="nano ~/.zshrc"
 alias zshreload='source ~/.zshrc && echo "✓ Config reloaded"'
 
 # -----------------------------------------------------------------------------
 # Utility functions
 # -----------------------------------------------------------------------------
 
+# Extract any archive type
+extract() {
+  if [ -f "$1" ]; then
+    case "$1" in
+      *.tar.bz2)   tar xjf "$1"     ;;
+      *.tar.gz)    tar xzf "$1"     ;;
+      *.bz2)       bunzip2 "$1"     ;;
+      *.rar)       unrar x "$1"     ;;
+      *.gz)        gunzip "$1"      ;;
+      *.tar)       tar xf "$1"      ;;
+      *.tbz2)      tar xjf "$1"     ;;
+      *.tgz)       tar xzf "$1"     ;;
+      *.zip)       unzip "$1"       ;;
+      *.Z)         uncompress "$1"  ;;
+      *.7z)        7z x "$1"        ;;
+      *)           echo "'$1' cannot be extracted via extract()" ;;
+    esac
+  else
+    echo "'$1' is not a valid file"
+  fi
+}
+
 # Create directory and cd into it
 mkcd() {
-  [[ -z "$1" ]] && { echo "Usage: mkcd <directory>"; return 1; }
   mkdir -p "$1" && cd "$1"
-}
-
-# Extract various archive types
-extract() {
-  if [[ ! -f "$1" ]]; then
-    echo "Error: '$1' is not a valid file"
-    return 1
-  fi
-
-  case "$1" in
-    *.tar.gz|*.tgz)  tar xzf "$1"   ;;
-    *.tar.bz2|*.tbz) tar xjf "$1"   ;;
-    *.tar.xz|*.txz)  tar xJf "$1"   ;;
-    *.tar)           tar xf "$1"    ;;
-    *.zip)           unzip "$1"     ;;
-    *.7z)            7z x "$1"      ;;
-    *.rar)           unrar x "$1"   ;;
-    *.gz)            gunzip "$1"    ;;
-    *.bz2)           bunzip2 "$1"   ;;
-    *.Z)             uncompress "$1";;
-    *) echo "Error: unknown archive format '$1'" ;;
-  esac
-}
-
-# Quick backup
-backup() {
-  [[ -z "$1" ]] && { echo "Usage: backup <file>"; return 1; }
-  cp -a "$1" "${1}.backup.$(date +%Y%m%d-%H%M%S)"
 }
 
 # Find and cd to directory
@@ -298,18 +318,20 @@ fcd() {
 # -----------------------------------------------------------------------------
 # Zsh-syntax-highlighting (must be last)
 # -----------------------------------------------------------------------------
-# Try multiple possible locations for zsh-syntax-highlighting
+# Try multiple possible locations for zsh-syntax-highlighting (from package manager)
 if [[ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
-  ZSH_HIGHLIGHT_SOURCE="/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+  source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  
+  # Syntax highlighting styles
+  ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
+  ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
+  ZSH_HIGHLIGHT_STYLES[alias]='fg=cyan,bold'
+  ZSH_HIGHLIGHT_STYLES[builtin]='fg=yellow,bold'
+  ZSH_HIGHLIGHT_STYLES[function]='fg=blue,bold'
+  ZSH_HIGHLIGHT_STYLES[command-not-found]='fg=red,bold'
 elif [[ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
-  ZSH_HIGHLIGHT_SOURCE="/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-elif [[ -f /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
-  ZSH_HIGHLIGHT_SOURCE="/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-fi
-
-if [[ -n "$ZSH_HIGHLIGHT_SOURCE" ]]; then
-  source "$ZSH_HIGHLIGHT_SOURCE"
-
+  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  
   # Syntax highlighting styles
   ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
   ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
@@ -329,3 +351,4 @@ fi
 # =============================================================================
 # End of configuration
 # =============================================================================
+

@@ -28,21 +28,39 @@ setup_shell() {
   fi
 
   # Deploy config files (DRY loop)
-  local configs=(
-    ".zshrc:$HOME/.zshrc"
-    "starship.toml:$HOME/.config/starship.toml"
-  )
-
   mkdir -p "$HOME/.config"
 
-  for cfg in "${configs[@]}"; do
-    local src="${cfg%%:*}"
-    local dest="${cfg##*:}"
+  # Copy distro-specific .zshrc
+  local zshrc_src=""
+  case "$DISTRO_ID" in
+    arch)
+      zshrc_src=".zshrc.arch"
+      ;;
+    fedora)
+      zshrc_src=".zshrc.fedora"
+      ;;
+    debian)
+      zshrc_src=".zshrc.debian"
+      ;;
+    ubuntu)
+      zshrc_src=".zshrc.ubuntu"
+      ;;
+    *)
+      log_warning "Unknown distro, using generic .zshrc if available"
+      zshrc_src=".zshrc"
+      ;;
+  esac
 
-    if [ -f "$CONFIGS_DIR/$src" ]; then
-      cp "$CONFIGS_DIR/$src" "$dest" && log_success "Updated config: $src"
-    fi
-  done
+  if [ -f "$CONFIGS_DIR/$zshrc_src" ]; then
+    cp "$CONFIGS_DIR/$zshrc_src" "$HOME/.zshrc" && log_success "Updated config: $zshrc_src"
+  else
+    log_warning "Distro-specific .zshrc not found: $zshrc_src"
+  fi
+
+  # Copy starship config
+  if [ -f "$CONFIGS_DIR/starship.toml" ]; then
+    cp "$CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
+  fi
 
   # Fastfetch setup
   if command -v fastfetch >/dev/null; then

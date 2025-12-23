@@ -18,7 +18,7 @@
         *   Desktop: Defaults to Flatpak (Arch/Fedora/Debian) or Snap (Ubuntu) for GUI apps.
         *   Server: Avoids containerized apps by default for a lean footprint.
 *   **Shell Environment**:
-    *   Sets up **ZSH** with **Oh-My-Zsh** features (Autosuggestions, Syntax Highlighting).
+    *   Sets up **ZSH** with **zsh-autosuggestions** and **zsh-syntax-highlighting** (no Oh-My-Zsh).
     *   Configures **Starship** prompt cross-platform.
     *   Installs modern CLI tools (`eza`, `bat`, `fzf`, `fastfetch`).
 *   **Intelligent Configuration**:

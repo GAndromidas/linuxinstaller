@@ -208,6 +208,35 @@ detect_and_install_solaar() {
   fi
 }
 
+install_zsh_plugins() {
+  # Verify zsh plugins are installed from package managers
+  # They should already be installed via install_packages_quietly, but verify
+  local zsh_plugins_dir="/usr/share/zsh/plugins"
+  local autosuggest_found=false
+  local highlight_found=false
+  
+  # Check for zsh-autosuggestions
+  if [[ -f "$zsh_plugins_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] || \
+     [[ -f "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+    autosuggest_found=true
+  fi
+  
+  # Check for zsh-syntax-highlighting
+  if [[ -f "$zsh_plugins_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] || \
+     [[ -f "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]]; then
+    highlight_found=true
+  fi
+  
+  if [ "$autosuggest_found" = false ]; then
+    log_warning "zsh-autosuggestions not found. Please install via package manager."
+  fi
+  
+  if [ "$highlight_found" = false ]; then
+    log_warning "zsh-syntax-highlighting not found. Please install via package manager."
+  fi
+}
+
+
 install_all_packages() {
     step "Installing Base Packages"
     
@@ -228,34 +257,25 @@ install_all_packages() {
     
     # Install ZSH and friends
     packages_to_install+=("zsh")
-    # Note: zsh plugins might be separate packages or need manual install.
-    # Arch has zsh-autosuggestions, Ubuntu has zsh-autosuggestions.
-    # Fedora has zsh-autosuggestions.
     
+    # Install zsh plugins and starship from package managers (all distros have them)
     if [ "$DISTRO_ID" == "arch" ]; then
         packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship" "zram-generator")
     elif [ "$DISTRO_ID" == "fedora" ]; then
         packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship" "zram-generator")
     elif [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
-        packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting")
-        # starship might need manual install script on older debian/ubuntu
+        packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship")
     fi
 
     # Generic install loop
-    # Using install_packages_quietly logic (which handles resolution) or loop
-    # We should use install_packages_quietly to benefit from the resolver!
     install_packages_quietly "${packages_to_install[@]}"
     
-    # Manual installs for Ubuntu/Debian if starship not found
-    if [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
-         if ! command -v starship >/dev/null; then
-             # Try snap for starship on ubuntu, or curl script
-             if [ "$DISTRO_ID" == "ubuntu" ]; then
-                 sudo snap install starship || curl -sS https://starship.rs/install.sh | sh -s -- -y
-             else
-                 curl -sS https://starship.rs/install.sh | sh -s -- -y
-             fi
-         fi
+    # Ensure zsh plugins are installed (manual install if not in repos)
+    install_zsh_plugins
+    
+    # Verify starship installation (should be installed via package manager above)
+    if ! command -v starship >/dev/null; then
+        log_warning "Starship not found after package installation. This may indicate a package manager issue."
     fi
 }
 
