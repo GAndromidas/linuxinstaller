@@ -6,7 +6,26 @@ INSTALL_LOG="$HOME/.linuxinstaller.log"
 
 # Function to show help
 show_help() {
-  cat << EOF
+  if command -v gum >/dev/null 2>&1; then
+    gum format << EOF
+# LinuxInstaller - Unified Linux Post-Installation Script
+
+**USAGE:**
+    \`./install.sh [OPTIONS]\`
+
+**OPTIONS:**
+    \`-h, --help\`      Show this help message and exit
+    \`-v, --verbose\`   Enable verbose output (show all package installation details)
+    \`-m, --mode\`      Installation mode (default, server, minimal)
+
+**DESCRIPTION:**
+    LinuxInstaller transforms a fresh Linux installation into a fully
+    configured, optimized system. It installs essential packages, configures
+    the desktop environment, sets up security features, and applies performance
+    optimizations.
+EOF
+  else
+    cat << EOF
 LinuxInstaller - Unified Linux Post-Installation Script
 
 USAGE:
@@ -23,6 +42,7 @@ DESCRIPTION:
     the desktop environment, sets up security features, and applies performance
     optimizations.
 EOF
+  fi
   exit 0
 }
 
@@ -543,7 +563,11 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
   if supports_gum; then
     echo ""
     gum style --margin "0 2" --foreground 10 "Installation completed successfully"
-    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
+    gum style --margin "0 2" --foreground 15 "Log available at: $INSTALL_LOG"
+
+    if gum confirm "View installation log?"; then
+        gum pager < "$INSTALL_LOG"
+    fi
   else
     ui_success "Installation completed successfully"
     ui_info "Log: $INSTALL_LOG"
@@ -552,7 +576,11 @@ else
   if supports_gum; then
     echo ""
     gum style --margin "0 2" --foreground 196 "Installation completed with warnings"
-    gum style --margin "0 2" --foreground 15 "Log: $INSTALL_LOG"
+    gum style --margin "0 2" --foreground 15 "Log available at: $INSTALL_LOG"
+
+    if gum confirm "View installation log?"; then
+        gum pager < "$INSTALL_LOG"
+    fi
   else
     ui_warn "Installation completed with warnings"
     ui_info "Log: $INSTALL_LOG"

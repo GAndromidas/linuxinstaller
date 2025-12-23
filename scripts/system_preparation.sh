@@ -87,6 +87,9 @@ configure_package_manager() {
              sudo pacman-key --init 2>/dev/null || true
              sudo pacman-key --populate archlinux 2>/dev/null || true
         fi
+
+        # Enable multilib repository
+        check_and_enable_multilib
     elif [ "$DISTRO_ID" == "fedora" ]; then
         # Fedora optimization
         log_info "Optimizing DNF configuration..."

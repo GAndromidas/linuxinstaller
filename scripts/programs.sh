@@ -257,15 +257,76 @@ load_config() {
         return 1
     fi
 
-    # 1. Native Packages
+    # 1. Native Packages (Always install base system utilities)
     while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r '.pacman.packages[].name' "$config_file" 2>/dev/null || true)
 
-    # 2. Essential
     local mode="${INSTALL_MODE:-default}"
-    while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".essential.$mode[].name" "$config_file" 2>/dev/null || true)
 
-    # 3. Universal
-    while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && UNIVERSAL_PACKAGES+=("$line"); done < <(yq -r ".aur.$mode[].name" "$config_file" 2>/dev/null || true)
+    if [[ "$mode" == "custom" ]]; then
+        if command -v gum >/dev/null; then
+            ui_info "Entering interactive package selection..."
+
+            # Essential (Native)
+            local options_essential=()
+            while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && options_essential+=("$line"); done < <(yq -r '.custom.essential[] | "\(.name) | \(.description)"' "$config_file" 2>/dev/null || true)
+
+            if [ ${#options_essential[@]} -gt 0 ]; then
+                 local selected
+                 selected=$(gum choose --no-limit --height 15 --header "Select Essential Packages" "${options_essential[@]}")
+                 if [ -n "$selected" ]; then
+                    while IFS= read -r item; do
+                        local pkg_name="${item%% | *}"
+                        [ -n "$pkg_name" ] && NATIVE_PACKAGES+=("$pkg_name")
+                    done <<< "$selected"
+                 fi
+            fi
+
+            # AUR / Universal
+            local options_aur=()
+            while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && options_aur+=("$line"); done < <(yq -r '.custom.aur[] | "\(.name) | \(.description)"' "$config_file" 2>/dev/null || true)
+
+            if [ ${#options_aur[@]} -gt 0 ]; then
+                 local selected
+                 selected=$(gum choose --no-limit --height 15 --header "Select Universal/AUR Packages" "${options_aur[@]}")
+                 if [ -n "$selected" ]; then
+                    while IFS= read -r item; do
+                        local pkg_name="${item%% | *}"
+                        [ -n "$pkg_name" ] && UNIVERSAL_PACKAGES+=("$pkg_name")
+                    done <<< "$selected"
+                 fi
+            fi
+
+            # Flatpak (Desktop Environment Specific)
+            if [ -n "${XDG_CURRENT_DESKTOP:-}" ]; then
+                local de_key=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
+                if [[ "$de_key" == *"gnome"* ]]; then de_key="gnome"; fi
+                if [[ "$de_key" == *"kde"* ]]; then de_key="kde"; fi
+                if [[ "$de_key" == *"cosmic"* ]]; then de_key="cosmic"; fi
+
+                local options_flatpak=()
+                while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && options_flatpak+=("$line"); done < <(yq -r ".custom.flatpak.$de_key[] | \"\(.name) | \(.description)\"" "$config_file" 2>/dev/null || true)
+
+                if [ ${#options_flatpak[@]} -gt 0 ]; then
+                    local selected
+                    selected=$(gum choose --no-limit --height 15 --header "Select Flatpak Apps ($de_key)" "${options_flatpak[@]}")
+                    if [ -n "$selected" ]; then
+                        while IFS= read -r item; do
+                            local pkg_name="${item%% | *}"
+                            [ -n "$pkg_name" ] && FLATPAK_PACKAGES+=("$pkg_name")
+                        done <<< "$selected"
+                    fi
+                fi
+            fi
+        else
+            log_warning "Gum not found, skipping interactive selection in custom mode."
+        fi
+    else
+        # 2. Essential
+        while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".essential.$mode[].name" "$config_file" 2>/dev/null || true)
+
+        # 3. Universal
+        while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && UNIVERSAL_PACKAGES+=("$line"); done < <(yq -r ".aur.$mode[].name" "$config_file" 2>/dev/null || true)
+    fi
 
     # 4. Desktop Environment (Native)
     if [ -n "${XDG_CURRENT_DESKTOP:-}" ]; then
