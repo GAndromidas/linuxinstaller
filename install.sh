@@ -118,10 +118,6 @@ define_common_packages
 linux_ascii
 show_menu
 
-setup_package_providers
-detect_de
-define_common_packages
-
 # State tracking for step resume and idempotency
 STATE_FILE="$HOME/.linuxinstaller.state"
 mkdir -p "$(dirname "$STATE_FILE")"
