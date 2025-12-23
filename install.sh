@@ -6,12 +6,6 @@ INSTALL_LOG="$HOME/.linuxinstaller.log"
 # Ensure log file exists
 touch "$INSTALL_LOG"
 
-# --- Prerequisite Management ---
-# Flags to track which helpers were installed by this script
-FIGLET_INSTALLED_BY_SCRIPT=false
-GUM_INSTALLED_BY_SCRIPT=false
-YQ_INSTALLED_BY_SCRIPT=false
-
 # --- Directory and Script Setup ---
 # Get the directory where this script is located, resolving symlinks
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -21,7 +15,7 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
 
 # Source common functions and distribution checks early
-# This makes functions like log() available immediately.
+# This makes functions like log_info() and variables available.
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then
   source "$SCRIPTS_DIR/common.sh"
 else
@@ -31,37 +25,36 @@ fi
 if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
   source "$SCRIPTS_DIR/distro_check.sh"
 else
-  log_error "distro_check.sh not found in $SCRIPTS_DIR. Cannot continue."
+  echo "FATAL: distro_check.sh not found in $SCRIPTS_DIR. Cannot continue."
   exit 1
 fi
 
-# --- Helper Functions ---
+# --- Prerequisite Management ---
+FIGLET_INSTALLED_BY_SCRIPT=false
+GUM_INSTALLED_BY_SCRIPT=false
+YQ_INSTALLED_BY_SCRIPT=false
 
 # Function to install helper tools silently if they are not present
 install_prerequisites() {
     log_info "Checking for required tools (figlet, gum, yq)..."
 
-    # Install figlet
     if ! command -v figlet >/dev/null 2>&1; then
         log_info "figlet not found, installing silently..."
         $PKG_INSTALL figlet >> "$INSTALL_LOG" 2>&1
         FIGLET_INSTALLED_BY_SCRIPT=true
     fi
 
-    # Install gum
     if ! command -v gum >/dev/null 2>&1; then
         log_info "gum not found, installing silently..."
         $PKG_INSTALL gum >> "$INSTALL_LOG" 2>&1
         GUM_INSTALLED_BY_SCRIPT=true
     fi
 
-    # Install yq
     if ! command -v yq >/dev/null 2>&1; then
         log_info "yq not found, installing silently..."
         if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
              $PKG_INSTALL yq >> "$INSTALL_LOG" 2>&1
         else
-             # Binary install for others to avoid snap dependency
              ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
              sudo curl -sL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}"
              sudo chmod +x /usr/local/bin/yq
@@ -74,7 +67,6 @@ install_prerequisites() {
 cleanup_prerequisites() {
     log_info "Cleaning up script-installed tools..."
     if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then
-        log_info "Removing yq..."
         if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
             $PKG_REMOVE yq >> "$INSTALL_LOG" 2>&1
         else
@@ -82,11 +74,9 @@ cleanup_prerequisites() {
         fi
     fi
     if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then
-        log_info "Removing gum..."
         $PKG_REMOVE gum >> "$INSTALL_LOG" 2>&1
     fi
     if [ "$FIGLET_INSTALLED_BY_SCRIPT" = true ]; then
-        log_info "Removing figlet..."
         $PKG_REMOVE figlet >> "$INSTALL_LOG" 2>&1
     fi
     log_success "Cleanup complete."
@@ -98,7 +88,6 @@ install_packages() {
     local category="$1"
     log_info "Installing packages for category: '$category'"
 
-    # Define package types for the current distro
     local pkg_keys="native"
     case "$DISTRO_ID" in
         arch) pkg_keys="native aur" ;;
@@ -114,7 +103,6 @@ install_packages() {
 
         log_info "Installing ${pkg_type} packages for '${category}'..."
 
-        # Determine install command based on package type
         local INSTALL_CMD=""
         case "$pkg_type" in
             native) INSTALL_CMD="$PKG_INSTALL" ;;
@@ -123,14 +111,17 @@ install_packages() {
             flatpak) INSTALL_CMD="flatpak install flathub -y" ;;
         esac
 
-        # The spinner command has to be run with eval to correctly handle arguments with spaces
-        eval gum spin --spinner dot --title \"Installing $category ($pkg_type) packages...\" -- \
-        $INSTALL_CMD $packages >> "$INSTALL_LOG" 2>&1
+        TITLE="Installing $category ($pkg_type) packages..."
+        COMMAND_STRING="$INSTALL_CMD $packages"
+
+        {
+            gum spin --spinner dot --title "$TITLE" -- bash -c "$COMMAND_STRING"
+        } >> "$INSTALL_LOG" 2>&1
 
         if [ $? -eq 0 ]; then
             log_success "Successfully installed packages for $category ($pkg_type)."
         else
-            log_error "Failed to install some packages for $category ($pkg_type). Check $INSTALL_LOG."
+            log_error "Failed to install some packages for $category ($pkg_type). Check $INSTALL_LOG for details."
         fi
     done
 }
@@ -154,8 +145,8 @@ detect_distro
 setup_package_providers
 define_common_packages
 
-# Export variables so they are available to all child scripts executed by the loop
-export DISTRO_ID PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
+# Export variables so they are available to all child scripts
+export DISTRO_ID DISTRO_NAME PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
 
 log_success "Environment ready. Detected Distro: $DISTRO_NAME"
 
@@ -213,7 +204,8 @@ for script in "$SCRIPTS_DIR"/??_*.sh; do
     if [ -f "$script" ]; then
         script_name=$(basename "$script")
         log_info "Executing configuration step: $script_name"
-        # Execute the script. It will inherit the exported variables.
+        # Execute the script in a subshell to isolate its environment
+        # and correctly redirect its output to the log file.
         bash "$script" >> "$INSTALL_LOG" 2>&1
         if [ $? -eq 0 ]; then
             log_success "Step '$script_name' completed successfully."
