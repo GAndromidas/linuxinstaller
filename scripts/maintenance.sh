@@ -51,16 +51,24 @@ setup_maintenance() {
     log_info "Flatpak not installed, skipping flatpak cleanup"
   fi
 
-  # Remove orphaned packages if any exist
-  if pacman -Qtdq &>/dev/null; then
-    run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
-  else
-    log_info "No orphaned packages found"
-  fi
-
-  # Only attempt to remove yay-debug if it's actually installed
-  if pacman -Q yay-debug &>/dev/null; then
-    run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm
+  # Remove orphaned packages if any exist (distro-specific)
+  if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null; then
+    if pacman -Qtdq &>/dev/null; then
+      run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+    else
+      log_info "No orphaned packages found"
+    fi
+    
+    # Only attempt to remove yay-debug if it's actually installed
+    if pacman -Q yay-debug &>/dev/null && command -v yay >/dev/null; then
+      run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm
+    fi
+  elif [ "${DISTRO_ID:-}" == "fedora" ] && command -v dnf >/dev/null; then
+    run_step "Removing orphaned packages" sudo dnf autoremove -y
+  elif [ "${DISTRO_ID:-}" == "debian" ] || [ "${DISTRO_ID:-}" == "ubuntu" ]; then
+    if command -v apt-get >/dev/null; then
+      run_step "Removing orphaned packages" sudo apt-get autoremove -y
+    fi
   fi
 }
 
@@ -341,7 +349,7 @@ setup_grub_bootloader() {
   step "Configuring GRUB bootloader for snapshot support"
 
   # Install grub-btrfs for automatic snapshot boot entries
-  if ! pacman -Q grub-btrfs &>/dev/null; then
+  if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null && ! pacman -Q grub-btrfs &>/dev/null; then
     log_info "Installing grub-btrfs for snapshot support..."
     install_packages_quietly grub-btrfs
   else
@@ -501,7 +509,7 @@ setup_btrfs_snapshots() {
   step "Setting up Btrfs snapshots system"
 
   # Remove Timeshift if installed (conflicts with Snapper)
-  if pacman -Q timeshift &>/dev/null; then
+  if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null && pacman -Q timeshift &>/dev/null; then
     log_warning "Timeshift detected - removing to avoid conflicts with Snapper"
     sudo pacman -Rns --noconfirm timeshift 2>/dev/null || log_warning "Could not remove Timeshift cleanly"
   fi
@@ -534,7 +542,16 @@ setup_btrfs_snapshots() {
   fi
 
   # Update package database first
-  sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
+  # Update package database (distro-specific)
+  if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null; then
+    sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
+  elif [ "${DISTRO_ID:-}" == "fedora" ] && command -v dnf >/dev/null; then
+    sudo dnf makecache >/dev/null 2>&1 || log_warning "Failed to update package database"
+  elif [ "${DISTRO_ID:-}" == "debian" ] || [ "${DISTRO_ID:-}" == "ubuntu" ]; then
+    if command -v apt-get >/dev/null; then
+      sudo apt-get update >/dev/null 2>&1 || log_warning "Failed to update package database"
+    fi
+  fi
 
   # Install packages
   install_packages_quietly "${snapper_packages[@]}"

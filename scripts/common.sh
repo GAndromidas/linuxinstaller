@@ -599,7 +599,20 @@ validate_package_name() {
 # Returns: 0 on success, 1 on failure
 check_sudo_access() {
   if ! command -v sudo &>/dev/null; then
-    log_error "sudo is not installed. Please install it: pacman -S sudo"
+    local install_cmd=""
+    if [ -n "${PKG_INSTALL:-}" ]; then
+      install_cmd="$PKG_INSTALL sudo"
+    elif [ -n "${DISTRO_ID:-}" ]; then
+      case "$DISTRO_ID" in
+        arch) install_cmd="sudo pacman -S sudo" ;;
+        fedora) install_cmd="sudo dnf install sudo" ;;
+        debian|ubuntu) install_cmd="sudo apt-get install sudo" ;;
+        *) install_cmd="install sudo using your package manager" ;;
+      esac
+    else
+      install_cmd="install sudo using your package manager"
+    fi
+    log_error "sudo is not installed. Please install it: $install_cmd"
     return 1
   fi
 
@@ -621,19 +634,39 @@ check_sudo_access() {
 handle_package_error() {
   local pkg="$1"
   local error_output="$2"
+  local search_cmd=""
+  local refresh_cmd=""
+
+  # Determine distro-specific commands
+  if [ -n "${DISTRO_ID:-}" ]; then
+    case "$DISTRO_ID" in
+      arch)
+        search_cmd="pacman -Ss $pkg"
+        refresh_cmd="sudo pacman-key --refresh-keys"
+        ;;
+      fedora)
+        search_cmd="dnf search $pkg"
+        refresh_cmd="sudo dnf makecache"
+        ;;
+      debian|ubuntu)
+        search_cmd="apt-cache search $pkg"
+        refresh_cmd="sudo apt-get update"
+        ;;
+    esac
+  fi
 
   case "$error_output" in
-    *"not found"*|*"target not found"*)
+    *"not found"*|*"target not found"*|*"no package"*|*"unable to locate"*)
       log_error "Package '$pkg' not found in repositories"
-      log_info "Try searching: pacman -Ss $pkg"
+      [ -n "$search_cmd" ] && log_info "Try searching: $search_cmd"
       ;;
     *"conflict"*|*"conflicts"*)
       log_error "Package '$pkg' conflicts with installed packages"
-      log_info "Try: pacman -Rs $(pacman -Qq | head -1)"
+      log_info "You may need to resolve conflicts manually"
       ;;
-    *"signature"*|*"PGP"*)
+    *"signature"*|*"PGP"*|*"gpg"*|*"key"*)
       log_error "Package signature verification failed for '$pkg'"
-      log_info "Try: sudo pacman-key --refresh-keys"
+      [ -n "$refresh_cmd" ] && log_info "Try: $refresh_cmd"
       ;;
     *"permission"*|*"Permission denied"*)
       log_error "Permission denied installing '$pkg'"
@@ -649,20 +682,50 @@ handle_package_error() {
 # Function to get all installed kernel types
 get_installed_kernel_types() {
   local kernel_types=()
-  command_exists pacman || { echo "Error: pacman not found." >&2; return 1; }
+  
+  # Only works for Arch-based distros
+  if [ "${DISTRO_ID:-}" != "arch" ]; then
+    # For other distros, try to detect kernel version
+    if [ -f /boot/vmlinuz-* ] || [ -f /boot/Image-* ]; then
+      # Generic kernel detection - return empty or default
+      kernel_types+=("linux")
+    fi
+    echo "${kernel_types[@]}"
+    return 0
+  fi
+  
+  # Arch-specific kernel detection
+  if ! command_exists pacman; then
+    log_warning "pacman not found. Cannot detect kernel types."
+    return 1
+  fi
+  
   pacman -Q linux &>/dev/null && kernel_types+=("linux")
   pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
   pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
   pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
+  
   echo "${kernel_types[@]}"
 }
 
 # Function to configure plymouth hook and rebuild initramfs
 configure_plymouth_hook_and_initramfs() {
+  # Only works for Arch-based distros (mkinitcpio)
+  if [ "${DISTRO_ID:-}" != "arch" ]; then
+    log_info "Plymouth initramfs configuration is Arch-specific. Skipping for $DISTRO_ID."
+    return 0
+  fi
+  
   step "Configuring Plymouth hook and rebuilding initramfs"
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   local HOOK_ADDED=false
   local HOOK_NAME=""
+
+  # Check if mkinitcpio.conf exists
+  if [ ! -f "$mkinitcpio_conf" ]; then
+    log_warning "mkinitcpio.conf not found. Plymouth hook configuration skipped."
+    return 0
+  fi
 
   # ===== Determine which initcpio hook is actually available =====
   # Prefer sd-plymouth (systemd variant) if present; otherwise fallback to plymouth.
@@ -673,18 +736,20 @@ configure_plymouth_hook_and_initramfs() {
   else
     # Try pacman installation (pacman-only policy; no AUR)
     log_error "Plymouth initcpio hooks not found. Is plymouth installed?"
-    log_info "Attempting to install plymouth package via pacman (no AUR fallback)..."
-    if sudo pacman -S --noconfirm plymouth >/dev/null 2>&1; then
-      log_success "Installed plymouth via pacman."
-      if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
-        HOOK_NAME="sd-plymouth"
-      elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
-        HOOK_NAME="plymouth"
+    log_info "Attempting to install plymouth package..."
+    if [ -n "${PKG_INSTALL:-}" ]; then
+      if $PKG_INSTALL ${PKG_NOCONFIRM:-} plymouth >/dev/null 2>&1; then
+        log_success "Installed plymouth."
+        if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+          HOOK_NAME="sd-plymouth"
+        elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
+          HOOK_NAME="plymouth"
+        fi
       fi
     fi
 
     if [ -z "$HOOK_NAME" ]; then
-      log_error "Could not find or install a plymouth initcpio hook. Please install 'plymouth' via pacman and re-run the installer."
+      log_error "Could not find or install a plymouth initcpio hook. Please install 'plymouth' and re-run the installer."
       return 1
     fi
   fi
@@ -972,7 +1037,7 @@ install_package_generic() {
 }
 
 # Function: install_packages_quietly
-# Description: Install packages via pacman (wrapper for generic installer)
+# Description: Install packages via package manager with minimal output
 # Parameters: $@ - Packages to install
 # Override install_packages_quietly for multi-distro support
 install_packages_quietly() {
@@ -996,8 +1061,15 @@ install_packages_quietly() {
     
     if [ ${#final_packages[@]} -eq 0 ]; then return 0; fi
 
-    # Just run the install command
-    $cmd $opts "${final_packages[@]}" >/dev/null 2>&1
+    # Install with minimal output: package name + OK/FAIL
+    for pkg in "${final_packages[@]}"; do
+        printf "%-40s" "$pkg"
+        if $cmd $opts "$pkg" >/dev/null 2>&1; then
+            printf "${GREEN}OK${RESET}\n"
+        else
+            printf "${RED}FAIL${RESET}\n"
+        fi
+    done
 }
 
 # Batch install helper for multiple package groups
@@ -1316,7 +1388,19 @@ install_flatpak_quietly() {
 }
 
 check_and_enable_multilib() {
+  # Only works for Arch-based distros
+  if [ "${DISTRO_ID:-}" != "arch" ]; then
+    log_info "Multilib configuration is Arch-specific. Skipping for $DISTRO_ID."
+    return 0
+  fi
+  
   local needs_sync=false
+
+  # Check if pacman.conf exists
+  if [ ! -f /etc/pacman.conf ]; then
+    log_warning "pacman.conf not found. Multilib configuration skipped."
+    return 0
+  fi
 
   # 1. Check if multilib is configured in pacman.conf
   if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
@@ -1352,29 +1436,4 @@ check_and_enable_multilib() {
   return 0
 }
 
-# Override install_packages_quietly for multi-distro support
-# Override install_packages_quietly for multi-distro support
-install_packages_quietly() {
-    local packages=("$@")
-    if [ ${#packages[@]} -eq 0 ]; then return 0; fi
-    
-    # Use global PKG_INSTALL if defined, else fallback to pacman
-    local cmd="${PKG_INSTALL:-sudo pacman -S --needed}"
-    local opts="${PKG_NOCONFIRM:-}"
-    
-    local final_packages=()
-    for pkg in "${packages[@]}"; do
-        # Use the resolver logic
-        if command -v resolve_package_name >/dev/null; then
-             local mapped=$(resolve_package_name "$pkg")
-             [ -n "$mapped" ] && final_packages+=($mapped)
-        else
-             final_packages+=("$pkg")
-        fi
-    done
-    
-    if [ ${#final_packages[@]} -eq 0 ]; then return 0; fi
-
-    # Just run the install command
-    $cmd $opts "${final_packages[@]}" >/dev/null 2>&1
-}
+# Override install_packages_quietly for multi-distro support (duplicate removed - using definition above)
