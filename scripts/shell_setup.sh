@@ -4,6 +4,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/../configs"
 source "$SCRIPT_DIR/common.sh"
+# Ensure distro info is available
+if [ -z "${DISTRO_ID:-}" ]; then
+    [ -f "$SCRIPT_DIR/distro_check.sh" ] && source "$SCRIPT_DIR/distro_check.sh" && detect_distro
+fi
 
 setup_shell() {
   step "Setting up ZSH shell environment"
@@ -43,22 +47,40 @@ setup_shell() {
   # Fastfetch setup
   if command -v fastfetch >/dev/null; then
     mkdir -p "$HOME/.config/fastfetch"
-
-    # Generate default if missing
-    if [ ! -f "$HOME/.config/fastfetch/config.jsonc" ]; then
-      fastfetch --gen-config &>/dev/null
-    fi
+    
+    local dest_config="$HOME/.config/fastfetch/config.jsonc"
 
     # Overwrite with custom if available
     if [ -f "$CONFIGS_DIR/config.jsonc" ]; then
-      cp "$CONFIGS_DIR/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-      log_success "Applied custom fastfetch config"
+      cp "$CONFIGS_DIR/config.jsonc" "$dest_config"
+      
+      # Smart Icon Replacement
+      # Default in file is Arch: " "
+      local os_icon=" " # Default/Arch
+      
+      case "$DISTRO_ID" in
+          fedora) os_icon=" " ;;
+          debian) os_icon=" " ;;
+          ubuntu) os_icon=" " ;;
+      esac
+      
+      # Replace the icon in the file
+      # We look for the line containing "key": " " and substitute.
+      # Using specific regex to match the exact Arch icon  in the key value.
+      sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
+      
+      log_success "Applied custom fastfetch config with $DISTRO_ID icon"
+    else
+       # Generate default if completely missing
+       if [ ! -f "$dest_config" ]; then
+         fastfetch --gen-config &>/dev/null
+       fi
     fi
   fi
 }
 
 setup_kde_shortcuts() {
-  [[ "$XDG_CURRENT_DESKTOP" != "KDE" ]] && return
+  [[ "${XDG_CURRENT_DESKTOP:-}" != "KDE" ]] && return
 
   step "Setting up KDE global shortcuts"
   local src="$CONFIGS_DIR/kglobalshortcutsrc"
@@ -76,7 +98,7 @@ setup_kde_shortcuts() {
 
 setup_gnome_configs() {
   # GNOME check (covers standard GNOME, Ubuntu, Pop_OS, etc)
-  [[ "$XDG_CURRENT_DESKTOP" != *"GNOME"* ]] && return
+  [[ "${XDG_CURRENT_DESKTOP:-}" != *"GNOME"* ]] && return
 
   step "Setting up GNOME configurations"
 

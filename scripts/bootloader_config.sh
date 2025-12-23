@@ -3,6 +3,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+if [ -z "${DISTRO_ID:-}" ]; then
+    [ -f "$SCRIPT_DIR/distro_check.sh" ] && source "$SCRIPT_DIR/distro_check.sh" && detect_distro
+fi
 
 # Helper to deduplicate kernel parameters
 merge_params() {
@@ -16,533 +19,94 @@ merge_params() {
   }'
 }
 
-add_systemd_boot_kernel_params() {
-  local boot_entries_dir="/boot/loader/entries"
-  if [ ! -d "$boot_entries_dir" ]; then
-    log_warning "Boot entries directory not found. Skipping kernel parameter addition for systemd-boot."
-    return 0 # Not an error that should stop the script
-  fi
-
-  local modified_count=0
-  local entries_found=0
-
-  # Helper function to process entries
-  process_boot_entries() {
-    while IFS= read -r -d $'\0' entry; do
-      ((entries_found++))
-      local entry_name=$(basename "$entry")
-
-      # Extract current options line
-      local current_line=$(grep "^options " "$entry" || true)
-
-      if [ -n "$current_line" ]; then
-          local current_opts=${current_line#options }
-
-          # Define desired params
-          local desired_params="quiet splash vt.global_cursor_default=0 loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
-
-          local new_opts=$(merge_params "$current_opts" "$desired_params")
-
-          # Check if change is needed
-          if [ "$current_opts" != "$new_opts" ]; then
-               # Ensure we can write to the file (handle potential secure permissions)
-               if [ ! -w "$entry" ]; then
-                   sudo chmod +w "$entry" 2>/dev/null
-               fi
-
-               # Escape slashes and ampersands for sed replacement
-               local esc_new_opts=$(echo "$new_opts" | sed 's/[\/&]/\\&/g')
-
-               if sudo sed -i "s|^options .*|options $esc_new_opts|" "$entry"; then
-                   log_success "Cleaned and updated kernel parameters in $entry_name"
-                   ((modified_count++))
-               else
-                   log_error "Failed to update $entry_name"
-               fi
-          else
-               log_info "Parameters already optimized in $entry_name"
-          fi
-      fi
-    done
-  }
-
-  # First pass: Look for specific Linux entries (*linux*.conf) to correspond with archinstall naming
-  process_boot_entries < <(find "$boot_entries_dir" -name "*linux*.conf" ! -name "*fallback.conf" -print0)
-
-  # Fallback pass: If no entries found, check generic .conf files (e.g., custom naming)
-  if [ "$entries_found" -eq 0 ]; then
-    log_info "No standard *linux*.conf entries found. Searching all .conf files..."
-    process_boot_entries < <(find "$boot_entries_dir" -name "*.conf" ! -name "*fallback.conf" -print0)
-  fi
-
-  if [ "$entries_found" -eq 0 ]; then
-    log_warning "No systemd-boot entries found to modify."
-  elif [ "$modified_count" -gt 0 ]; then
-    log_success "Kernel parameters updated for $modified_count systemd-boot entries."
-  else
-    log_info "No systemd-boot entries needed parameter updates."
-  fi
-  return 0
-}
-
-# --- systemd-boot ---
-configure_boot() {
-  run_step "Adding kernel parameters to systemd-boot entries" add_systemd_boot_kernel_params
-
-  if [ -f "/boot/loader/loader.conf" ]; then
-    sudo sed -i \
-      -e '/^default /d' \
-      -e '1i default @saved' \
-      -e 's/^timeout.*/timeout 3/' \
-      -e 's/^[#]*console-mode[[:space:]]\+.*/console-mode keep/' \
-      /boot/loader/loader.conf
-
-    run_step "Ensuring timeout is set in loader.conf" \
-        grep -q '^timeout' /boot/loader/loader.conf || echo "timeout 3" | sudo tee -a /boot/loader/loader.conf >/dev/null
-    run_step "Ensuring console-mode is set in loader.conf" \
-        grep -q '^console-mode' /boot/loader/loader.conf || echo "console-mode keep" | sudo tee -a /boot/loader/loader.conf >/dev/null
-
-    # Verify configuration was applied
-    if grep -q '^timeout' /boot/loader/loader.conf && grep -q '^console-mode' /boot/loader/loader.conf; then
-      log_success "Systemd-boot configuration verified"
-    else
-      log_warning "Systemd-boot configuration may be incomplete"
-    fi
-  else
-    log_warning "loader.conf not found. Skipping loader.conf configuration for systemd-boot."
-  fi
-
-  run_step "Removing systemd-boot fallback entries" sudo rm -f /boot/loader/entries/*fallback.conf
-
-  # Check for fallback kernels (informational)
-  local boot_mount=$(detect_boot_mount)
-  local fallback_count=$(ls "$boot_mount"/*fallback* 2>/dev/null | wc -l)
-  if [ "$fallback_count" -gt 0 ]; then
-    log_info "Fallback kernels present: $fallback_count file(s)"
-    log_info "These are useful for recovery but can be removed to save space"
-  else
-    log_success "No fallback kernels found (clean setup)"
-  fi
-}
-
-# --- Bootloader and Btrfs detection ---
-BOOTLOADER=$(detect_bootloader)
-IS_BTRFS=$(is_btrfs_system && echo "true" || echo "false")
-
-# --- GRUB configuration ---
+# --- Generic GRUB Configuration ---
 configure_grub() {
-    step "Configuring GRUB: set default kernel to 'linux'"
+    step "Configuring GRUB"
 
-    # /etc/default/grub settings
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub || echo 'GRUB_TIMEOUT=3' | sudo tee -a /etc/default/grub >/dev/null
-    sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub || echo 'GRUB_DEFAULT=saved' | sudo tee -a /etc/default/grub >/dev/null
-    grep -q '^GRUB_SAVEDEFAULT=' /etc/default/grub && sudo sed -i 's/^GRUB_SAVEDEFAULT=.*/GRUB_SAVEDEFAULT=true/' /etc/default/grub || echo 'GRUB_SAVEDEFAULT=true' | sudo tee -a /etc/default/grub >/dev/null
-    # robustly set GRUB_CMDLINE_LINUX_DEFAULT without wiping existing settings
-    local desired_grub_params="quiet splash loglevel=3 systemd.show_status=auto rd.udev.log_level=3 plymouth.ignore-serial-consoles"
+    if [ ! -f /etc/default/grub ]; then
+        log_info "GRUB config not found. Skipping."
+        return
+    fi
 
-    # Read current content (handle quotes)
-    local current_grub_line=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub || echo "")
-
-    if [ -z "$current_grub_line" ]; then
-        echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$desired_grub_params\"" | sudo tee -a /etc/default/grub >/dev/null
+    # Common optimizations
+    # Set timeout to 3s if not set
+    if grep -q "GRUB_TIMEOUT=" /etc/default/grub; then
+        sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
     else
-        # Extract content inside quotes
-        local current_grub_params=$(echo "$current_grub_line" | cut -d'=' -f2- | sed "s/^['\"]//;s/['\"]$//")
-
-        # Merge params
-        local new_grub_params=$(merge_params "$current_grub_params" "$desired_grub_params")
-
-        # Update file
-        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_grub_params\"|" /etc/default/grub
+        echo "GRUB_TIMEOUT=3" | sudo tee -a /etc/default/grub
     fi
 
-    # Enable submenu for additional kernels (linux-lts, linux-zen)
-    grep -q '^GRUB_DISABLE_SUBMENU=' /etc/default/grub && sudo sed -i 's/^GRUB_DISABLE_SUBMENU=.*/GRUB_DISABLE_SUBMENU=notlinux/' /etc/default/grub || \
-        echo 'GRUB_DISABLE_SUBMENU=notlinux' | sudo tee -a /etc/default/grub >/dev/null
-
-    grep -q '^GRUB_GFXMODE=' /etc/default/grub || echo 'GRUB_GFXMODE=auto' | sudo tee -a /etc/default/grub >/dev/null
-    grep -q '^GRUB_GFXPAYLOAD_LINUX=' /etc/default/grub || echo 'GRUB_GFXPAYLOAD_LINUX=keep' | sudo tee -a /etc/default/grub >/dev/null
-
-    # Detect installed kernels
-    KERNELS=($(ls /boot/vmlinuz-* 2>/dev/null | sed 's|/boot/vmlinuz-||g'))
-    if [[ ${#KERNELS[@]} -eq 0 ]]; then
-        log_error "No kernels found in /boot."
-        return 1
-    fi
-
-    # Determine main kernel and secondary kernels (logic kept for informational purposes, not used for default setting)
-    MAIN_KERNEL=""
-    SECONDARY_KERNELS=()
-    for k in "${KERNELS[@]}"; do
-        [[ "$k" == "linux" ]] && MAIN_KERNEL="$k"
-        [[ "$k" != "linux" && "$k" != "fallback" && "$k" != "rescue" ]] && SECONDARY_KERNELS+=("$k")
-    done
-    [[ -z "$MAIN_KERNEL" ]] && MAIN_KERNEL="${KERNELS[0]}"
-
-    # Remove fallback/recovery kernels
-    sudo rm -f /boot/initramfs-*-fallback.img /boot/vmlinuz-*-fallback 2>/dev/null || true
-
-    # Check for remaining fallback kernels (informational)
-    local fallback_count=$(ls /boot/*fallback* 2>/dev/null | wc -l)
-    if [ "$fallback_count" -gt 0 ]; then
-      log_info "Fallback kernels still present: $fallback_count file(s)"
-      log_info "These are useful for recovery but can be removed to save space"
+    # Params to add
+    local params="quiet splash"
+    
+    # Read current
+    local current_line=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub || echo "")
+    if [ -z "$current_line" ]; then
+        echo "GRUB_CMDLINE_LINUX_DEFAULT=\"$params\"" | sudo tee -a /etc/default/grub
     else
-      log_success "No fallback kernels found (clean setup)"
+        local current_val=$(echo "$current_line" | cut -d'=' -f2- | sed "s/^['\"]//;s/['\"]$//")
+        local new_val=$(merge_params "$current_val" "$params")
+        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_val\"|" /etc/default/grub
     fi
 
-    # Regenerate grub.cfg
-    run_step "Regenerating grub.cfg" sudo grub-mkconfig -o /boot/grub/grub.cfg || return 1
-
-    # Verify GRUB configuration
-    if grep -q '^GRUB_DEFAULT=saved' /etc/default/grub && grep -q '^GRUB_SAVEDEFAULT=true' /etc/default/grub; then
-      log_success "GRUB configured to remember the last chosen boot entry"
-    else
-      log_warning "GRUB save default configuration may be incomplete"
-    fi
-}
-
-# --- Secure Boot / UKI Configuration ---
-configure_secure_boot() {
-    step "Configuring Secure Boot (sbctl)"
-
-    if ! command -v sbctl >/dev/null 2>&1; then
-        run_step "Installing sbctl for Secure Boot management" sudo pacman -S --noconfirm --needed sbctl
-    fi
-
-    # Optimize Kernel Parameters in /etc/kernel/cmdline (Primarily for UKI)
-    if [ -f "/etc/kernel/cmdline" ] && [ "$(detect_uki)" = "true" ]; then
-        log_info "Checking kernel parameters in /etc/kernel/cmdline..."
-        local current_cmdline=$(cat /etc/kernel/cmdline)
-        local new_cmdline="$current_cmdline"
-        local modified=false
-
-        # Add parameters if missing
-        if [[ ! "$new_cmdline" =~ "quiet" ]]; then
-            new_cmdline="$new_cmdline quiet"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "loglevel=3" ]]; then
-            new_cmdline="$new_cmdline loglevel=3"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "systemd.show_status=auto" ]]; then
-            new_cmdline="$new_cmdline systemd.show_status=auto"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "rd.udev.log_level=3" ]]; then
-            new_cmdline="$new_cmdline rd.udev.log_level=3"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "splash" ]]; then
-            new_cmdline="$new_cmdline splash"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "vt.global_cursor_default=0" ]]; then
-            new_cmdline="$new_cmdline vt.global_cursor_default=0"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "plymouth.ignore-serial-consoles" ]]; then
-            new_cmdline="$new_cmdline plymouth.ignore-serial-consoles"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "rd.systemd.show_status=auto" ]]; then
-            new_cmdline="$new_cmdline rd.systemd.show_status=auto"
-            modified=true
-        fi
-        if [[ ! "$new_cmdline" =~ "udev.log_priority=3" ]]; then
-            new_cmdline="$new_cmdline udev.log_priority=3"
-            modified=true
-        fi
-
-        if [ "$modified" = "true" ]; then
-            echo "$new_cmdline" | sudo tee /etc/kernel/cmdline >/dev/null
-            log_success "Updated /etc/kernel/cmdline with optimized parameters"
-        else
-            log_info "Kernel parameters already optimized."
-        fi
-    fi
-
-    # Ensure presets are configured if UKIs are present (prevents stale images)
-    if [ "$(detect_uki)" = "true" ]; then
-        local boot_mount=$(detect_boot_mount)
-        local presets_updated=false
-
-        for preset in /etc/mkinitcpio.d/*.preset; do
-            if [ -f "$preset" ] && ! grep -q "^default_uki=" "$preset"; then
-                local k_name=$(basename "$preset" .preset)
-                local uki_path="${boot_mount}/EFI/Linux/arch-${k_name}.efi"
-
-                # If the file exists but isn't in preset, mkinitcpio won't update it
-                if [ -f "$uki_path" ]; then
-                    log_info "Configuring $preset to update detected UKI..."
-                    echo -e "\ndefault_uki=\"$uki_path\"" | sudo tee -a "$preset" >/dev/null
-                    presets_updated=true
-                fi
+    log_info "Regenerating GRUB config..."
+    
+    case "$DISTRO_ID" in
+        arch)
+            sudo grub-mkconfig -o /boot/grub/grub.cfg
+            ;;
+        debian|ubuntu)
+            sudo update-grub
+            ;;
+        fedora)
+            if [ -d /sys/firmware/efi ]; then
+                sudo grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg
+            else
+                sudo grub2-mkconfig -o /boot/grub2/grub.cfg
             fi
-        done
+            ;;
+    esac
+}
 
-        if [ "$presets_updated" = "true" ]; then
-            log_success "Updated mkinitcpio presets to ensure UKIs are rebuilt"
+# --- Arch Specifics (Secure Boot / systemd-boot) ---
+configure_arch_boot() {
+    if [ "$DISTRO_ID" != "arch" ]; then return; fi
+    
+    # Check for systemd-boot
+    if [ -d "/boot/loader/entries" ]; then
+        step "Configuring systemd-boot (Arch)"
+        # (Simplified from original: just ensure loader.conf exists)
+        if [ ! -f /boot/loader/loader.conf ]; then
+             echo "default @saved" | sudo tee /boot/loader/loader.conf
+             echo "timeout 3" | sudo tee -a /boot/loader/loader.conf
         fi
     fi
-
-    if [ "$(detect_uki)" = "true" ]; then
-        log_info "UKI detected."
-    else
-        log_info "Standard bootloader detected. Secure Boot will sign existing binaries."
-    fi
-
-    log_info "Secure Boot can be managed with 'sbctl'."
-    log_info "If you have Windows 11 dual-boot, ensure you enroll Microsoft keys."
-    log_info "You can check status with: sudo sbctl status"
-
-    # Check if secure boot is enabled (informational)
-    if command -v sbctl >/dev/null 2>&1; then
-        if sudo sbctl status 2>/dev/null | grep -q "Secure Boot:.*Enabled"; then
-            log_success "Secure Boot is currently ENABLED."
-        else
-            log_warning "Secure Boot is currently DISABLED or in Setup Mode."
-            log_info "To set up: sudo sbctl create-keys && sudo sbctl enroll-keys -m"
-        fi
-
+    
+    # Secure Boot (sbctl)
+    if [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
+         step "Configuring Secure Boot (sbctl)"
+         if ! command -v sbctl >/dev/null; then
+             sudo pacman -S --noconfirm sbctl
+         fi
+         # Just verify status, don't auto-sign blindly in universal script unless requested
+         sudo sbctl status
     fi
 }
 
-# --- GPU Driver Installation ---
-detect_and_install_gpu_drivers() {
-  step "Detecting and installing graphics drivers"
-  local lspci_out
-  lspci_out=$(lspci)
-
-  if echo "$lspci_out" | grep -Eiq 'vga.*amd|3d.*amd|display.*amd'; then
-    echo -e "${CYAN}AMD GPU detected. Installing AMD drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa xf86-video-amdgpu vulkan-radeon lib32-vulkan-radeon libva-mesa-driver lib32-libva-mesa-driver
-    log_success "AMD drivers and Vulkan support installed"
-    log_info "AMD GPU will use AMDGPU driver after reboot"
-  elif echo "$lspci_out" | grep -Eiq 'vga.*intel|3d.*intel|display.*intel'; then
-    echo -e "${CYAN}Intel GPU detected. Installing Intel drivers and Vulkan support...${RESET}"
-    install_packages_quietly mesa vulkan-intel lib32-vulkan-intel libva-mesa-driver lib32-libva-mesa-driver
-    log_success "Intel drivers and Vulkan support installed"
-    log_info "Intel GPU will use i915 or xe driver after reboot"
-  elif echo "$lspci_out" | grep -qi nvidia; then
-    echo -e "${YELLOW}NVIDIA GPU detected.${RESET}"
-
-    # Get PCI ID and map to family
-    # Improved NVIDIA detection and package selection for robustness
-    # We prefer DKMS modules for robustness across kernel updates (linux, linux-lts, etc.)
-
-    if echo "$lspci_out" | grep -Eiq 'RTX|Turing|Ampere|Lovelace|Ada|Hopper|TU|GA|AD'; then
-      # Modern cards (Turing and newer)
-      # While open modules exist, proprietary DKMS is currently more robust/feature-complete for general use
-      nvidia_family="Turing or newer"
-      nvidia_pkg="nvidia-dkms nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(proprietary DKMS, recommended for stability)"
-
-    elif echo "$lspci_out" | grep -Eiq 'GTX 9|GTX 10|Maxwell|Pascal|GM|GP'; then
-      # Maxwell/Pascal series
-      nvidia_family="Maxwell/Pascal"
-      nvidia_pkg="nvidia-dkms nvidia-utils lib32-nvidia-utils"
-      nvidia_note="(proprietary DKMS, recommended for Maxwell/Pascal)"
-
-    else
-      # Fallback check: if it's a very old card or we can't identify it easily.
-      # Check if it supports the main driver by assuming it might unless proven legacy.
-      # For absolute safety on unknown cards, nouveau is the safest "bootable" option,
-      # but performance is poor.
-
-      nvidia_family="Legacy or Unknown"
-      nvidia_pkg="nouveau"
-      nvidia_note="(legacy/unknown, defaulting to Nouveau for safety)"
-
-      if echo "$lspci_out" | grep -Eiq 'GK|Kepler|GTX 6|GTX 7'; then
-           nvidia_family="Kepler (Legacy)"
-      fi
+# --- Main ---
+main() {
+    # Detect bootloader type roughly
+    if [ -d /sys/firmware/efi ]; then
+        log_info "UEFI System detected."
     fi
 
-    echo -e "${CYAN}Detected NVIDIA family: $nvidia_family $nvidia_note${RESET}"
-
-    if [[ "$nvidia_pkg" == "nouveau" ]]; then
-      echo -e "${YELLOW}Your NVIDIA GPU seems legacy or wasn't positively identified as modern.${RESET}"
-      echo -e "${YELLOW}Installing open-source Nouveau drivers for safety.${RESET}"
-      echo -e "${YELLOW}If you have a Maxwell+ card (GTX 900+), consider installing 'nvidia-dkms' manually.${RESET}"
-      install_packages_quietly mesa xf86-video-nouveau vulkan-nouveau lib32-vulkan-nouveau
-      log_success "Nouveau drivers installed."
-    else
-      echo -e "${CYAN}Installing: $nvidia_pkg${RESET}"
-      install_packages_quietly $nvidia_pkg
-      log_success "NVIDIA drivers installed."
+    # Configure GRUB if present
+    if command -v grub-mkconfig >/dev/null || command -v update-grub >/dev/null || command -v grub2-mkconfig >/dev/null; then
+        configure_grub
     fi
-    return
-  else
-    echo -e "${YELLOW}No AMD, Intel, or NVIDIA GPU detected. Installing basic Mesa drivers only.${RESET}"
-    install_packages_quietly mesa
-  fi
 
-  # Verify GPU driver is loaded
-  verify_gpu_driver
+    # Run Arch specifics
+    configure_arch_boot
 }
 
-# Function to verify GPU driver is loaded correctly
-verify_gpu_driver() {
-  step "Verifying GPU driver installation"
-  local lspci_k_out
-  lspci_k_out=$(lspci -k)
-
-  # Check which driver is in use
-  if echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -iq 'Kernel driver in use'; then
-    log_info "GPU driver status:"
-    echo "$lspci_k_out" | grep -A 3 -iE 'vga|3d|display' | grep -E 'VGA|3D|Display|Kernel driver'
-    log_success "GPU driver is loaded and in use"
-  else
-    log_warning "Could not verify GPU driver status"
-    log_info "Run 'lspci -k | grep -A 3 -iE \"vga|3d|display\"' after reboot to check driver"
-  fi
-
-  # Check for Vulkan support
-  if command -v vulkaninfo >/dev/null 2>&1; then
-      if vulkaninfo --summary 2>/dev/null | grep -q "deviceName"; then
-          log_success "Vulkan support detected"
-      else
-          log_warning "Vulkan support issues detected (vulkaninfo ran but no deviceName)"
-      fi
-  fi
-}
-
-# --- Early KMS Configuration ---
-configure_early_kms() {
-  log_info "Configuring Early KMS/GPU Drivers..."
-  local mkinitcpio_conf="/etc/mkinitcpio.conf"
-  local gpu_modules=""
-
-  # Ensure lspci (pciutils) is installed
-  if ! command -v lspci >/dev/null; then
-    log_info "Installing pciutils for GPU detection..."
-    if ! sudo pacman -S --noconfirm pciutils >/dev/null 2>&1; then
-      log_error "Failed to install pciutils. Cannot detect GPU."
-      return 1
-    fi
-  fi
-
-  # Check for virtualization first to avoid loading physical drivers (like nvidia) in VMs
-  local virt_type=""
-  if command -v systemd-detect-virt >/dev/null; then
-      virt_type=$(systemd-detect-virt || true)
-  fi
-
-  if [ -n "$virt_type" ] && [ "$virt_type" != "none" ]; then
-      log_info "Virtualization detected ($virt_type). Checking for virtual GPU drivers..."
-      if lspci | grep -i "VGA" | grep -i "Virtio" >/dev/null; then
-          gpu_modules="virtio-gpu"
-      elif lspci | grep -i "VGA" | grep -i "QXL" >/dev/null; then
-          gpu_modules="qxl"
-      elif lspci | grep -i "VGA" | grep -i "VMware" >/dev/null; then
-          gpu_modules="vmwgfx"
-      elif lspci | grep -i "VGA" | grep -i "InnoTek" >/dev/null; then
-          gpu_modules="vboxvideo"
-      else
-          log_info "No specific virtual GPU detected. Skipping Early KMS modules for VM."
-      fi
-  else
-      # Physical Hardware Detection
-      log_info "Checking for physical GPU..."
-      if lspci | grep -i "VGA" | grep -i "Intel" >/dev/null; then
-        log_info "Detected Intel GPU."
-        gpu_modules="i915"
-      elif lspci | grep -i "VGA" | grep -i "AMD" >/dev/null || lspci | grep -i "VGA" | grep -i "ATI" >/dev/null; then
-        log_info "Detected AMD GPU."
-        gpu_modules="amdgpu"
-      elif lspci | grep -i "VGA" | grep -i "NVIDIA" >/dev/null; then
-        log_info "Detected NVIDIA GPU."
-        gpu_modules="nvidia nvidia_modeset nvidia_uvm nvidia_drm"
-      fi
-  fi
-
-  if [ -n "$gpu_modules" ]; then
-    log_info "Target modules: $gpu_modules"
-
-    # Read current modules
-    local current_modules
-    current_modules=$(grep "^MODULES=" "$mkinitcpio_conf" | sed 's/MODULES=(\(.*\))/\1/')
-
-    # Check if modules are already present
-    local modules_to_add=""
-    for mod in $gpu_modules; do
-      if ! echo "$current_modules" | grep -q "$mod"; then
-        modules_to_add="$modules_to_add $mod"
-      fi
-    done
-
-    if [ -n "$modules_to_add" ]; then
-      log_info "Adding modules to mkinitcpio.conf: $modules_to_add"
-      # Cleanly insert modules into the array
-      sudo sed -i "s/^MODULES=(\(.*\))/MODULES=(\1 $modules_to_add)/" "$mkinitcpio_conf"
-      # Remove double spaces if any
-      sudo sed -i "s/  / /g" "$mkinitcpio_conf"
-      log_success "Early KMS modules configured."
-      return 0
-    else
-      log_info "Early KMS modules already present in configuration."
-    fi
-  else
-    log_info "No specific GPU modules detected to add."
-  fi
-  return 0
-}
-
-# --- Console Font Setup ---
-setup_console_font() {
-    run_step "Installing console font" sudo pacman -S --noconfirm --needed terminus-font
-    run_step "Configuring /etc/vconsole.conf" bash -c "(grep -q '^FONT=' /etc/vconsole.conf 2>/dev/null && sudo sed -i 's/^FONT=.*/FONT=ter-v16n/' /etc/vconsole.conf) || echo 'FONT=ter-v16n' | sudo tee -a /etc/vconsole.conf >/dev/null"
-}
-
-# --- Main execution ---
-
-# 1. Setup Configurations (Font, UKI Params, SBCTL)
-
-# Install GPU drivers first so modules are available for Early KMS
-detect_and_install_gpu_drivers
-
-if ! run_step "Configuring Early KMS Modules" configure_early_kms; then
-    log_warning "Early KMS configuration encountered issues."
-fi
-
-setup_console_font
-
-if [ "$(detect_uki)" = "true" ] || [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
-    if [ "$(detect_uki)" = "true" ]; then
-        log_info "Unified Kernel Image (UKI) setup detected."
-    else
-        log_info "Secure Boot setup requested via flag."
-    fi
-    configure_secure_boot
-fi
-
-# 2. Build Images (Consumes Font, Plymouth Config, UKI Params)
-# This serves as the single source of truth for initramfs/UKI generation.
-run_step "Rebuilding initramfs / Generating UKI" sudo mkinitcpio -P
-
-# 3. Configure Bootloader Entries (GRUB/Systemd-boot)
-# Runs after build to ensure it sees generated files (and cleans up fallbacks if configured to do so)
-if [ "$BOOTLOADER" = "grub" ]; then
-    configure_grub
-elif [ "$BOOTLOADER" = "systemd-boot" ]; then
-    configure_boot
-elif [ "$(detect_uki)" != "true" ]; then
-    log_warning "No bootloader detected or bootloader is unsupported. Defaulting to systemd-boot configuration."
-    configure_boot
-fi
-
-# 4. Sign Boot Files (Must happen AFTER build)
-if [ "$(detect_uki)" = "true" ] || [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
-    if command -v sbctl >/dev/null 2>&1; then
-        if sudo sbctl verify 2>/dev/null | grep -q "not signed"; then
-             log_warning "Files need signing."
-             if [ -f /var/lib/sbctl/keys/db.key ] || [ -f /etc/secureboot/keys/db.key ]; then
-                 run_step "Signing all boot files" sudo sbctl sign-all
-             else
-                 log_info "No keys found. Please generate keys manually: sudo sbctl create-keys && sudo sbctl enroll-keys -m"
-             fi
-        fi
-    fi
-fi
+main "$@"

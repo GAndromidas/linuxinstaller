@@ -21,7 +21,7 @@ cleanup_and_optimize() {
 
 setup_maintenance() {
   step "Performing comprehensive system cleanup"
-  run_step "Cleaning pacman cache" sudo pacman -Sc --noconfirm
+  run_step "Cleaning pacman cache" $PKG_CLEAN
 
   # Robust yay cache cleanup:
   # - Only attempt to use yay if present
@@ -395,7 +395,7 @@ setup_systemd_boot() {
       sudo cp "$TEMPLATE" "${TEMPLATE}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
 
       sudo cp "$TEMPLATE" "$LTS_ENTRY"
-      sudo sed -i 's/^title .*/title Arch Linux (LTS Kernel)/' "$LTS_ENTRY"
+      sudo sed -i 's/^title .*/title Linux (LTS Kernel)/' "$LTS_ENTRY"
       sudo sed -i 's|vmlinuz-linux\>|vmlinuz-linux-lts|g' "$LTS_ENTRY"
       sudo sed -i 's|initramfs-linux\.img|initramfs-linux-lts.img|g' "$LTS_ENTRY"
       sudo sed -i 's|initramfs-linux-fallback\.img|initramfs-linux-lts-fallback.img|g' "$LTS_ENTRY"
@@ -640,13 +640,13 @@ setup_btrfs_snapshots() {
     echo -e "${CYAN}How to use:${RESET}"
     echo -e "  • View snapshots: ${YELLOW}sudo snapper list${RESET}"
     if [ "$BOOTLOADER" = "grub" ]; then
-      echo -e "  • Boot snapshots: Select 'Arch Linux snapshots' in GRUB menu"
+      echo -e "  • Boot snapshots: Select 'Snapshots' in GRUB menu"
       echo -e "  • GRUB auto-updates when new snapshots are created"
     fi
     echo -e "  • Restore via GUI: Launch 'btrfs-assistant'"
     echo -e "  • Check maintenance timers: ${YELLOW}systemctl list-timers 'btrfs-*'${RESET}"
     echo -e "  • View maintenance config: ${YELLOW}cat /etc/default/btrfsmaintenance${RESET}"
-    echo -e "  • Emergency fallback: Boot 'Arch Linux (LTS Kernel)'"
+    echo -e "  • Emergency fallback: Boot 'Linux (LTS Kernel)'"
     echo -e "  • Snapshots stored in: ${YELLOW}/.snapshots/${RESET}"
     echo ""
     echo -e "${CYAN}btrfs-assistant Maintenance tab:${RESET}"
@@ -662,7 +662,7 @@ setup_btrfs_snapshots() {
 
 # Function to secure boot partition permissions
 # This fixes the common issue where ESP (FAT32) partitions have insecure permissions
-# Reference: Arch Linux Wiki - EFI System Partition security
+# Reference: Linux Wiki - EFI System Partition security
 secure_boot_permissions() {
   step "Securing boot partition permissions"
 

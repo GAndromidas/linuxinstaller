@@ -1,12 +1,12 @@
 #!/bin/bash
 set -uo pipefail
 
-# Gaming and performance tweaks installation for Arch Linux
+# Gaming and performance tweaks installation
 # Get the directory where this script is located, resolving symlinks
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-ARCHINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONFIGS_DIR="$ARCHINSTALLER_ROOT/configs"
+LINUXINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIGS_DIR="$LINUXINSTALLER_ROOT/configs"
 GAMING_YAML="$CONFIGS_DIR/gaming_mode.yaml"
 
 source "$SCRIPT_DIR/common.sh"

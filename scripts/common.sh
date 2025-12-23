@@ -46,7 +46,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"  # Script director
 CONFIGS_DIR="$SCRIPT_DIR/configs"                           # Config files directory
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"                           # Custom scripts directory
 
-HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch flatpak fzf git openssh pacman-contrib plymouth rsync ufw zoxide)  # Helper utilities to install
+# HELPER_UTILS defined in distro_check.sh
 
 # : "${INSTALL_MODE:=default}"
 
@@ -54,7 +54,7 @@ HELPER_UTILS=(base-devel bc bluez-utils cronie curl eza fastfetch flatpak fzf gi
 : "${HOME:=/home/$USER}"
 : "${USER:=$(whoami)}"
 : "${XDG_CURRENT_DESKTOP:=}"
-: "${INSTALL_LOG:=$HOME/.archinstaller.log}"
+: "${INSTALL_LOG:=$HOME/.linuxinstaller.log}"
 
 # Helper: detect whether Plymouth is fully configured end-to-end.
 # Returns 0 when:
@@ -368,14 +368,14 @@ figlet_banner() {
   fi
 }
 
-arch_ascii() {
+linux_ascii() {
   echo -e "${BLUE}"
   cat << "EOF"
-      _             _     ___           _        _ _
-     / \   _ __ ___| |__ |_ _|_ __  ___| |_ __ _| | | ___ _ __
-    / _ \ | '__/ __| '_ \ | || '_ \/ __| __/ _` | | |/ _ \ '__|
-   / ___ \| | | (__| | | || || | | \__ \ || (_| | | |  __/ |
-  /_/   \_\_|  \___|_| |_|___|_| |_|___/\__\__,_|_|_|\___|_|
+   _     _                  ___           _        _ _
+  | |   (_)_ __  _   ___   |_ _|_ __  ___| |_ __ _| | | ___ _ __
+  | |   | | "_ \| | | \ \/ /| || "_ \/ __| __/ _` | | |/ _ \ "__|
+  | |___| | | | | |_| |>  < | || | | \__ \ || (_| | | |  __/ |
+  |_____|_|_| |_|\__,_/_/\_\___|_| |_|___/\__\__,_|_|_|\___|_|
 
 EOF
   echo -e "${RESET}"
@@ -449,7 +449,7 @@ show_menu() {
 }
 
 show_gum_menu() {
-  gum style --margin "1 0" --foreground 226 "This script will transform your fresh Arch Linux installation into a"
+  gum style --margin "1 0" --foreground 226 "This script will transform your fresh Linux installation into a"
   gum style --margin "0 0 1 0" --foreground 226 "fully configured, optimized system with all the tools you need!"
 
   local choice=$(gum choose --cursor="-> " --selected.foreground 51 --cursor.foreground 51 \
@@ -487,7 +487,7 @@ show_traditional_menu() {
   echo -e "${CYAN}----------------------------------------------------------------${RESET}"
   echo -e "${CYAN}WELCOME TO ARCH INSTALLER${RESET}"
   echo -e "${CYAN}----------------------------------------------------------------${RESET}"
-  echo -e "${YELLOW}This script will transform your fresh Arch Linux installation into a${RESET}"
+  echo -e "${YELLOW}This script will transform your fresh Linux installation into a${RESET}"
   echo -e "${YELLOW}fully configured, optimized system with all the tools you need!${RESET}"
   echo ""
   echo -e "${CYAN}Choose your installation mode:${RESET}"
@@ -974,8 +974,30 @@ install_package_generic() {
 # Function: install_packages_quietly
 # Description: Install packages via pacman (wrapper for generic installer)
 # Parameters: $@ - Packages to install
+# Override install_packages_quietly for multi-distro support
 install_packages_quietly() {
-  install_package_generic "pacman" "$@"
+    local packages=("$@")
+    if [ ${#packages[@]} -eq 0 ]; then return 0; fi
+    
+    # Use global PKG_INSTALL if defined, else fallback to pacman
+    local cmd="${PKG_INSTALL:-sudo pacman -S --needed}"
+    local opts="${PKG_NOCONFIRM:-}"
+    
+    local final_packages=()
+    for pkg in "${packages[@]}"; do
+        # Use the resolver logic
+        if command -v resolve_package_name >/dev/null; then
+             local mapped=$(resolve_package_name "$pkg")
+             [ -n "$mapped" ] && final_packages+=($mapped)
+        else
+             final_packages+=("$pkg")
+        fi
+    done
+    
+    if [ ${#final_packages[@]} -eq 0 ]; then return 0; fi
+
+    # Just run the install command
+    $cmd $opts "${final_packages[@]}" >/dev/null 2>&1
 }
 
 # Batch install helper for multiple package groups
@@ -1086,7 +1108,7 @@ gum_confirm() {
 
 prompt_reboot() {
   figlet_banner "Reboot System"
-  echo -e "${YELLOW}Congratulations! Your Arch Linux system is now fully configured!${RESET}"
+  echo -e "${YELLOW}Congratulations! Your Linux system is now fully configured!${RESET}"
   echo ""
   echo -e "${CYAN}What happens after reboot:${RESET}"
   echo -e "  - Boot screen will appear"
@@ -1095,88 +1117,63 @@ prompt_reboot() {
   echo -e "  - Performance optimizations will be enabled"
   echo -e "  - Gaming tools will be available (if installed)"
   echo ""
-  echo -e "${YELLOW}It is strongly recommended to reboot now to apply all changes.${RESET}"
-  echo ""
 
-  # Use gum menu for reboot confirmation if available
-  if command -v gum >/dev/null 2>&1; then
-    echo ""
-    gum style --foreground 226 "Ready to reboot your system?"
-    echo ""
-    if gum confirm --default=true "Reboot now?"; then
+  local REBOOT_CHOICE=0
+  if supports_gum; then
+    if gum confirm --default=true "Reboot system now?"; then
       REBOOT_CHOICE=1
     else
       REBOOT_CHOICE=0
     fi
   else
-    # Fallback to text prompt if gum is not available
     while true; do
-      read -r -p "$(echo -e "${YELLOW}Reboot now? [Y/n]: ${RESET}")" reboot_ans
-      reboot_ans=${reboot_ans,,}
-      case "$reboot_ans" in
-        ""|y|yes)
-          REBOOT_CHOICE=1
-          break
-          ;;
-        n|no)
-          REBOOT_CHOICE=0
-          break
-          ;;
+      read -r -p "Reboot now? [Y/n]: " yn
+      case $yn in
+        [Yy]*|"" ) REBOOT_CHOICE=1; break;;
+        [Nn]* ) REBOOT_CHOICE=0; break;;
+        * ) echo "Please answer yes or no.";;
       esac
     done
   fi
 
-  # Remove only the helper packages that this installer installed
+  # Remove helpers installed by the script
   local TO_REMOVE=()
-  if [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ]; then
-    if pacman -Q figlet &>/dev/null || command -v figlet >/dev/null 2>&1; then
-      TO_REMOVE+=("figlet")
-    fi
-  fi
-  if [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ]; then
-    if pacman -Q gum &>/dev/null || command -v gum >/dev/null 2>&1; then
-      TO_REMOVE+=("gum")
-    fi
-  fi
-  if [ "${YQ_INSTALLED_BY_SCRIPT:-false}" = true ]; then
-    if pacman -Q yq &>/dev/null || command -v yq >/dev/null 2>&1; then
-      TO_REMOVE+=("yq")
-    fi
-  fi
+  [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ] && TO_REMOVE+=("figlet")
+  [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ] && TO_REMOVE+=("gum")
+  [ "${YQ_INSTALLED_BY_SCRIPT:-false}" = true ] && TO_REMOVE+=("yq")
 
   if [ ${#TO_REMOVE[@]} -gt 0 ]; then
-    # Remove without prompting and suppress output
-    sudo pacman -Rns --noconfirm "${TO_REMOVE[@]}" >/dev/null 2>&1 || true
-    # Record removal
-    log_to_file "INFO: Removed temporary helpers: ${TO_REMOVE[*]}"
+    log_to_file "Removing temporary helpers: ${TO_REMOVE[*]}"
+    for tool in "${TO_REMOVE[@]}"; do
+        if [ "$tool" == "figlet" ]; then
+             $PKG_REMOVE $PKG_NOCONFIRM figlet >/dev/null 2>&1 || true
+        elif [ "$tool" == "gum" ]; then
+             if [ "$DISTRO_ID" == "arch" ]; then
+                 $PKG_REMOVE $PKG_NOCONFIRM gum >/dev/null 2>&1 || true
+             else
+                 sudo rm -f /usr/local/bin/gum
+             fi
+        elif [ "$tool" == "yq" ]; then
+             if [ "$DISTRO_ID" == "arch" ]; then
+                 $PKG_REMOVE $PKG_NOCONFIRM yq >/dev/null 2>&1 || true
+             else
+                 sudo rm -f /usr/local/bin/yq
+             fi
+        fi
+    done
   fi
 
-  # Perform reboot or skip based on choice
-  if [ "${REBOOT_CHOICE:-0}" -eq 1 ]; then
-    echo ""
-    echo -e "${CYAN}Rebooting your system...${RESET}"
-    echo -e "${YELLOW}Thank you for using Arch Installer!${RESET}"
-    echo ""
-    sleep 2
+  if [ "$REBOOT_CHOICE" -eq 1 ]; then
+    echo -e "${CYAN}Rebooting...${RESET}"
     sudo reboot
   else
-    echo ""
-    echo -e "${YELLOW}Reboot skipped. You can reboot manually at any time using:${RESET}"
-    echo -e "${CYAN}   sudo reboot${RESET}"
-    echo -e "${YELLOW}   Or simply restart your computer.${RESET}"
+    echo -e "${YELLOW}Please reboot manually: sudo reboot${RESET}"
   fi
 
-  echo ""
-  # Cleanup if no errors occurred
   if [ ${#ERRORS[@]} -eq 0 ]; then
-    # Optional cleanup that doesn't destroy the repo
-    # gum_confirm handles fallback if gum was removed
     if gum_confirm "Do you want to clean up temporary logs?" "This will remove the installation log and state file."; then
-      echo -e "${CYAN}Cleaning up temporary files...${RESET}"
       rm -f "$STATE_FILE" "$INSTALL_LOG" 2>/dev/null || true
-      echo -e "${GREEN}✓ Temporary files cleaned up${RESET}"
-    else
-      echo -e "${CYAN}Skipping cleanup.${RESET}"
+      echo -e "${GREEN}Cleanup complete${RESET}"
     fi
   fi
 }
@@ -1369,4 +1366,31 @@ check_and_enable_multilib() {
     log_success "Multilib repository is enabled and synced."
   fi
   return 0
+}
+
+# Override install_packages_quietly for multi-distro support
+# Override install_packages_quietly for multi-distro support
+install_packages_quietly() {
+    local packages=("$@")
+    if [ ${#packages[@]} -eq 0 ]; then return 0; fi
+    
+    # Use global PKG_INSTALL if defined, else fallback to pacman
+    local cmd="${PKG_INSTALL:-sudo pacman -S --needed}"
+    local opts="${PKG_NOCONFIRM:-}"
+    
+    local final_packages=()
+    for pkg in "${packages[@]}"; do
+        # Use the resolver logic
+        if command -v resolve_package_name >/dev/null; then
+             local mapped=$(resolve_package_name "$pkg")
+             [ -n "$mapped" ] && final_packages+=($mapped)
+        else
+             final_packages+=("$pkg")
+        fi
+    done
+    
+    if [ ${#final_packages[@]} -eq 0 ]; then return 0; fi
+
+    # Just run the install command
+    $cmd $opts "${final_packages[@]}" >/dev/null 2>&1
 }

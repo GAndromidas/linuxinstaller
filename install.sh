@@ -2,12 +2,12 @@
 set -uo pipefail
 
 # Installation log file
-INSTALL_LOG="$HOME/.archinstaller.log"
+INSTALL_LOG="$HOME/.linuxinstaller.log"
 
 # Function to show help
 show_help() {
   cat << EOF
-Archinstaller - Comprehensive Arch Linux Post-Installation Script
+LinuxInstaller - Unified Linux Post-Installation Script
 
 USAGE:
     ./install.sh [OPTIONS]
@@ -19,7 +19,7 @@ OPTIONS:
     -sb, --secure-boot Force UKI/Secure Boot setup configuration
 
 DESCRIPTION:
-    Archinstaller transforms a fresh Arch Linux installation into a fully
+    LinuxInstaller transforms a fresh Linux installation into a fully
     configured, optimized system. It installs essential packages, configures
     the desktop environment, sets up security features, and applies performance
     optimizations.
@@ -77,30 +77,60 @@ else
   exit 1
 fi
 
-# Ensure helper tools (figlet, gum, yq) are available for the UI.
-# Install them silently if missing and record that we installed them so they
-# can be removed before reboot.
-for tool in figlet gum yq; do
-  var_name="${tool^^}_INSTALLED_BY_SCRIPT"
-  declare -x "$var_name=false"
+# Source distro detection
+if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
+  source "$SCRIPTS_DIR/distro_check.sh"
+  detect_distro
+else
+  echo "Error: distro_check.sh not found in $SCRIPTS_DIR"
+  exit 1
+fi
 
+# Ensure helper tools (figlet, gum, yq)
+# Install them silently if missing
+for tool in figlet gum yq; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    if sudo pacman -S --noconfirm "$tool" >/dev/null 2>&1; then
-      export "$var_name=true"
-      log_to_file "INFO: Installed temporary helper: $tool (will remove before reboot)"
-    else
-      log_to_file "WARNING: Could not install $tool automatically"
-    fi
+      # Inline installation logic for robustness across distros
+      if [ "$tool" == "figlet" ]; then
+          $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1
+      elif [ "$tool" == "gum" ]; then
+          if [ "$DISTRO_ID" == "arch" ]; then
+              $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
+          else
+              # Binary install for others to avoid repo mess
+              ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
+              VER="0.13.0"
+              curl -L -s -o /tmp/gum.tar.gz "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.tar.gz"
+              tar -xzf /tmp/gum.tar.gz -C /tmp >/dev/null 2>&1
+              sudo mv /tmp/gum_${VER}_linux_${ARCH}/gum /usr/local/bin/gum >/dev/null 2>&1
+              rm -rf /tmp/gum*
+          fi
+      elif [ "$tool" == "yq" ]; then
+          if [ "$DISTRO_ID" == "arch" ]; then
+               $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
+          else
+               sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+               sudo chmod +x /usr/local/bin/yq
+          fi
+      fi
   fi
 done
 
 # Show ASCII banner and interactive menu (uses gum if available)
-# The functions `arch_ascii` and `show_menu` are defined in common.sh.
-arch_ascii
+# The functions `linux_ascii` and `show_menu` are defined in common.sh.
+
+setup_package_providers
+detect_de
+define_common_packages
+linux_ascii
 show_menu
 
+setup_package_providers
+detect_de
+define_common_packages
+
 # State tracking for step resume and idempotency
-STATE_FILE="$HOME/.archinstaller.state"
+STATE_FILE="$HOME/.linuxinstaller.state"
 mkdir -p "$(dirname "$STATE_FILE")"
 touch "$STATE_FILE" 2>/dev/null || true
 
@@ -190,10 +220,6 @@ check_system_requirements() {
   fi
 
   # Ensure Arch
-  if [[ ! -f /etc/arch-release ]]; then
-    ui_error "This script is designed for Arch Linux only."
-    exit 1
-  fi
 
   # Internet check: prefer reusable helper if available
   if declare -f check_internet_with_retry >/dev/null 2>&1; then
@@ -308,7 +334,7 @@ trap 'cleanup_on_exit' EXIT INT TERM
 # Initialize log
 START_TIME=$(date +%s)
 echo "==========================================" > "$INSTALL_LOG"
-echo "Archinstaller Installation Log" >> "$INSTALL_LOG"
+echo "LinuxInstaller Installation Log" >> "$INSTALL_LOG"
 echo "Started: $(date)" >> "$INSTALL_LOG"
 echo "==========================================" >> "$INSTALL_LOG"
 
@@ -332,7 +358,7 @@ check_system_requirements
 
 # Main Installation Loop
 
-print_header "Starting Arch Linux Installation" \
+print_header "Starting Linux Installation" \
   "This process will take approximately 10-20 minutes depending on your internet speed." \
   "You can safely leave this running - it will handle everything automatically!"
 
@@ -347,15 +373,15 @@ else
   ui_info "Step 1 (System Preparation) already completed - skipping"
 fi
 
-# Step 2: Yay Installation
+# Step 2: Universal Package Setup
 # Moved early so AUR packages are available for subsequent steps (like Plymouth themes)
-if ! is_step_complete "yay_installation"; then
-  print_step_header_with_timing 2 "$TOTAL_STEPS" "Yay Installation"
-  ui_info "Installing AUR helper for additional software..."
-  step "Yay Installation" && source "$SCRIPTS_DIR/yay.sh" || log_error "Yay installation failed"
-  mark_step_complete_with_progress "yay_installation"
+if ! is_step_complete "universal_setup"; then
+  print_step_header_with_timing 2 "$TOTAL_STEPS" "Universal Package Setup"
+  ui_info "Setting up AUR/Flatpak/Snap support..."
+  step "Universal Package Setup" && source "$SCRIPTS_DIR/setup_universal.sh" || log_error "Yay installation failed"
+  mark_step_complete_with_progress "universal_setup"
 else
-  ui_info "Step 2 (Yay Installation) already completed - skipping"
+  ui_info "Step 2 (Universal Package Setup) already completed - skipping"
 fi
 
 # Step 3: Shell Setup
@@ -399,7 +425,6 @@ else
 fi
 
 # Step 6: Bootloader and Kernel Configuration
-# Must run AFTER Programs (to detect new kernels)
 if ! is_step_complete "bootloader_config"; then
   print_step_header_with_timing 6 "$TOTAL_STEPS" "Bootloader and Kernel Configuration"
   ui_info "Configuring bootloader..."
@@ -457,7 +482,6 @@ else
   ui_info "Step 10 (Maintenance) already completed - skipping"
 fi
 
-# Final Summary / Installation Summary (modeled after archinstaller-4.2)
 echo ""
 echo "==========================================" >> "$INSTALL_LOG"
 echo "Installation ended: $(date)" >> "$INSTALL_LOG"

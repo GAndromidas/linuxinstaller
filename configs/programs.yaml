@@ -1,6 +1,7 @@
 # This file contains all package lists for different installation modes and desktop environments
 
-# Pacman packages (same for all installation modes)
+# Native packages (Pacman/APT/DNF)
+# Note: The script automatically maps common package names based on the detected distribution.
 pacman:
   packages:
     - name: "android-tools"
@@ -67,8 +68,6 @@ essential:
       description: "FTP client for file transfers"
     - name: "kdenlive"
       description: "Video editing software"
-    - name: "zed"
-      description: "High-performance multiplayer code editor"
 
   minimal:
     - name: "mpv"
@@ -126,9 +125,11 @@ essential:
     - name: "wakeonlan"
       description: "Utility to send Wake-on-LAN magic packets"
 
-# AUR packages for different installation modes
+# Universal packages (AUR on Arch, Snap/Flatpak on others)
 aur:
   default:
+    - name: "zed"
+      description: "High-performance multiplayer code editor"
     - name: "dropbox"
       description: "Cloud storage and file synchronization"
     - name: "onlyoffice-bin"
@@ -148,7 +149,7 @@ aur:
     - name: "rustdesk-bin"
       description: "Remote desktop software"
 
-# Desktop environment specific packages (used by all modes that detect a DE)
+# Desktop environment specific packages
 desktop_environments:
   kde:
     install:
@@ -233,9 +234,7 @@ flatpak:
       - name: "it.mijorus.gearlever"
         description: "System tray application launcher"
 
-# Custom packages (user-selectable additions beyond the base installation)
-# Add any packages here that you want to be optional choices for the 'Custom' mode.
-# These lists are for additional packages, not replacements.
+# Custom packages (user-selectable additions)
 custom:
   essential:
     - name: "filezilla"
@@ -244,10 +243,10 @@ custom:
       description: "Video editing software"
     - name: "solaar"
       description: "Device manager for Logitech's Unifying Receiver peripherals"
-    - name: "zed"
-      description: "High-performance multiplayer code editor"
 
   aur:
+    - name: "zed"
+      description: "High-performance multiplayer code editor"
     - name: "dropbox"
       description: "Cloud storage and file synchronization"
     - name: "onlyoffice-bin"
