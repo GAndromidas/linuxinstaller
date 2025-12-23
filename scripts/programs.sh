@@ -20,28 +20,22 @@ fi
 
 # --- Resolvers ---
 
-# Resolve Native Package Name
 resolve_native() {
     local key="$1"
     local distro="$DISTRO_ID"
-    
-    # 1. Check specific distro override
-    local val=$(yq -r ".mappings[\"$key\"].$distro // .mappings[\"$key\"].common" "$MAP_FILE")
+    local val=$(yq -r ".mappings[\"$key\"].$distro // .mappings[\"$key\"].common" "$MAP_FILE" 2>/dev/null)
     
     if [ "$val" == "null" ] || [ -z "$val" ]; then
-        # Default: assume the key is the package name
         echo "$key"
     else
         echo "$val"
     fi
 }
 
-# Resolve Universal ID (Flatpak/Snap)
 resolve_universal() {
     local key="$1"
     local type="$2" # flatpak or snap
-    
-    local val=$(yq -r ".mappings[\"$key\"].$type" "$MAP_FILE")
+    local val=$(yq -r ".mappings[\"$key\"].$type" "$MAP_FILE" 2>/dev/null)
     
     if [ "$val" != "null" ]; then
         echo "$val"
@@ -60,9 +54,7 @@ native_install() {
     
     for pkg in "${packages[@]}"; do
         local target=$(resolve_native "$pkg")
-        
         if [ -n "$target" ]; then
-            # Split in case mapping has multiple packages (e.g. adb fastboot)
             for sub_pkg in $target; do
                 if [ -n "$sub_pkg" ]; then
                     $PKG_INSTALL $PKG_NOCONFIRM "$sub_pkg" || log_warning "Failed to install $sub_pkg"
@@ -82,18 +74,20 @@ universal_install() {
         local clean_name="${pkg%-bin}"
         clean_name="${clean_name%-git}"
         
-        # 1. Try Native First (Arch AUR is native-ish via yay)
+        # Resolve native name first (e.g. vscode -> code)
+        local native_target=$(resolve_native "$clean_name")
+        
+        # 1. Try Native First
         if [ "$DISTRO_ID" == "arch" ]; then
+             # Arch: Use yay (handles Repo + AUR)
              if yay -S --noconfirm "$native_target"; then
-                 ui_success "Installed $pkg via AUR"
+                 ui_success "Installed $native_target via AUR/Pacman"
                  continue
              fi
         else
-        # Arch also uses resolved native names (e.g. vscode -> code)
-        local native_target=$(resolve_native "$clean_name")
-             local native_target=$(resolve_native "$clean_name")
+             # Non-Arch: Try native package manager
              if $PKG_INSTALL $PKG_NOCONFIRM "$native_target" >/dev/null 2>&1; then
-                 ui_success "Installed $clean_name natively"
+                 ui_success "Installed $native_target natively"
                  continue
              fi
         fi
@@ -102,9 +96,9 @@ universal_install() {
         local snap_id=$(resolve_universal "$clean_name" "snap")
         local flatpak_id=$(resolve_universal "$clean_name" "flatpak")
         
-        # Auto-detect if ID is missing but name works?
+        # Heuristics
         [ -z "$snap_id" ] && snap_id="$clean_name"
-        [ -z "$flatpak_id" ] && flatpak_id="$clean_name" # Only valid for search, not direct install usually
+        [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
         
         local installed=false
         
@@ -112,9 +106,11 @@ universal_install() {
         if [ "$PRIMARY_UNIVERSAL_PKG" == "snap" ]; then
              if [ -n "$snap_id" ] && sudo snap install "$snap_id"; then installed=true; fi
         elif [ "$PRIMARY_UNIVERSAL_PKG" == "flatpak" ]; then
-             # Check if we have a valid ID defined in map first, otherwise skip blind attempts to avoid errors
-             local real_flatpak=$(resolve_universal "$clean_name" "flatpak")
-             if [ -n "$real_flatpak" ] && flatpak install -y flathub "$real_flatpak"; then installed=true; fi
+             # Use resolver result if strict, or try heuristics if resolved name matches clean name (meaning unmapped)
+             local try_fp="$flatpak_id"
+             # If resolved id looks like a real ID (com.x.y) use it, else search flathub? 
+             # flatpak install flathub NAME usually works.
+             if flatpak install -y flathub "$try_fp"; then installed=true; fi
         fi
         
         # Backup Logic
@@ -122,8 +118,7 @@ universal_install() {
              if [ "$BACKUP_UNIVERSAL_PKG" == "snap" ]; then
                   if [ -n "$snap_id" ] && sudo snap install "$snap_id"; then installed=true; fi
              elif [ "$BACKUP_UNIVERSAL_PKG" == "flatpak" ]; then
-                  local real_flatpak=$(resolve_universal "$clean_name" "flatpak")
-                  if [ -n "$real_flatpak" ] && flatpak install -y flathub "$real_flatpak"; then installed=true; fi
+                  if flatpak install -y flathub "$flatpak_id"; then installed=true; fi
              fi
         fi
         
@@ -170,6 +165,7 @@ load_config() {
         
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".desktop_environments.$de_key.install[]" "$config_file")
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && FLATPAK_PACKAGES+=("$line"); done < <(yq -r ".flatpak.$de_key.$mode[].name" "$config_file")
+        while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && FLATPAK_PACKAGES+=("$line"); done < <(yq -r ".flatpak.generic.$mode[].name" "$config_file")
     fi
 }
 
