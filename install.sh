@@ -40,20 +40,20 @@ install_prerequisites() {
 
     if ! command -v figlet >/dev/null 2>&1; then
         log_info "figlet not found, installing silently..."
-        $PKG_INSTALL figlet >> "$INSTALL_LOG" 2>&1
+        $PKG_INSTALL $PKG_NOCONFIRM figlet >> "$INSTALL_LOG" 2>&1
         FIGLET_INSTALLED_BY_SCRIPT=true
     fi
 
     if ! command -v gum >/dev/null 2>&1; then
         log_info "gum not found, installing silently..."
-        $PKG_INSTALL gum >> "$INSTALL_LOG" 2>&1
+        $PKG_INSTALL $PKG_NOCONFIRM gum >> "$INSTALL_LOG" 2>&1
         GUM_INSTALLED_BY_SCRIPT=true
     fi
 
     if ! command -v yq >/dev/null 2>&1; then
         log_info "yq not found, installing silently..."
         if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
-             $PKG_INSTALL yq >> "$INSTALL_LOG" 2>&1
+             $PKG_INSTALL $PKG_NOCONFIRM yq >> "$INSTALL_LOG" 2>&1
         else
              ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
              sudo curl -sL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}"
@@ -68,16 +68,16 @@ cleanup_prerequisites() {
     log_info "Cleaning up script-installed tools..."
     if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then
         if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
-            $PKG_REMOVE yq >> "$INSTALL_LOG" 2>&1
+            $PKG_REMOVE $PKG_NOCONFIRM yq >> "$INSTALL_LOG" 2>&1
         else
             sudo rm -f /usr/local/bin/yq
         fi
     fi
     if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then
-        $PKG_REMOVE gum >> "$INSTALL_LOG" 2>&1
+        $PKG_REMOVE $PKG_NOCONFIRM gum >> "$INSTALL_LOG" 2>&1
     fi
     if [ "$FIGLET_INSTALLED_BY_SCRIPT" = true ]; then
-        $PKG_REMOVE figlet >> "$INSTALL_LOG" 2>&1
+        $PKG_REMOVE $PKG_NOCONFIRM figlet >> "$INSTALL_LOG" 2>&1
     fi
     log_success "Cleanup complete."
 }
@@ -105,7 +105,7 @@ install_packages() {
 
         local INSTALL_CMD=""
         case "$pkg_type" in
-            native) INSTALL_CMD="$PKG_INSTALL" ;;
+            native) INSTALL_CMD="$PKG_INSTALL $PKG_NOCONFIRM" ;;
             aur) INSTALL_CMD="yay -S --noconfirm" ;;
             snap) INSTALL_CMD="sudo snap install" ;;
             flatpak) INSTALL_CMD="flatpak install flathub -y" ;;
@@ -141,14 +141,12 @@ done
 
 # --- Environment Setup for Sub-Scripts ---
 log_info "Detecting distribution and setting up environment..."
-detect_distro
-setup_package_providers
-define_common_packages
+detect_distro # This sets DISTRO_ID, PRETTY_NAME, PKG_* vars etc.
 
 # Export variables so they are available to all child scripts
-export DISTRO_ID DISTRO_NAME PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
+export DISTRO_ID PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
 
-log_success "Environment ready. Detected Distro: $DISTRO_NAME"
+log_success "Environment ready. Detected Distro: $PRETTY_NAME"
 
 # Now that package managers are defined, install prerequisites
 install_prerequisites
@@ -156,7 +154,7 @@ install_prerequisites
 # --- User Interface ---
 figlet "LinuxInstaller" | gum style --foreground 212
 gum style --foreground 248 "Your friendly neighborhood post-install script."
-gum style --margin "1 0" --border double --padding "1" "Welcome! This script will guide you through setting up your new ${DISTRO_NAME} system."
+gum style --margin "1 0" --border double --padding "1" "Welcome! This script will guide you through setting up your new ${PRETTY_NAME} system."
 
 # Interactive Menu
 log_info "Please select an installation mode:"
