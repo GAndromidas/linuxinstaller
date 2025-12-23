@@ -19,7 +19,7 @@ check_prerequisites() {
     log_error "Do not run this script as root. Please run as a regular user with sudo privileges."
     return 1
   fi
-  
+
   # Basic internet check
   if ! ping -c 1 -W 5 google.com &>/dev/null; then
       log_error "No internet connection detected."
@@ -33,7 +33,7 @@ setup_extra_repos() {
     # Fedora: Enable RPMFusion
     if [ "$DISTRO_ID" == "fedora" ]; then
         step "Enabling RPMFusion Repositories"
-        
+
         # Check if enabled
         if ! dnf repolist | grep -q rpmfusion-free; then
             log_info "Installing RPMFusion Free & Non-Free..."
@@ -44,13 +44,13 @@ setup_extra_repos() {
         else
             log_info "RPMFusion already enabled."
         fi
-        
+
         # Enable Codecs (often needed)
         # sudo dnf groupupdate -y core
         # sudo dnf groupupdate -y multimedia --setop="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
         # sudo dnf groupupdate -y sound-and-video
     fi
-    
+
     # Debian/Ubuntu: Ensure contrib non-free (usually handled by user, but we can try)
     if [ "$DISTRO_ID" == "debian" ]; then
         # Check /etc/apt/sources.list for non-free-firmware (Bookworm+)
@@ -61,10 +61,10 @@ setup_extra_repos() {
 
 configure_package_manager() {
     step "Configuring package manager"
-    
+
     # Run repo setup first
     setup_extra_repos
-    
+
     if [ "$DISTRO_ID" == "arch" ]; then
         # Arch specific pacman configuration
         if [ -f /etc/pacman.conf ]; then
@@ -76,12 +76,12 @@ configure_package_manager() {
         else
             sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
         fi
-        
+
         if grep -q "^#Color" /etc/pacman.conf; then
             sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
             fi
         fi
-        
+
         # Initialize keyring if needed
         if [ -d /etc/pacman.d ] && [ ! -d /etc/pacman.d/gnupg ] && command -v pacman-key >/dev/null; then
              sudo pacman-key --init 2>/dev/null || true
@@ -89,12 +89,18 @@ configure_package_manager() {
         fi
     elif [ "$DISTRO_ID" == "fedora" ]; then
         # Fedora optimization
-        if ! grep -q "max_parallel_downloads" /etc/dnf/dnf.conf; then
-            echo "max_parallel_downloads=10" | sudo tee -a /etc/dnf/dnf.conf
-        fi
-        if ! grep -q "fastestmirror" /etc/dnf/dnf.conf; then
-            echo "fastestmirror=True" | sudo tee -a /etc/dnf/dnf.conf
-        fi
+        log_info "Optimizing DNF configuration..."
+
+        # Configure DNF for speed and usability
+        for opt in "max_parallel_downloads=10" "fastestmirror=True" "defaultyes=True"; do
+            key=$(echo "$opt" | cut -d= -f1)
+            if grep -q "^$key" /etc/dnf/dnf.conf; then
+                sudo sed -i "s/^$key.*/$opt/" /etc/dnf/dnf.conf
+            else
+                echo "$opt" | sudo tee -a /etc/dnf/dnf.conf >/dev/null
+            fi
+        done
+        log_success "DNF configuration updated (parallel downloads, fastest mirror, default yes)"
     fi
 }
 
@@ -109,13 +115,13 @@ update_system() {
 
 set_sudo_pwfeedback() {
   step "Enabling sudo password feedback (asterisks)"
-  
+
   # Check if pwfeedback is already enabled
   if sudo grep -q '^Defaults.*pwfeedback' /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
     log_info "sudo password feedback already enabled. Skipping."
     return 0
   fi
-  
+
   # Enable password feedback (asterisks when typing password)
   if echo 'Defaults env_reset,pwfeedback' | sudo EDITOR='tee -a' visudo >/dev/null 2>&1; then
     log_success "sudo password feedback enabled (asterisks will show when typing password)"
@@ -126,7 +132,7 @@ set_sudo_pwfeedback() {
 
 detect_and_install_solaar() {
   step "Detecting Logitech mouse and installing Solaar"
-  
+
   # Check if lsusb is available, install usbutils if needed
   if ! command -v lsusb >/dev/null 2>&1; then
     log_info "lsusb not available. Installing usbutils to detect Logitech devices..."
@@ -134,11 +140,11 @@ detect_and_install_solaar() {
     # Wait a moment for usbutils to be available
     sleep 1
   fi
-  
+
   # Detect Logitech devices (vendor ID 046d)
   # Logitech vendor ID is 046d, we check for any Logitech USB device
   local logitech_detected=false
-  
+
   # Method 1: Check via lsusb
   if command -v lsusb >/dev/null 2>&1; then
     # Check for Logitech vendor ID (046d) in lsusb output
@@ -147,7 +153,7 @@ detect_and_install_solaar() {
       log_success "Logitech device detected via lsusb"
     fi
   fi
-  
+
   # Method 2: Check /sys/bus/usb/devices for Logitech devices (vendor ID 046d)
   if [ "$logitech_detected" = false ] && [ -d /sys/bus/usb/devices ]; then
     for device_dir in /sys/bus/usb/devices/*/; do
@@ -162,16 +168,16 @@ detect_and_install_solaar() {
       fi
     done
   fi
-  
+
   # Method 3: Check dmesg for Logitech devices (fallback)
   if [ "$logitech_detected" = false ] && dmesg 2>/dev/null | grep -qi "logitech"; then
     logitech_detected=true
     log_success "Logitech device detected via dmesg"
   fi
-  
+
   if [ "$logitech_detected" = true ]; then
     log_info "Installing Solaar for Logitech device management..."
-    
+
     # Install solaar based on distro
     if [ "$DISTRO_ID" == "arch" ]; then
       # Solaar is available in AUR for Arch
@@ -214,23 +220,23 @@ install_zsh_plugins() {
   local zsh_plugins_dir="/usr/share/zsh/plugins"
   local autosuggest_found=false
   local highlight_found=false
-  
+
   # Check for zsh-autosuggestions
   if [[ -f "$zsh_plugins_dir/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] || \
      [[ -f "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
     autosuggest_found=true
   fi
-  
+
   # Check for zsh-syntax-highlighting
   if [[ -f "$zsh_plugins_dir/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] || \
      [[ -f "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]]; then
     highlight_found=true
   fi
-  
+
   if [ "$autosuggest_found" = false ]; then
     log_warning "zsh-autosuggestions not found. Please install via package manager."
   fi
-  
+
   if [ "$highlight_found" = false ]; then
     log_warning "zsh-syntax-highlighting not found. Please install via package manager."
   fi
@@ -239,10 +245,10 @@ install_zsh_plugins() {
 
 install_all_packages() {
     step "Installing Base Packages"
-    
+
     # Filter helper utils if server
     local packages_to_install=("${HELPER_UTILS[@]}")
-    
+
     if [[ "${INSTALL_MODE:-}" == "server" ]]; then
         ui_info "Server mode: Filtering packages..."
         local server_filtered_packages=()
@@ -254,10 +260,10 @@ install_all_packages() {
         done
         packages_to_install=("${server_filtered_packages[@]}")
     fi
-    
+
     # Install ZSH and friends
     packages_to_install+=("zsh")
-    
+
     # Install zsh plugins and starship from package managers (all distros have them)
     if [ "$DISTRO_ID" == "arch" ]; then
         packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship" "zram-generator")
@@ -266,13 +272,13 @@ install_all_packages() {
     elif [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship")
     fi
-    
+
     # Generic install loop
     install_packages_quietly "${packages_to_install[@]}"
-    
+
     # Ensure zsh plugins are installed (manual install if not in repos)
     install_zsh_plugins
-    
+
     # Verify starship installation (should be installed via package manager above)
          if ! command -v starship >/dev/null; then
         log_warning "Starship not found after package installation. This may indicate a package manager issue."
@@ -281,7 +287,7 @@ install_all_packages() {
 
 generate_locales() {
   step "Configuring system locales"
-  
+
   # Country code to locale mapping (ISO 3166-1 alpha-2 to locale codes)
   declare -A country_to_locale=(
     ["GR"]="el_GR.UTF-8"
@@ -340,27 +346,27 @@ generate_locales() {
     ["SA"]="ar_SA.UTF-8"
     ["EG"]="ar_EG.UTF-8"
   )
-  
+
   local country_code=""
   local detected_locale=""
-  
+
   # Try to detect country code via IP geolocation
   log_info "Detecting country for locale configuration..."
-  
+
   if command -v curl >/dev/null 2>&1; then
     # Try multiple services for reliability
     country_code=$(curl -s --connect-timeout 5 --max-time 10 https://ifconfig.co/country-iso 2>/dev/null | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
-    
+
     # Fallback services
     if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
       country_code=$(curl -s --connect-timeout 5 --max-time 10 "http://ip-api.com/line/?fields=countryCode" 2>/dev/null | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
     fi
-    
+
     if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
       country_code=$(curl -s --connect-timeout 5 --max-time 10 "https://ipapi.co/country_code/" 2>/dev/null | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
     fi
   fi
-  
+
   # If country detection failed, try system timezone as fallback
   if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
     # Try /etc/timezone first
@@ -422,7 +428,7 @@ generate_locales() {
         *Cairo) country_code="EG" ;;
       esac
     fi
-    
+
     # Also try timedatectl if available (systemd)
     if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
       if command -v timedatectl >/dev/null 2>&1; then
@@ -484,7 +490,7 @@ generate_locales() {
       fi
     fi
   fi
-  
+
   # Special case: If all detection methods failed, default to GR for Greece (user preference)
   # This ensures GR locale is always available when running in Greece
   if [[ -z "$country_code" || ${#country_code} -ne 2 ]]; then
@@ -495,7 +501,7 @@ generate_locales() {
       log_info "Found Greek locale in system. Enabling GR locale as fallback."
     fi
   fi
-  
+
   # Always enable en_US.UTF-8 (US locale) as default/fallback
   if [ "$DISTRO_ID" == "arch" ]; then
     # Arch uses locale.gen
@@ -507,16 +513,16 @@ generate_locales() {
         echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
         log_success "Added en_US.UTF-8 locale (US/English)"
       fi
-      
+
       # Enable local country locale if detected
       if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
         detected_locale="${country_to_locale[$country_code]}"
-        
+
         if [ -z "$detected_locale" ]; then
           # Try to find locale by pattern matching
           detected_locale=$(grep "^#.*_${country_code}\.UTF-8" /etc/locale.gen | head -n 1 | awk '{print $1}' | sed 's/^#//')
         fi
-        
+
         if [ -n "$detected_locale" ]; then
           if grep -q "^#${detected_locale}" /etc/locale.gen; then
             sudo sed -i "s/^#${detected_locale}/${detected_locale}/" /etc/locale.gen
@@ -534,7 +540,7 @@ generate_locales() {
       else
         log_warning "Could not detect country. Only en_US.UTF-8 will be enabled."
       fi
-      
+
       # Regenerate locales
       if command -v locale-gen >/dev/null 2>&1; then
         run_step "Regenerating locales" sudo locale-gen
@@ -553,18 +559,18 @@ generate_locales() {
         echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
         log_success "Added en_US.UTF-8 locale (US/English)"
       fi
-      
+
       # Enable local country locale if detected
       if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
         if [ -z "$detected_locale" ]; then
           detected_locale="${country_to_locale[$country_code]}"
         fi
-        
+
         if [ -z "$detected_locale" ]; then
           # Try to find locale by pattern matching
           detected_locale=$(grep "^#.*_${country_code}\.UTF-8" /etc/locale.gen | head -n 1 | awk '{print $1}' | sed 's/^#//')
         fi
-        
+
         if [ -n "$detected_locale" ]; then
           if grep -q "^#${detected_locale}" /etc/locale.gen; then
             sudo sed -i "s/^#${detected_locale}/${detected_locale}/" /etc/locale.gen
@@ -577,13 +583,13 @@ generate_locales() {
           fi
         fi
       fi
-      
+
       # Regenerate locales
       if command -v locale-gen >/dev/null 2>&1; then
         run_step "Regenerating locales" sudo locale-gen
       fi
     fi
-    
+
     # Also use localectl for system-wide locale setting
     if command -v localectl >/dev/null 2>&1; then
       # Set to detected locale if available, otherwise use en_US.UTF-8
@@ -607,16 +613,16 @@ generate_locales() {
         echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen >/dev/null
         log_success "Added en_US.UTF-8 locale (US/English)"
       fi
-      
+
       # Enable local country locale if detected
       if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
         detected_locale="${country_to_locale[$country_code]}"
-        
+
         if [ -z "$detected_locale" ]; then
           # Try to find locale by pattern matching
           detected_locale=$(grep "^#.*_${country_code}\.UTF-8" /etc/locale.gen | head -n 1 | awk '{print $1}' | sed 's/^#//')
         fi
-        
+
         if [ -n "$detected_locale" ]; then
           if grep -q "^#${detected_locale}" /etc/locale.gen; then
             sudo sed -i "s/^#${detected_locale}/${detected_locale}/" /etc/locale.gen
@@ -629,7 +635,7 @@ generate_locales() {
           fi
         fi
       fi
-      
+
       # Regenerate locales
       if command -v locale-gen >/dev/null 2>&1; then
         run_step "Regenerating locales" sudo locale-gen
@@ -640,7 +646,7 @@ generate_locales() {
              fi
          fi
     fi
-  
+
   if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
     log_success "Locale configuration complete: en_US.UTF-8 + ${detected_locale:-local} (Country: $country_code)"
   else
