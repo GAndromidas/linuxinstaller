@@ -70,7 +70,7 @@ detect_de() {
         elif [ "$DISTRO_ID" = "fedora" ]; then
              if rpm -q plasma-desktop >/dev/null 2>&1; then XDG_CURRENT_DESKTOP="KDE"; fi
              if rpm -q gnome-shell >/dev/null 2>&1; then XDG_CURRENT_DESKTOP="GNOME"; fi
-        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
              if dpkg -l | grep -q plasma-desktop; then XDG_CURRENT_DESKTOP="KDE"; fi
              if dpkg -l | grep -q gnome-shell; then XDG_CURRENT_DESKTOP="GNOME"; fi
         fi
@@ -80,11 +80,6 @@ detect_de() {
 
 setup_package_providers() {
     # Determine primary and backup universal package manager
-    # Rules:
-    # - Ubuntu: Snap (Primary), Flatpak (Backup/Optional)
-    # - Others: Flatpak (Primary), Snap (Backup/Optional)
-    # - Server: Ubuntu uses Snap, others avoid generic containerized apps unless specified.
-
     if [ "$DISTRO_ID" = "ubuntu" ]; then
         PRIMARY_UNIVERSAL_PKG="snap"
         BACKUP_UNIVERSAL_PKG="flatpak"
@@ -93,10 +88,8 @@ setup_package_providers() {
         BACKUP_UNIVERSAL_PKG="snap"
     fi
 
-    # In server mode, we might restrict this
     if [ "${INSTALL_MODE:-default}" = "server" ]; then
         if [ "$DISTRO_ID" != "ubuntu" ]; then
-             # On non-Ubuntu server, prefer native only
              PRIMARY_UNIVERSAL_PKG="native"
              BACKUP_UNIVERSAL_PKG="native"
         fi
@@ -109,69 +102,58 @@ define_common_packages() {
     # Common packages
     COMMON_UTILS="bc curl git rsync ufw fzf fastfetch eza zoxide"
     
-    # Distro specific additions
+    # Use resolver implicitly by listing generic names where possible, 
+    # but for bootstrap we hardcode to ensure they exist before resolver (yq) is ready
     case "$DISTRO_ID" in
         arch)
-            # Arch specific: pacman-contrib, expac, yay are handled elsewhere or ignored by resolver if not arch
             HELPER_UTILS=($COMMON_UTILS base-devel bluez-utils cronie openssh pacman-contrib plymouth flatpak)
             ;;
         fedora)
-            # Mapped via resolve_package_name logic
-            HELPER_UTILS=($COMMON_UTILS base-devel bluez-utils cronie openssh plymouth flatpak)
+            HELPER_UTILS=($COMMON_UTILS @development-tools bluez cronie openssh-server plymouth flatpak)
             ;;
         debian|ubuntu)
-            # Mapped via resolve_package_name logic
-            HELPER_UTILS=($COMMON_UTILS base-devel bluez-utils cronie openssh plymouth flatpak)
+            HELPER_UTILS=($COMMON_UTILS build-essential bluez cron openssh-server plymouth flatpak)
             ;;
     esac
     
     export HELPER_UTILS
 }
-}
 
-# Helper function to resolve package names across distros
 resolve_package_name() {
     local pkg="$1"
-    local mapped="$pkg"
+    local map_file="$(dirname "${BASH_SOURCE[0]}")/../configs/package_map.yaml"
+    
+    # 1. Try YAML lookup
+    if [ -f "$map_file" ] && command -v yq >/dev/null; then
+        local val=$(yq -r ".mappings[\"$pkg\"].$DISTRO_ID // .mappings[\"$pkg\"].common" "$map_file" 2>/dev/null)
+        if [ "$val" != "null" ] && [ -n "$val" ]; then
+            echo "$val"
+            return
+        fi
+    fi
 
-    # Ignore Arch-specific packages on other distros
+    # 2. Hardcoded Fallback (Bootstrap or yq missing)
+    local mapped="$pkg"
     if [ "$DISTRO_ID" != "arch" ]; then
         case "$pkg" in
-            noto-fonts-extra) mapped="fonts-noto-extra" ;;
-            noto-fonts-extra) mapped="google-noto-sans-fonts google-noto-serif-fonts" ;;
-            sshfs) mapped="fuse-sshfs" ;;
-            pacman-contrib|expac|yay|mkinitcpio|arch-install-scripts)
-                echo ""
-                return
-                ;;
+            pacman-contrib|expac|yay|mkinitcpio) echo ""; return ;;
         esac
     fi
 
     if [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         case "$pkg" in
-            noto-fonts-extra) mapped="fonts-noto-extra" ;;
-            noto-fonts-extra) mapped="google-noto-sans-fonts google-noto-serif-fonts" ;;
-            sshfs) mapped="fuse-sshfs" ;;
             base-devel) mapped="build-essential" ;;
             android-tools) mapped="adb fastboot" ;;
             cronie) mapped="cron" ;;
             bluez-utils) mapped="bluez" ;;
             openssh) mapped="openssh-server" ;;
-            fd) mapped="fd-find" ;;
-            bat) mapped="bat" ;; # Binary is batcat
             docker) mapped="docker.io" ;;
-            python) mapped="python3" ;;
         esac
     elif [ "$DISTRO_ID" == "fedora" ]; then
         case "$pkg" in
-            noto-fonts-extra) mapped="fonts-noto-extra" ;;
-            noto-fonts-extra) mapped="google-noto-sans-fonts google-noto-serif-fonts" ;;
-            sshfs) mapped="fuse-sshfs" ;;
             base-devel) mapped="@development-tools" ;;
-            android-tools) mapped="android-tools" ;;
             cronie) mapped="cronie" ;;
             openssh) mapped="openssh-server" ;;
-            python) mapped="python3" ;;
         esac
     fi
     
