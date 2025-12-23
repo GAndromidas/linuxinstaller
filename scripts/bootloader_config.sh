@@ -82,15 +82,6 @@ configure_arch_boot() {
         fi
     fi
     
-    # Secure Boot (sbctl)
-    if [ "${SECURE_BOOT_SETUP:-false}" = "true" ]; then
-         step "Configuring Secure Boot (sbctl)"
-         if ! command -v sbctl >/dev/null; then
-             sudo pacman -S --noconfirm sbctl
-         fi
-         # Just verify status, don't auto-sign blindly in universal script unless requested
-         sudo sbctl status
-    fi
 }
 
 # --- Main ---

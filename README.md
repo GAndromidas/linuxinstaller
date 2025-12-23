@@ -7,7 +7,7 @@
 ## 🚀 Key Features
 
 *   **Multi-Distro Support**:
-    *   **Arch Linux**: Full support (AUR, Pacman, UKI).
+    *   **Arch Linux**: Full support (AUR, Pacman).
     *   **Fedora**: Native DNF support, Flatpak integration.
     *   **Debian/Ubuntu**: Apt support, Snap/Flatpak integration.
 *   **Smart Package Management**:
@@ -21,7 +21,7 @@
     *   Installs modern CLI tools (`eza`, `bat`, `fzf`, `fastfetch`).
 *   **Intelligent Configuration**:
     *   Detects Desktop Environment (GNOME, KDE, Cosmic) and installs specific optimizations and shortcuts.
-    *   Handles Secure Boot (Arch-specific) and Firewall (UFW/Firewalld).
+    *   Handles Firewall (UFW/Firewalld).
 
 ## 📦 Installation
 
@@ -52,7 +52,6 @@ Options:
     -h, --help      Show help message
     -v, --verbose   Enable verbose output
     -m, --mode      Installation mode (default, server, minimal)
-    -sb, --secure-boot Force UKI/Secure Boot setup (Arch only)
 ```
 
 ## 📂 Configuration

@@ -16,7 +16,6 @@ OPTIONS:
     -h, --help      Show this help message and exit
     -v, --verbose   Enable verbose output (show all package installation details)
     -m, --mode      Installation mode (default, server, minimal)
-    -sb, --secure-boot Force UKI/Secure Boot setup configuration
 
 DESCRIPTION:
     LinuxInstaller transforms a fresh Linux installation into a fully
@@ -35,7 +34,6 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 # Default configuration
 INSTALL_MODE="default"
 VERBOSE="false"
-SECURE_BOOT_SETUP="false"
 TOTAL_STEPS=10
 
 # Parse arguments
@@ -53,10 +51,6 @@ while [[ $# -gt 0 ]]; do
       INSTALL_MODE="$2"
       shift 2
       ;;
-    -sb|--secure-boot)
-      SECURE_BOOT_SETUP="true"
-      shift
-      ;;
     *)
       # Ignore unknown args or handle as needed, but for now just pass
       shift
@@ -67,7 +61,6 @@ done
 export INSTALL_MODE
 export SCRIPTS_DIR
 export CONFIGS_DIR
-export SECURE_BOOT_SETUP
 
 # Source common functions
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then

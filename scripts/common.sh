@@ -1285,22 +1285,6 @@ detect_boot_mount() {
   echo "$boot_mount"
 }
 
-detect_uki() {
-  # Check if UKI is configured in mkinitcpio presets (ignoring commented lines)
-  if grep -E -q "^[[:space:]]*default_uki=" /etc/mkinitcpio.d/*.preset 2>/dev/null; then
-    echo "true"
-    return 0
-  fi
-
-  # Check for UKI files in standard locations
-  local boot_mount=$(detect_boot_mount)
-  if [ -d "$boot_mount/EFI/Linux" ] && ls "$boot_mount/EFI/Linux"/*.efi >/dev/null 2>&1; then
-    echo "true"
-    return 0
-  fi
-
-  echo "false"
-}
 
 detect_bootloader() {
   if [ -d "/boot/grub" ] || [ -d "/boot/grub2" ] || [ -d "/boot/efi/EFI/grub" ] || command -v grub-mkconfig &>/dev/null || pacman -Q grub &>/dev/null 2>&1; then
