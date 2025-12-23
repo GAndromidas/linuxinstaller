@@ -3,8 +3,16 @@ set -uo pipefail
 
 # Installation log file
 INSTALL_LOG="$HOME/.linuxinstaller.log"
+# Ensure log file exists
+touch "$INSTALL_LOG"
 
-# --- Script Setup ---
+# --- Prerequisite Management ---
+# Flags to track which helpers were installed by this script
+FIGLET_INSTALLED_BY_SCRIPT=false
+GUM_INSTALLED_BY_SCRIPT=false
+YQ_INSTALLED_BY_SCRIPT=false
+
+# --- Directory and Script Setup ---
 # Get the directory where this script is located, resolving symlinks
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -12,102 +20,45 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
 
-# State flags for prerequisite cleanup
-FIGLET_INSTALLED_BY_SCRIPT=false
-GUM_INSTALLED_BY_SCRIPT=false
-YQ_INSTALLED_BY_SCRIPT=false
+# Source common functions and distribution checks early
+# This makes functions like log() available immediately.
+if [ -f "$SCRIPTS_DIR/common.sh" ]; then
+  source "$SCRIPTS_DIR/common.sh"
+else
+  echo "FATAL: common.sh not found in $SCRIPTS_DIR. Cannot continue."
+  exit 1
+fi
+if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
+  source "$SCRIPTS_DIR/distro_check.sh"
+else
+  log_error "distro_check.sh not found in $SCRIPTS_DIR. Cannot continue."
+  exit 1
+fi
 
 # --- Helper Functions ---
 
-# Function to show help
-show_help() {
-  echo "LinuxInstaller - Unified Linux Post-Installation Script"
-  echo ""
-  echo "USAGE:"
-  echo "    ./install.sh [OPTIONS]"
-  echo ""
-  echo "OPTIONS:"
-  echo "    -h, --help      Show this help message and exit"
-  echo "    -v, --verbose   Enable verbose output (set -x)"
-  exit 0
-}
-
-# Universal logging function
-log() {
-    local level="$1"
-    local message="$2"
-    # Fallback to echo if gum is not available yet
-    if command -v gum >/dev/null 2>&1; then
-        gum log --level "$level" "$message"
-    else
-        echo "[$level] $message"
-    fi
-}
-
-# --- Distribution Detection ---
-detect_distro() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        DISTRO=$ID
-        PRETTY_NAME=${PRETTY_NAME:-$ID}
-    else
-        DISTRO=$(uname -s)
-        PRETTY_NAME=$DISTRO
-    fi
-    log "info" "Detected Distribution: $PRETTY_NAME"
-}
-
-# --- Prerequisite Management ---
+# Function to install helper tools silently if they are not present
 install_prerequisites() {
-    log "info" "Checking for required tools (figlet, gum, yq)..."
-    # Set package manager commands
-    case "$DISTRO" in
-        arch)
-            PKG_INSTALL="sudo pacman -S --noconfirm"
-            PKG_REMOVE="sudo pacman -Rns --noconfirm"
-            ;;
-        debian|ubuntu)
-            PKG_INSTALL="sudo apt-get install -y"
-            PKG_REMOVE="sudo apt-get remove -y"
-            sudo apt-get update >/dev/null 2>&1
-            ;;
-        fedora)
-            PKG_INSTALL="sudo dnf install -y"
-            PKG_REMOVE="sudo dnf remove -y"
-            ;;
-        *)
-            log "error" "Unsupported distribution for prerequisite installation: $DISTRO"
-            exit 1
-            ;;
-    esac
+    log_info "Checking for required tools (figlet, gum, yq)..."
 
     # Install figlet
     if ! command -v figlet >/dev/null 2>&1; then
-        log "info" "figlet not found, installing silently..."
+        log_info "figlet not found, installing silently..."
         $PKG_INSTALL figlet >> "$INSTALL_LOG" 2>&1
         FIGLET_INSTALLED_BY_SCRIPT=true
     fi
 
     # Install gum
     if ! command -v gum >/dev/null 2>&1; then
-        log "info" "gum not found, installing silently..."
-        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
-            $PKG_INSTALL gum >> "$INSTALL_LOG" 2>&1
-        else
-            # Binary install for Debian/Ubuntu to get the latest version
-            ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
-            VER="0.14.1" # Using a recent version
-            curl -sL -o /tmp/gum.deb "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.deb"
-            sudo dpkg -i /tmp/gum.deb >> "$INSTALL_LOG" 2>&1
-            rm /tmp/gum.deb
-        fi
+        log_info "gum not found, installing silently..."
+        $PKG_INSTALL gum >> "$INSTALL_LOG" 2>&1
         GUM_INSTALLED_BY_SCRIPT=true
     fi
 
     # Install yq
     if ! command -v yq >/dev/null 2>&1; then
-        log "info" "yq not found, installing silently..."
-        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+        log_info "yq not found, installing silently..."
+        if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
              $PKG_INSTALL yq >> "$INSTALL_LOG" 2>&1
         else
              # Binary install for others to avoid snap dependency
@@ -117,146 +68,126 @@ install_prerequisites() {
         fi
         YQ_INSTALLED_BY_SCRIPT=true
     fi
-    log "info" "Prerequisite check complete."
+    log_success "Prerequisite check complete."
 }
 
 cleanup_prerequisites() {
-    log "info" "Cleaning up script-installed tools..."
+    log_info "Cleaning up script-installed tools..."
     if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then
-        log "info" "Removing yq..."
-        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
+        log_info "Removing yq..."
+        if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
             $PKG_REMOVE yq >> "$INSTALL_LOG" 2>&1
         else
             sudo rm -f /usr/local/bin/yq
         fi
     fi
     if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then
-        log "info" "Removing gum..."
-        if [ "$DISTRO" == "arch" ] || [ "$DISTRO" == "fedora" ]; then
-            $PKG_REMOVE gum >> "$INSTALL_LOG" 2>&1
-        else
-            sudo dpkg -P gum >> "$INSTALL_LOG" 2>&1
-        fi
+        log_info "Removing gum..."
+        $PKG_REMOVE gum >> "$INSTALL_LOG" 2>&1
     fi
     if [ "$FIGLET_INSTALLED_BY_SCRIPT" = true ]; then
-        log "info" "Removing figlet..."
+        log_info "Removing figlet..."
         $PKG_REMOVE figlet >> "$INSTALL_LOG" 2>&1
     fi
-    log "info" "Cleanup complete."
+    log_success "Cleanup complete."
 }
 
 # --- Core Installation Logic ---
 # Function to install packages for a given category from programs.yaml
 install_packages() {
     local category="$1"
-    log "info" "Installing packages for category: '$category'"
+    log_info "Installing packages for category: '$category'"
 
-    # Determine the correct package key (native, aur, snap, flatpak)
+    # Define package types for the current distro
     local pkg_keys="native"
-    if [ "$DISTRO" == "arch" ]; then pkg_keys="native aur"; fi
-    if [ "$DISTRO" == "ubuntu" ]; then pkg_keys="native snap flatpak"; fi
-    if [ "$DISTRO" == "fedora" ] || [ "$DISTRO" == "debian" ]; then pkg_keys="native flatpak"; fi
+    case "$DISTRO_ID" in
+        arch) pkg_keys="native aur" ;;
+        ubuntu) pkg_keys="native snap flatpak" ;;
+        fedora|debian) pkg_keys="native flatpak" ;;
+    esac
 
     for pkg_type in $pkg_keys; do
-        packages=$(yq e ".${category}.${DISTRO}.${pkg_type}[]" "$PROGRAMS_YAML" 2>/dev/null)
+        packages=$(yq e ".${category}.${DISTRO_ID}.${pkg_type}[]" "$PROGRAMS_YAML" 2>/dev/null)
         if [ -z "$packages" ] || [ "$packages" == "null" ]; then
             continue
         fi
 
-        log "info" "Installing ${pkg_type} packages for '${category}'..."
+        log_info "Installing ${pkg_type} packages for '${category}'..."
 
         # Determine install command based on package type
         local INSTALL_CMD=""
         case "$pkg_type" in
-            native)
-                case "$DISTRO" in
-                    arch) INSTALL_CMD="sudo pacman -S --noconfirm";;
-                    debian|ubuntu) INSTALL_CMD="sudo apt install -y";;
-                    fedora) INSTALL_CMD="sudo dnf install -y";;
-                esac
-                ;;
-            aur)
-                # Assuming yay is installed as a base/default package for Arch
-                INSTALL_CMD="yay -S --noconfirm"
-                ;;
-            snap)
-                INSTALL_CMD="sudo snap install"
-                ;;
-            flatpak)
-                INSTALL_CMD="flatpak install flathub -y"
-                ;;
+            native) INSTALL_CMD="$PKG_INSTALL" ;;
+            aur) INSTALL_CMD="yay -S --noconfirm" ;;
+            snap) INSTALL_CMD="sudo snap install" ;;
+            flatpak) INSTALL_CMD="flatpak install flathub -y" ;;
         esac
 
-        gum spin --spinner dot --title "Installing $category ($pkg_type) packages..." -- \
+        # The spinner command has to be run with eval to correctly handle arguments with spaces
+        eval gum spin --spinner dot --title \"Installing $category ($pkg_type) packages...\" -- \
         $INSTALL_CMD $packages >> "$INSTALL_LOG" 2>&1
 
         if [ $? -eq 0 ]; then
-            log "info" "Successfully installed packages for $category ($pkg_type)."
+            log_success "Successfully installed packages for $category ($pkg_type)."
         else
-            log "error" "Failed to install some packages for $category ($pkg_type). Check $INSTALL_LOG."
+            log_error "Failed to install some packages for $category ($pkg_type). Check $INSTALL_LOG."
         fi
     done
 }
 
-# Final reboot prompt
-prompt_reboot() {
-    if gum confirm "Reboot now to apply all changes?"; then
-        log "warn" "Rebooting system..."
-        sudo reboot
-    else
-        log "info" "Please reboot your system later to apply all changes."
-    fi
-}
-
 
 # --- Main Execution ---
+
 # Parse command-line options
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     -h|--help) show_help ;;
     -v|--verbose) set -x ;;
-    *) log "error" "Unknown parameter passed: $1"; exit 1 ;;
+    *) log_error "Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
 done
 
-# Touch the log file to ensure it exists
-touch "$INSTALL_LOG"
-
-# Initial setup
+# --- Environment Setup for Sub-Scripts ---
+log_info "Detecting distribution and setting up environment..."
 detect_distro
+setup_package_providers
+define_common_packages
+
+# Export variables so they are available to all child scripts executed by the loop
+export DISTRO_ID PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
+
+log_success "Environment ready. Detected Distro: $DISTRO_NAME"
+
+# Now that package managers are defined, install prerequisites
 install_prerequisites
 
-# Welcome Banner
+# --- User Interface ---
 figlet "LinuxInstaller" | gum style --foreground 212
 gum style --foreground 248 "Your friendly neighborhood post-install script."
-gum style --margin "1 0" --border double --padding "1" "Welcome! This script will guide you through setting up your new ${PRETTY_NAME} system."
+gum style --margin "1 0" --border double --padding "1" "Welcome! This script will guide you through setting up your new ${DISTRO_NAME} system."
 
 # Interactive Menu
-log "info" "Please select an installation mode:"
+log_info "Please select an installation mode:"
 MODE=$(gum choose "Standard" "Minimal" "Server" "Custom" "Exit")
 
-log "info" "Starting installation in '$MODE' mode..."
+if [ "$MODE" == "Exit" ]; then
+    log_info "Installation cancelled by user."
+    exit 0
+fi
+
+log_info "Starting installation in '$MODE' mode..."
+
+# --- Package Installation ---
+install_packages "base"
 
 case "$MODE" in
-    "Standard")
-        install_packages "base"
-        install_packages "default"
-        ;;
-    "Minimal")
-        install_packages "base"
-        install_packages "minimal"
-        ;;
-    "Server")
-        install_packages "base"
-        install_packages "server"
-        ;;
+    "Standard") install_packages "default" ;;
+    "Minimal") install_packages "minimal" ;;
+    "Server") install_packages "server" ;;
     "Custom")
-        log "info" "Select optional package groups to install:"
+        log_info "Select optional package groups to install:"
         CHOICES=$(gum choose --no-limit "Development Tools" "Gaming Software")
-
-        install_packages "base"
-
         if [[ "$CHOICES" == *"Development Tools"* ]]; then
             install_packages "optional_dev"
         fi
@@ -264,31 +195,40 @@ case "$MODE" in
             install_packages "optional_gaming"
         fi
         ;;
-    "Exit")
-        log "info" "Installation cancelled by user."
-        exit 0
-        ;;
 esac
 
-# --- Configuration ---
-log "info" "Applying system configurations..."
-for script in "$SCRIPTS_DIR"/*.sh; do
+# For Standard and Minimal, ask about optional packages. Skip for Server.
+if [ "$MODE" == "Standard" ] || [ "$MODE" == "Minimal" ]; then
+    if gum confirm "Do you want to install optional development tools?"; then
+        install_packages "optional_dev"
+    fi
+    if gum confirm "Do you want to install optional gaming software?"; then
+        install_packages "optional_gaming"
+    fi
+fi
+
+# --- Configuration Scripts (The Steps) ---
+log_info "Applying system configurations from ordered scripts..."
+for script in "$SCRIPTS_DIR"/??_*.sh; do
     if [ -f "$script" ]; then
-        log "info" "Executing configuration script: $(basename "$script")"
+        script_name=$(basename "$script")
+        log_info "Executing configuration step: $script_name"
+        # Execute the script. It will inherit the exported variables.
         bash "$script" >> "$INSTALL_LOG" 2>&1
+        if [ $? -eq 0 ]; then
+            log_success "Step '$script_name' completed successfully."
+        else
+            log_error "Step '$script_name' failed. Check $INSTALL_LOG for details."
+        fi
     fi
 done
 
-log "info" "Copying dotfiles and configs..."
-# Example: cp "$CONFIGS_DIR/.zshrc.$DISTRO" "$HOME/.zshrc"
-
 # --- Finalization ---
+log_info "Finalizing installation..."
 cleanup_prerequisites
 
 gum format "## Installation Complete!
-
 Your system is now set up. A log of the installation has been saved to \`$INSTALL_LOG\`.
+Thanks for using LinuxInstaller!"
 
-Thanks for using LinuxInstaller!
-"
 prompt_reboot
