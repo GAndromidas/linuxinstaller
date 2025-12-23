@@ -52,17 +52,17 @@ resolve_native() {
     local key="$1"
     local distro="${DISTRO_ID:-}"
     local val=""
-    
+
     if [ -z "$distro" ]; then
         echo "$key"
         return
     fi
-    
+
     # Try YAML lookup if MAP_FILE exists
     if [ -f "$MAP_FILE" ] && command -v yq >/dev/null; then
         val=$(yq -r ".mappings[\"$key\"].$distro // .mappings[\"$key\"].common" "$MAP_FILE" 2>/dev/null)
     fi
-    
+
     # Fallback to hardcoded resolver if yq failed or MAP_FILE missing
     if [ "$val" == "null" ] || [ -z "$val" ]; then
         # Use resolve_package_name from distro_check.sh if available
@@ -72,21 +72,21 @@ resolve_native() {
             val="$key"
         fi
     fi
-    
+
     echo "$val"
 }
 
 resolve_universal() {
     local key="$1"
     local type="$2" # flatpak or snap
-    
+
     if [ ! -f "$MAP_FILE" ] || ! command -v yq >/dev/null; then
         echo ""
         return
     fi
-    
+
     local val=$(yq -r ".mappings[\"$key\"].$type" "$MAP_FILE" 2>/dev/null)
-    
+
     if [ "$val" != "null" ] && [ -n "$val" ]; then
         echo "$val"
     else
@@ -99,116 +99,106 @@ resolve_universal() {
 native_install() {
     local packages=("$@")
     if [ ${#packages[@]} -eq 0 ]; then return; fi
-    
+
     step "Installing Native Packages"
-    
+
+    local resolved_packages=()
     for pkg in "${packages[@]}"; do
-        local target=$(resolve_native "$pkg")
+        local target
+        target=$(resolve_native "$pkg")
         if [ -n "$target" ]; then
+            # target might contain multiple space-separated packages
             for sub_pkg in $target; do
-                if [ -n "$sub_pkg" ]; then
-                    printf "%-40s" "$sub_pkg"
-                    if $PKG_INSTALL $PKG_NOCONFIRM "$sub_pkg" >/dev/null 2>&1; then
-                        printf "${GREEN}OK${RESET}\n"
-                    else
-                        printf "${RED}FAIL${RESET}\n"
-                    fi
-                fi
+                [ -n "$sub_pkg" ] && resolved_packages+=("$sub_pkg")
             done
         fi
     done
+
+    if [ ${#resolved_packages[@]} -gt 0 ]; then
+        # Use common.sh optimized batch installer
+        install_packages_quietly "${resolved_packages[@]}"
+    else
+        ui_info "No native packages to install."
+    fi
 }
 
 universal_install() {
     local packages=("$@")
     if [ ${#packages[@]} -eq 0 ]; then return; fi
-    
+
     step "Installing Universal/Extra Packages"
-    
+
     for pkg in "${packages[@]}"; do
         local clean_name="${pkg%-bin}"
         clean_name="${clean_name%-git}"
-        
+
         # Resolve native name first (e.g. vscode -> code)
         local native_target=$(resolve_native "$clean_name")
         local installed=false
         local display_name="$pkg"
-        
+
         # Check if Flatpak version exists (prefer for packages that might hang in AUR)
         local flatpak_id=$(resolve_universal "$clean_name" "flatpak")
         local snap_id=$(resolve_universal "$clean_name" "snap")
-        
-        # Print package name once at the start
-        printf "%-40s" "$display_name"
-        
+
         # For packages with Flatpak versions, prefer Flatpak on Arch to avoid AUR build hangs
         # This is especially important for rustdesk-bin which can hang during AUR builds
         if [ "$DISTRO_ID" == "arch" ] && [ -n "$flatpak_id" ] && [ "$flatpak_id" != "null" ] && command -v flatpak >/dev/null 2>&1; then
-            if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
-                printf "${GREEN}OK${RESET}\n"
+            if flatpak install -y flathub "$flatpak_id" >> "$INSTALL_LOG" 2>&1; then
+                ui_success "$display_name (Flatpak)"
                 installed=true
             fi
         fi
-        
+
         # 1. Try Native/AUR (if Flatpak didn't work or isn't available)
         if [ "$installed" == "false" ]; then
             if [ "$DISTRO_ID" == "arch" ] && command -v yay >/dev/null 2>&1; then
              # Arch: Use yay (handles Repo + AUR)
-                 # Use --batchinstall to prevent hanging on prompts
-                 # Use --provides to handle package provides
-                 # Use timeout to prevent infinite hangs (10 minutes max for AUR builds)
-                 # Log to file for debugging but keep output minimal
                  local install_log="${INSTALL_LOG:-$HOME/.linuxinstaller.log}"
                  if timeout 600 yay -S --noconfirm --needed --batchinstall --provides "$native_target" >> "$install_log" 2>&1; then
-                     printf "${GREEN}OK${RESET}\n"
+                     ui_success "$display_name (Native/AUR)"
                      installed=true
                  fi
             elif [ -n "${PKG_INSTALL:-}" ]; then
              # Non-Arch: Try native package manager
-                 if $PKG_INSTALL ${PKG_NOCONFIRM:-} "$native_target" >/dev/null 2>&1; then
-                     printf "${GREEN}OK${RESET}\n"
+                 if $PKG_INSTALL ${PKG_NOCONFIRM:-} "$native_target" >> "$INSTALL_LOG" 2>&1; then
+                     ui_success "$display_name (Native)"
                      installed=true
                  fi
              fi
         fi
-        
+
         # 2. Universal Fallback (only if native failed)
         if [ "$installed" == "false" ]; then
-        # Heuristics
-        [ -z "$snap_id" ] && snap_id="$clean_name"
-        [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
-        
-        # Priority Logic
-            if [ "$PRIMARY_UNIVERSAL_PKG" == "snap" ] && [ -n "$snap_id" ]; then
-                 if sudo snap install "$snap_id" >/dev/null 2>&1; then
-                     printf "${GREEN}OK${RESET}\n"
-                     installed=true
-                 fi
-            elif [ "$PRIMARY_UNIVERSAL_PKG" == "flatpak" ] && [ -n "$flatpak_id" ]; then
-                 if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
-                     printf "${GREEN}OK${RESET}\n"
-                     installed=true
-                 fi
+            # Heuristics
+            [ -z "$snap_id" ] && snap_id="$clean_name"
+            [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
+
+            # Helper to try install
+            try_install_universal() {
+                local type="$1"
+                local id="$2"
+                if [ "$type" == "snap" ] && [ -n "$id" ]; then
+                     sudo snap install "$id" >> "$INSTALL_LOG" 2>&1 && return 0
+                elif [ "$type" == "flatpak" ] && [ -n "$id" ]; then
+                     flatpak install -y flathub "$id" >> "$INSTALL_LOG" 2>&1 && return 0
+                fi
+                return 1
+            }
+
+            # Priority Logic
+            if try_install_universal "$PRIMARY_UNIVERSAL_PKG" "$( [ "$PRIMARY_UNIVERSAL_PKG" == "snap" ] && echo "$snap_id" || echo "$flatpak_id" )"; then
+                ui_success "$display_name ($PRIMARY_UNIVERSAL_PKG)"
+                installed=true
+            # Backup Logic
+            elif try_install_universal "$BACKUP_UNIVERSAL_PKG" "$( [ "$BACKUP_UNIVERSAL_PKG" == "snap" ] && echo "$snap_id" || echo "$flatpak_id" )"; then
+                 ui_success "$display_name ($BACKUP_UNIVERSAL_PKG)"
+                 installed=true
+            fi
         fi
-        
-        # Backup Logic
+
         if [ "$installed" == "false" ]; then
-                 if [ "$BACKUP_UNIVERSAL_PKG" == "snap" ] && [ -n "$snap_id" ]; then
-                      if sudo snap install "$snap_id" >/dev/null 2>&1; then
-                          printf "${GREEN}OK${RESET}\n"
-                          installed=true
-                      fi
-                 elif [ "$BACKUP_UNIVERSAL_PKG" == "flatpak" ] && [ -n "$flatpak_id" ]; then
-                      if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
-                          printf "${GREEN}OK${RESET}\n"
-                          installed=true
-                      fi
-                 fi
-             fi
-        fi
-        
-        if [ "$installed" == "false" ]; then
-            printf "${RED}FAIL${RESET}\n"
+            ui_error "$display_name (Failed)"
         fi
     done
 }
@@ -218,14 +208,32 @@ flatpak_install_list() {
     if [ ${#packages[@]} -eq 0 ]; then return; fi
 
     step "Installing Flatpak Apps"
-    for pkg in "${packages[@]}"; do
-        printf "%-40s" "$pkg"
-        if flatpak install -y flathub "$pkg" >/dev/null 2>&1; then
-            printf "${GREEN}OK${RESET}\n"
+
+    if command -v install_flatpak_quietly >/dev/null; then
+        # Use common.sh optimized batch installer if available
+        install_flatpak_quietly "${packages[@]}"
+    else
+        # Fallback batch implementation
+        local pkg_list="${packages[*]}"
+        local title="Installing ${#packages[@]} Flatpak apps..."
+
+        if ! command -v flatpak >/dev/null; then ui_error "Flatpak not found"; return; fi
+
+        if command -v gum >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "$title" --show-output -- flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
+                 ui_success "$title Done."
+            else
+                 ui_error "Failed to install some Flatpak apps."
+            fi
         else
-            printf "${RED}FAIL${RESET}\n"
+            ui_info "$title"
+            if flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
+                 ui_success "Done."
+            else
+                 ui_error "Failed."
+            fi
         fi
-    done
+    fi
 }
 
 # --- Load Config ---
@@ -236,36 +244,36 @@ REMOVE_PACKAGES=()
 
 load_config() {
     local config_file="$CONFIGS_DIR/programs.yaml"
-    
+
     # Validate config file exists
     if [ ! -f "$config_file" ]; then
         log_error "Programs configuration file not found: $config_file"
         return 1
     fi
-    
+
     # Validate yq is available
     if ! command -v yq >/dev/null; then
         log_error "yq is required but not found. Cannot load configuration."
         return 1
     fi
-    
+
     # 1. Native Packages
     while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r '.pacman.packages[].name' "$config_file" 2>/dev/null || true)
-    
+
     # 2. Essential
     local mode="${INSTALL_MODE:-default}"
     while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".essential.$mode[].name" "$config_file" 2>/dev/null || true)
-    
+
     # 3. Universal
     while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && UNIVERSAL_PACKAGES+=("$line"); done < <(yq -r ".aur.$mode[].name" "$config_file" 2>/dev/null || true)
-    
+
     # 4. Desktop Environment (Native)
     if [ -n "${XDG_CURRENT_DESKTOP:-}" ]; then
         local de_key=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
         if [[ "$de_key" == *"gnome"* ]]; then de_key="gnome"; fi
         if [[ "$de_key" == *"kde"* ]]; then de_key="kde"; fi
         if [[ "$de_key" == *"cosmic"* ]]; then de_key="cosmic"; fi
-        
+
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".desktop_environments.$de_key.install[]" "$config_file" 2>/dev/null || true)
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && REMOVE_PACKAGES+=("$line"); done < <(yq -r ".desktop_environments.$de_key.remove[]" "$config_file" 2>/dev/null || true)
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && FLATPAK_PACKAGES+=("$line"); done < <(yq -r ".flatpak.$de_key.$mode[].name" "$config_file" 2>/dev/null || true)
@@ -277,16 +285,14 @@ load_config() {
 remove_packages() {
     local packages=("$@")
     if [ ${#packages[@]} -eq 0 ]; then return; fi
-    
+
     step "Removing Unnecessary Packages"
-    
+
+    local to_remove=()
     for pkg in "${packages[@]}"; do
-        # Use package name as-is (remove list should have exact package names)
         local target="$pkg"
-        
-        # Check if package is installed before attempting removal
         local is_installed=false
-        
+
         if [ "$DISTRO_ID" == "arch" ] && command -v pacman >/dev/null 2>&1; then
             pacman -Q "$target" >/dev/null 2>&1 && is_installed=true
         elif [ "$DISTRO_ID" == "fedora" ] && command -v rpm >/dev/null 2>&1; then
@@ -296,20 +302,40 @@ remove_packages() {
                 dpkg -l | grep -q "^ii.*$target" && is_installed=true
             fi
         fi
-        
+
         if [ "$is_installed" = true ]; then
-            printf "%-40s" "$target"
-            if [ -n "${PKG_REMOVE:-}" ]; then
-                if $PKG_REMOVE ${PKG_NOCONFIRM:-} "$target" >/dev/null 2>&1; then
-                    printf "${GREEN}OK${RESET}\n"
-                else
-                    printf "${RED}FAIL${RESET}\n"
-                fi
-            else
-                printf "${YELLOW}SKIP${RESET}\n"
-            fi
+            to_remove+=("$target")
         fi
     done
+
+    if [ ${#to_remove[@]} -gt 0 ]; then
+        local count=${#to_remove[@]}
+        local pkg_list="${to_remove[*]}"
+        local title="Removing $count packages..."
+
+        if [ -n "${PKG_REMOVE:-}" ]; then
+            local remove_cmd="$PKG_REMOVE ${PKG_NOCONFIRM:-} $pkg_list"
+
+            if command -v gum >/dev/null 2>&1; then
+                if gum spin --spinner dot --title "$title" --show-output -- sh -c "$remove_cmd" >> "$INSTALL_LOG" 2>&1; then
+                     ui_success "Removed $count packages."
+                else
+                     ui_warn "Failed to remove some packages."
+                fi
+            else
+                ui_info "$title"
+                if eval "$remove_cmd" >> "$INSTALL_LOG" 2>&1; then
+                     ui_success "Removed."
+                else
+                     ui_warn "Failed to remove some packages."
+                fi
+            fi
+        else
+            ui_warn "PKG_REMOVE not defined, skipping removal."
+        fi
+    else
+        ui_info "No unnecessary packages found."
+    fi
 }
 
 # --- Main ---
@@ -331,7 +357,7 @@ if [ "${INSTALL_MODE:-}" == "server" ] && command -v docker >/dev/null; then
     step "Configuring Server Apps"
     sudo systemctl enable --now docker.service
     sudo usermod -aG docker "$USER" || true
-    
+
     # Watchtower
     sudo docker stop watchtower >/dev/null 2>&1 || true
     sudo docker rm watchtower >/dev/null 2>&1 || true

@@ -12,12 +12,12 @@ setup_universal_packages() {
 
     if [ "$DISTRO_ID" == "arch" ]; then
         # --- Arch Linux Specific Setup (Yay + Rate Mirrors) ---
-        
+
         if command -v yay &>/dev/null; then
             log_success "yay is already installed"
         else
             log_info "Installing yay (AUR Helper)..."
-            
+
             # Ensure prerequisites
             if ! sudo pacman -S --noconfirm --needed base-devel git >> "$INSTALL_LOG" 2>&1; then
                 log_error "Failed to install base-devel or git."
@@ -27,7 +27,7 @@ setup_universal_packages() {
             # Build in temp dir
             local temp_dir=$(mktemp -d)
             chmod 777 "$temp_dir"
-            
+
             local run_as_user=""
             if [ "$EUID" -eq 0 ]; then
                  if [ -n "${SUDO_USER:-}" ]; then
@@ -41,7 +41,7 @@ setup_universal_packages() {
             fi
 
             cd "$temp_dir" || return 1
-            
+
             log_to_file "Cloning yay..."
             if $run_as_user git clone https://aur.archlinux.org/yay.git . >> "$INSTALL_LOG" 2>&1; then
                 echo -e "${YELLOW}Building yay...${RESET}"
@@ -54,7 +54,7 @@ setup_universal_packages() {
             else
                 log_error "Failed to clone yay repository (check log for details)"
             fi
-            
+
             cd - >/dev/null
             rm -rf "$temp_dir"
         fi
@@ -82,17 +82,17 @@ setup_universal_packages() {
                  log_warning "Failed to update mirrorlist"
              fi
         fi
+    fi
 
-    else
-        # --- Non-Arch Distros (Flatpak/Snap Setup) ---
-        
-        # Setup Flatpak if needed
+    # --- Universal Setup (Flatpak/Snap) ---
+
+    # Setup Flatpak if needed
         if [ "$PRIMARY_UNIVERSAL_PKG" == "flatpak" ] || [ "$BACKUP_UNIVERSAL_PKG" == "flatpak" ]; then
             if ! command -v flatpak >/dev/null; then
                 ui_info "Installing Flatpak..."
                 $PKG_INSTALL flatpak >> "$INSTALL_LOG" 2>&1
             fi
-            
+
             # Add Flathub
             flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >> "$INSTALL_LOG" 2>&1
             ui_success "Flatpak configured."
@@ -105,6 +105,11 @@ setup_universal_packages() {
                 if [ "$DISTRO_ID" == "fedora" ]; then
                      sudo dnf install -y snapd >> "$INSTALL_LOG" 2>&1
                      sudo ln -s /var/lib/snapd/snap /snap 2>/dev/null
+                elif [ "$DISTRO_ID" == "arch" ]; then
+                     if command -v yay >/dev/null; then
+                         yay -S --noconfirm snapd >> "$INSTALL_LOG" 2>&1
+                         sudo ln -s /var/lib/snapd/snap /snap 2>/dev/null || true
+                     fi
                 else
                      $PKG_INSTALL snapd >> "$INSTALL_LOG" 2>&1
                 fi
@@ -113,7 +118,6 @@ setup_universal_packages() {
                 ui_success "Snap is already installed."
             fi
         fi
-    fi
 }
 
 setup_universal_packages

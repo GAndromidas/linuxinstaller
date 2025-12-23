@@ -31,10 +31,10 @@ load_package_lists() {
 install_gaming_native() {
     if [[ ${#pacman_gaming_programs[@]} -eq 0 ]]; then return; fi
     ui_info "Installing Native Gaming Packages..."
-    
+
     # Use smart installer which resolves names via package_map.yaml
     install_packages_quietly "${pacman_gaming_programs[@]}"
-    
+
     # Note: install_packages_quietly suppresses output but logs to file.
     # We assume success if no critical error, tracking individual success is complex in batch.
     GAMING_INSTALLED+=("${pacman_gaming_programs[@]}")
@@ -42,21 +42,40 @@ install_gaming_native() {
 
 install_gaming_flatpak() {
     if [[ ${#flatpak_gaming_programs[@]} -eq 0 ]]; then return; fi
-    
+
     if ! command -v flatpak >/dev/null; then
         ui_warn "Flatpak not found. Skipping."
         return
     fi
-    
+
     ui_info "Installing Flatpak Gaming Apps..."
-    
-    for pkg in "${flatpak_gaming_programs[@]}"; do
-        if flatpak install -y flathub "$pkg"; then
-            GAMING_INSTALLED+=("$pkg (flatpak)")
+
+    # Use optimized batch installation if available
+    if command -v install_flatpak_quietly >/dev/null; then
+        install_flatpak_quietly "${flatpak_gaming_programs[@]}"
+        GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
+    else
+        # Fallback manual batch install with Gum UI
+        local pkg_list="${flatpak_gaming_programs[*]}"
+        local title="Installing ${#flatpak_gaming_programs[@]} Flatpak gaming apps..."
+
+        if command -v gum >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "$title" --show-output -- flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
+                ui_success "$title Done."
+                GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
+            else
+                ui_error "Failed to install some Flatpak gaming apps."
+            fi
         else
-            GAMING_ERRORS+=("$pkg (flatpak)")
+            ui_info "$title"
+            if flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
+                ui_success "Done."
+                GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
+            else
+                ui_error "Failed."
+            fi
         fi
-    done
+    fi
 }
 
 configure_mangohud() {
@@ -76,19 +95,19 @@ enable_gamemode() {
 
 main() {
     step "Gaming Mode Setup"
-    
+
     local description="Tools: Steam, Lutris, GameMode, MangoHud, etc."
     if ! gum_confirm "Enable Gaming Mode?" "$description"; then
         ui_info "Skipped."
         return 0
     fi
-    
+
     load_package_lists
     install_gaming_native
     install_gaming_flatpak
     configure_mangohud
     enable_gamemode
-    
+
     ui_success "Gaming Mode Configured."
 }
 

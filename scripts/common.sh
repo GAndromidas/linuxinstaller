@@ -682,7 +682,7 @@ handle_package_error() {
 # Function to get all installed kernel types
 get_installed_kernel_types() {
   local kernel_types=()
-  
+
   # Only works for Arch-based distros
   if [ "${DISTRO_ID:-}" != "arch" ]; then
     # For other distros, try to detect kernel version
@@ -693,18 +693,18 @@ get_installed_kernel_types() {
     echo "${kernel_types[@]}"
     return 0
   fi
-  
+
   # Arch-specific kernel detection
   if ! command_exists pacman; then
     log_warning "pacman not found. Cannot detect kernel types."
     return 1
   fi
-  
+
   pacman -Q linux &>/dev/null && kernel_types+=("linux")
   pacman -Q linux-lts &>/dev/null && kernel_types+=("linux-lts")
   pacman -Q linux-zen &>/dev/null && kernel_types+=("linux-zen")
   pacman -Q linux-hardened &>/dev/null && kernel_types+=("linux-hardened")
-  
+
   echo "${kernel_types[@]}"
 }
 
@@ -715,7 +715,7 @@ configure_plymouth_hook_and_initramfs() {
     log_info "Plymouth initramfs configuration is Arch-specific. Skipping for $DISTRO_ID."
     return 0
   fi
-  
+
   step "Configuring Plymouth hook and rebuilding initramfs"
   local mkinitcpio_conf="/etc/mkinitcpio.conf"
   local HOOK_ADDED=false
@@ -1037,39 +1037,75 @@ install_package_generic() {
 }
 
 # Function: install_packages_quietly
-# Description: Install packages via package manager with minimal output
+# Description: Install packages via package manager using batch transaction for performance and professional UI
 # Parameters: $@ - Packages to install
-# Override install_packages_quietly for multi-distro support
 install_packages_quietly() {
     local packages=("$@")
     if [ ${#packages[@]} -eq 0 ]; then return 0; fi
-    
-    # Use global PKG_INSTALL if defined, else fallback to pacman
-    local cmd="${PKG_INSTALL:-sudo pacman -S --needed}"
-    local opts="${PKG_NOCONFIRM:-}"
-    
+
     local final_packages=()
+    # Resolve packages
     for pkg in "${packages[@]}"; do
-        # Use the resolver logic
         if command -v resolve_package_name >/dev/null; then
-             local mapped=$(resolve_package_name "$pkg")
-             [ -n "$mapped" ] && final_packages+=($mapped)
+             local mapped
+             mapped=$(resolve_package_name "$pkg")
+             if [ -n "$mapped" ]; then
+                # shellcheck disable=SC2086
+                for p in $mapped; do final_packages+=("$p"); done
+             fi
         else
              final_packages+=("$pkg")
         fi
     done
-    
+
     if [ ${#final_packages[@]} -eq 0 ]; then return 0; fi
 
-    # Install with minimal output: package name + OK/FAIL
-    for pkg in "${final_packages[@]}"; do
-        printf "%-40s" "$pkg"
-        if $cmd $opts "$pkg" >/dev/null 2>&1; then
-            printf "${GREEN}OK${RESET}\n"
+    # Deduplicate packages
+    local unique_pkgs=($(printf "%s\n" "${final_packages[@]}" | sort -u))
+    local count=${#unique_pkgs[@]}
+    local pkg_list="${unique_pkgs[*]}"
+
+    local title="Installing $count packages..."
+    local install_cmd=""
+
+    # Build optimized batch command
+    case "${DISTRO_ID:-}" in
+        arch)
+            install_cmd="sudo pacman -S --noconfirm --needed $pkg_list"
+            ;;
+        fedora)
+            install_cmd="sudo dnf install -y $pkg_list"
+            ;;
+        debian|ubuntu)
+            install_cmd="sudo apt-get install -y $pkg_list"
+            ;;
+        *)
+            install_cmd="${PKG_INSTALL:-sudo pacman -S --needed} ${PKG_NOCONFIRM:-} $pkg_list"
+            ;;
+    esac
+
+    # Execute with professional UI (Gum) or standard output
+    if command -v gum >/dev/null 2>&1; then
+        # Use gum spin for professional loading effect
+        if gum spin --spinner dot --title "$title" --show-output -- sh -c "$install_cmd" >> "$INSTALL_LOG" 2>&1; then
+             ui_success "$title Done."
+             INSTALLED_PACKAGES+=("${unique_pkgs[@]}")
+             return 0
         else
-            printf "${RED}FAIL${RESET}\n"
+             ui_error "Installation failed. Check log: $INSTALL_LOG"
+             return 1
         fi
-    done
+    else
+        ui_info "$title"
+        if eval "$install_cmd" >> "$INSTALL_LOG" 2>&1; then
+             ui_success "Done."
+             INSTALLED_PACKAGES+=("${unique_pkgs[@]}")
+             return 0
+        else
+             ui_error "Installation failed."
+             return 1
+        fi
+    fi
 }
 
 # Batch install helper for multiple package groups
@@ -1253,23 +1289,39 @@ prompt_reboot() {
 # Pre-download package lists for faster installation
 preload_package_lists() {
   step "Preloading package lists for faster installation"
-  sudo pacman -Sy --noconfirm >/dev/null 2>&1
-  if command -v yay >/dev/null; then
-    yay -Sy --noconfirm >/dev/null 2>&1
-  else
-    log_warning "yay not available for AUR package list update"
-  fi
+  case "$DISTRO_ID" in
+    arch)
+      sudo pacman -Sy --noconfirm >/dev/null 2>&1
+      if command -v yay >/dev/null; then
+        yay -Sy --noconfirm >/dev/null 2>&1
+      fi
+      ;;
+    fedora)
+      sudo dnf makecache >/dev/null 2>&1
+      ;;
+    debian|ubuntu)
+      sudo apt-get update >/dev/null 2>&1
+      ;;
+  esac
 }
 
 # Optimized system update
 fast_system_update() {
   step "Performing optimized system update"
-  sudo pacman -Syu --noconfirm --overwrite="*"
-  if command -v yay >/dev/null; then
-    yay -Syu --noconfirm
-  else
-    log_warning "yay not available for AUR update"
-  fi
+  case "$DISTRO_ID" in
+    arch)
+      sudo pacman -Syu --noconfirm --overwrite="*"
+      if command -v yay >/dev/null; then
+        yay -Syu --noconfirm
+      fi
+      ;;
+    fedora)
+      sudo dnf upgrade -y
+      ;;
+    debian|ubuntu)
+      sudo apt-get update && sudo apt-get upgrade -y
+      ;;
+  esac
 }
 
 # Performance tracking
@@ -1393,7 +1445,7 @@ check_and_enable_multilib() {
     log_info "Multilib configuration is Arch-specific. Skipping for $DISTRO_ID."
     return 0
   fi
-  
+
   local needs_sync=false
 
   # Check if pacman.conf exists
