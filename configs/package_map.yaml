@@ -136,3 +136,8 @@ mappings:
   lib32-mangohud:
     arch: lib32-mangohud
     common: ""
+
+  onlyoffice:
+    arch: onlyoffice-bin
+    flatpak: org.onlyoffice.desktopeditors
+    snap: onlyoffice-desktopeditors
