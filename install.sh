@@ -51,7 +51,9 @@ install_prerequisites() {
 
     if ! command -v yq >/dev/null 2>&1; then
         log_info "yq not found, installing silently..."
-        if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
+        if [ "$DISTRO_ID" == "arch" ]; then
+             $PKG_INSTALL $PKG_NOCONFIRM go-yq >> "$INSTALL_LOG" 2>&1
+        elif [ "$DISTRO_ID" == "fedora" ]; then
              $PKG_INSTALL $PKG_NOCONFIRM yq >> "$INSTALL_LOG" 2>&1
         else
              ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
@@ -66,7 +68,9 @@ install_prerequisites() {
 cleanup_prerequisites() {
     log_info "Cleaning up script-installed tools..."
     if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then
-        if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "fedora" ]; then
+        if [ "$DISTRO_ID" == "arch" ]; then
+            $PKG_REMOVE $PKG_NOCONFIRM go-yq >> "$INSTALL_LOG" 2>&1
+        elif [ "$DISTRO_ID" == "fedora" ]; then
             $PKG_REMOVE $PKG_NOCONFIRM yq >> "$INSTALL_LOG" 2>&1
         else
             sudo rm -f /usr/local/bin/yq
