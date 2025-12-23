@@ -134,29 +134,46 @@ universal_install() {
         local installed=false
         local display_name="$pkg"
         
+        # Check if Flatpak version exists (prefer for packages that might hang in AUR)
+        local flatpak_id=$(resolve_universal "$clean_name" "flatpak")
+        local snap_id=$(resolve_universal "$clean_name" "snap")
+        
         # Print package name once at the start
         printf "%-40s" "$display_name"
         
-        # 1. Try Native First
-        if [ "$DISTRO_ID" == "arch" ] && command -v yay >/dev/null 2>&1; then
-             # Arch: Use yay (handles Repo + AUR)
-             if yay -S --noconfirm --needed "$native_target" >/dev/null 2>&1; then
-                 printf "${GREEN}OK${RESET}\n"
-                 installed=true
-             fi
-        elif [ -n "${PKG_INSTALL:-}" ]; then
-             # Non-Arch: Try native package manager
-             if $PKG_INSTALL ${PKG_NOCONFIRM:-} "$native_target" >/dev/null 2>&1; then
-                 printf "${GREEN}OK${RESET}\n"
-                 installed=true
-             fi
+        # For packages with Flatpak versions, prefer Flatpak on Arch to avoid AUR build hangs
+        # This is especially important for rustdesk-bin which can hang during AUR builds
+        if [ "$DISTRO_ID" == "arch" ] && [ -n "$flatpak_id" ] && [ "$flatpak_id" != "null" ] && command -v flatpak >/dev/null 2>&1; then
+            if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
+                printf "${GREEN}OK${RESET}\n"
+                installed=true
+            fi
+        fi
+        
+        # 1. Try Native/AUR (if Flatpak didn't work or isn't available)
+        if [ "$installed" == "false" ]; then
+            if [ "$DISTRO_ID" == "arch" ] && command -v yay >/dev/null 2>&1; then
+                 # Arch: Use yay (handles Repo + AUR)
+                 # Use --batchinstall to prevent hanging on prompts
+                 # Use --provides to handle package provides
+                 # Use timeout to prevent infinite hangs (10 minutes max for AUR builds)
+                 # Log to file for debugging but keep output minimal
+                 local install_log="${INSTALL_LOG:-$HOME/.linuxinstaller.log}"
+                 if timeout 600 yay -S --noconfirm --needed --batchinstall --provides "$native_target" >> "$install_log" 2>&1; then
+                     printf "${GREEN}OK${RESET}\n"
+                     installed=true
+                 fi
+            elif [ -n "${PKG_INSTALL:-}" ]; then
+                 # Non-Arch: Try native package manager
+                 if $PKG_INSTALL ${PKG_NOCONFIRM:-} "$native_target" >/dev/null 2>&1; then
+                     printf "${GREEN}OK${RESET}\n"
+                     installed=true
+                 fi
+            fi
         fi
         
         # 2. Universal Fallback (only if native failed)
         if [ "$installed" == "false" ]; then
-            local snap_id=$(resolve_universal "$clean_name" "snap")
-            local flatpak_id=$(resolve_universal "$clean_name" "flatpak")
-            
             # Heuristics
             [ -z "$snap_id" ] && snap_id="$clean_name"
             [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
@@ -167,7 +184,7 @@ universal_install() {
                      printf "${GREEN}OK${RESET}\n"
                      installed=true
                  fi
-            elif [ "$PRIMARY_UNIVERSAL_PKG" == "flatpak" ]; then
+            elif [ "$PRIMARY_UNIVERSAL_PKG" == "flatpak" ] && [ -n "$flatpak_id" ]; then
                  if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
                      printf "${GREEN}OK${RESET}\n"
                      installed=true
@@ -181,7 +198,7 @@ universal_install() {
                           printf "${GREEN}OK${RESET}\n"
                           installed=true
                       fi
-                 elif [ "$BACKUP_UNIVERSAL_PKG" == "flatpak" ]; then
+                 elif [ "$BACKUP_UNIVERSAL_PKG" == "flatpak" ] && [ -n "$flatpak_id" ]; then
                       if flatpak install -y flathub "$flatpak_id" >/dev/null 2>&1; then
                           printf "${GREEN}OK${RESET}\n"
                           installed=true
@@ -215,6 +232,7 @@ flatpak_install_list() {
 NATIVE_PACKAGES=()
 UNIVERSAL_PACKAGES=()
 FLATPAK_PACKAGES=()
+REMOVE_PACKAGES=()
 
 load_config() {
     local config_file="$CONFIGS_DIR/programs.yaml"
@@ -249,9 +267,49 @@ load_config() {
         if [[ "$de_key" == *"cosmic"* ]]; then de_key="cosmic"; fi
         
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && NATIVE_PACKAGES+=("$line"); done < <(yq -r ".desktop_environments.$de_key.install[]" "$config_file" 2>/dev/null || true)
+        while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && REMOVE_PACKAGES+=("$line"); done < <(yq -r ".desktop_environments.$de_key.remove[]" "$config_file" 2>/dev/null || true)
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && FLATPAK_PACKAGES+=("$line"); done < <(yq -r ".flatpak.$de_key.$mode[].name" "$config_file" 2>/dev/null || true)
         while IFS= read -r line; do [[ -n "$line" && "$line" != "null" ]] && FLATPAK_PACKAGES+=("$line"); done < <(yq -r ".flatpak.generic.$mode[].name" "$config_file" 2>/dev/null || true)
     fi
+}
+
+# --- Remove Packages ---
+remove_packages() {
+    local packages=("$@")
+    if [ ${#packages[@]} -eq 0 ]; then return; fi
+    
+    step "Removing Unnecessary Packages"
+    
+    for pkg in "${packages[@]}"; do
+        # Use package name as-is (remove list should have exact package names)
+        local target="$pkg"
+        
+        # Check if package is installed before attempting removal
+        local is_installed=false
+        
+        if [ "$DISTRO_ID" == "arch" ] && command -v pacman >/dev/null 2>&1; then
+            pacman -Q "$target" >/dev/null 2>&1 && is_installed=true
+        elif [ "$DISTRO_ID" == "fedora" ] && command -v rpm >/dev/null 2>&1; then
+            rpm -q "$target" >/dev/null 2>&1 && is_installed=true
+        elif [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
+            if command -v dpkg >/dev/null 2>&1; then
+                dpkg -l | grep -q "^ii.*$target" && is_installed=true
+            fi
+        fi
+        
+        if [ "$is_installed" = true ]; then
+            printf "%-40s" "$target"
+            if [ -n "${PKG_REMOVE:-}" ]; then
+                if $PKG_REMOVE ${PKG_NOCONFIRM:-} "$target" >/dev/null 2>&1; then
+                    printf "${GREEN}OK${RESET}\n"
+                else
+                    printf "${RED}FAIL${RESET}\n"
+                fi
+            else
+                printf "${YELLOW}SKIP${RESET}\n"
+            fi
+        fi
+    done
 }
 
 # --- Main ---
@@ -260,6 +318,10 @@ if ! load_config; then
     exit 1
 fi
 
+# Remove packages first (before installing new ones)
+remove_packages "${REMOVE_PACKAGES[@]}"
+
+# Then install packages
 native_install "${NATIVE_PACKAGES[@]}"
 universal_install "${UNIVERSAL_PACKAGES[@]}"
 flatpak_install_list "${FLATPAK_PACKAGES[@]}"
