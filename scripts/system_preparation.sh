@@ -68,17 +68,17 @@ configure_package_manager() {
     if [ "$DISTRO_ID" == "arch" ]; then
         # Arch specific pacman configuration
         if [ -f /etc/pacman.conf ]; then
-            local parallel_downloads=10
-            if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-                sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-            elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-                sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-            else
-                sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
-            fi
-            
-            if grep -q "^#Color" /etc/pacman.conf; then
-                sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
+        local parallel_downloads=10
+        if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
+            sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+        elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
+            sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+        else
+            sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
+        fi
+        
+        if grep -q "^#Color" /etc/pacman.conf; then
+            sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
             fi
         fi
         
@@ -266,7 +266,7 @@ install_all_packages() {
     elif [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         packages_to_install+=("zsh-autosuggestions" "zsh-syntax-highlighting" "starship")
     fi
-
+    
     # Generic install loop
     install_packages_quietly "${packages_to_install[@]}"
     
@@ -274,7 +274,7 @@ install_all_packages() {
     install_zsh_plugins
     
     # Verify starship installation (should be installed via package manager above)
-    if ! command -v starship >/dev/null; then
+         if ! command -v starship >/dev/null; then
         log_warning "Starship not found after package installation. This may indicate a package manager issue."
     fi
 }
@@ -637,9 +637,9 @@ generate_locales() {
         run_step "Regenerating locales" sudo dpkg-reconfigure -f noninteractive locales
       else
         log_warning "locale-gen/dpkg-reconfigure not found. Locales may need manual generation."
-      fi
+             fi
+         fi
     fi
-  fi
   
   if [[ -n "$country_code" && ${#country_code} -eq 2 ]]; then
     log_success "Locale configuration complete: en_US.UTF-8 + ${detected_locale:-local} (Country: $country_code)"

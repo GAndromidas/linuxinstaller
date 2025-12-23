@@ -53,15 +53,15 @@ setup_maintenance() {
 
   # Remove orphaned packages if any exist (distro-specific)
   if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null; then
-    if pacman -Qtdq &>/dev/null; then
-      run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
-    else
-      log_info "No orphaned packages found"
-    fi
-    
-    # Only attempt to remove yay-debug if it's actually installed
+  if pacman -Qtdq &>/dev/null; then
+    run_step "Removing orphaned packages" sudo pacman -Rns $(pacman -Qtdq) --noconfirm
+  else
+    log_info "No orphaned packages found"
+  fi
+
+  # Only attempt to remove yay-debug if it's actually installed
     if pacman -Q yay-debug &>/dev/null && command -v yay >/dev/null; then
-      run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm
+    run_step "Removing yay-debug package" yay -Rns yay-debug --noconfirm
     fi
   elif [ "${DISTRO_ID:-}" == "fedora" ] && command -v dnf >/dev/null; then
     run_step "Removing orphaned packages" sudo dnf autoremove -y
@@ -544,7 +544,7 @@ setup_btrfs_snapshots() {
   # Update package database first
   # Update package database (distro-specific)
   if [ "${DISTRO_ID:-}" == "arch" ] && command -v pacman >/dev/null; then
-    sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
+  sudo pacman -Sy >/dev/null 2>&1 || log_warning "Failed to update package database"
   elif [ "${DISTRO_ID:-}" == "fedora" ] && command -v dnf >/dev/null; then
     sudo dnf makecache >/dev/null 2>&1 || log_warning "Failed to update package database"
   elif [ "${DISTRO_ID:-}" == "debian" ] || [ "${DISTRO_ID:-}" == "ubuntu" ]; then

@@ -68,7 +68,7 @@ resolve_native() {
         # Use resolve_package_name from distro_check.sh if available
         if command -v resolve_package_name >/dev/null; then
             val=$(resolve_package_name "$key")
-        else
+    else
             val="$key"
         fi
     fi
@@ -153,7 +153,7 @@ universal_install() {
         # 1. Try Native/AUR (if Flatpak didn't work or isn't available)
         if [ "$installed" == "false" ]; then
             if [ "$DISTRO_ID" == "arch" ] && command -v yay >/dev/null 2>&1; then
-                 # Arch: Use yay (handles Repo + AUR)
+             # Arch: Use yay (handles Repo + AUR)
                  # Use --batchinstall to prevent hanging on prompts
                  # Use --provides to handle package provides
                  # Use timeout to prevent infinite hangs (10 minutes max for AUR builds)
@@ -164,21 +164,21 @@ universal_install() {
                      installed=true
                  fi
             elif [ -n "${PKG_INSTALL:-}" ]; then
-                 # Non-Arch: Try native package manager
+             # Non-Arch: Try native package manager
                  if $PKG_INSTALL ${PKG_NOCONFIRM:-} "$native_target" >/dev/null 2>&1; then
                      printf "${GREEN}OK${RESET}\n"
                      installed=true
                  fi
-            fi
+             fi
         fi
         
         # 2. Universal Fallback (only if native failed)
         if [ "$installed" == "false" ]; then
-            # Heuristics
-            [ -z "$snap_id" ] && snap_id="$clean_name"
-            [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
-            
-            # Priority Logic
+        # Heuristics
+        [ -z "$snap_id" ] && snap_id="$clean_name"
+        [ -z "$flatpak_id" ] && flatpak_id="$clean_name"
+        
+        # Priority Logic
             if [ "$PRIMARY_UNIVERSAL_PKG" == "snap" ] && [ -n "$snap_id" ]; then
                  if sudo snap install "$snap_id" >/dev/null 2>&1; then
                      printf "${GREEN}OK${RESET}\n"
@@ -189,10 +189,10 @@ universal_install() {
                      printf "${GREEN}OK${RESET}\n"
                      installed=true
                  fi
-            fi
-            
-            # Backup Logic
-            if [ "$installed" == "false" ]; then
+        fi
+        
+        # Backup Logic
+        if [ "$installed" == "false" ]; then
                  if [ "$BACKUP_UNIVERSAL_PKG" == "snap" ] && [ -n "$snap_id" ]; then
                       if sudo snap install "$snap_id" >/dev/null 2>&1; then
                           printf "${GREEN}OK${RESET}\n"
@@ -204,7 +204,7 @@ universal_install() {
                           installed=true
                       fi
                  fi
-            fi
+             fi
         fi
         
         if [ "$installed" == "false" ]; then

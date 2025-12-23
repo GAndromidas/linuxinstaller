@@ -740,10 +740,10 @@ configure_plymouth_hook_and_initramfs() {
     if [ -n "${PKG_INSTALL:-}" ]; then
       if $PKG_INSTALL ${PKG_NOCONFIRM:-} plymouth >/dev/null 2>&1; then
         log_success "Installed plymouth."
-        if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
-          HOOK_NAME="sd-plymouth"
-        elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
-          HOOK_NAME="plymouth"
+      if [ -f "/usr/lib/initcpio/install/sd-plymouth" ]; then
+        HOOK_NAME="sd-plymouth"
+      elif [ -f "/usr/lib/initcpio/install/plymouth" ]; then
+        HOOK_NAME="plymouth"
         fi
       fi
     fi
