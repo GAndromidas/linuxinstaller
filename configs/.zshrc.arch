@@ -246,14 +246,6 @@ alias gb='git branch'
 alias glog='git log --oneline --graph --decorate'
 
 # -----------------------------------------------------------------------------
-# SSH
-# -----------------------------------------------------------------------------
-alias wake='wakeonlan 78:55:36:00:f2:bd'
-alias nas='ssh nas@gandromidas.ddnsfree.com'
-alias pi='ssh pi@gandro.ddnsfree.com'
-alias kristina='ssh kristina@192.168.1.147'
-
-# -----------------------------------------------------------------------------
 # Config shortcuts
 # -----------------------------------------------------------------------------
 alias zshconfig='nano .zshrc'
