@@ -70,7 +70,7 @@ detect_de() {
         elif [ "$DISTRO_ID" = "fedora" ]; then
              if rpm -q plasma-desktop >/dev/null 2>&1; then XDG_CURRENT_DESKTOP="KDE"; fi
              if rpm -q gnome-shell >/dev/null 2>&1; then XDG_CURRENT_DESKTOP="GNOME"; fi
-        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
+        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
              if dpkg -l | grep -q plasma-desktop; then XDG_CURRENT_DESKTOP="KDE"; fi
              if dpkg -l | grep -q gnome-shell; then XDG_CURRENT_DESKTOP="GNOME"; fi
         fi

@@ -221,7 +221,9 @@ check_system_requirements() {
       exit 1
     fi
   else
-    if ! ping -c 1 -W 5 archlinux.org &>/dev/null; then
+    # Distro-agnostic internet check
+    local test_host="8.8.8.8"  # Google DNS - works on all distros
+    if ! ping -c 1 -W 5 "$test_host" &>/dev/null; then
       ui_error "No internet connection detected. Please check your network."
       exit 1
     fi
