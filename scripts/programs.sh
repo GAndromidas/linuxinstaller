@@ -207,6 +207,11 @@ flatpak_install_list() {
     local packages=("$@")
     if [ ${#packages[@]} -eq 0 ]; then return; fi
 
+    # Skip Flatpak on Ubuntu if not installed (Snap-only preference)
+    if [ "$DISTRO_ID" == "ubuntu" ] && ! command -v flatpak >/dev/null 2>&1; then
+        return
+    fi
+
     step "Installing Flatpak Apps"
 
     if command -v install_flatpak_quietly >/dev/null; then

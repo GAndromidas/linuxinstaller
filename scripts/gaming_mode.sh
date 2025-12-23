@@ -43,6 +43,11 @@ install_gaming_native() {
 install_gaming_flatpak() {
     if [[ ${#flatpak_gaming_programs[@]} -eq 0 ]]; then return; fi
 
+    # Skip Flatpak on Ubuntu if not installed (Snap-only preference)
+    if [ "${DISTRO_ID:-}" == "ubuntu" ] && ! command -v flatpak >/dev/null 2>&1; then
+        return
+    fi
+
     if ! command -v flatpak >/dev/null; then
         ui_warn "Flatpak not found. Skipping."
         return

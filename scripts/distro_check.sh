@@ -82,10 +82,10 @@ setup_package_providers() {
     # Determine primary and backup universal package manager
     if [ "$DISTRO_ID" = "ubuntu" ]; then
         PRIMARY_UNIVERSAL_PKG="snap"
-        BACKUP_UNIVERSAL_PKG="flatpak"
+        BACKUP_UNIVERSAL_PKG="none"
     else
         PRIMARY_UNIVERSAL_PKG="flatpak"
-        BACKUP_UNIVERSAL_PKG="snap"
+        BACKUP_UNIVERSAL_PKG="none"
     fi
 
     if [ "${INSTALL_MODE:-default}" = "server" ]; then
@@ -101,8 +101,8 @@ setup_package_providers() {
 define_common_packages() {
     # Common packages
     COMMON_UTILS="bc curl git rsync ufw fzf fastfetch eza zoxide"
-    
-    # Use resolver implicitly by listing generic names where possible, 
+
+    # Use resolver implicitly by listing generic names where possible,
     # but for bootstrap we hardcode to ensure they exist before resolver (yq) is ready
     case "$DISTRO_ID" in
         arch)
@@ -111,18 +111,21 @@ define_common_packages() {
         fedora)
             HELPER_UTILS=($COMMON_UTILS @development-tools bluez cronie openssh-server plymouth flatpak)
             ;;
-        debian|ubuntu)
+        debian)
             HELPER_UTILS=($COMMON_UTILS build-essential bluez cron openssh-server plymouth flatpak)
             ;;
+        ubuntu)
+            HELPER_UTILS=($COMMON_UTILS build-essential bluez cron openssh-server plymouth snapd)
+            ;;
     esac
-    
+
     export HELPER_UTILS
 }
 
 resolve_package_name() {
     local pkg="$1"
     local map_file="$(dirname "${BASH_SOURCE[0]}")/../configs/package_map.yaml"
-    
+
     # 1. Try YAML lookup
     if [ -f "$map_file" ] && command -v yq >/dev/null; then
         local val=$(yq -r ".mappings[\"$pkg\"].$DISTRO_ID // .mappings[\"$pkg\"].common" "$map_file" 2>/dev/null)
@@ -156,6 +159,6 @@ resolve_package_name() {
             openssh) mapped="openssh-server" ;;
         esac
     fi
-    
+
     echo "$mapped"
 }

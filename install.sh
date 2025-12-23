@@ -99,35 +99,60 @@ else
   exit 1
 fi
 
+# Prompt for sudo (ensure we have credentials early)
+if ! check_sudo_access; then
+  echo "Sudo required. Exiting."
+  exit 1
+fi
+echo "Please enter your sudo password to begin the installation:"
+sudo -v || { echo "Sudo required. Exiting."; exit 1; }
+
+# Keep sudo alive in background
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+SUDO_KEEPALIVE_PID=$!
+
 # Ensure helper tools (figlet, gum, yq)
 # Install them silently if missing
-for tool in figlet gum yq; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-      # Inline installation logic for robustness across distros
-      if [ "$tool" == "figlet" ]; then
-          $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1
-      elif [ "$tool" == "gum" ]; then
-          if [ "$DISTRO_ID" == "arch" ]; then
-              $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
-          else
-              # Binary install for others to avoid repo mess
-              ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
-              VER="0.13.0"
-              curl -L -s -o /tmp/gum.tar.gz "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.tar.gz"
-              tar -xzf /tmp/gum.tar.gz -C /tmp >/dev/null 2>&1
-              sudo mv /tmp/gum_${VER}_linux_${ARCH}/gum /usr/local/bin/gum >/dev/null 2>&1
-              rm -rf /tmp/gum*
-          fi
-      elif [ "$tool" == "yq" ]; then
-          if [ "$DISTRO_ID" == "arch" ]; then
-               $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
-          else
-               sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-               sudo chmod +x /usr/local/bin/yq
-          fi
-      fi
-  fi
-done
+export FIGLET_INSTALLED_BY_SCRIPT=false
+export GUM_INSTALLED_BY_SCRIPT=false
+export YQ_INSTALLED_BY_SCRIPT=false
+
+# Ensure curl is present (needed for downloading helpers on non-Arch)
+if ! command -v curl >/dev/null 2>&1; then
+    $PKG_INSTALL $PKG_NOCONFIRM curl >/dev/null 2>&1
+fi
+
+if ! command -v figlet >/dev/null 2>&1; then
+    $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1
+    export FIGLET_INSTALLED_BY_SCRIPT=true
+fi
+
+if ! command -v gum >/dev/null 2>&1; then
+    if [ "$DISTRO_ID" == "arch" ]; then
+        $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
+    else
+        # Binary install for others to avoid repo mess
+        ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
+        VER="0.13.0"
+        curl -L -s -o /tmp/gum.tar.gz "https://github.com/charmbracelet/gum/releases/download/v${VER}/gum_${VER}_linux_${ARCH}.tar.gz" >/dev/null 2>&1
+        tar -xzf /tmp/gum.tar.gz -C /tmp >/dev/null 2>&1
+        sudo mv /tmp/gum_${VER}_linux_${ARCH}/gum /usr/local/bin/gum >/dev/null 2>&1
+        sudo chmod +x /usr/local/bin/gum
+        rm -rf /tmp/gum*
+    fi
+    export GUM_INSTALLED_BY_SCRIPT=true
+fi
+
+if ! command -v yq >/dev/null 2>&1; then
+    if [ "$DISTRO_ID" == "arch" ]; then
+         $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
+    else
+         ARCH="amd64"; [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
+         sudo curl -L -s -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}" >/dev/null 2>&1
+         sudo chmod +x /usr/local/bin/yq
+    fi
+    export YQ_INSTALLED_BY_SCRIPT=true
+fi
 
 # Show ASCII banner and interactive menu (uses gum if available)
 # The functions `linux_ascii` and `show_menu` are defined in common.sh.
@@ -349,17 +374,7 @@ echo "LinuxInstaller Installation Log" >> "$INSTALL_LOG"
 echo "Started: $(date)" >> "$INSTALL_LOG"
 echo "==========================================" >> "$INSTALL_LOG"
 
-# Prompt for sudo (ensure we have credentials early)
-if ! check_sudo_access; then
-  ui_error "Sudo required. Exiting."
-  exit 1
-fi
-ui_info "Please enter your sudo password to begin the installation:"
-sudo -v || { ui_error "Sudo required. Exiting."; exit 1; }
 
-# Keep sudo alive in background
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-SUDO_KEEPALIVE_PID=$!
 
 # Offer resume if previous run exists
 show_resume_menu
