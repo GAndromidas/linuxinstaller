@@ -15,7 +15,6 @@ SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
 
 # Source common functions and distribution checks early
-# This makes functions like log_info() and variables available.
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then
   source "$SCRIPTS_DIR/common.sh"
 else
@@ -83,7 +82,6 @@ cleanup_prerequisites() {
 }
 
 # --- Core Installation Logic ---
-# Function to install packages for a given category from programs.yaml
 install_packages() {
     local category="$1"
     log_info "Installing packages for category: '$category'"
@@ -139,14 +137,15 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-# --- Environment Setup for Sub-Scripts ---
+# --- Environment Setup ---
 log_info "Detecting distribution and setting up environment..."
-detect_distro # This sets DISTRO_ID, PRETTY_NAME, PKG_* vars etc.
+detect_distro # This function from distro_check.sh defines and exports DISTRO_ID, PKG_*, etc.
+setup_package_providers # This defines PRIMARY_UNIVERSAL_PKG etc.
+# PRETTY_NAME is now available from the sourced /etc/os-release
+log_success "Environment ready. Detected Distro: $PRETTY_NAME"
 
 # Export variables so they are available to all child scripts
 export DISTRO_ID PKG_INSTALL PKG_REMOVE PKG_UPDATE PKG_CLEAN PKG_NOCONFIRM SCRIPTS_DIR CONFIGS_DIR
-
-log_success "Environment ready. Detected Distro: $PRETTY_NAME"
 
 # Now that package managers are defined, install prerequisites
 install_prerequisites
@@ -162,6 +161,7 @@ MODE=$(gum choose "Standard" "Minimal" "Server" "Custom" "Exit")
 
 if [ "$MODE" == "Exit" ]; then
     log_info "Installation cancelled by user."
+    cleanup_prerequisites # Clean up even if exiting early
     exit 0
 fi
 
@@ -202,8 +202,6 @@ for script in "$SCRIPTS_DIR"/??_*.sh; do
     if [ -f "$script" ]; then
         script_name=$(basename "$script")
         log_info "Executing configuration step: $script_name"
-        # Execute the script in a subshell to isolate its environment
-        # and correctly redirect its output to the log file.
         bash "$script" >> "$INSTALL_LOG" 2>&1
         if [ $? -eq 0 ]; then
             log_success "Step '$script_name' completed successfully."
@@ -215,10 +213,21 @@ done
 
 # --- Finalization ---
 log_info "Finalizing installation..."
+gum format "## Installation Complete!" "Your system is now set up. A log of the installation has been saved to \`$INSTALL_LOG\`."
+
+# Final Reboot Prompt
+figlet "Reboot System" | gum style --foreground 5
+reboot_choice=false
+if gum confirm "Reboot now to apply all changes?"; then
+    reboot_choice=true
+fi
+
+# Clean up helpers AFTER the prompt is done
 cleanup_prerequisites
 
-gum format "## Installation Complete!
-Your system is now set up. A log of the installation has been saved to \`$INSTALL_LOG\`.
-Thanks for using LinuxInstaller!"
-
-prompt_reboot
+if [ "$reboot_choice" = true ]; then
+    log_warn "Rebooting system..."
+    sudo reboot
+else
+    log_info "Please reboot your system later to apply all changes."
+fi
