@@ -1,0 +1,138 @@
+# Package Mappings Database
+# Maps generic names to distro-specific package names, Flatpak IDs, or Snap names.
+#
+# Structure:
+# generic_name:
+#   common: package_name (default for native package managers)
+#   arch: package_name (override for Arch)
+#   fedora: package_name (override for Fedora)
+#   debian: package_name (override for Debian/Ubuntu)
+#   ubuntu: package_name (override specifically for Ubuntu)
+#   flatpak: com.example.App
+#   snap: snap_name
+
+mappings:
+  # --- System Utilities ---
+  base-devel:
+    arch: base-devel
+    fedora: "@development-tools"
+    debian: build-essential
+    ubuntu: build-essential
+
+  android-tools:
+    arch: android-tools
+    fedora: android-tools
+    debian: adb fastboot
+    ubuntu: adb fastboot
+
+  cronie:
+    arch: cronie
+    fedora: cronie
+    debian: cron
+    ubuntu: cron
+
+  openssh:
+    arch: openssh
+    fedora: openssh-server
+    debian: openssh-server
+    ubuntu: openssh-server
+
+  bluez-utils:
+    arch: bluez-utils
+    common: bluez
+
+  # --- Apps ---
+  zed:
+    arch: zed
+    flatpak: dev.zed.Zed
+
+  spotify:
+    flatpak: com.spotify.Client
+    snap: spotify
+
+  discord:
+    flatpak: com.discordapp.Discord
+    snap: discord
+
+  dropbox:
+    arch: dropbox
+    flatpak: com.dropbox.Client
+    snap: dropbox
+
+  onlyoffice-bin: # Mapping legacy name
+    flatpak: org.onlyoffice.desktopeditors
+    snap: onlyoffice-desktopeditors
+
+  rustdesk-bin: # Mapping legacy name
+    flatpak: com.rustdesk.RustDesk
+    snap: rustdesk
+
+  via-bin:
+    flatpak: io.github.thevia.VIA
+
+  # --- Fonts & Extras ---
+  noto-fonts-extra:
+    arch: noto-fonts-extra
+    fedora: google-noto-sans-fonts google-noto-serif-fonts
+    debian: fonts-noto-extra
+    ubuntu: fonts-noto-extra
+
+  sshfs:
+    arch: sshfs
+    fedora: fuse-sshfs
+    debian: sshfs
+    ubuntu: sshfs
+
+  docker:
+    common: docker
+    debian: docker.io
+    ubuntu: docker.io
+
+  discord:
+    common: discord
+    flatpak: com.discordapp.Discord
+    snap: discord
+
+  heroic:
+    arch: heroic-games-launcher-bin
+    flatpak: com.heroicgameslauncher.hgl
+    # fedora/debian usually use flatpak for this
+
+  protonplus:
+    arch: protonplus
+    flatpak: com.vysp3r.ProtonPlus
+
+  gearlever:
+    arch: gearlever
+    flatpak: it.mijorus.gearlever
+
+  # --- Gaming ---
+  steam:
+    arch: steam
+    fedora: steam
+    debian: steam-installer
+    ubuntu: steam-installer
+
+  wine:
+    arch: wine
+    fedora: wine
+    debian: wine
+    ubuntu: wine-installer
+
+  gamemode:
+    common: gamemode
+
+  mangohud:
+    common: mangohud
+
+  goverlay:
+    common: goverlay
+
+  # Arch 32-bit libs (ignore on others or map if needed)
+  lib32-gamemode:
+    arch: lib32-gamemode
+    common: ""
+
+  lib32-mangohud:
+    arch: lib32-mangohud
+    common: ""
