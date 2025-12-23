@@ -37,32 +37,92 @@ configure_firewalld() {
 
   # Default secure zone
   sudo firewall-cmd --set-default-zone=public >/dev/null 2>&1
-  # Allow SSH
-  sudo firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
   
-  # Allow KDE Connect if needed
+  # Always allow SSH
+  sudo firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
+  log_success "SSH service allowed in firewall"
+  
+  # Allow KDE Connect if KDE is detected and KDE Connect is installed or will be installed
   if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-      sudo firewall-cmd --permanent --add-service=kde-connect >/dev/null 2>&1
+    # Check if kdeconnect is installed or will be installed
+    local kdeconnect_installed=false
+    
+    # Check if already installed
+    if command -v kdeconnect-cli >/dev/null 2>&1 || \
+       (command -v pacman >/dev/null 2>&1 && pacman -Q kdeconnect >/dev/null 2>&1) || \
+       (command -v dnf >/dev/null 2>&1 && rpm -q kdeconnect >/dev/null 2>&1) || \
+       (command -v dpkg >/dev/null 2>&1 && dpkg -l | grep -q kdeconnect); then
+      kdeconnect_installed=true
+    fi
+    
+    # Check if it's in the installation list (will be installed)
+    if [ "$kdeconnect_installed" = false ]; then
+      # Check programs.yaml for kdeconnect in kde desktop environment packages
+      local programs_yaml="$SCRIPT_DIR/../configs/programs.yaml"
+      if [ -f "$programs_yaml" ] && grep -qi "kdeconnect" "$programs_yaml"; then
+        kdeconnect_installed=true
+      fi
+    fi
+    
+    if [ "$kdeconnect_installed" = true ]; then
+      # Try to add kde-connect service (works on Fedora/Arch with kdeconnect package)
+      if sudo firewall-cmd --permanent --add-service=kde-connect >/dev/null 2>&1; then
+        log_success "KDE Connect service allowed in firewall"
+      else
+        # Fallback: manually allow KDE Connect ports (1714-1764 UDP/TCP)
+        sudo firewall-cmd --permanent --add-port=1714-1764/udp >/dev/null 2>&1
+        sudo firewall-cmd --permanent --add-port=1714-1764/tcp >/dev/null 2>&1
+        log_success "KDE Connect ports (1714-1764) allowed in firewall"
+      fi
+    fi
   fi
   
   sudo firewall-cmd --reload >/dev/null 2>&1
-  log_success "Firewalld configured."
+  log_success "Firewalld configured with SSH and KDE Connect (if applicable)"
 }
 
 configure_ufw() {
   # Enable UFW with defaults
   sudo ufw default deny incoming
   sudo ufw default allow outgoing
-  sudo ufw limit ssh
   
+  # Always allow SSH (with rate limiting)
+  sudo ufw limit ssh
+  log_success "SSH allowed in firewall (with rate limiting)"
+  
+  # Allow KDE Connect if KDE is detected and KDE Connect is installed or will be installed
   if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-      sudo ufw allow 1714:1764/udp
-      sudo ufw allow 1714:1764/tcp
+    # Check if kdeconnect is installed or will be installed
+    local kdeconnect_installed=false
+    
+    # Check if already installed
+    if command -v kdeconnect-cli >/dev/null 2>&1 || \
+       (command -v pacman >/dev/null 2>&1 && pacman -Q kdeconnect >/dev/null 2>&1) || \
+       (command -v dnf >/dev/null 2>&1 && rpm -q kdeconnect >/dev/null 2>&1) || \
+       (command -v dpkg >/dev/null 2>&1 && dpkg -l | grep -q kdeconnect); then
+      kdeconnect_installed=true
+    fi
+    
+    # Check if it's in the installation list (will be installed)
+    if [ "$kdeconnect_installed" = false ]; then
+      # Check programs.yaml for kdeconnect in kde desktop environment packages
+      local programs_yaml="$SCRIPT_DIR/../configs/programs.yaml"
+      if [ -f "$programs_yaml" ] && grep -qi "kdeconnect" "$programs_yaml"; then
+        kdeconnect_installed=true
+      fi
+    fi
+    
+    if [ "$kdeconnect_installed" = true ]; then
+      # Allow KDE Connect ports (1714-1764 UDP/TCP)
+      sudo ufw allow 1714:1764/udp >/dev/null 2>&1
+      sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
+      log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in firewall"
+    fi
   fi
   
   # Force enable without prompt
   echo "y" | sudo ufw enable
-  log_success "UFW configured."
+  log_success "UFW configured with SSH and KDE Connect (if applicable)"
 }
 
 configure_user_groups() {
