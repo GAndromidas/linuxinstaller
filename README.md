@@ -1,6 +1,6 @@
 # LinuxInstaller - Unified Linux Post-Installation Script
 
-![LinuxInstaller Logo](https://via.placeholder.com/800x200.png?text=LinuxInstaller)
+<img width="764" height="415" alt="Screenshot_20251223_032331" src="https://github.com/user-attachments/assets/864b65e9-9144-40f5-98ce-1994461f1625" />
 
 **LinuxInstaller** is a unified, intelligent post-installation script designed to work across **Arch Linux**, **Fedora**, **Debian**, and **Ubuntu**. It abstracts package management and system configuration to provide a consistent, high-quality environment regardless of the underlying distribution.
 
