@@ -99,6 +99,14 @@ else
   exit 1
 fi
 
+# Source programs installation
+if [ -f "$SCRIPTS_DIR/programs.sh" ]; then
+  source "$SCRIPTS_DIR/programs.sh"
+else
+  echo "Error: programs.sh not found in $SCRIPTS_DIR"
+  exit 1
+fi
+
 # Prompt for sudo (ensure we have credentials early)
 if ! check_sudo_access; then
   echo "Sudo required. Exiting."

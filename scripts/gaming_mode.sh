@@ -5,83 +5,64 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 LINUXINSTALLER_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGS_DIR="$LINUXINSTALLER_ROOT/configs"
-GAMING_YAML="$CONFIGS_DIR/gaming_mode.yaml"
+PROGRAMS_FILE="$CONFIGS_DIR/programs.yaml"
 
 source "$SCRIPT_DIR/common.sh"
 if [ -z "${DISTRO_ID:-}" ]; then
     [ -f "$SCRIPT_DIR/distro_check.sh" ] && source "$SCRIPT_DIR/distro_check.sh" && detect_distro
 fi
 
-# Globals
-pacman_gaming_programs=()
-flatpak_gaming_programs=()
-GAMING_INSTALLED=()
-GAMING_ERRORS=()
+# Source programs.sh for installation functions
+if [ -f "$SCRIPT_DIR/programs.sh" ]; then
+    source "$SCRIPT_DIR/programs.sh"
+fi
 
-# Load Lists
-load_package_lists() {
-    if [[ ! -f "$GAMING_YAML" ]]; then return 1; fi
-    if ! command -v yq >/dev/null; then return 1; fi
-
-    # Read into arrays
-    mapfile -t pacman_gaming_programs < <(yq -r '.pacman.packages[].name' "$GAMING_YAML")
-    mapfile -t flatpak_gaming_programs < <(yq -r '.flatpak.apps[].name' "$GAMING_YAML")
-}
-
-install_gaming_native() {
-    if [[ ${#pacman_gaming_programs[@]} -eq 0 ]]; then return; fi
-    ui_info "Installing Native Gaming Packages..."
-
-    # Use smart installer which resolves names via package_map.yaml
-    install_packages_quietly "${pacman_gaming_programs[@]}"
-
-    # Note: install_packages_quietly suppresses output but logs to file.
-    # We assume success if no critical error, tracking individual success is complex in batch.
-    GAMING_INSTALLED+=("${pacman_gaming_programs[@]}")
-}
-
-install_gaming_flatpak() {
-    if [[ ${#flatpak_gaming_programs[@]} -eq 0 ]]; then return; fi
-
-    # Skip Flatpak on Ubuntu if not installed (Snap-only preference)
-    if [ "${DISTRO_ID:-}" == "ubuntu" ] && ! command -v flatpak >/dev/null 2>&1; then
-        return
+# Gaming packages installation using new structure
+install_gaming_packages() {
+    if [ ! -f "$PROGRAMS_FILE" ] || ! command -v yq >/dev/null; then
+        log_warning "Cannot read gaming packages configuration"
+        return 1
     fi
 
-    if ! command -v flatpak >/dev/null; then
-        ui_warn "Flatpak not found. Skipping."
-        return
+    step "Installing gaming packages"
+
+    # Read gaming packages for current distro
+    local gaming_native=()
+    mapfile -t gaming_native < <(yq -r ".gaming.${DISTRO_ID}.native[]?" "$PROGRAMS_FILE" 2>/dev/null || echo "")
+
+    if [ ${#gaming_native[@]} -gt 0 ]; then
+        install_packages_quietly "${gaming_native[@]}"
     fi
 
-    ui_info "Installing Flatpak Gaming Apps..."
-
-    # Use optimized batch installation if available
-    if command -v install_flatpak_quietly >/dev/null; then
-        install_flatpak_quietly "${flatpak_gaming_programs[@]}"
-        GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
-    else
-        # Fallback manual batch install with Gum UI
-        local pkg_list="${flatpak_gaming_programs[*]}"
-        local title="Installing ${#flatpak_gaming_programs[@]} Flatpak gaming apps..."
-
-        if command -v gum >/dev/null 2>&1; then
-            if gum spin --spinner dot --title "$title" --show-output -- flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
-                ui_success "$title Done."
-                GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
-            else
-                ui_error "Failed to install some Flatpak gaming apps."
-            fi
-        else
-            ui_info "$title"
-            if flatpak install -y flathub $pkg_list >> "$INSTALL_LOG" 2>&1; then
-                ui_success "Done."
-                GAMING_INSTALLED+=("${flatpak_gaming_programs[@]}")
-            else
-                ui_error "Failed."
-            fi
+    # Install AUR gaming packages (Arch only)
+    if [ "$DISTRO_ID" == "arch" ]; then
+        local gaming_aur=()
+        mapfile -t gaming_aur < <(yq -r ".gaming.${DISTRO_ID}.aur[]?" "$PROGRAMS_FILE" 2>/dev/null || echo "")
+        if [ ${#gaming_aur[@]} -gt 0 ]; then
+            install_aur_packages "${gaming_aur[@]}"
         fi
     fi
+
+    # Install Flatpak gaming packages
+    local gaming_flatpak=()
+    mapfile -t gaming_flatpak < <(yq -r ".gaming.${DISTRO_ID}.flatpak[]?" "$PROGRAMS_FILE" 2>/dev/null || echo "")
+    if [ ${#gaming_flatpak[@]} -gt 0 ]; then
+        install_flatpak_packages "${gaming_flatpak[@]}"
+    fi
+
+    # Install Snap gaming packages (Ubuntu only)
+    if [ "$DISTRO_ID" == "ubuntu" ]; then
+        local gaming_snap=()
+        mapfile -t gaming_snap < <(yq -r ".gaming.${DISTRO_ID}.snap[]?" "$PROGRAMS_FILE" 2>/dev/null || echo "")
+        if [ ${#gaming_snap[@]} -gt 0 ]; then
+            install_snap_packages "${gaming_snap[@]}"
+        fi
+    fi
+
+    log_success "Gaming packages installation completed"
 }
+
+
 
 configure_mangohud() {
 	local src="$CONFIGS_DIR/MangoHud.conf"
@@ -107,9 +88,8 @@ main() {
         return 0
     fi
 
-    load_package_lists
-    install_gaming_native
-    install_gaming_flatpak
+    # Main execution
+    install_gaming_packages
     configure_mangohud
     enable_gamemode
 

@@ -1,311 +1,1024 @@
-# This file contains all package lists for different installation modes and desktop environments
+# LinuxInstaller - Hardcoded Distro-Specific Package Configuration
+# This file replaces the previous dynamic system with explicit package lists
+# for each distribution to eliminate YAML parsing errors and ensure exact installations
 
-# Native packages (Pacman/APT/DNF)
-# Note: The script automatically maps common package names based on the detected distribution.
-pacman:
-  packages:
-    - name: "android-tools"
-      description: "Android development and debugging tools"
-    - name: "bat"
-      description: "Enhanced cat command with syntax highlighting"
-    - name: "bleachbit"
-      description: "System cleaner and privacy tool"
-    - name: "btop"
-      description: "Resource monitor and process viewer"
-    - name: "chromium"
-      description: "Open-source web browser"
-    - name: "cmatrix"
-      description: "Matrix-style terminal screensaver"
-    - name: "cpupower"
-      description: "CPU frequency and power management utilities"
-    - name: "dosfstools"
-      description: "DOS filesystem utilities"
-    - name: "duf"
-      description: "Disk Usage/Free Utility"
-    - name: "expac"
-      description: "Pacman database extraction utility"
-    - name: "firefox"
-      description: "Web browser"
-    - name: "fwupd"
-      description: "Firmware update daemon"
-    - name: "gnome-disk-utility"
-      description: "Disk management utility"
-    - name: "hwinfo"
-      description: "Hardware information tool"
-    - name: "inxi"
-      description: "System information script"
-    - name: "ncdu"
-      description: "Disk usage analyzer with interactive interface"
-    - name: "net-tools"
-      description: "Network utilities (ifconfig, netstat, etc.)"
-    - name: "nmap"
-      description: "Network scanner and security auditing tool"
-    - name: "noto-fonts-extra"
-      description: "Additional Google Noto fonts"
-    - name: "samba"
-      description: "Windows file sharing compatibility"
-    - name: "sl"
-      description: "Steam locomotive animation"
-    - name: "speedtest-cli"
-      description: "Command line speedtest tool"
-    - name: "sshfs"
-      description: "SSH filesystem client"
-    - name: "ttf-hack-nerd"
-      description: "Hack font with Nerd Fonts icons"
-    - name: "ttf-liberation"
-      description: "Liberation font family"
-    - name: "unrar"
-      description: "RAR archive extractor"
-    - name: "wakeonlan"
-      description: "Utility to send Wake-on-LAN magic packets"
-    - name: "xdg-desktop-portal-gtk"
-      description: "GTK portal for desktop integration"
+# =============================================================================
+# ARCH LINUX PACKAGES
+# =============================================================================
+arch:
+  # Standard Mode - Full desktop setup
+  standard:
+    native:
+      - android-tools
+      - bat
+      - bleachbit
+      - btop
+      - chromium
+      - cmatrix
+      - cpupower
+      - dosfstools
+      - duf
+      - expac
+      - firefox
+      - fwupd
+      - gnome-disk-utility
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - nmap
+      - noto-fonts-extra
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-hack-nerd
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - yay
 
-# Essential packages for different installation modes
-essential:
-  default:
-    - name: "filezilla"
-      description: "FTP client for file transfers"
-    - name: "kdenlive"
-      description: "Video editing software"
+    aur:
+      - dropbox
+      - filezilla
+      - kdenlive
+      - onlyoffice-bin
+      - rustdesk-bin
+      - spotify
+      - ventoy-bin
+      - via-bin
+      - zed
 
-  minimal:
-    - name: "mpv"
-      description: "Media player"
-
-  server:
-    - name: "bat"
-      description: "Enhanced cat command with syntax highlighting"
-    - name: "btop"
-      description: "Resource monitor and process viewer"
-    - name: "cmatrix"
-      description: "Matrix-style terminal screensaver"
-    - name: "cpupower"
-      description: "CPU frequency and power management utilities"
-    - name: "docker"
-      description: "Containerization platform"
-    - name: "docker-compose"
-      description: "Tool for defining and running multi-container Docker applications"
-    - name: "dosfstools"
-      description: "DOS filesystem utilities"
-    - name: "duf"
-      description: "Disk Usage/Free Utility"
-    - name: "expac"
-      description: "Pacman database extraction utility"
-    - name: "fwupd"
-      description: "Firmware update daemon"
-    - name: "hwinfo"
-      description: "Hardware information tool"
-    - name: "inxi"
-      description: "System information script"
-    - name: "nano"
-      description: "User-friendly text editor"
-    - name: "ncdu"
-      description: "Disk usage analyzer with interactive interface"
-    - name: "net-tools"
-      description: "Network utilities (ifconfig, netstat, etc.)"
-    - name: "nmap"
-      description: "Network scanner and security auditing tool"
-    - name: "noto-fonts-extra"
-      description: "Additional Google Noto fonts"
-    - name: "samba"
-      description: "Windows file sharing compatibility"
-    - name: "sl"
-      description: "Steam locomotive animation"
-    - name: "speedtest-cli"
-      description: "Command line speedtest tool"
-    - name: "sshfs"
-      description: "SSH filesystem client"
-    - name: "ttf-hack-nerd"
-      description: "Hack font with Nerd Fonts icons"
-    - name: "ttf-liberation"
-      description: "Liberation font family"
-    - name: "unrar"
-      description: "RAR archive extractor"
-    - name: "wakeonlan"
-      description: "Utility to send Wake-on-LAN magic packets"
-
-# Universal packages (AUR on Arch, Snap/Flatpak on others)
-aur:
-  default:
-    - name: "zed"
-      description: "High-performance multiplayer code editor"
-    - name: "dropbox"
-      description: "Cloud storage and file synchronization"
-    - name: "onlyoffice-bin"
-      description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rustdesk-bin"
-      description: "Remote desktop software"
-    - name: "spotify"
-      description: "Music streaming service"
-    - name: "ventoy-bin"
-      description: "Tool to create bootable USB drives for ISO files"
-    - name: "via-bin"
-      description: "VIA keyboard configuration tool"
-
-  minimal:
-    - name: "onlyoffice-bin"
-      description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rustdesk-bin"
-      description: "Remote desktop software"
-
-# Desktop environment specific packages
-desktop_environments:
-  kde:
-    install:
-      - "gwenview"
-      - "kdeconnect"
-      - "kwalletmanager"
-      - "kvantum"
-      - "okular"
-      - "python-pyqt5"
-      - "python-pyqt6"
-      - "qbittorrent"
-      - "spectacle"
-      - "smplayer"
-    remove:
-      - "akregator"
-      - "digikam"
-      - "dragon"
-      - "elisa-player"
-      - "gnome-cd-master"
-      - "htop"
-      - "k3b"
-      - "kaddressbook"
-      - "kamoso"
-      - "kdebugsettings"
-      - "kmahjongg"
-      - "kmail"
-      - "kmines"
-      - "kmouth"
-      - "kolourpaint"
-      - "korganizer"
-      - "kpat"
-      - "krfb"
-      - "krdc"
-      - "krusader"
-      - "ktorrent"
-      - "ktnef"
-      - "neochat"
-      - "pim-sieve-editor"
-      - "qrca"
-      - "showfoto"
-      - "skanpage"
-
-  gnome:
-    install:
-      - "adw-gtk-theme"
-      - "celluloid"
-      - "dconf-editor"
-      - "gnome-tweaks"
-      - "gufw"
-      - "seahorse"
-      - "transmission-gtk"
-    remove:
-      - "epiphany"
-      - "gnome-contacts"
-      - "gnome-maps"
-      - "gnome-music"
-      - "gnome-tour"
-      - "htop"
-      - "rhythmbox"
-      - "snapshot"
-      - "totem"
-
-  cosmic:
-    install:
-      - "celluloid"
-      - "transmission-gtk"
-    remove:
-      - "htop"
-
-# Flatpak packages for different desktop environments
-flatpak:
-  kde:
-    default:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-    minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-  gnome:
-    default:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-    minimal:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-  cosmic:
-    default:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-    minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-  generic: # Fallback for unsupported DEs/WMs
-    default:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-    minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-# Custom packages (user-selectable additions)
-custom:
-  essential:
-    - name: "filezilla"
-      description: "FTP client for file transfers"
-    - name: "kdenlive"
-      description: "Video editing software"
-    - name: "solaar"
-      description: "Device manager for Logitech's Unifying Receiver peripherals"
-
-  aur:
-    - name: "zed"
-      description: "High-performance multiplayer code editor"
-    - name: "dropbox"
-      description: "Cloud storage and file synchronization"
-    - name: "onlyoffice-bin"
-      description: "Office suite with document, spreadsheet and presentation editors"
-    - name: "rustdesk-bin"
-      description: "Remote desktop software"
-    - name: "spotify"
-      description: "Music streaming service"
-    - name: "ventoy-bin"
-      description: "Tool to create bootable USB drives for ISO files"
-    - name: "via-bin"
-      description: "VIA keyboard configuration tool"
-
-  flatpak:
     kde:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      install:
+        - gwenview
+        - kdeconnect
+        - kwalletmanager
+        - kvantum
+        - mpv
+        - okular
+        - python-pyqt5
+        - python-pyqt6
+        - qbittorrent
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kdebugsettings
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - ktnef
+        - neochat
+        - pim-sieve-editor
+        - qrca
+        - showfoto
+        - skanpage
 
     gnome:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - gufw
+        - mpv
+        - seahorse
+        - transmission-gtk
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
 
     cosmic:
-      - name: "dev.edfloreshz.CosmicTweaks"
-        description: "System settings and tweaks"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      install:
+        - celluloid
+        - mpv
+        - transmission-gtk
+      remove: []
+
+  # Minimal Mode - Lightweight setup
+  minimal:
+    native:
+      - bat
+      - btop
+      - cpupower
+      - dosfstools
+      - duf
+      - fwupd
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - noto-fonts-extra
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-hack-nerd
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - yay
+
+    aur:
+      - onlyoffice-bin
+      - rustdesk-bin
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - mpv
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - neochat
+
+    gnome:
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - mpv
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+      remove: []
+
+  # Server Mode - Headless setup
+  server:
+    native:
+      - bat
+      - btop
+      - cmatrix
+      - cpupower
+      - docker
+      - docker-compose
+      - dosfstools
+      - duf
+      - expac
+      - fwupd
+      - hwinfo
+      - inxi
+      - nano
+      - ncdu
+      - net-tools
+      - nmap
+      - noto-fonts-extra
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-hack-nerd
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+
+    aur: []
+
+    kde:
+      install: []
+      remove: []
+
+    gnome:
+      install: []
+      remove: []
+
+    cosmic:
+      install: []
+      remove: []
+
+# =============================================================================
+# FEDORA PACKAGES
+# =============================================================================
+fedora:
+  # Standard Mode - Full desktop setup
+  standard:
+    native:
+      - android-tools
+      - bat
+      - bleachbit
+      - btop
+      - celluloid
+      - chromium
+      - cmatrix
+      - cpupower
+      - dosfstools
+      - duf
+      - firefox
+      - fwupd
+      - gnome-disk-utility
+      - google-noto-sans-fonts
+      - google-noto-serif-fonts
+      - hwinfo
+      - inxi
+      - liberation-fonts
+      - mpv
+      - ncdu
+      - net-tools
+      - nmap
+      - samba
+      - sl
+      - speedtest-cli
+      - fuse-sshfs
+      - hack-nerd-fonts
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - "@development-tools"
+
+    flatpak:
+      - com.dropbox.Client
+      - org.onlyoffice.desktopeditors
+      - com.rustdesk.RustDesk
+      - com.spotify.Client
+      - io.github.thevia.VIA
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - kwalletmanager
+        - kvantum
+        - mpv
+        - okular
+        - python3-qt5
+        - python3-qt6
+        - qbittorrent
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - ktnef
+        - neochat
+        - pim-sieve-editor
+        - qrca
+        - showfoto
+        - skanpage
+
+    gnome:
+      install:
+        - adw-gtk3-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - gufw
+        - mpv
+        - seahorse
+        - transmission-gtk
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+        - transmission-gtk
+      remove: []
+
+  # Minimal Mode - Lightweight setup
+  minimal:
+    native:
+      - bat
+      - btop
+      - celluloid
+      - cpupower
+      - dosfstools
+      - duf
+      - fwupd
+      - hwinfo
+      - inxi
+      - liberation-fonts
+      - mpv
+      - ncdu
+      - net-tools
+      - google-noto-sans-fonts
+      - google-noto-serif-fonts
+      - samba
+      - sl
+      - speedtest-cli
+      - fuse-sshfs
+      - hack-nerd-fonts
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - "@development-tools"
+
+    flatpak:
+      - org.onlyoffice.desktopeditors
+      - com.rustdesk.RustDesk
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - mpv
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - neochat
+
+    gnome:
+      install:
+        - adw-gtk3-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - mpv
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+      remove: []
+
+  # Server Mode - Headless setup
+  server:
+    native:
+      - bat
+      - btop
+      - cmatrix
+      - cpupower
+      - docker
+      - docker-compose
+      - dosfstools
+      - duf
+      - fwupd
+      - hwinfo
+      - inxi
+      - nano
+      - ncdu
+      - net-tools
+      - nmap
+      - google-noto-sans-fonts
+      - google-noto-serif-fonts
+      - samba
+      - sl
+      - speedtest-cli
+      - fuse-sshfs
+      - hack-nerd-fonts
+      - liberation-fonts
+      - unrar
+      - wakeonlan
+      - "@development-tools"
+
+    flatpak: []
+
+    kde:
+      install: []
+      remove: []
+
+    gnome:
+      install: []
+      remove: []
+
+    cosmic:
+      install: []
+      remove: []
+
+# =============================================================================
+# DEBIAN PACKAGES
+# =============================================================================
+debian:
+  # Standard Mode - Full desktop setup
+  standard:
+    native:
+      - adb
+      - adw-gtk-theme
+      - bat
+      - bleachbit
+      - btop
+      - celluloid
+      - chromium
+      - cmatrix
+      - cpupower
+      - dosfstools
+      - duf
+      - fastboot
+      - firefox
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - gnome-disk-utility
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - nmap
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - build-essential
+
+    flatpak:
+      - com.dropbox.Client
+      - org.onlyoffice.desktopeditors
+      - com.rustdesk.RustDesk
+      - com.spotify.Client
+      - io.github.thevia.VIA
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - kwalletmanager
+        - kvantum
+        - mpv
+        - okular
+        - python3-pyqt5
+        - python3-pyqt6
+        - qbittorrent
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - ktnef
+        - neochat
+        - pim-sieve-editor
+        - qrca
+        - showfoto
+        - skanpage
+
+    gnome:
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - gufw
+        - mpv
+        - seahorse
+        - transmission-gtk
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+        - transmission-gtk
+      remove: []
+
+  # Minimal Mode - Lightweight setup
+  minimal:
+    native:
+      - adw-gtk-theme
+      - bat
+      - btop
+      - celluloid
+      - cpupower
+      - dosfstools
+      - duf
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - build-essential
+
+    flatpak:
+      - org.onlyoffice.desktopeditors
+      - com.rustdesk.RustDesk
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - mpv
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - neochat
+
+    gnome:
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - mpv
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+      remove: []
+
+  # Server Mode - Headless setup
+  server:
+    native:
+      - bat
+      - btop
+      - cmatrix
+      - cpupower
+      - docker.io
+      - docker-compose
+      - dosfstools
+      - duf
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - hwinfo
+      - inxi
+      - nano
+      - ncdu
+      - net-tools
+      - nmap
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - build-essential
+
+    flatpak: []
+
+    kde:
+      install: []
+      remove: []
+
+    gnome:
+      install: []
+      remove: []
+
+    cosmic:
+      install: []
+      remove: []
+
+# =============================================================================
+# UBUNTU PACKAGES
+# =============================================================================
+ubuntu:
+  # Standard Mode - Full desktop setup
+  standard:
+    native:
+      - adb
+      - adw-gtk-theme
+      - bat
+      - bleachbit
+      - btop
+      - celluloid
+      - chromium-browser
+      - cmatrix
+      - cpupower
+      - dosfstools
+      - duf
+      - fastboot
+      - firefox
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - gnome-disk-utility
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - nmap
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - build-essential
+
+    snap:
+      - dropbox
+      - onlyoffice-desktopeditors
+      - rustdesk
+      - spotify
+
+    flatpak:
+      - io.github.thevia.VIA
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - kwalletmanager
+        - kvantum
+        - mpv
+        - okular
+        - python3-pyqt5
+        - python3-pyqt6
+        - qbittorrent
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - ktnef
+        - neochat
+        - pim-sieve-editor
+        - qrca
+        - showfoto
+        - skanpage
+
+    gnome:
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - gufw
+        - mpv
+        - seahorse
+        - transmission-gtk
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+        - transmission-gtk
+      remove: []
+
+  # Minimal Mode - Lightweight setup
+  minimal:
+    native:
+      - adw-gtk-theme
+      - bat
+      - btop
+      - celluloid
+      - cpupower
+      - dosfstools
+      - duf
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - hwinfo
+      - inxi
+      - mpv
+      - ncdu
+      - net-tools
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - xdg-desktop-portal-gtk
+      - build-essential
+
+    snap:
+      - onlyoffice-desktopeditors
+      - rustdesk
+
+    flatpak: []
+
+    kde:
+      install:
+        - gwenview
+        - kdeconnect
+        - mpv
+        - smplayer
+        - spectacle
+      remove:
+        - akregator
+        - digikam
+        - dragon
+        - elisa-player
+        - k3b
+        - kaddressbook
+        - kamoso
+        - kmahjongg
+        - kmail
+        - kmines
+        - kmouth
+        - kolourpaint
+        - korganizer
+        - kpat
+        - krfb
+        - krdc
+        - krusader
+        - ktorrent
+        - neochat
+
+    gnome:
+      install:
+        - adw-gtk-theme
+        - celluloid
+        - dconf-editor
+        - gnome-tweaks
+        - mpv
+      remove:
+        - epiphany
+        - gnome-contacts
+        - gnome-maps
+        - gnome-music
+        - gnome-tour
+        - rhythmbox
+        - snapshot
+        - totem
+
+    cosmic:
+      install:
+        - celluloid
+        - mpv
+      remove: []
+
+  # Server Mode - Headless setup
+  server:
+    native:
+      - bat
+      - btop
+      - cmatrix
+      - cpupower
+      - docker.io
+      - docker-compose
+      - dosfstools
+      - duf
+      - fonts-hack-ttf
+      - fonts-noto-extra
+      - fwupd
+      - hwinfo
+      - inxi
+      - nano
+      - ncdu
+      - net-tools
+      - nmap
+      - samba
+      - sl
+      - speedtest-cli
+      - sshfs
+      - ttf-liberation
+      - unrar
+      - wakeonlan
+      - build-essential
+
+    snap: []
+    flatpak: []
+
+    kde:
+      install: []
+      remove: []
+
+    gnome:
+      install: []
+      remove: []
+
+    cosmic:
+      install: []
+      remove: []
+
+# =============================================================================
+# GAMING PACKAGES (Cross-Distribution)
+# =============================================================================
+gaming:
+  arch:
+    native:
+      - gamemode
+      - goverlay
+      - lib32-gamemode
+      - lib32-mangohud
+      - lutris
+      - mangohud
+      - steam
+      - wine
+    aur:
+      - gearlever
+      - heroic-games-launcher-bin
+      - protonplus
+
+  fedora:
+    native:
+      - gamemode
+      - goverlay
+      - lutris
+      - mangohud
+      - steam
+      - wine
+    flatpak:
+      - com.heroicgameslauncher.hgl
+      - com.vysp3r.ProtonPlus
+      - it.mijorus.gearlever
+
+  debian:
+    native:
+      - gamemode
+      - goverlay
+      - lutris
+      - mangohud
+      - steam-installer
+      - wine
+    flatpak:
+      - com.heroicgameslauncher.hgl
+      - com.vysp3r.ProtonPlus
+      - it.mijorus.gearlever
+
+  ubuntu:
+    native:
+      - gamemode
+      - goverlay
+      - lutris
+      - mangohud
+      - steam-installer
+      - wine-installer
+    snap:
+      - heroic-games-launcher
+    flatpak:
+      - com.vysp3r.ProtonPlus
+      - it.mijorus.gearlever

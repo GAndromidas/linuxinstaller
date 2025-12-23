@@ -665,3 +665,11 @@ set_sudo_pwfeedback
 generate_locales
 install_all_packages
 detect_and_install_solaar
+
+# Install programs from hardcoded distro-specific configuration
+if command -v install_programs >/dev/null 2>&1; then
+    install_programs
+    handle_desktop_environment_packages
+else
+    log_warning "Program installation functions not found. Skipping program installation."
+fi
