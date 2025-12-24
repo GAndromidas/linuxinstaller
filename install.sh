@@ -76,23 +76,10 @@ bootstrap_tools() {
             log_info "[DRY-RUN] Would install gum"
         else
             # Attempt to install gum based on distro
-            # (Variable PKG_INSTALL defined in detect_distro)
             if [ "$DISTRO_ID" == "arch" ]; then
                  sudo pacman -S --noconfirm gum >/dev/null 2>&1
-            elif [ "$DISTRO_ID" == "fedora" ]; then
-                 echo '[rpm]
-name=charm
-baseurl=https://repo.charm.sh/yum/
-enabled=1
-gpgcheck=1
-gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo > /dev/null
-                 sudo dnf install -y gum >/dev/null 2>&1
-            elif [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
-                 sudo mkdir -p /etc/apt/keyrings
-                 curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg --yes
-                 echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-                 sudo apt-get update >/dev/null 2>&1
-                 sudo apt-get install -y gum >/dev/null 2>&1
+            else
+                 $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
             fi
             GUM_INSTALLED_BY_SCRIPT=true
         fi
@@ -106,14 +93,8 @@ gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
         else
             if [ "$DISTRO_ID" == "arch" ]; then
                  sudo pacman -S --noconfirm go-yq >/dev/null 2>&1
-            elif [ "$DISTRO_ID" == "fedora" ]; then
-                 sudo dnf install -y yq >/dev/null 2>&1
             else
-                 # Universal binary install for Debian/Ubuntu if not in repos or too old
-                 local ARCH="amd64"
-                 [[ "$(uname -m)" == "aarch64" ]] && ARCH="arm64"
-                 sudo curl -sL -o /usr/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${ARCH}"
-                 sudo chmod +x /usr/bin/yq
+                 $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
             fi
             YQ_INSTALLED_BY_SCRIPT=true
         fi
@@ -123,7 +104,7 @@ gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
 cleanup_tools() {
     if [ "$DRY_RUN" = true ]; then return; fi
     log_info "Cleaning up temporary tools..."
-    
+
     # Optional: Only remove if we really want to leave no trace.
     # if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then remove_pkg gum; fi
     # if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then remove_pkg yq; fi
@@ -133,7 +114,7 @@ cleanup_tools() {
 install_package_group() {
     local section_path="$1"
     local title="$2"
-    
+
     log_info "Processing package group: $title ($section_path)"
 
     if [ ! -f "$PROGRAMS_YAML" ]; then
@@ -152,7 +133,7 @@ install_package_group() {
     for type in $pkg_types; do
         # Construct yq query logic
         local query=""
-        
+
         # Logic to handle different sections in YAML
         if [[ "$section_path" == "gaming" ]]; then
             # Gaming: .gaming.<distro>.<type>
@@ -169,16 +150,16 @@ install_package_group() {
 
         # Read packages into array
         mapfile -t packages < <(yq e "$query" "$PROGRAMS_YAML" 2>/dev/null)
-        
+
         # Filter out nulls or empty lines
         packages=("${packages[@]//null/}")
-        
+
         if [ ${#packages[@]} -eq 0 ] || [ -z "${packages[0]}" ]; then
             continue
         fi
 
         log_info "Installing $type packages for $title..."
-        
+
         if [ "$DRY_RUN" = true ]; then
              gum style --foreground 212 "[DRY-RUN] Would install ($type): ${packages[*]}"
              continue
@@ -194,7 +175,7 @@ install_package_group() {
                 # Check for AUR helper (yay/paru)
                 if command -v yay >/dev/null; then install_cmd="yay -S --noconfirm"
                 elif command -v paru >/dev/null; then install_cmd="paru -S --noconfirm"
-                else 
+                else
                     log_warn "No AUR helper found. Skipping AUR packages."
                     continue
                 fi
@@ -213,7 +194,7 @@ install_package_group() {
 
         # Run installation with spinner
         gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -c "$install_cmd ${packages[*]}" >> "$INSTALL_LOG" 2>&1
-        
+
         if [ $? -eq 0 ]; then
             log_success "Installed ($type): ${packages[*]}"
         else
@@ -259,21 +240,21 @@ fi
 
 if ! is_step_complete "setup_mode"; then
     MODE=$(gum choose --header "Select Installation Mode" "Standard" "Minimal" "Server" "Custom")
-    
+
     # Save mode for reference (not fully persistent in this simple state file, but good for flow)
     export INSTALL_MODE="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
-    
+
     if [ "$MODE" == "Custom" ]; then
         # In custom, maybe we start with minimal and add groups
         INSTALL_MODE="minimal"
         CUSTOM_GROUPS=$(gum choose --no-limit --header "Select Add-ons" "Gaming" "Dev Tools" "Office")
     fi
-    
+
     mark_step_complete "setup_mode"
 fi
 
 # 5. Core Execution Loop
-# We define a list of logical steps. 
+# We define a list of logical steps.
 
 # Step: System Update
 if ! is_step_complete "system_update"; then
@@ -287,26 +268,26 @@ fi
 # Step: Install Packages based on Mode
 if ! is_step_complete "install_packages"; then
     step "Installing Packages ($INSTALL_MODE)"
-    
+
     # Install the main group (standard/minimal/server)
     install_package_group "$INSTALL_MODE" "Base System"
-    
+
     # Install Desktop Environment Specific Packages
     if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
         DE_KEY=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
         # Normalize DE key if needed (e.g. pop -> gnome/cosmic?)
         if [[ "$DE_KEY" == *"kde"* ]]; then DE_KEY="kde"; fi
         if [[ "$DE_KEY" == *"gnome"* ]]; then DE_KEY="gnome"; fi
-        
+
         step "Installing Desktop Environment Packages ($DE_KEY)"
         install_package_group "$DE_KEY" "$XDG_CURRENT_DESKTOP Environment"
     fi
-    
+
     # Handle Custom Addons if any (rudimentary handling)
     if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
         install_package_group "gaming" "Gaming Suite"
     fi
-    
+
     # Interactive prompt for optional Gaming if not explicitly chosen/excluded
     # (Only for Standard mode if not resuming)
     if [ "$INSTALL_MODE" == "standard" ] && [ -z "${CUSTOM_GROUPS:-}" ]; then
@@ -324,17 +305,17 @@ fi
 
 for script in "$SCRIPTS_DIR"/*.sh; do
     script_name=$(basename "$script")
-    
+
     # Skip library files
     if [[ "$script_name" == "common.sh" || "$script_name" == "distro_check.sh" ]]; then
         continue
     fi
 
     step_id="script_${script_name%.*}"
-    
+
     if ! is_step_complete "$step_id"; then
         step "Running: $script_name"
-        
+
         if [ "$DRY_RUN" = true ]; then
             log_info "[DRY-RUN] Would execute $script"
         else
@@ -342,7 +323,7 @@ for script in "$SCRIPTS_DIR"/*.sh; do
             # We source them to share environment variables
             # Wrap in subshell if isolation needed, but sourcing is better for shared vars
             ( source "$script" ) >> "$INSTALL_LOG" 2>&1
-            
+
             if [ $? -eq 0 ]; then
                 log_success "Finished $script_name"
                 mark_step_complete "$step_id"
@@ -367,6 +348,6 @@ cleanup_tools
 if [ "$DRY_RUN" = true ]; then
     gum style --foreground 212 "Dry-Run Complete. No changes were made."
 else
-    gum format --theme=dark "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect." 
+    gum format --theme=dark "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
     prompt_reboot
 fi
