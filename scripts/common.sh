@@ -69,6 +69,91 @@ log_error() {
     echo "[ERROR] $message" >> "$INSTALL_LOG"
 }
 
+# --- Compatibility Aliases ---
+ui_info() { log_info "$@"; }
+ui_success() { log_success "$@"; }
+ui_warn() { log_warn "$@"; }
+ui_error() { log_error "$@"; }
+log_warning() { log_warn "$@"; }
+log_to_file() { echo "$@" >> "$INSTALL_LOG"; }
+
+
+# --- State Management ---
+
+STATE_FILE="$HOME/.linuxinstaller.state"
+
+# Initialize state file directory if needed
+mkdir -p "$(dirname "$STATE_FILE")"
+
+# Function to mark step as completed
+mark_step_complete() {
+    local step_name="$1"
+    if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
+        echo "$step_name" >> "$STATE_FILE"
+    fi
+}
+
+# Function to check if step was completed
+is_step_complete() {
+    local step_name="$1"
+    [ -f "$STATE_FILE" ] && grep -q "^$step_name$" "$STATE_FILE"
+}
+
+# Function to clear state
+clear_state() {
+    rm -f "$STATE_FILE"
+}
+
+# Resume menu
+show_resume_menu() {
+    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
+        log_info "Previous installation detected. The following steps were completed:"
+
+        if supports_gum; then
+            echo ""
+            gum style --margin "0 2" --foreground 15 "Completed steps:"
+            while IFS= read -r step; do
+                 gum style --margin "0 4" --foreground 10 "✓ $step"
+            done < "$STATE_FILE"
+            echo ""
+
+            if gum confirm --default=true "Resume installation from where you left off?"; then
+                log_success "Resuming installation..."
+                return 0
+            else
+                if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
+                    clear_state
+                    log_info "Starting fresh installation..."
+                    return 0
+                else
+                    log_info "Installation cancelled by user."
+                    exit 0
+                fi
+            fi
+        else
+            while IFS= read -r step; do
+                 echo -e "  [DONE] $step"
+            done < "$STATE_FILE"
+
+            read -r -p "Resume installation? [Y/n]: " response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
+                log_success "Resuming installation..."
+                return 0
+            else
+                read -r -p "Start fresh installation? [y/N]: " response
+                if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                    clear_state
+                    log_info "Starting fresh installation..."
+                    return 0
+                else
+                    log_info "Installation cancelled by user."
+                    exit 0
+                fi
+            fi
+        fi
+    fi
+}
+
 
 # --- Package Management Wrappers (ENFORCES NON-INTERACTIVE) ---
 
