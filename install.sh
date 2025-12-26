@@ -6,6 +6,90 @@ set -uo pipefail
 # Supports: Arch Linux, Fedora, Debian, Ubuntu
 # =============================================================================
 
+# LinuxInstaller ASCII Art Function
+show_linuxinstaller_ascii() {
+    clear
+    echo -e "${BLUE}"
+    cat << "EOF"
+     _     _                  ___           _        _ _
+    | |   (_)_ __  _   ___  _|_ _|_ __  ___| |_ __ _| | | ___ _ __
+    | |   | | '_ \| | | \ \/ /| || '_ \/ __| __/ _` | | |/ _ \ '__|
+    | |___| | | | | |_| |>  < | || | | \__ \ || (_| | | |  __/ |
+    |_____|_|_| |_|\__,_/_/\_\___|_| |_|___/\__\__,_|_|_|\___|_|
+EOF
+    echo -e "${RESET}"
+}
+
+# Enhanced Menu Function
+show_menu() {
+    show_linuxinstaller_ascii
+
+    # Install gum silently if not present
+    if ! command -v gum >/dev/null 2>&1; then
+        log_info "Installing gum for beautiful UI..."
+        if [ "$DISTRO_ID" == "arch" ]; then
+            sudo pacman -S --noconfirm --needed gum >/dev/null 2>&1 || true
+        else
+            $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1 || true
+        fi
+    fi
+
+    # Install yq silently if not present
+    if ! command -v yq >/dev/null 2>&1; then
+        log_info "Installing yq for configuration parsing..."
+        if [ "$DISTRO_ID" == "arch" ]; then
+            sudo pacman -S --noconfirm --needed go-yq >/dev/null 2>&1 || true
+        else
+            $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1 || true
+        fi
+    fi
+
+    echo ""
+    gum style --border double --margin "1 2" --padding "1 4" --border-foreground 212 "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    echo ""
+
+    # Enhanced menu with gum
+    local choice
+    choice=$(gum choose --height 10 --header "Please select an installation mode:" \
+        "1. Standard - Complete setup with all recommended packages" \
+        "2. Minimal - Essential tools only for lightweight installations" \
+        "3. Server - Headless server configuration" \
+        "4. Custom - Interactive selection of packages to install" \
+        "5. Exit" \
+        --cursor.foreground 212 --cursor "→" --header.foreground 212)
+
+    case "$choice" in
+        "1. Standard - Complete setup with all recommended packages")
+            export INSTALL_MODE="standard"
+            ;;
+        "2. Minimal - Essential tools only for lightweight installations")
+            export INSTALL_MODE="minimal"
+            ;;
+        "3. Server - Headless server configuration")
+            export INSTALL_MODE="server"
+            ;;
+        "4. Custom - Interactive selection of packages to install")
+            export INSTALL_MODE="custom"
+            ;;
+        "5. Exit")
+            echo "Exiting..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Please try again."
+            show_menu
+            ;;
+    esac
+
+    echo ""
+    gum style --foreground 212 "You selected: $choice"
+    echo ""
+}
+
+# Color variables
+BLUE='\033[0;34m'
+RESET='\033[0m'
+
 # --- Configuration & Paths ---
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -37,11 +121,17 @@ fi
 # Flags
 VERBOSE=false
 DRY_RUN=false
+TOTAL_STEPS=0
+CURRENT_STEP=0
 
 # Track installed helpers to clean up later
 FIGLET_INSTALLED_BY_SCRIPT=false
 GUM_INSTALLED_BY_SCRIPT=false
 YQ_INSTALLED_BY_SCRIPT=false
+
+# Installation state
+STATE_FILE="$HOME/.linuxinstaller.state"
+mkdir -p "$(dirname "$STATE_FILE")"
 
 # --- Helper Functions ---
 
@@ -61,6 +151,22 @@ DESCRIPTION:
     A smart, cross-distribution installer that configures your system,
     installs packages via YAML configuration, and applies tweaks.
     Supports Arch, Fedora, Debian, and Ubuntu.
+    Combines best practices from archinstaller, fedorainstaller, and debianinstaller.
+
+INSTALLATION MODES:
+    Standard        Complete setup with all recommended packages
+    Minimal         Essential tools only for lightweight installations
+    Server          Headless server configuration
+    Custom          Interactive selection of packages to install
+
+EXAMPLES:
+    ./install.sh                Run with interactive prompts
+    ./install.sh --verbose      Run with detailed output
+    ./install.sh --dry-run      Preview changes without applying them
+
+LOG FILE:
+    Installation log saved to: ~/.linuxinstaller.log
+
 EOF
   exit 0
 }
@@ -101,14 +207,7 @@ bootstrap_tools() {
     fi
 }
 
-cleanup_tools() {
-    if [ "$DRY_RUN" = true ]; then return; fi
-    log_info "Cleaning up temporary tools..."
 
-    # Optional: Only remove if we really want to leave no trace.
-    # if [ "$GUM_INSTALLED_BY_SCRIPT" = true ]; then remove_pkg gum; fi
-    # if [ "$YQ_INSTALLED_BY_SCRIPT" = true ]; then remove_pkg yq; fi
-}
 
 # Package Installation Logic using yq and programs.yaml
 install_package_group() {
@@ -203,6 +302,77 @@ install_package_group() {
     done
 }
 
+# --- State Management ---
+
+# Function to mark step as completed
+mark_step_complete() {
+    local step_name="$1"
+    if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
+        echo "$step_name" >> "$STATE_FILE"
+    fi
+}
+
+# Function to check if step was completed
+is_step_complete() {
+    local step_name="$1"
+    [ -f "$STATE_FILE" ] && grep -q "^$step_name$" "$STATE_FILE"
+}
+
+# Function to clear state
+clear_state() {
+    rm -f "$STATE_FILE"
+}
+
+# Resume menu
+show_resume_menu() {
+    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
+        log_info "Previous installation detected. The following steps were completed:"
+
+        if supports_gum; then
+            echo ""
+            gum style --margin "0 2" --foreground 15 "Completed steps:"
+            while IFS= read -r step; do
+                 gum style --margin "0 4" --foreground 10 "✓ $step"
+            done < "$STATE_FILE"
+            echo ""
+
+            if gum confirm --default=true "Resume installation from where you left off?"; then
+                log_success "Resuming installation..."
+                return 0
+            else
+                if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
+                    clear_state
+                    log_info "Starting fresh installation..."
+                    return 0
+                else
+                    log_info "Installation cancelled by user."
+                    exit 0
+                fi
+            fi
+        else
+            while IFS= read -r step; do
+                 echo -e "  [DONE] $step"
+            done < "$STATE_FILE"
+
+            read -r -p "Resume installation? [Y/n]: " response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
+                log_success "Resuming installation..."
+                return 0
+            else
+                read -r -p "Start fresh installation? [y/N]: " response
+                if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                    clear_state
+                    log_info "Starting fresh installation..."
+                    return 0
+                else
+                    log_info "Installation cancelled by user."
+                    exit 0
+                fi
+            fi
+        fi
+    fi
+}
+
 # --- Main Execution Flow ---
 
 # 1. Parse Arguments
@@ -236,20 +406,9 @@ else
 fi
 
 # 4. Mode Selection
-# Only ask if we are not resuming or if mode isn't set in state (state logic handles resuming steps, not config variables currently, so we re-ask or save config. For simplicity, we re-ask if starting fresh)
-
+# Only ask if we are not resuming or if mode isn't set in state
 if ! is_step_complete "setup_mode"; then
-    MODE=$(gum choose --header "Select Installation Mode" "Standard" "Minimal" "Server" "Custom")
-
-    # Save mode for reference (not fully persistent in this simple state file, but good for flow)
-    export INSTALL_MODE="$(echo "$MODE" | tr '[:upper:]' '[:lower:]')"
-
-    if [ "$MODE" == "Custom" ]; then
-        # In custom, maybe we start with minimal and add groups
-        INSTALL_MODE="minimal"
-        CUSTOM_GROUPS=$(gum choose --no-limit --header "Select Add-ons" "Gaming" "Dev Tools" "Office")
-    fi
-
+    show_menu
     mark_step_complete "setup_mode"
 fi
 
@@ -299,51 +458,150 @@ if ! is_step_complete "install_packages"; then
     mark_step_complete "install_packages"
 fi
 
-# Step: Run Configuration Scripts
-# Iterate over numbered scripts in scripts/ directory
-# We skip common.sh and distro_check.sh as they are libraries
+# Step: Run Distribution-Specific Configuration
+# This replaces the numbered scripts with unified distribution-specific modules
+if ! is_step_complete "distro_config"; then
+    step "Running Distribution-Specific Configuration"
 
-for script in "$SCRIPTS_DIR"/*.sh; do
-    script_name=$(basename "$script")
-
-    # Skip library files
-    if [[ "$script_name" == "common.sh" || "$script_name" == "distro_check.sh" ]]; then
-        continue
-    fi
-
-    step_id="script_${script_name%.*}"
-
-    if ! is_step_complete "$step_id"; then
-        step "Running: $script_name"
-
-        if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would execute $script"
-        else
-            # Execute script
-            # We source them to share environment variables
-            # Wrap in subshell if isolation needed, but sourcing is better for shared vars
-            ( source "$script" ) >> "$INSTALL_LOG" 2>&1
-
-            if [ $? -eq 0 ]; then
-                log_success "Finished $script_name"
-                mark_step_complete "$step_id"
-            else
-                log_error "Script $script_name failed."
-                if gum confirm "Continue despite failure?" --default=false; then
-                    log_warn "Skipping failed step..."
-                    mark_step_complete "$step_id" # Mark as done so we don't loop forever
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would run distribution-specific configuration for $DISTRO_ID"
+    else
+        case "$DISTRO_ID" in
+            "arch")
+                if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
+                    source "$SCRIPTS_DIR/arch_config.sh"
+                    arch_main_config
                 else
-                    log_error "Installation aborted by user."
-                    exit 1
+                    log_warn "Arch configuration module not found"
                 fi
-            fi
+                ;;
+            "fedora")
+                if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
+                    source "$SCRIPTS_DIR/fedora_config.sh"
+                    fedora_main_config
+                else
+                    log_warn "Fedora configuration module not found"
+                fi
+                ;;
+            "debian"|"ubuntu")
+                if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
+                    source "$SCRIPTS_DIR/debian_config.sh"
+                    debian_main_config
+                else
+                    log_warn "Debian/Ubuntu configuration module not found"
+                fi
+                ;;
+            *)
+                log_warn "No specific configuration module for $DISTRO_ID"
+                ;;
+        esac
+    fi
+    mark_step_complete "distro_config"
+fi
+
+# Step: Run Desktop Environment Configuration
+if ! is_step_complete "de_config" && [ "$INSTALL_MODE" != "server" ]; then
+    step "Configuring Desktop Environment"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure desktop environment: ${XDG_CURRENT_DESKTOP:-None}"
+    else
+        case "${XDG_CURRENT_DESKTOP:-}" in
+            *"KDE"*)
+                if [ -f "$SCRIPTS_DIR/kde_config.sh" ]; then
+                    source "$SCRIPTS_DIR/kde_config.sh"
+                    kde_main_config
+                else
+                    log_warn "KDE configuration module not found"
+                fi
+                ;;
+            *"GNOME"*)
+                if [ -f "$SCRIPTS_DIR/gnome_config.sh" ]; then
+                    source "$SCRIPTS_DIR/gnome_config.sh"
+                    gnome_main_config
+                else
+                    log_warn "GNOME configuration module not found"
+                fi
+                ;;
+            *)
+                log_info "No specific desktop environment configuration for ${XDG_CURRENT_DESKTOP:-None}"
+                ;;
+        esac
+    fi
+    mark_step_complete "de_config"
+fi
+
+# Step: Run Gaming Configuration (if applicable)
+if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ]; then
+    step "Configuring Gaming Environment"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure gaming environment"
+    else
+        if [ -f "$SCRIPTS_DIR/gaming_config.sh" ]; then
+            source "$SCRIPTS_DIR/gaming_config.sh"
+            gaming_main_config
+        else
+            log_warn "Gaming configuration module not found"
         fi
     fi
-done
+    mark_step_complete "gaming_config"
+fi
+
+# Step: Run Security Configuration
+if ! is_step_complete "security_config"; then
+    step "Configuring Security Features"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure security features"
+    else
+        if [ -f "$SCRIPTS_DIR/security_config.sh" ]; then
+            source "$SCRIPTS_DIR/security_config.sh"
+            security_main_config
+        else
+            log_warn "Security configuration module not found"
+        fi
+    fi
+    mark_step_complete "security_config"
+fi
+
+# Step: Run Performance Optimization
+if ! is_step_complete "performance_config"; then
+    step "Applying Performance Optimizations"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would apply performance optimizations"
+    else
+        if [ -f "$SCRIPTS_DIR/performance_config.sh" ]; then
+            source "$SCRIPTS_DIR/performance_config.sh"
+            performance_main_config
+        else
+            log_warn "Performance configuration module not found"
+        fi
+    fi
+    mark_step_complete "performance_config"
+fi
+
+# Step: Run Maintenance Setup
+if ! is_step_complete "maintenance_config"; then
+    step "Setting up Maintenance Tools"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would set up maintenance tools"
+    else
+        if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
+            source "$SCRIPTS_DIR/maintenance_config.sh"
+            maintenance_main_config
+        else
+            log_warn "Maintenance configuration module not found"
+        fi
+    fi
+    mark_step_complete "maintenance_config"
+fi
 
 # 6. Finalization
 step "Finalizing Installation"
-cleanup_tools
+
 
 if [ "$DRY_RUN" = true ]; then
     gum style --foreground 212 "Dry-Run Complete. No changes were made."
@@ -351,3 +609,7 @@ else
     gum format --theme=dark "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
     prompt_reboot
 fi
+
+
+```
+</tool_response>

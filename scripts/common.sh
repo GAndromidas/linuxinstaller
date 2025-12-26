@@ -214,6 +214,35 @@ check_internet() {
     fi
 }
 
+# Arch-specific helper functions
+detect_bootloader() {
+    if [ -d /sys/firmware/efi ]; then
+        if [ -f /boot/efi/EFI/arch/grubx64.efi ] || [ -f /boot/efi/EFI/BOOT/BOOTX64.EFI ]; then
+            echo "grub"
+        elif [ -d /boot/loader ] || [ -d /efi/loader ]; then
+            echo "systemd-boot"
+        else
+            echo "unknown"
+        fi
+    else
+        if [ -d /boot/grub ]; then
+            echo "grub"
+        else
+            echo "unknown"
+        fi
+    fi
+}
+
+is_btrfs_system() {
+    if [ -f /proc/mounts ]; then
+        grep -q " btrfs " /proc/mounts
+    else
+        false
+    fi
+}
+
+
+
 
 # --- Finalization ---
 

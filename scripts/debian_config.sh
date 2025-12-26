@@ -1,0 +1,522 @@
+#!/bin/bash
+set -uo pipefail
+
+# Debian/Ubuntu Configuration Module for LinuxInstaller
+# Based on debianinstaller best practices
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/distro_check.sh"
+
+# Ensure we're on Debian or Ubuntu
+if [ "$DISTRO_ID" != "debian" ] && [ "$DISTRO_ID" != "ubuntu" ]; then
+    log_error "This module is for Debian/Ubuntu only"
+    exit 1
+fi
+
+# Debian/Ubuntu-specific variables
+DEBIAN_SOURCES="/etc/apt/sources.list"
+UBUNTU_SOURCES="/etc/apt/sources.list"
+APT_CONF="/etc/apt/apt.conf.d/99linuxinstaller"
+
+# Debian-specific configuration files
+DEBIAN_CONFIGS_DIR="$SCRIPT_DIR/../configs/debian"
+
+# Debian/Ubuntu-specific package lists
+DEBIAN_ESSENTIALS=(
+    "apt-transport-https"
+    "ca-certificates"
+    "curl"
+    "wget"
+    "rsync"
+    "bc"
+    "openssh-server"
+    "cron"
+    "bluez"
+    "flatpak"
+    "zoxide"
+    "fzf"
+    "fastfetch"
+    "eza"
+)
+
+DEBIAN_DESKTOP=(
+    "gnome-tweaks"
+    "dconf-editor"
+    "ubuntu-desktop"  # Ubuntu specific
+    "gnome-shell-extensions"
+)
+
+DEBIAN_SERVER=(
+    "openssh-server"
+    "ufw"
+    "fail2ban"
+    "btop"
+    "nethogs"
+)
+
+# =============================================================================
+# DEBIAN/UBUNTU CONFIGURATION FUNCTIONS
+# =============================================================================
+
+debian_system_preparation() {
+    step "Debian/Ubuntu System Preparation"
+
+    # Update package lists
+    log_info "Updating package lists..."
+    if ! sudo apt-get update >/dev/null 2>&1; then
+        log_error "Failed to update package lists"
+        return 1
+    fi
+
+    # Upgrade system
+    log_info "Upgrading system packages..."
+    if ! sudo apt-get upgrade -y >/dev/null 2>&1; then
+        log_error "System upgrade failed"
+        return 1
+    fi
+
+    # Configure APT for optimal performance
+    configure_apt_debian
+
+    log_success "Debian/Ubuntu system preparation completed"
+}
+
+configure_apt_debian() {
+    log_info "Configuring APT for optimal performance..."
+
+    # Create APT configuration for performance
+    sudo tee "$APT_CONF" > /dev/null << EOF
+// LinuxInstaller APT Configuration
+APT::Get::Assume-Yes "true";
+APT::Get::Fix-Broken "true";
+APT::Get::Fix-Missing "true";
+APT::Acquire::Retries "3";
+APT::Install-Recommends "false";
+APT::Install-Suggests "false";
+DPkg::Options::="--force-confdef";
+DPkg::Options::="--force-confold";
+EOF
+
+    # Configure APT sources for faster downloads
+    if [ "$DISTRO_ID" == "ubuntu" ]; then
+        # Enable universe and multiverse repositories
+        sudo add-apt-repository universe >/dev/null 2>&1 || true
+        sudo add-apt-repository multiverse >/dev/null 2>&1 || true
+
+        # Set fastest mirror
+        if command -v netselect-apt >/dev/null 2>&1; then
+            sudo netselect-apt -n ubuntu >/dev/null 2>&1 || true
+        fi
+    fi
+
+    log_success "APT configured with optimizations"
+}
+
+debian_install_essentials() {
+    step "Installing Debian/Ubuntu Essential Packages"
+
+    log_info "Installing essential packages..."
+    for package in "${DEBIAN_ESSENTIALS[@]}"; do
+        if ! install_pkg "$package"; then
+            log_warn "Failed to install essential package: $package"
+        else
+            log_success "Installed essential package: $package"
+        fi
+    done
+
+    # Install desktop packages if not server mode
+    if [ "$INSTALL_MODE" != "server" ]; then
+        log_info "Installing desktop packages..."
+        for package in "${DEBIAN_DESKTOP[@]}"; do
+            if ! install_pkg "$package"; then
+                log_warn "Failed to install desktop package: $package"
+            else
+                log_success "Installed desktop package: $package"
+            fi
+        done
+    else
+        # Install server packages
+        log_info "Installing server packages..."
+        for package in "${DEBIAN_SERVER[@]}"; do
+            if ! install_pkg "$package"; then
+                log_warn "Failed to install server package: $package"
+            else
+                log_success "Installed server package: $package"
+            fi
+        done
+    fi
+}
+
+debian_configure_bootloader() {
+    step "Configuring Debian/Ubuntu Bootloader"
+
+    local bootloader
+    bootloader=$(detect_bootloader)
+
+    case "$bootloader" in
+        "grub")
+            configure_grub_debian
+            ;;
+        "systemd-boot")
+            configure_systemd_boot_debian
+            ;;
+        *)
+            log_warn "Unknown bootloader: $bootloader"
+            log_info "Please manually add 'quiet splash' to your kernel parameters"
+            ;;
+    esac
+}
+
+configure_grub_debian() {
+    log_info "Configuring GRUB for Debian/Ubuntu..."
+
+    if [ ! -f /etc/default/grub ]; then
+        log_error "/etc/default/grub not found")
+        return 1
+    fi
+
+    # Set timeout
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+
+    # Add Debian/Ubuntu-specific kernel parameters
+    local debian_params="quiet splash"
+    local current_line=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" /etc/default/grub)
+    local current_params=""
+
+    if [ -n "$current_line" ]; then
+        current_params=$(echo "$current_line" | cut -d'=' -f2- | sed "s/^['\"]//;s/['\"]$//")
+    fi
+
+    local new_params="$current_params"
+    local changed=false
+
+    for param in $debian_params; do
+        if [[ ! "$new_params" == *"$param"* ]]; then
+            new_params="$new_params $param"
+            changed=true
+        fi
+    done
+
+    if [ "$changed" = true ]; then
+        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
+        log_success "Updated GRUB kernel parameters"
+    fi
+
+    # Regenerate GRUB config
+    log_info "Regenerating GRUB configuration..."
+    if ! sudo update-grub >/dev/null 2>&1; then
+        log_error "Failed to regenerate GRUB config"
+        return 1
+    fi
+
+    log_success "GRUB configured successfully"
+}
+
+configure_systemd_boot_debian() {
+    log_info "Configuring systemd-boot for Debian/Ubuntu..."
+
+    local entries_dir=""
+    if [ -d "/boot/loader/entries" ]; then
+        entries_dir="/boot/loader/entries"
+    elif [ -d "/efi/loader/entries" ]; then
+        entries_dir="/efi/loader/entries"
+    elif [ -d "/boot/efi/loader/entries" ]; then
+        entries_dir="/boot/efi/loader/entries"
+    fi
+
+    if [ -z "$entries_dir" ]; then
+        log_error "Could not find systemd-boot entries directory"
+        return 1
+    fi
+
+    local debian_params="quiet splash"
+    local updated=false
+
+    for entry in "$entries_dir"/*.conf; do
+        [ -e "$entry" ] || continue
+        if [ -f "$entry" ]; then
+            if ! grep -q "splash" "$entry"; then
+                if grep -q "^options" "$entry"; then
+                    sudo sed -i "/^options/ s/$/ $debian_params/" "$entry"
+                    log_success "Updated $entry"
+                    updated=true
+                else
+                    echo "options $debian_params" | sudo tee -a "$entry" >/dev/null
+                    log_success "Updated $entry (added options)"
+                    updated=true
+                fi
+            fi
+        fi
+    done
+
+    if [ "$updated" = true ]; then
+        log_success "systemd-boot entries updated"
+    else
+        log_info "systemd-boot entries already configured"
+    fi
+}
+
+debian_enable_system_services() {
+    step "Enabling Debian/Ubuntu System Services"
+
+    # Essential services
+    local services=(
+        "cron"
+        "bluetooth"
+        "ssh"
+        "fstrim.timer"
+    )
+
+    for service in "${services[@]}"; do
+        if systemctl list-unit-files | grep -q "^$service"; then
+            if sudo systemctl enable --now "$service" >/dev/null 2>&1; then
+                log_success "Enabled and started $service"
+            else
+                log_warn "Failed to enable $service"
+            fi
+        fi
+    done
+
+    # Configure firewall (UFW for Debian/Ubuntu)
+    if ! install_pkg ufw; then
+        log_warn "Failed to install UFW"
+        return
+    fi
+
+    # Configure UFW
+    sudo ufw default deny incoming >/dev/null 2>&1
+    sudo ufw default allow outgoing >/dev/null 2>&1
+    sudo ufw limit ssh >/dev/null 2>&1
+    echo "y" | sudo ufw enable >/dev/null 2>&1
+    log_success "UFW configured and enabled"
+}
+
+debian_setup_flatpak() {
+    step "Setting up Flatpak for Debian/Ubuntu"
+
+    if ! command -v flatpak >/dev/null; then
+        log_info "Installing Flatpak..."
+        if ! install_pkg flatpak; then
+            log_warn "Failed to install Flatpak"
+            return
+        fi
+    fi
+
+    # Add Flathub
+    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1
+    log_success "Flatpak configured with Flathub"
+}
+
+debian_setup_snap() {
+    step "Setting up Snap for Ubuntu"
+
+    if [ "$DISTRO_ID" != "ubuntu" ]; then
+        return 0
+    fi
+
+    if ! command -v snap >/dev/null; then
+        log_info "Installing Snap..."
+        if ! install_pkg snapd; then
+            log_warn "Failed to install Snap"
+            return
+        fi
+
+        # Enable snapd service
+        sudo systemctl enable --now snapd >/dev/null 2>&1
+        sudo systemctl enable --now snapd.socket >/dev/null 2>&1
+
+        log_success "Snap configured"
+    else
+        log_info "Snap already installed"
+    fi
+}
+
+debian_setup_shell() {
+    step "Setting up ZSH shell environment"
+
+    # Set ZSH as default
+    if [ "$SHELL" != "$(command -v zsh)" ]; then
+        log_info "Changing default shell to ZSH..."
+        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+            log_success "Default shell changed to ZSH"
+        else
+            log_warning "Failed to change shell. You may need to do this manually."
+        fi
+    fi
+
+    # Deploy config files
+    mkdir -p "$HOME/.config"
+
+    # Copy distro-specific .zshrc
+    if [ -f "$DEBIAN_CONFIGS_DIR/.zshrc" ]; then
+        cp "$DEBIAN_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc"
+    fi
+
+    # Copy Ubuntu-specific .zshrc if exists
+    if [ -f "$DEBIAN_CONFIGS_DIR/.zshrc.ubuntu" ] && [ "$DISTRO_ID" == "ubuntu" ]; then
+        cp "$DEBIAN_CONFIGS_DIR/.zshrc.ubuntu" "$HOME/.zshrc" && log_success "Updated config: .zshrc (Ubuntu)"
+    fi
+
+    # Copy starship config
+    if [ -f "$DEBIAN_CONFIGS_DIR/starship.toml" ]; then
+        cp "$DEBIAN_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
+    fi
+
+    # Fastfetch setup
+    if command -v fastfetch >/dev/null; then
+        mkdir -p "$HOME/.config/fastfetch"
+
+        local dest_config="$HOME/.config/fastfetch/config.jsonc"
+
+        # Overwrite with custom if available
+        if [ -f "$DEBIAN_CONFIGS_DIR/config.jsonc" ]; then
+            cp "$DEBIAN_CONFIGS_DIR/config.jsonc" "$dest_config"
+
+            # Smart Icon Replacement
+            # Default in file is Arch: " "
+            local os_icon=" " # Debian icon
+
+            # Replace the icon in the file
+            # We look for the line containing "key": " " and substitute.
+            # Using specific regex to match the exact Arch icon  in the key value.
+            sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
+
+            log_success "Applied custom fastfetch config with Debian icon"
+        else
+           # Generate default if completely missing
+           if [ ! -f "$dest_config" ]; then
+             fastfetch --gen-config &>/dev/null
+           fi
+        fi
+    fi
+}
+
+debian_setup_solaar() {
+    # Skip solaar for server mode
+    if [ "$INSTALL_MODE" == "server" ]; then
+        log_info "Server mode selected, skipping solaar installation"
+        return 0
+    fi
+
+    # Skip solaar if no desktop environment
+    if [ -z "${XDG_CURRENT_DESKTOP:-}" ]; then
+        log_info "No desktop environment detected, skipping solaar installation"
+        return 0
+    fi
+
+    step "Setting up Logitech Hardware Support"
+
+    # Check for Logitech hardware
+    local has_logitech=false
+
+    # Check USB devices for Logitech
+    if lsusb | grep -i logitech >/dev/null 2>&1; then
+        has_logitech=true
+        log_info "Logitech hardware detected via USB"
+    fi
+
+    # Check Bluetooth devices for Logitech
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        if bluetoothctl devices | grep -i logitech >/dev/null 2>&1; then
+            has_logitech=true
+            log_info "Logitech Bluetooth device detected"
+        fi
+    fi
+
+    # Check for Logitech HID devices
+    if ls /dev/hidraw* 2>/dev/null | xargs -I {} sh -c 'cat /sys/class/hidraw/{}/device/uevent 2>/dev/null | grep -i logitech' >/dev/null 2>&1; then
+        has_logitech=true
+        log_info "Logitech HID device detected"
+    fi
+
+    if [ "$has_logitech" = true ]; then
+        log_info "Installing solaar for Logitech hardware management..."
+        if install_pkg solaar; then
+            log_success "Solaar installed successfully"
+
+            # Enable solaar service
+            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
+                log_success "Solaar service enabled and started"
+            else
+                log_warn "Failed to enable solaar service"
+            fi
+        else
+            log_warn "Failed to install solaar"
+        fi
+    else
+        log_info "No Logitech hardware detected, skipping solaar installation"
+    fi
+}
+
+# =============================================================================
+# MAIN DEBIAN CONFIGURATION FUNCTION
+# =============================================================================
+
+debian_main_config() {
+    log_info "Starting Debian/Ubuntu configuration..."
+
+    # System Preparation
+    if ! is_step_complete "debian_system_preparation"; then
+        debian_system_preparation
+        mark_step_complete "debian_system_preparation"
+    fi
+
+    # Install Essentials
+    if ! is_step_complete "debian_install_essentials"; then
+        debian_install_essentials
+        mark_step_complete "debian_install_essentials"
+    fi
+
+    # Bootloader Configuration
+    if ! is_step_complete "debian_bootloader"; then
+        debian_configure_bootloader
+        mark_step_complete "debian_bootloader"
+    fi
+
+    # System Services
+    if ! is_step_complete "debian_system_services"; then
+        debian_enable_system_services
+        mark_step_complete "debian_system_services"
+    fi
+
+    # Flatpak Setup
+    if ! is_step_complete "debian_flatpak"; then
+        debian_setup_flatpak
+        mark_step_complete "debian_flatpak"
+    fi
+
+    # Snap Setup (Ubuntu only)
+    if ! is_step_complete "debian_snap"; then
+        debian_setup_snap
+        mark_step_complete "debian_snap"
+    fi
+
+    # Shell Setup
+    if ! is_step_complete "debian_shell_setup"; then
+        debian_setup_shell
+        mark_step_complete "debian_shell_setup"
+    fi
+
+    # Logitech Hardware Support
+    if ! is_step_complete "debian_solaar_setup"; then
+        debian_setup_solaar
+        mark_step_complete "debian_solaar_setup"
+    fi
+
+    log_success "Debian/Ubuntu configuration completed"
+}
+
+# Export functions for use by main installer
+export -f debian_main_config
+export -f debian_system_preparation
+export -f debian_install_essentials
+export -f debian_configure_bootloader
+export -f debian_enable_system_services
+export -f debian_setup_flatpak
+export -f debian_setup_snap
+export -f debian_setup_shell
+export -f debian_setup_solaar
+```
+
+<tool_call>
