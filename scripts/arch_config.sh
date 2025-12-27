@@ -78,6 +78,9 @@ arch_system_preparation() {
     # Optimize mirrorlist based on network speed
     optimize_mirrors_arch
 
+    # Install AUR helper (yay) for package installation
+    install_aur_helper_arch
+
     # Update system
     log_info "Updating Arch Linux system..."
     if ! sudo pacman -Syu --noconfirm >/dev/null 2>&1; then
@@ -130,6 +133,66 @@ check_and_enable_multilib() {
     fi
 }
 
+install_aur_helper_arch() {
+    step "Installing AUR Helper (yay)"
+
+    # Check if yay is already installed
+    if command -v yay >/dev/null 2>&1; then
+        log_success "yay is already installed"
+        return 0
+    fi
+
+    # Install base-devel first (required for building AUR packages)
+    log_info "Installing base-devel for AUR package building..."
+    if ! sudo pacman -S --noconfirm --needed base-devel >/dev/null 2>&1; then
+        log_error "Failed to install base-devel"
+        return 1
+    fi
+
+    # Install git if not already installed (needed for cloning yay)
+    if ! sudo pacman -S --noconfirm --needed git >/dev/null 2>&1; then
+        log_error "Failed to install git"
+        return 1
+    fi
+
+    # Clone and build yay manually
+    log_info "Building yay AUR helper from source..."
+    local temp_dir=$(mktemp -d)
+    chmod 777 "$temp_dir"
+
+    local run_as_user=""
+    if [ "$EUID" -eq 0 ]; then
+         if [ -n "${SUDO_USER:-}" ]; then
+             run_as_user="sudo -u $SUDO_USER"
+             chown "$SUDO_USER:$SUDO_USER" "$temp_dir"
+         else
+             run_as_user="sudo -u nobody"
+             chown nobody:nobody "$temp_dir"
+         fi
+    fi
+
+    cd "$temp_dir" || return 1
+
+    if $run_as_user git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
+        if $run_as_user makepkg -si --noconfirm --needed >/dev/null 2>&1; then
+            log_success "yay AUR helper installed successfully"
+        else
+            log_error "Failed to build yay"
+            cd - >/dev/null
+            rm -rf "$temp_dir"
+            return 1
+        fi
+    else
+        log_error "Failed to clone yay repository"
+        cd - >/dev/null
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    cd - >/dev/null
+    rm -rf "$temp_dir"
+}
+
 optimize_mirrors_arch() {
     step "Optimizing Arch Linux mirrors"
 
@@ -177,68 +240,8 @@ optimize_mirrors_arch() {
 }
 
 arch_setup_aur_helper() {
-    step "Setting up Arch Linux AUR Helper"
-
-    # Check if yay is already installed
-    if command -v yay >/dev/null 2>&1; then
-        log_success "yay is already installed"
-        return 0
-    fi
-
-    # Check if paru is installed as alternative
-    if command -v paru >/dev/null 2>&1; then
-        log_info "paru detected, using as AUR helper"
-        AUR_HELPER="paru"
-        return 0
-    fi
-
-    # Install yay
-    log_info "Installing yay AUR helper..."
-
-    # Ensure prerequisites
-    if ! sudo pacman -S --noconfirm --needed base-devel git >/dev/null 2>&1; then
-        log_error "Failed to install base-devel or git"
-        return 1
-    fi
-
-    # Build yay in temp directory
-    local temp_dir=$(mktemp -d)
-    chmod 777 "$temp_dir"
-
-    local run_as_user=""
-    if [ "$EUID" -eq 0 ]; then
-         if [ -n "${SUDO_USER:-}" ]; then
-             run_as_user="sudo -u $SUDO_USER"
-             chown "$SUDO_USER:$SUDO_USER" "$temp_dir"
-         else
-             run_as_user="sudo -u nobody"
-             chown nobody:nobody "$temp_dir"
-         fi
-    fi
-
-    cd "$temp_dir" || return 1
-
-    log_info "Cloning yay repository..."
-    if $run_as_user git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
-        log_info "Building yay..."
-        if $run_as_user makepkg -si --noconfirm --needed >/dev/null 2>&1; then
-            log_success "yay installed successfully"
-            AUR_HELPER="yay"
-        else
-            log_error "Failed to build yay"
-            cd - >/dev/null
-            rm -rf "$temp_dir"
-            return 1
-        fi
-    else
-        log_error "Failed to clone yay repository"
-        cd - >/dev/null
-        rm -rf "$temp_dir"
-        return 1
-    fi
-
-    cd - >/dev/null
-    rm -rf "$temp_dir"
+    # Simple wrapper that calls the new function
+    arch_install_aur_helper
 }
 
 arch_configure_bootloader() {
@@ -265,7 +268,7 @@ configure_grub_arch() {
     log_info "Configuring GRUB for Arch Linux..."
 
     if [ ! -f /etc/default/grub ]; then
-        log_error "/etc/default/grub not found")
+        log_error "/etc/default/grub not found"
         return 1
     fi
 
@@ -414,10 +417,17 @@ arch_main_config() {
         mark_step_complete "arch_system_preparation"
     fi
 
-    # AUR Helper Setup
+    # AUR Helper Setup (already done in system preparation)
     if ! is_step_complete "arch_aur_helper"; then
-        arch_setup_aur_helper
+        # AUR helper is already installed in system preparation
+        log_success "AUR helper (yay) is ready"
         mark_step_complete "arch_aur_helper"
+    fi
+
+    # Mirror Configuration (after AUR helper is installed)
+    if ! is_step_complete "arch_mirrors"; then
+        arch_configure_mirrors
+        mark_step_complete "arch_mirrors"
     fi
 
     # Bootloader Configuration
@@ -598,9 +608,11 @@ arch_setup_solaar() {
 export -f arch_main_config
 export -f arch_system_preparation
 export -f arch_setup_aur_helper
+export -f arch_configure_mirrors
 export -f arch_configure_bootloader
 export -f arch_enable_system_services
 export -f arch_configure_zram
+export -f arch_configure_plymouth
 
 arch_configure_bootloader() {
     step "Configuring Arch Linux Bootloader"
@@ -622,11 +634,43 @@ arch_configure_bootloader() {
     esac
 }
 
+# =============================================================================
+# AUR HELPER INSTALLATION AND MIRROR CONFIGURATION
+# =============================================================================
+
+arch_configure_mirrors() {
+    step "Configuring Arch Linux Mirrors"
+
+    # Backup original mirrorlist
+    if [ -f "$ARCH_MIRRORLIST" ]; then
+        sudo cp "$ARCH_MIRRORLIST" "$ARCH_MIRRORLIST.backup"
+        log_info "Backed up original mirrorlist to ${ARCH_MIRRORLIST}.backup"
+    fi
+
+    # Update mirrors using rate-mirrors
+    log_info "Updating mirror list with rate-mirrors..."
+    if sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch; then
+        log_success "Mirror list updated successfully"
+    else
+        log_error "Failed to update mirror list"
+        return 1
+    fi
+
+    # Sync package databases
+    log_info "Synchronizing package databases..."
+    if sudo pacman -Syy; then
+        log_success "Package databases synchronized"
+    else
+        log_error "Failed to synchronize package databases"
+        return 1
+    fi
+}
+
 configure_grub_arch() {
     log_info "Configuring GRUB for Arch Linux..."
 
     if [ ! -f /etc/default/grub ]; then
-        log_error "/etc/default/grub not found")
+        log_error "/etc/default/grub not found"
         return 1
     fi
 
@@ -711,12 +755,14 @@ configure_systemd_boot_arch() {
     fi
 }
 
+
+
 export -f arch_system_preparation
 export -f arch_setup_aur_helper
 export -f arch_configure_bootloader
 export -f arch_enable_system_services
 export -f arch_configure_zram
+export -f arch_install_aur_helper
+export -f arch_configure_mirrors
 
 export -f arch_configure_plymouth
-```
-</tool_response>

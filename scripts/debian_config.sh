@@ -21,6 +21,7 @@ APT_CONF="/etc/apt/apt.conf.d/99linuxinstaller"
 
 # Debian-specific configuration files
 DEBIAN_CONFIGS_DIR="$SCRIPT_DIR/../configs/debian"
+UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 
 # Debian/Ubuntu-specific package lists
 DEBIAN_ESSENTIALS=(
@@ -172,7 +173,7 @@ configure_grub_debian() {
     log_info "Configuring GRUB for Debian/Ubuntu..."
 
     if [ ! -f /etc/default/grub ]; then
-        log_error "/etc/default/grub not found")
+        log_error "/etc/default/grub not found"
         return 1
     fi
 
@@ -349,7 +350,9 @@ debian_setup_shell() {
     mkdir -p "$HOME/.config"
 
     # Copy distro-specific .zshrc
-    if [ -f "$DEBIAN_CONFIGS_DIR/.zshrc" ]; then
+    if [ "$DISTRO_ID" == "ubuntu" ] && [ -f "$UBUNTU_CONFIGS_DIR/.zshrc" ]; then
+        cp "$UBUNTU_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc (Ubuntu)"
+    elif [ -f "$DEBIAN_CONFIGS_DIR/.zshrc" ]; then
         cp "$DEBIAN_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc"
     fi
 
@@ -359,7 +362,9 @@ debian_setup_shell() {
     fi
 
     # Copy starship config
-    if [ -f "$DEBIAN_CONFIGS_DIR/starship.toml" ]; then
+    if [ "$DISTRO_ID" == "ubuntu" ] && [ -f "$UBUNTU_CONFIGS_DIR/starship.toml" ]; then
+        cp "$UBUNTU_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml (Ubuntu)"
+    elif [ -f "$DEBIAN_CONFIGS_DIR/starship.toml" ]; then
         cp "$DEBIAN_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
     fi
 
@@ -370,7 +375,18 @@ debian_setup_shell() {
         local dest_config="$HOME/.config/fastfetch/config.jsonc"
 
         # Overwrite with custom if available
-        if [ -f "$DEBIAN_CONFIGS_DIR/config.jsonc" ]; then
+        if [ "$DISTRO_ID" == "ubuntu" ] && [ -f "$UBUNTU_CONFIGS_DIR/config.jsonc" ]; then
+            cp "$UBUNTU_CONFIGS_DIR/config.jsonc" "$dest_config"
+
+            # Smart Icon Replacement
+            # Default in file is Arch: " "
+            local os_icon=" " # Ubuntu icon (same as Debian)
+
+            # Replace the icon in the file
+            # We look for the line containing "key": " " and substitute.
+            # Using specific regex to match the exact Arch icon  in the key value.
+            sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
+        elif [ -f "$DEBIAN_CONFIGS_DIR/config.jsonc" ]; then
             cp "$DEBIAN_CONFIGS_DIR/config.jsonc" "$dest_config"
 
             # Smart Icon Replacement
@@ -381,6 +397,7 @@ debian_setup_shell() {
             # We look for the line containing "key": " " and substitute.
             # Using specific regex to match the exact Arch icon  in the key value.
             sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
+        fi
 
             log_success "Applied custom fastfetch config with Debian icon"
         else
@@ -517,6 +534,3 @@ export -f debian_setup_flatpak
 export -f debian_setup_snap
 export -f debian_setup_shell
 export -f debian_setup_solaar
-```
-
-<tool_call>

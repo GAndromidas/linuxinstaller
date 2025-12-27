@@ -299,5 +299,5 @@ export -f kde_configure_theme
 export -f kde_configure_network
 export -f kde_setup_plasma
 export -f kde_install_kdeconnect
-```
-</tool_response>
+
+

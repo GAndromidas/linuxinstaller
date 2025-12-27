@@ -95,7 +95,6 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
-PROGRAMS_YAML="$CONFIGS_DIR/programs.yaml"
 INSTALL_LOG="$HOME/.linuxinstaller.log"
 
 # Ensure log file exists and start fresh for this run
@@ -391,6 +390,9 @@ done
 detect_distro # Sets DISTRO_ID, PKG_INSTALL, etc.
 detect_de # Sets XDG_CURRENT_DESKTOP (e.g., KDE, GNOME)
 
+# Now that we know the distribution, set the programs.yaml path
+PROGRAMS_YAML="$CONFIGS_DIR/$DISTRO_ID/programs.yaml"
+
 # Bootstrap UI tools
 bootstrap_tools
 
@@ -609,7 +611,3 @@ else
     gum format --theme=dark "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
     prompt_reboot
 fi
-
-
-```
-</tool_response>

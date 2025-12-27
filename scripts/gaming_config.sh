@@ -356,6 +356,5 @@ export -f gaming_configure_gamemode
 export -f gaming_configure_steam
 export -f gaming_configure_lutris
 export -f gaming_setup_protontricks
-```
 
-<tool_call>
+

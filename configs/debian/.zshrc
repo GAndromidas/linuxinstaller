@@ -174,7 +174,7 @@ fi
 # -----------------------------------------------------------------------------
 alias sync='sudo apt update'
 alias update='sudo apt update && sudo apt full-upgrade -y'
-alias care='command -v ucaresystem-core >/dev/null && sudo ucaresystem-core'  # Ubuntu Care (if available)
+alias care='sudo ucaresystem-core'
 alias clean='sudo apt autoremove -y && sudo apt autoclean -y'
 alias cache='sudo rm -rf /var/cache/apt/archives/*'
 alias jctl='journalctl -p 3 -xb'
@@ -294,7 +294,7 @@ fcd() {
 # Try multiple possible locations for zsh-syntax-highlighting (from package manager)
 if [[ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
   source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-  
+
   # Syntax highlighting styles
   ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
   ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
@@ -304,7 +304,7 @@ if [[ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.
   ZSH_HIGHLIGHT_STYLES[command-not-found]='fg=red,bold'
 elif [[ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
   source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-  
+
   # Syntax highlighting styles
   ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
   ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
@@ -324,4 +324,3 @@ fi
 # =============================================================================
 # End of configuration
 # =============================================================================
-

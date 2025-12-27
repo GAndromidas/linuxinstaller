@@ -25,8 +25,6 @@ FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 # Fedora-specific package lists
 FEDORA_ESSENTIALS=(
     "dnf-plugins-core"
-    "rpmfusion-free-release"
-    "rpmfusion-nonfree-release"
     "git"
     "curl"
     "wget"
@@ -186,7 +184,7 @@ configure_grub_fedora() {
     log_info "Configuring GRUB for Fedora..."
 
     if [ ! -f /etc/default/grub ]; then
-        log_error "/etc/default/grub not found")
+        log_error "/etc/default/grub not found"
         return 1
     fi
 
@@ -345,6 +343,24 @@ fedora_main_config() {
         mark_step_complete "fedora_system_preparation"
     fi
 
+    # DNF Configuration
+    if ! is_step_complete "fedora_dnf_config"; then
+        fedora_configure_dnf
+        mark_step_complete "fedora_dnf_config"
+    fi
+
+    # Enable RPM Fusion
+    if ! is_step_complete "fedora_rpmfusion"; then
+        fedora_enable_rpmfusion
+        mark_step_complete "fedora_rpmfusion"
+    fi
+
+    # Setup COPR repositories
+    if ! is_step_complete "fedora_copr"; then
+        fedora_setup_copr
+        mark_step_complete "fedora_copr"
+    fi
+
     # Install Essentials
     if ! is_step_complete "fedora_install_essentials"; then
         fedora_install_essentials
@@ -439,6 +455,122 @@ fedora_setup_shell() {
     fi
 }
 
+# =============================================================================
+# DNF OPTIMIZATION AND REPOSITORY CONFIGURATION
+# =============================================================================
+
+fedora_configure_dnf() {
+    step "Configuring DNF for optimal performance"
+
+    # Create or update dnf.conf
+    if [ ! -f "$FEDORA_REPOS_FILE" ]; then
+        sudo touch "$FEDORA_REPOS_FILE"
+    fi
+
+    # Add DNF optimizations
+    log_info "Adding DNF optimizations..."
+
+    # Enable fastestmirror
+    if ! grep -q "^fastestmirror=true" "$FEDORA_REPOS_FILE"; then
+        echo "fastestmirror=true" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+        log_success "Enabled fastestmirror"
+    else
+        log_info "fastestmirror already enabled"
+    fi
+
+    # Set parallel downloads
+    if ! grep -q "^max_parallel_downloads" "$FEDORA_REPOS_FILE"; then
+        echo "max_parallel_downloads=10" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+        log_success "Set max_parallel_downloads=10"
+    else
+        sudo sed -i 's/^max_parallel_downloads=.*/max_parallel_downloads=10/' "$FEDORA_REPOS_FILE"
+        log_info "Updated max_parallel_downloads=10"
+    fi
+
+    # Enable default yes (assume yes for all prompts)
+    if ! grep -q "^assumeyes" "$FEDORA_REPOS_FILE"; then
+        echo "assumeyes=True" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+        log_success "Enabled assumeyes=True"
+    else
+        sudo sed -i 's/^assumeyes=.*/assumeyes=True/' "$FEDORA_REPOS_FILE"
+        log_info "Updated assumeyes=True"
+    fi
+
+    # Enable color output
+    if ! grep -q "^color" "$FEDORA_REPOS_FILE"; then
+        echo "color=always" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+        log_success "Enabled color output"
+    else
+        sudo sed -i 's/^color=.*/color=always/' "$FEDORA_REPOS_FILE"
+        log_info "Updated color setting"
+    fi
+
+    # Enable delta RPMs for faster downloads
+    if ! grep -q "^deltarpm" "$FEDORA_REPOS_FILE"; then
+        echo "deltarpm=True" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+        log_success "Enabled delta RPMs"
+    else
+        sudo sed -i 's/^deltarpm=.*/deltarpm=True/' "$FEDORA_REPOS_FILE"
+        log_info "Updated delta RPM setting"
+    fi
+
+    log_success "DNF configuration completed"
+}
+
+fedora_enable_rpmfusion() {
+    step "Enabling RPM Fusion repositories"
+
+    # Enable RPM Fusion Free
+    log_info "Enabling RPM Fusion Free repository..."
+    if ! sudo dnf install -y rpmfusion-free-release; then
+        log_error "Failed to enable RPM Fusion Free"
+        return 1
+    fi
+
+    # Enable RPM Fusion Non-Free
+    log_info "Enabling RPM Fusion Non-Free repository..."
+    if ! sudo dnf install -y rpmfusion-nonfree-release; then
+        log_error "Failed to enable RPM Fusion Non-Free"
+        return 1
+    fi
+
+    # Update package cache
+    log_info "Updating package cache..."
+    if ! sudo dnf makecache -y; then
+        log_error "Failed to update package cache"
+        return 1
+    fi
+
+    log_success "RPM Fusion repositories enabled"
+}
+
+fedora_setup_copr() {
+    step "Setting up COPR repositories"
+
+    # Install dnf-plugins-core if not already installed
+    if ! sudo dnf install -y dnf-plugins-core; then
+        log_error "Failed to install dnf-plugins-core"
+        return 1
+    fi
+
+    # Add COPR repositories from programs.yaml
+    # For now, we'll add the eza repository manually
+    log_info "Adding COPR repository for eza..."
+    if ! sudo dnf copr enable -y alternateved/eza; then
+        log_error "Failed to enable COPR repository for eza"
+        return 1
+    fi
+
+    # Update package cache after COPR
+    log_info "Updating package cache after COPR..."
+    if ! sudo dnf makecache -y; then
+        log_error "Failed to update package cache after COPR"
+        return 1
+    fi
+
+    log_success "COPR repositories configured"
+}
+
 fedora_setup_solaar() {
     # Skip solaar for server mode
     if [ "$INSTALL_MODE" == "server" ]; then
@@ -499,6 +631,9 @@ fedora_setup_solaar() {
 # Export functions for use by main installer
 export -f fedora_main_config
 export -f fedora_system_preparation
+export -f fedora_configure_dnf
+export -f fedora_enable_rpmfusion
+export -f fedora_setup_copr
 export -f fedora_install_essentials
 export -f fedora_configure_bootloader
 export -f fedora_enable_system_services
