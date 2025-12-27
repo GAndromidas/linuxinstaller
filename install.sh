@@ -426,6 +426,139 @@ if ! is_step_complete "system_update"; then
     mark_step_complete "system_update"
 fi
 
+# Step: Pacman Configuration (Arch Linux only)
+if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
+    step "Configuring Pacman Optimizations"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure pacman optimizations (parallel downloads, color, ILoveCandy)"
+    else
+        # Function to install speedtest-cli silently if not available
+        install_speedtest_cli() {
+            if ! command -v speedtest-cli >/dev/null 2>&1; then
+                log_info "Installing speedtest-cli for network speed detection..."
+                if sudo pacman -S --noconfirm --needed speedtest-cli >/dev/null 2>&1; then
+                    log_success "speedtest-cli installed successfully"
+                    return 0
+                else
+                    log_warning "Failed to install speedtest-cli - will skip network speed test"
+                    return 1
+                fi
+            fi
+            return 0
+        }
+
+        # Function to detect network speed and optimize downloads
+        detect_network_speed() {
+            step "Testing network speed and optimizing download settings"
+
+            # Install speedtest-cli if not available
+            if ! install_speedtest_cli; then
+                log_warning "speedtest-cli not available - skipping network speed test"
+                return
+            fi
+
+            log_info "Testing internet speed (this may take a moment)..."
+
+            # Run speedtest and capture download speed (with 30s timeout)
+            local speed_test_output=$(timeout 30s speedtest-cli --simple 2>/dev/null)
+
+            if [ $? -eq 0 ] && [ -n "$speed_test_output" ]; then
+                local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
+
+                if [ -n "$download_speed" ]; then
+                    log_success "Download speed: ${download_speed} Mbit/s"
+
+                    # Convert to integer for comparison
+                    local speed_int=$(echo "$download_speed" | cut -d. -f1)
+
+                    # Adjust parallel downloads based on speed
+                    if [ "$speed_int" -lt 5 ]; then
+                        log_warning "Slow connection detected (< 5 Mbit/s)"
+                        log_info "Reducing parallel downloads to 3 for stability"
+                        log_info "Installation will take longer - consider using ethernet"
+                        export PACMAN_PARALLEL=3
+                    elif [ "$speed_int" -lt 25 ]; then
+                        log_info "Moderate connection speed (5-25 Mbit/s)"
+                        log_info "Using standard parallel downloads (10)"
+                        export PACMAN_PARALLEL=10
+                    elif [ "$speed_int" -lt 100 ]; then
+                        log_success "Good connection speed (25-100 Mbit/s)"
+                        log_info "Using standard parallel downloads (10)"
+                        export PACMAN_PARALLEL=10
+                    else
+                        log_success "Excellent connection speed (100+ Mbit/s)"
+                        log_info "Increasing parallel downloads to 15 for faster installation"
+                        export PACMAN_PARALLEL=15
+                    fi
+                else
+                    log_warning "Could not parse speed test results"
+                    export PACMAN_PARALLEL=10
+                fi
+            else
+                log_warning "Speed test failed - using default settings"
+                export PACMAN_PARALLEL=10
+            fi
+        }
+
+        configure_pacman() {
+            step "Configuring pacman optimizations"
+
+            # Use network-speed-based parallel downloads value (default 10 if not set)
+            local parallel_downloads="${PACMAN_PARALLEL:-10}"
+
+            # Handle ParallelDownloads - works whether commented or uncommented
+            if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
+                # Line is commented, uncomment and set value
+                sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+                log_success "Uncommented and set ParallelDownloads = $parallel_downloads"
+            elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
+                # Line exists and is active, update value
+                sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+                log_success "Updated ParallelDownloads = $parallel_downloads"
+            else
+                # Line doesn't exist at all, add it
+                sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
+                log_success "Added ParallelDownloads = $parallel_downloads"
+            fi
+
+            # Handle Color setting
+            if grep -q "^#Color" /etc/pacman.conf; then
+                sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
+                log_success "Uncommented Color setting"
+            fi
+
+            # Handle VerbosePkgLists setting
+            if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
+                sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
+                log_success "Uncommented VerbosePkgLists setting"
+            fi
+
+            # Add ILoveCandy if not already present
+            if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
+                sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+                log_success "Added ILoveCandy setting"
+            fi
+
+            # Enable multilib if not already enabled
+            if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+                echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+                log_success "Enabled multilib repository"
+            else
+                log_success "Multilib repository already enabled"
+            fi
+
+            echo ""
+        }
+
+        # Execute pacman configuration
+        detect_network_speed
+        configure_pacman
+    fi
+
+    mark_step_complete "pacman_config"
+fi
+
 # Step: Install Packages based on Mode
 if ! is_step_complete "install_packages"; then
     step "Installing Packages ($INSTALL_MODE)"
