@@ -12,7 +12,12 @@
 - Cleaner UX with graceful fallbacks when `gum` isn't available — plain-text output is consistent and readable while styled `gum` output is used when present.
 - Optional final cleanup step: the installer can optionally remove temporary helper tools it installed (keeps the user's environment tidy).
 - Distribution module fixes and standardization (Arch and Fedora): AUR helper installation and DNF/COPR handling have been standardized and improved for robustness.
-- Enhanced safety and observability: improved dry-run behavior, idempotent state tracking with resume capability, and centralized logging to `~/.linuxinstaller.log`.
+- Enhanced safety and observability: improved dry-run behavior, idempotent state tracking with resume capability, and centralized logging to ~/.linuxinstaller.log.
+
+- Wake-on-LAN integration: a new module auto-detects wired NICs and configures/persists Wake‑on‑LAN (via NetworkManager when available or a systemd oneshot service). The installer can run this automatically (non-interactive) or via the menu.
+- Flatpak installer output: Flatpak package installations now present live, user-visible progress (while still capturing logs to the install log) so users can see flatpak install output during the run.
+- Pacman behavior: removed the speedtest-based dynamic detection for `ParallelDownloads` (no speedtest dependency); `ParallelDownloads` is now fixed at 10 to avoid noisy auto-tuning.
+- Arch-specific: the `essential` package group is now applied only in Standard mode (it is skipped in Minimal and Server modes to keep them lean).
 - Smarter DE and gaming handling: better desktop-environment detection, more flexible flatpak/snap handling, and dedicated gaming/performance tweaks.
 
 ### 🎯 **Universal Distribution Support**
@@ -76,8 +81,7 @@ Essential tools only for lightweight installations and minimal resource usage.
 ### Server Mode
 Headless server configuration with essential services and security hardening.
 
-### Custom Mode
-Interactive selection of packages and features to install.
+Note: Custom mode has been removed — the installer now supports Standard, Minimal, and Server modes only.
 
 ## 📁 Project Structure
 
@@ -111,7 +115,8 @@ linuxinstaller/
     ├── gaming_config.sh      # Gaming environment setup
     ├── security_config.sh    # Security hardening
     ├── performance_config.sh # Performance optimization
-    └── maintenance_config.sh # System maintenance
+    ├── maintenance_config.sh # System maintenance
+    └── wakeonlan_config.sh   # Wake-on-LAN integration module
 ```
 
 ## 🔧 Configuration

@@ -163,6 +163,7 @@ VERBOSE=false
 DRY_RUN=false
 TOTAL_STEPS=0
 CURRENT_STEP=0
+INSTALL_MODE="standard"
 
 # Track installed helpers to clean up later
 FIGLET_INSTALLED_BY_SCRIPT=false
