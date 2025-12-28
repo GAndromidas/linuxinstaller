@@ -1,10 +1,12 @@
+<div align="center">
+
 # LinuxInstaller
 
-<center>
 <img width="725" height="163" alt="Screenshot_20251228_155836" src="https://github.com/user-attachments/assets/adb433bd-ebab-4c51-a72d-6208164e1026" />
-</center>
 
 **LinuxInstaller** is a comprehensive, cross-distribution post-installation automation script that transforms a fresh Linux installation into a fully configured, optimized system. It supports Arch Linux, Fedora, Debian, and Ubuntu with intelligent hardware detection and customizable installation modes.
+
+</div>
 
 ## ✨ Features
 
@@ -15,7 +17,6 @@
 - Optional final cleanup step: the installer can optionally remove temporary helper tools it installed (keeps the user's environment tidy).
 - Distribution module fixes and standardization (Arch and Fedora): AUR helper installation and DNF/COPR handling have been standardized and improved for robustness.
 - Enhanced safety and observability: improved dry-run behavior, idempotent state tracking with resume capability, and centralized logging to ~/.linuxinstaller.log.
-
 - Wake-on-LAN integration: a new module auto-detects wired NICs and configures/persists Wake‑on‑LAN (via NetworkManager when available or a systemd oneshot service). The installer can run this automatically (non-interactive) or via the menu.
 - Flatpak installer output: Flatpak package installations now present live, user-visible progress (while still capturing logs to the install log) so users can see flatpak install output during the run.
 - Pacman behavior: removed the speedtest-based dynamic detection for `ParallelDownloads` (no speedtest dependency); `ParallelDownloads` is now fixed at 10 to avoid noisy auto-tuning.
