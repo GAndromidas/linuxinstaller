@@ -486,9 +486,14 @@ final_cleanup() {
 # Function to mark step as completed
 mark_step_complete() {
     local step_name="$1"
+    local friendly="${CURRENT_STEP_MESSAGE:-$step_name}"
     if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
         echo "$step_name" >> "$STATE_FILE"
     fi
+    # Show a concise, friendly success message for the completed step
+    log_success "$friendly"
+    # Clear the saved friendly message
+    CURRENT_STEP_MESSAGE=""
 }
 
 # Function to check if step was completed

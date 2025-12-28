@@ -11,12 +11,12 @@ supports_gum() {
 }
 
 # GUM / color scheme (adopted from archinstaller style)
-# - Primary: blue accents for titles/headers (LinuxInstaller branding)
+# - Primary: cyan accents for titles/headers (LinuxInstaller branding)
 # - Body: white for standard text (keeps output readable, not all-blue)
 # - Border: white borders per your request
 # - Success / Error / Warning: green / red / yellow respectively
-# Use 256-color codes for primary + white body as requested (27=deep blue, 15=bright white)
-GUM_PRIMARY_FG=27
+# Use cyan as the primary accent (default bright cyan for gum)
+GUM_PRIMARY_FG=cyan
 GUM_BODY_FG=15
 GUM_BORDER_FG=15
 GUM_SUCCESS_FG=46
@@ -33,7 +33,7 @@ if ! supports_gum; then
     GREEN='\033[0;32m'
     YELLOW='\033[1;33m'
     WHITE='\033[1;37m'   # bright white for body text
-    BLUE='\033[1;34m'    # bright blue for headers/title
+    BLUE='\033[1;36m'    # bright cyan for headers/title
 fi
 
 # Wrapper around the 'gum' binary to enforce consistent borders and color choices.
@@ -71,10 +71,12 @@ gum() {
 step() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "❯ $message"
+        # Add a top margin so each step is separated visually
+        gum style --margin "1 2" --foreground "$GUM_BODY_FG" --bold "❯ $message"
     else
         # Make the arrow/title blue and the actual message bright white for readability
-        echo -e "${BLUE}❯ ${WHITE}$message${RESET}"
+        # Prepend a newline so steps are spaced out in non-gum terminals too
+        echo -e "\n${BLUE}❯ ${WHITE}$message${RESET}"
     fi
     echo "STEP: $message" >> "$INSTALL_LOG"
 }
@@ -82,13 +84,17 @@ step() {
 # Standardized logging functions
 log_info() {
     local message="$1"
-    if supports_gum; then
-        # Use white for common/info text so output isn't all blue
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "ℹ $message"
-    else
-        echo -e "${WHITE}[INFO] $message${RESET}"
-    fi
+    # Always write informational messages to the install log
     echo "[INFO] $message" >> "$INSTALL_LOG"
+    # Quiet by default: only print info to console when verbose mode is enabled
+    if [ "${VERBOSE:-false}" = "true" ]; then
+        if supports_gum; then
+            # Use white for common/info text so output isn't all blue
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "ℹ $message"
+        else
+            echo -e "${WHITE}[INFO] $message${RESET}"
+        fi
+    fi
 }
 
 log_success() {
@@ -96,8 +102,11 @@ log_success() {
     if supports_gum; then
         # Use green for success notifications
         gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold "✔ $message"
+        # Add a trailing blank line for readability between steps
+        echo ""
     else
         echo -e "${GREEN}[SUCCESS] $message${RESET}"
+        echo ""
     fi
     echo "[SUCCESS] $message" >> "$INSTALL_LOG"
 }
@@ -107,8 +116,10 @@ log_warn() {
     if supports_gum; then
         # Use yellow for warnings
         gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "⚠ $message"
+        echo ""
     else
         echo -e "${YELLOW}[WARNING] $message${RESET}"
+        echo ""
     fi
     echo "[WARNING] $message" >> "$INSTALL_LOG"
 }
@@ -118,8 +129,10 @@ log_error() {
     if supports_gum; then
         # Use red for errors
         gum style --margin "0 2" --foreground "$GUM_ERROR_FG" --bold "✗ $message"
+        echo ""
     else
         echo -e "${RED}[ERROR] $message${RESET}"
+        echo ""
     fi
     echo "[ERROR] $message" >> "$INSTALL_LOG"
 }
