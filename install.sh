@@ -45,7 +45,10 @@ show_menu() {
     fi
 
     echo ""
-    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup"
+    echo ""
+    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME"
+    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
     echo ""
 
     # Enhanced menu with gum
@@ -56,7 +59,7 @@ show_menu() {
         "3. Server - Headless server configuration" \
         "4. Custom - Interactive selection of packages to install" \
         "5. Exit" \
-        --cursor.foreground "$GUM_FG" --cursor "→" --header.foreground "$GUM_FG")
+        --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" --header.foreground "$GUM_PRIMARY_FG")
 
     case "$choice" in
         "1. Standard - Complete setup with all recommended packages")
@@ -82,7 +85,7 @@ show_menu() {
     esac
 
     echo ""
-    gum style --margin "0 2" --foreground "$GUM_FG" --bold "You selected: $choice"
+    gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice"
     echo ""
 }
 
@@ -354,14 +357,14 @@ install_package_group() {
 
         # Pretty output of what will be installed
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Installing ($type) for $title: ${packages[*]}"
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing ($type) for $title: ${packages[*]}"
         else
             log_info "Installing ($type) for $title: ${packages[*]}"
         fi
 
         if [ "$DRY_RUN" = true ]; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
             else
                 log_info "[DRY-RUN] Would install ($type): ${packages[*]}"
             fi
@@ -440,7 +443,8 @@ final_cleanup() {
 
     # Prompt the user whether to remove them (interactive)
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "Temporary helper packages detected: ${remove_list[*]}"
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Temporary helper packages detected:"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${remove_list[*]}"
         if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
@@ -505,9 +509,9 @@ show_resume_menu() {
 
         if supports_gum; then
             echo ""
-            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Completed steps:"
+            gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Completed steps:"
             while IFS= read -r step; do
-                 gum style --margin "0 4" --foreground "$GUM_FG" "✓ $step"
+                 gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ $step"
             done < "$STATE_FILE"
             echo ""
 
@@ -574,7 +578,10 @@ bootstrap_tools
 
 # 3. Welcome & Resume Check
 clear
-gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup"
+echo ""
+gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME"
+gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
@@ -915,13 +922,14 @@ step "Finalizing Installation"
 
 if [ "$DRY_RUN" = true ]; then
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "Dry-Run Complete. No changes were made."
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Dry-Run Complete. No changes were made."
     else
         log_info "Dry-Run Complete. No changes were made."
     fi
 else
     if supports_gum; then
-        gum format --theme=dark --foreground "$GUM_FG" "## Installation Complete!" "Your system is ready. Performing final cleanup..."
+        gum format --theme=dark --foreground "$GUM_PRIMARY_FG" "## Installation Complete!"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is ready. Performing final cleanup..."
     else
         log_success "Installation Complete! Performing final cleanup..."
     fi
@@ -930,7 +938,8 @@ else
     final_cleanup
 
     if supports_gum; then
-        gum format --theme=dark --foreground "$GUM_FG" "## Done" "Your system is ready. Please reboot to ensure all changes take effect."
+        gum format --theme=dark --foreground "$GUM_PRIMARY_FG" "## Done"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is ready. Please reboot to ensure all changes take effect."
     else
         log_success "Done. Please reboot your system to ensure all changes take effect."
     fi

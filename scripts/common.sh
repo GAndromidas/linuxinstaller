@@ -5,28 +5,76 @@
 
 # Check if gum is available for styling, otherwise use basic echo
 supports_gum() {
-  command -v gum >/dev/null 2>&1
+  # Prefer checking for an external 'gum' binary (not a shell function) to avoid false positives.
+  # 'type -P' returns the path to an external command and ignores shell functions/aliases.
+  type -P gum >/dev/null 2>&1
 }
 
-# Primary color for all gum output (use a consistent blue)
-GUM_FG=27
+# GUM / color scheme (adopted from archinstaller style)
+# - Primary: blue accents for titles/headers (LinuxInstaller branding)
+# - Body: white for standard text (keeps output readable, not all-blue)
+# - Border: white borders per your request
+# - Success / Error / Warning: green / red / yellow respectively
+# Use 256-color codes for primary + white body as requested (27=deep blue, 15=bright white)
+GUM_PRIMARY_FG=27
+GUM_BODY_FG=15
+GUM_BORDER_FG=15
+GUM_SUCCESS_FG=46
+GUM_ERROR_FG=196
+GUM_WARNING_FG=11
 
-# Colors for logging (fallback if gum is not available)
+# Backwards compatibility: keep the legacy variable name pointing to the primary accent
+GUM_FG="$GUM_PRIMARY_FG"
+
+# Ensure we have fallback ANSI colors for systems without 'gum'
 if ! supports_gum; then
     RESET='\033[0m'
     RED='\033[0;31m'
     GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m' # Blue for steps and highlights
+    YELLOW='\033[1;33m'
+    WHITE='\033[1;37m'   # bright white for body text
+    BLUE='\033[1;34m'    # bright blue for headers/title
 fi
 
-# A standardized way to print step headers (clear, bold blue for readability)
+# Wrapper around the 'gum' binary to enforce consistent borders and color choices.
+# This lets existing calls that set --border-foreground "$GUM_FG" still render with white borders.
+# The wrapper replaces any `--border-foreground <value>` with the configured $GUM_BORDER_FG.
+gum() {
+    # Find the external gum binary (ignore shell functions). If not installed, return non-zero.
+    local gum_bin
+    gum_bin="$(type -P gum 2>/dev/null)" || return 127
+
+    local new_args=()
+    local skip_next=false
+
+    for arg in "$@"; do
+        if [ "$skip_next" = true ]; then
+            # skip original value since we've replaced it
+            skip_next=false
+            continue
+        fi
+
+        if [ "$arg" = "--border-foreground" ]; then
+            new_args+=("$arg" "$GUM_BORDER_FG")
+            skip_next=true
+            continue
+        fi
+
+        new_args+=("$arg")
+    done
+
+    # Execute the external gum binary directly (avoid recursion / function masking)
+    "$gum_bin" "${new_args[@]}"
+}
+
+# A standardized way to print step headers (blue accent for the title, white for the body)
 step() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "❯ $message"
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "❯ $message"
     else
-        echo -e "${BLUE}> $message${RESET}"
+        # Make the arrow/title blue and the actual message bright white for readability
+        echo -e "${BLUE}❯ ${WHITE}$message${RESET}"
     fi
     echo "STEP: $message" >> "$INSTALL_LOG"
 }
@@ -35,9 +83,10 @@ step() {
 log_info() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" "ℹ $message"
+        # Use white for common/info text so output isn't all blue
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "ℹ $message"
     else
-        echo -e "[INFO] $message"
+        echo -e "${WHITE}[INFO] $message${RESET}"
     fi
     echo "[INFO] $message" >> "$INSTALL_LOG"
 }
@@ -45,7 +94,8 @@ log_info() {
 log_success() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "✔ $message"
+        # Use green for success notifications
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold "✔ $message"
     else
         echo -e "${GREEN}[SUCCESS] $message${RESET}"
     fi
@@ -55,7 +105,8 @@ log_success() {
 log_warn() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "⚠ $message"
+        # Use yellow for warnings
+        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "⚠ $message"
     else
         echo -e "${YELLOW}[WARNING] $message${RESET}"
     fi
@@ -65,7 +116,8 @@ log_warn() {
 log_error() {
     local message="$1"
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_FG" --bold "✗ $message"
+        # Use red for errors
+        gum style --margin "0 2" --foreground "$GUM_ERROR_FG" --bold "✗ $message"
     else
         echo -e "${RED}[ERROR] $message${RESET}"
     fi
@@ -114,9 +166,10 @@ show_resume_menu() {
 
         if supports_gum; then
             echo ""
-            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Completed steps:"
+            gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Completed steps:"
             while IFS= read -r step; do
-                 gum style --margin "0 4" --foreground "$GUM_FG" "✓ $step"
+                 # Completed steps are successes (green check + white body if desired)
+                 gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ $step"
             done < "$STATE_FILE"
             echo ""
 
@@ -135,7 +188,7 @@ show_resume_menu() {
             fi
         else
             while IFS= read -r step; do
-                 echo -e "  [DONE] $step"
+                 echo -e "  ${GREEN}✓${RESET} ${WHITE}$step${RESET}"
             done < "$STATE_FILE"
 
             read -r -p "Resume installation? [Y/n]: " response
@@ -252,7 +305,8 @@ is_btrfs_system() {
 # Standardized reboot prompt
 prompt_reboot() {
     if supports_gum; then
-        figlet "Reboot System" | gum style --border double --margin "0 2" --padding "0 2" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold
+        # Display a blue title with white borders (wrapper enforces border color)
+        figlet "Reboot System" | gum style --border double --margin "0 2" --padding "0 2" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold
         if gum confirm "Reboot now to apply all changes?"; then
             log_warn "Rebooting system..."
             sudo reboot
