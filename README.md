@@ -313,14 +313,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Debian/Ubuntu Teams**: For stable and reliable distributions
 - **All Contributors**: For testing, feedback, and improvements
 
-## 🔗 Related Projects
-
-- [Archinstaller](https://github.com/archinstaller/archinstaller)
-- [Fedorainstaller](https://github.com/fedorainstaller/fedorainstaller)
-- [Debianinstaller](https://github.com/debianinstaller/debianinstaller)
-
 ---
 
 **Built with ❤️ for the Linux community**
 ```
-</tool_response>
