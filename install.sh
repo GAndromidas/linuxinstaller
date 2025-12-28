@@ -45,7 +45,7 @@ show_menu() {
     fi
 
     echo ""
-    gum style --border double --margin "1 2" --padding "1 4" --border-foreground 212 "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
     echo ""
 
     # Enhanced menu with gum
@@ -56,7 +56,7 @@ show_menu() {
         "3. Server - Headless server configuration" \
         "4. Custom - Interactive selection of packages to install" \
         "5. Exit" \
-        --cursor.foreground 212 --cursor "→" --header.foreground 212)
+        --cursor.foreground "$GUM_FG" --cursor "→" --header.foreground "$GUM_FG")
 
     case "$choice" in
         "1. Standard - Complete setup with all recommended packages")
@@ -82,7 +82,7 @@ show_menu() {
     esac
 
     echo ""
-    gum style --foreground 212 "You selected: $choice"
+    gum style --margin "0 2" --foreground "$GUM_FG" --bold "You selected: $choice"
     echo ""
 }
 
@@ -259,7 +259,7 @@ install_package_group() {
         log_info "Installing $type packages for $title..."
 
         if [ "$DRY_RUN" = true ]; then
-             gum style --foreground 212 "[DRY-RUN] Would install ($type): ${packages[*]}"
+             gum style --margin "0 2" --foreground "$GUM_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
              continue
         fi
 
@@ -329,9 +329,9 @@ show_resume_menu() {
 
         if supports_gum; then
             echo ""
-            gum style --margin "0 2" --foreground 15 "Completed steps:"
+            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Completed steps:"
             while IFS= read -r step; do
-                 gum style --margin "0 4" --foreground 10 "✓ $step"
+                 gum style --margin "0 4" --foreground "$GUM_FG" "✓ $step"
             done < "$STATE_FILE"
             echo ""
 
@@ -398,7 +398,7 @@ bootstrap_tools
 
 # 3. Welcome & Resume Check
 clear
-gum style --border double --margin "1 2" --padding "1 4" --border-foreground 212 "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold "LinuxInstaller: Unified Setup" "Detected System: $PRETTY_NAME" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
@@ -739,8 +739,8 @@ step "Finalizing Installation"
 
 
 if [ "$DRY_RUN" = true ]; then
-    gum style --foreground 212 "Dry-Run Complete. No changes were made."
+    gum style --margin "0 2" --foreground "$GUM_FG" --bold "Dry-Run Complete. No changes were made."
 else
-    gum format --theme=dark "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
+    gum format --theme=dark --foreground "$GUM_FG" "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
     prompt_reboot
 fi

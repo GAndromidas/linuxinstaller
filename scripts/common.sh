@@ -8,20 +8,23 @@ supports_gum() {
   command -v gum >/dev/null 2>&1
 }
 
+# Primary color for all gum output (use a consistent blue)
+GUM_FG=27
+
 # Colors for logging (fallback if gum is not available)
 if ! supports_gum; then
     RESET='\033[0m'
     RED='\033[0;31m'
     GREEN='\033[0;32m'
     YELLOW='\033[0;33m'
-    BLUE='\033[0;36m' # Cyan/Blue for steps
+    BLUE='\033[0;34m' # Blue for steps and highlights
 fi
 
-# A standardized way to print step headers
+# A standardized way to print step headers (clear, bold blue for readability)
 step() {
     local message="$1"
     if supports_gum; then
-        gum style --foreground 212 "❯ $message"
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "❯ $message"
     else
         echo -e "${BLUE}> $message${RESET}"
     fi
@@ -32,7 +35,7 @@ step() {
 log_info() {
     local message="$1"
     if supports_gum; then
-        gum log --level info "$message"
+        gum style --margin "0 2" --foreground "$GUM_FG" "ℹ $message"
     else
         echo -e "[INFO] $message"
     fi
@@ -42,7 +45,7 @@ log_info() {
 log_success() {
     local message="$1"
     if supports_gum; then
-        gum log --level info "✔ $message"
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "✔ $message"
     else
         echo -e "${GREEN}[SUCCESS] $message${RESET}"
     fi
@@ -52,7 +55,7 @@ log_success() {
 log_warn() {
     local message="$1"
     if supports_gum; then
-        gum log --level warn "$message"
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "⚠ $message"
     else
         echo -e "${YELLOW}[WARNING] $message${RESET}"
     fi
@@ -62,7 +65,7 @@ log_warn() {
 log_error() {
     local message="$1"
     if supports_gum; then
-        gum log --level error "$message"
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "✗ $message"
     else
         echo -e "${RED}[ERROR] $message${RESET}"
     fi
@@ -111,9 +114,9 @@ show_resume_menu() {
 
         if supports_gum; then
             echo ""
-            gum style --margin "0 2" --foreground 15 "Completed steps:"
+            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Completed steps:"
             while IFS= read -r step; do
-                 gum style --margin "0 4" --foreground 10 "✓ $step"
+                 gum style --margin "0 4" --foreground "$GUM_FG" "✓ $step"
             done < "$STATE_FILE"
             echo ""
 
@@ -249,7 +252,7 @@ is_btrfs_system() {
 # Standardized reboot prompt
 prompt_reboot() {
     if supports_gum; then
-        figlet "Reboot System" | gum style --foreground 5
+        figlet "Reboot System" | gum style --border double --margin "0 2" --padding "0 2" --foreground "$GUM_FG" --border-foreground "$GUM_FG" --bold
         if gum confirm "Reboot now to apply all changes?"; then
             log_warn "Rebooting system..."
             sudo reboot
