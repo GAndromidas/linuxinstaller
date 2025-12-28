@@ -131,83 +131,26 @@ desktop_environments:
 flatpak:
   kde:
     default:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever
     minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever
 
   gnome:
     default:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - com.mattjakeman.ExtensionManager
+      - it.mijorus.gearlever
     minimal:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - com.mattjakeman.ExtensionManager
+      - it.mijorus.gearlever
 
   cosmic:
     default:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever
     minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever
 
   generic: # Fallback for unsupported DEs/WMs
     default:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever
     minimal:
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-# Custom packages (user-selectable additions beyond the base installation)
-# Add any packages here that you want to be optional choices for the 'Custom' mode.
-# These lists are for additional packages, not replacements.
-custom:
-  essential:
-    - filezilla
-    - kdenlive
-    - solaar
-    - zed
-
-  aur:
-    - dropbox
-    - onlyoffice-bin
-    - rustdesk-bin
-    - spotify
-    - ventoy-bin
-    - via-bin
-
-  flatpak:
-    kde:
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-    gnome:
-      - name: "com.mattjakeman.ExtensionManager"
-        description: "GNOME Extension Manager"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
-
-    cosmic:
-      - name: "dev.edfloreshz.CosmicTweaks"
-        description: "System settings and tweaks"
-      - name: "io.github.shiftey.Desktop"
-        description: "Desktop environment"
-      - name: "it.mijorus.gearlever"
-        description: "System tray application launcher"
+      - it.mijorus.gearlever

@@ -24,68 +24,100 @@ EOF
 show_menu() {
     show_linuxinstaller_ascii
 
-    # Install gum silently if not present
+    # Try to ensure gum and yq are available; bootstrap_tools should have run already
+    # but this is a last-resort attempt (quiet failures are acceptable)
     if ! command -v gum >/dev/null 2>&1; then
-        log_info "Installing gum for beautiful UI..."
-        if [ "$DISTRO_ID" == "arch" ]; then
-            sudo pacman -S --noconfirm --needed gum >/dev/null 2>&1 || true
-        else
-            $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1 || true
-        fi
-    fi
-
-    # Install yq silently if not present
-    if ! command -v yq >/dev/null 2>&1; then
-        log_info "Installing yq for configuration parsing..."
-        if [ "$DISTRO_ID" == "arch" ]; then
-            sudo pacman -S --noconfirm --needed go-yq >/dev/null 2>&1 || true
-        else
-            $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1 || true
-        fi
+        log_info "gum not detected; UI may fall back to text mode"
     fi
 
     echo ""
-    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup"
+
+    # If gum is available and we have an interactive TTY, try the gum-based UI.
+    # If gum fails or we don't have a TTY, gracefully fall back to a simple text menu.
+    if supports_gum && [ -t 0 ]; then
+        # Header
+        gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME" 2>/dev/null || true
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
+        echo ""
+
+        # Try interactive gum menu; if it fails or returns no selection, fall back
+        local choice
+        choice=$(gum choose --height 10 --header "Please select an installation mode:" \
+            "1. Standard - Complete setup with all recommended packages" \
+            "2. Minimal - Essential tools only for lightweight installations" \
+            "3. Server - Headless server configuration" \
+            "4. Exit" \
+            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" --header.foreground "$GUM_PRIMARY_FG" 2>/dev/null) || true
+
+        # If gum failed or returned nothing, warn and fall through to text menu
+        if [ -n "$choice" ]; then
+            case "$choice" in
+                "1. Standard - Complete setup with all recommended packages")
+                    export INSTALL_MODE="standard" ;;
+                "2. Minimal - Essential tools only for lightweight installations")
+                    export INSTALL_MODE="minimal" ;;
+                "3. Server - Headless server configuration")
+                    export INSTALL_MODE="server" ;;
+                "4. Exit")
+                    echo "Exiting..." ; exit 0 ;;
+                *)
+                    log_warn "Gum returned an unexpected choice: '$choice' - falling back to text menu." ;;
+            esac
+
+            # If gum returned a valid choice, print a friendly confirmation and return
+            if [ -n "${INSTALL_MODE:-}" ]; then
+                echo ""
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice" 2>/dev/null || true
+                echo ""
+                return
+            fi
+        else
+            log_warn "Gum UI not available or failed; falling back to text menu."
+        fi
+    fi
+
+    # Fallback plain-text menu
     echo ""
-    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME"
-    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    echo "Detected System: $PRETTY_NAME"
+    echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
     echo ""
 
-    # Enhanced menu with gum
-    local choice
-    choice=$(gum choose --height 10 --header "Please select an installation mode:" \
-        "1. Standard - Complete setup with all recommended packages" \
-        "2. Minimal - Essential tools only for lightweight installations" \
-        "3. Server - Headless server configuration" \
-        "4. Custom - Interactive selection of packages to install" \
-        "5. Exit" \
-        --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" --header.foreground "$GUM_PRIMARY_FG")
+    local text_choice
+    while true; do
+        echo "Please select an installation mode:"
+        echo "  1) Standard - Complete setup with all recommended packages"
+        echo "  2) Minimal - Essential tools only for lightweight installations"
+        echo "  3) Server - Headless server configuration"
+        echo "  4) Exit"
+        read -r -p "Enter choice [1-4]: " text_choice
 
-    case "$choice" in
-        "1. Standard - Complete setup with all recommended packages")
-            export INSTALL_MODE="standard"
-            ;;
-        "2. Minimal - Essential tools only for lightweight installations")
-            export INSTALL_MODE="minimal"
-            ;;
-        "3. Server - Headless server configuration")
-            export INSTALL_MODE="server"
-            ;;
-        "4. Custom - Interactive selection of packages to install")
-            export INSTALL_MODE="custom"
-            ;;
-        "5. Exit")
-            echo "Exiting..."
-            exit 0
-            ;;
-        *)
-            echo "Invalid choice. Please try again."
-            show_menu
-            ;;
+        case "$text_choice" in
+            1) export INSTALL_MODE="standard" ; break ;;
+            2) export INSTALL_MODE="minimal" ; break ;;
+            3) export INSTALL_MODE="server" ; break ;;
+            4) echo "Exiting..."; exit 0 ;;
+            *) echo "Invalid choice, please try again." ;;
+        esac
+    done
+
+    echo ""
+
+    # Friendly selection message
+    local friendly
+    case "$INSTALL_MODE" in
+        standard) friendly="Standard - Complete setup with all recommended packages" ;;
+        minimal)  friendly="Minimal - Essential tools only for lightweight installations" ;;
+        server)   friendly="Server - Headless server configuration" ;;
+        *)        friendly="$INSTALL_MODE" ;;
     esac
 
-    echo ""
-    gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice"
+    if supports_gum && [ -t 0 ]; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $friendly" 2>/dev/null || true
+    else
+        echo "You selected: $friendly"
+    fi
     echo ""
 }
 
@@ -117,6 +149,12 @@ if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
 else
   echo "FATAL: distro_check.sh not found in $SCRIPTS_DIR. Cannot continue."
   exit 1
+fi
+
+# Optional Wake-on-LAN integration (sourced if present).
+# The module integrates the wakeonlan helper so LinuxInstaller can auto-configure WoL.
+if [ -f "$SCRIPTS_DIR/wakeonlan_config.sh" ]; then
+  source "$SCRIPTS_DIR/wakeonlan_config.sh"
 fi
 
 # --- Global Variables ---
@@ -159,7 +197,6 @@ INSTALLATION MODES:
     Standard        Complete setup with all recommended packages
     Minimal         Essential tools only for lightweight installations
     Server          Headless server configuration
-    Custom          Interactive selection of packages to install
 
 EXAMPLES:
     ./install.sh                Run with interactive prompts
@@ -325,8 +362,12 @@ install_package_group() {
             queries+=(".dnf.${mode}[] | .name // .")
             queries+=(".flatpak.${mode}[] | .name // .")
             queries+=(".flatpak.default[] | .name // .")
-            queries+=(".essential.${mode}[] | .name // .")
-            queries+=(".essential.default[] | .name // .")
+            # Only install 'essential' groups on Arch for the 'standard' mode.
+            # This prevents essential packages from being pulled into 'minimal' or 'server'.
+            if [ "$DISTRO_ID" != "arch" ] || [ "$mode" = "standard" ]; then
+                queries+=(".essential.${mode}[] | .name // .")
+                queries+=(".essential.default[] | .name // .")
+            fi
             queries+=(".custom.${section_path}.${type}[] | .name // .")
         fi
 
@@ -406,18 +447,33 @@ install_package_group() {
             pkg_args="$pkg_args $(printf '%q' "$p")"
         done
 
-        # Execute installation (spinner if available)
-        if supports_gum; then
-            gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
-        else
-            log_info "Running: $install_cmd $pkg_args"
-            bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
-        fi
+        # Execute installation (special handling for flatpaks so output is visible)
+        if [ "$type" = "flatpak" ]; then
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing flatpaks for $title: ${packages[*]}" 2>/dev/null || true
+            else
+                log_info "Installing flatpaks for $title: ${packages[*]}"
+            fi
 
-        if [ $? -eq 0 ]; then
-            log_success "Installed ($type): ${packages[*]}"
+            # Run flatpak and stream output to the console while also logging
+            if bash -lc "$install_cmd $pkg_args" 2>&1 | tee -a "$INSTALL_LOG"; then
+                log_success "Installed (flatpak): ${packages[*]}"
+            else
+                log_error "Failed to install some flatpak packages. Check log: $INSTALL_LOG"
+            fi
         else
-            log_error "Failed to install some ($type) packages. Check log: $INSTALL_LOG"
+            if supports_gum; then
+                gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+            else
+                log_info "Running: $install_cmd $pkg_args"
+                bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+            fi
+
+            if [ $? -eq 0 ]; then
+                log_success "Installed ($type): ${packages[*]}"
+            else
+                log_error "Failed to install some ($type) packages. Check log: $INSTALL_LOG"
+            fi
         fi
     done
 }
@@ -583,10 +639,21 @@ bootstrap_tools
 
 # 3. Welcome & Resume Check
 clear
-gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup"
-echo ""
-gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME"
-gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+# Prefer the interactive gum header when available and running in a TTY.
+# Otherwise, fall back to a simple, readable text header so the script doesn't 'flash'.
+if supports_gum && [ -t 0 ]; then
+    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
+    echo ""
+    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME" 2>/dev/null || true
+    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
+else
+    # Non-gum, non-interactive or fallback header (keeps output readable)
+    echo ""
+    echo "LinuxInstaller: Unified Setup"
+    echo ""
+    echo "Detected System: $PRETTY_NAME"
+    echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+fi
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
@@ -717,6 +784,36 @@ if ! is_step_complete "install_packages"; then
     fi
 
     mark_step_complete "install_packages"
+fi
+
+# ------------------------------------------------------------------
+# Wake-on-LAN auto-configuration step
+#
+# If the wakeonlan integration module was sourced above (wakeonlan_main_config),
+# run it now (unless we're in DRY_RUN). In DRY_RUN show status instead.
+# This keeps the step idempotent and consistent with the installer flow.
+# ------------------------------------------------------------------
+if declare -f wakeonlan_main_config >/dev/null 2>&1; then
+    if ! is_step_complete "wakeonlan_setup"; then
+        step "Configuring Wake-on-LAN (Ethernet)"
+
+        if [ "${DRY_RUN:-false}" = "true" ]; then
+            log_info "[DRY-RUN] Would auto-configure Wake-on-LAN for wired interfaces"
+
+            # Try to show what would be done by printing helper status output (if present)
+            WOL_HELPER="$(cd "$SCRIPT_DIR/.." && pwd)/Scripts/wakeonlan.sh"
+            if [ -x "$WOL_HELPER" ]; then
+                bash "$WOL_HELPER" --status 2>&1 | sed 's/^/  /'
+            else
+                log_warn "Wake-on-LAN helper not found at $WOL_HELPER"
+            fi
+
+            mark_step_complete "wakeonlan_setup"
+        else
+            # Non-dry run: call the integration entrypoint which handles enabling and marking
+            wakeonlan_main_config || log_warn "wakeonlan_main_config reported issues (see $INSTALL_LOG)"
+        fi
+    fi
 fi
 
 # Step: Run Distribution-Specific Configuration
