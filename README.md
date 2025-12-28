@@ -1,6 +1,8 @@
 # LinuxInstaller
 
-<img width="690" height="514" alt="Screenshot_20251228_143735" src="https://github.com/user-attachments/assets/95676126-0200-44b2-8046-c19d5835c884" />
+<center>
+<img width="725" height="163" alt="Screenshot_20251228_155836" src="https://github.com/user-attachments/assets/adb433bd-ebab-4c51-a72d-6208164e1026" />
+</center>
 
 **LinuxInstaller** is a comprehensive, cross-distribution post-installation automation script that transforms a fresh Linux installation into a fully configured, optimized system. It supports Arch Linux, Fedora, Debian, and Ubuntu with intelligent hardware detection and customizable installation modes.
 
