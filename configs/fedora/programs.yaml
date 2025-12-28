@@ -77,8 +77,6 @@ dnf:
 
 flatpak:
   default:
-    - name: "com.stremio.Stremio"
-      description: "Stremio - Discover, organize, and stream video content from all sources in one place (Flathub)"
     - name: "com.rustdesk.RustDesk"
       description: "RustDesk - Open source remote desktop software (Flathub)"
   minimal:

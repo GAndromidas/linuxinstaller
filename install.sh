@@ -621,79 +621,17 @@ if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would configure pacman optimizations (parallel downloads, color, ILoveCandy)"
     else
-        # Function to install speedtest-cli silently if not available
-        install_speedtest_cli() {
-            if ! command -v speedtest-cli >/dev/null 2>&1; then
-                log_info "Installing speedtest-cli for network speed detection..."
-                if sudo pacman -S --noconfirm --needed speedtest-cli >/dev/null 2>&1; then
-                    log_success "speedtest-cli installed successfully"
-                    return 0
-                else
-                    log_warning "Failed to install speedtest-cli - will skip network speed test"
-                    return 1
-                fi
-            fi
-            return 0
-        }
+        # Automatic speedtest installation removed — parallel downloads will be fixed to 10.
+        # (Removing the speedtest dependency and dynamic adjustments per user request.)
 
-        # Function to detect network speed and optimize downloads
-        detect_network_speed() {
-            step "Testing network speed and optimizing download settings"
-
-            # Install speedtest-cli if not available
-            if ! install_speedtest_cli; then
-                log_warning "speedtest-cli not available - skipping network speed test"
-                return
-            fi
-
-            log_info "Testing internet speed (this may take a moment)..."
-
-            # Run speedtest and capture download speed (with 30s timeout)
-            local speed_test_output=$(timeout 30s speedtest-cli --simple 2>/dev/null)
-
-            if [ $? -eq 0 ] && [ -n "$speed_test_output" ]; then
-                local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
-
-                if [ -n "$download_speed" ]; then
-                    log_success "Download speed: ${download_speed} Mbit/s"
-
-                    # Convert to integer for comparison
-                    local speed_int=$(echo "$download_speed" | cut -d. -f1)
-
-                    # Adjust parallel downloads based on speed
-                    if [ "$speed_int" -lt 5 ]; then
-                        log_warning "Slow connection detected (< 5 Mbit/s)"
-                        log_info "Reducing parallel downloads to 3 for stability"
-                        log_info "Installation will take longer - consider using ethernet"
-                        export PACMAN_PARALLEL=3
-                    elif [ "$speed_int" -lt 25 ]; then
-                        log_info "Moderate connection speed (5-25 Mbit/s)"
-                        log_info "Using standard parallel downloads (10)"
-                        export PACMAN_PARALLEL=10
-                    elif [ "$speed_int" -lt 100 ]; then
-                        log_success "Good connection speed (25-100 Mbit/s)"
-                        log_info "Using standard parallel downloads (10)"
-                        export PACMAN_PARALLEL=10
-                    else
-                        log_success "Excellent connection speed (100+ Mbit/s)"
-                        log_info "Increasing parallel downloads to 15 for faster installation"
-                        export PACMAN_PARALLEL=15
-                    fi
-                else
-                    log_warning "Could not parse speed test results"
-                    export PACMAN_PARALLEL=10
-                fi
-            else
-                log_warning "Speed test failed - using default settings"
-                export PACMAN_PARALLEL=10
-            fi
-        }
+        # Dynamic network speed detection removed — parallel downloads will remain fixed (10).
+        # Per configuration decision, we will not change parallel downloads dynamically.
 
         configure_pacman() {
             step "Configuring pacman optimizations"
 
-            # Use network-speed-based parallel downloads value (default 10 if not set)
-            local parallel_downloads="${PACMAN_PARALLEL:-10}"
+            # Use a fixed number of parallel downloads (10) — no speed-based adjustments
+            local parallel_downloads=10
 
             # Handle ParallelDownloads - works whether commented or uncommented
             if grep -q "^#ParallelDownloads" /etc/pacman.conf; then

@@ -24,22 +24,23 @@ PARALLEL_DOWNLOADS=10
 # Arch-specific package lists
 ARCH_ESSENTIALS=(
     "base-devel"
-    "pacman-contrib"
-    "expac"
-    "git"
-    "curl"
-    "wget"
-    "rsync"
     "bc"
-    "openssh"
-    "cronie"
     "bluez-utils"
-    "plymouth"
-    "flatpak"
-    "zoxide"
-    "fzf"
-    "fastfetch"
+    "cronie"
+    "curl"
     "eza"
+    "expac"
+    "fastfetch"
+    "flatpak"
+    "fzf"
+    "git"
+    "openssh"
+    "pacman-contrib"
+    "plymouth"
+    "rsync"
+    "wget"
+    "zsh"
+    "zoxide"
 )
 
 ARCH_OPTIMIZATION=(
@@ -205,32 +206,8 @@ optimize_mirrors_arch() {
         fi
     fi
 
-    # Test network speed and optimize mirrors
-    local speed_test_output=""
-    if command -v speedtest-cli >/dev/null 2>&1; then
-        log_info "Testing network speed for mirror optimization..."
-        speed_test_output=$(timeout 30s speedtest-cli --simple 2>/dev/null || echo "")
-    fi
-
-    if [ -n "$speed_test_output" ]; then
-        local download_speed=$(echo "$speed_test_output" | grep "Download:" | awk '{print $2}')
-        if [ -n "$download_speed" ]; then
-            local speed_int=$(echo "$download_speed" | cut -d. -f1)
-
-            if [ "$speed_int" -lt 5 ]; then
-                log_warn "Slow connection detected (< 5 Mbit/s)"
-                PARALLEL_DOWNLOADS=3
-                sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = 3/" "$ARCH_REPOS_FILE"
-            elif [ "$speed_int" -lt 20 ]; then
-                log_info "Moderate connection detected"
-                PARALLEL_DOWNLOADS=6
-                sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = 6/" "$ARCH_REPOS_FILE"
-            else
-                log_success "Fast connection detected, using maximum parallel downloads"
-                PARALLEL_DOWNLOADS=10
-            fi
-        fi
-    fi
+    # Speed-based detection removed; using default parallel downloads set in PARALLEL_DOWNLOADS (10)
+    # No dynamic adjustments based on speed; mirrorlist update follows below.
 
     # Update mirrorlist
     log_info "Updating mirrorlist with optimized mirrors..."
