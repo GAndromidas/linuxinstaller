@@ -79,7 +79,7 @@ arch_system_preparation() {
     optimize_mirrors_arch
 
     # Install AUR helper (yay) for package installation
-    install_aur_helper_arch
+    arch_install_aur_helper
 
     # Update system
     log_info "Updating Arch Linux system..."
@@ -133,7 +133,7 @@ check_and_enable_multilib() {
     fi
 }
 
-install_aur_helper_arch() {
+arch_install_aur_helper() {
     step "Installing AUR Helper (yay)"
 
     # Check if yay is already installed
@@ -608,8 +608,93 @@ arch_setup_solaar() {
 export -f arch_main_config
 export -f arch_system_preparation
 export -f arch_setup_aur_helper
+export -f arch_install_aur_helper
 export -f arch_configure_mirrors
 export -f arch_configure_bootloader
+arch_configure_plymouth() {
+    step "Configuring Plymouth boot splash"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure Plymouth (install package, update initramfs, adjust bootloader kernel params)"
+        return 0
+    fi
+
+    # Ensure plymouth package is installed
+    if ! command -v plymouth >/dev/null 2>&1; then
+        log_info "Installing 'plymouth' package..."
+        if ! install_pkg plymouth; then
+            log_warn "Failed to install 'plymouth' - continuing but configuration may be incomplete"
+        fi
+    else
+        log_info "Plymouth already installed"
+    fi
+
+    # Add plymouth hook to mkinitcpio if absent
+    if [ -f /etc/mkinitcpio.conf ]; then
+        if ! grep -q 'plymouth' /etc/mkinitcpio.conf && ! grep -q 'sd-plymouth' /etc/mkinitcpio.conf; then
+            log_info "Adding 'plymouth' hook to /etc/mkinitcpio.conf"
+            sudo sed -i '/^HOOKS=/ s/)/ plymouth)/' /etc/mkinitcpio.conf || true
+            log_info "Regenerating initramfs..."
+            if sudo mkinitcpio -P >/dev/null 2>&1; then
+                log_success "Initramfs regenerated with plymouth hook"
+            else
+                log_warn "Failed to regenerate initramfs; please run 'sudo mkinitcpio -P' manually"
+            fi
+        else
+            log_info "mkinitcpio already contains plymouth hook"
+        fi
+    fi
+
+    # Configure GRUB to include splash if needed
+    if [ -f /etc/default/grub ]; then
+        if ! grep -q 'splash' /etc/default/grub; then
+            log_info "Adding 'splash' to GRUB kernel parameters"
+            sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/& splash/' /etc/default/grub || true
+            if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+                log_success "GRUB configuration updated with splash"
+            else
+                log_warn "Failed to regenerate GRUB config; please run 'sudo grub-mkconfig -o /boot/grub/grub.cfg' manually"
+            fi
+        else
+            log_info "GRUB already contains 'splash' parameter"
+        fi
+    fi
+
+    # For systemd-boot, add splash to entries if applicable
+    local entries_dir=""
+    if [ -d "/boot/loader/entries" ]; then
+        entries_dir="/boot/loader/entries"
+    elif [ -d "/efi/loader/entries" ]; then
+        entries_dir="/efi/loader/entries"
+    elif [ -d "/boot/efi/loader/entries" ]; then
+        entries_dir="/boot/efi/loader/entries"
+    fi
+
+    if [ -n "$entries_dir" ]; then
+        for entry in "$entries_dir"/*.conf; do
+            [ -e "$entry" ] || continue
+            if [ -f "$entry" ] && grep -q '^options' "$entry" && ! grep -q 'splash' "$entry"; then
+                if sudo sed -i "/^options/ s/$/ splash/" "$entry" >/dev/null 2>&1; then
+                    log_success "Added 'splash' to $entry"
+                else
+                    log_warn "Failed to add 'splash' to $entry"
+                fi
+            fi
+        done
+    fi
+
+    # Optionally set a default theme if plymouth provides a helper
+    if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+        log_info "Setting a default plymouth theme if not already set..."
+        # Do not force a theme; only set if command succeeds and a default is known
+        if plymouth-set-default-theme --list | grep -q default >/dev/null 2>&1; then
+            plymouth-set-default-theme default >/dev/null 2>&1 || true
+        fi
+    fi
+
+    log_success "Plymouth configuration completed"
+}
+
 export -f arch_enable_system_services
 export -f arch_configure_zram
 export -f arch_configure_plymouth

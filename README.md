@@ -6,6 +6,15 @@
 
 ## ✨ Features
 
+### 🔧 Notable Improvements
+- Robust YAML parsing and package discovery across multiple `programs.yaml` shapes (per-distro, package-manager keyed, and desktop-environment sections), improving reliability across Arch, Fedora, Debian, and Ubuntu.
+- Improved bootstrapping and safe fallbacks for UI and tooling: the installer now attempts to install `gum`, `yq`, and `figlet` via the package manager and will fall back to downloading reputable binaries when packages are unavailable; DRY-RUN support provides a safe preview mode.
+- Cleaner UX with graceful fallbacks when `gum` isn't available — plain-text output is consistent and readable while styled `gum` output is used when present.
+- Optional final cleanup step: the installer can optionally remove temporary helper tools it installed (keeps the user's environment tidy).
+- Distribution module fixes and standardization (Arch and Fedora): AUR helper installation and DNF/COPR handling have been standardized and improved for robustness.
+- Enhanced safety and observability: improved dry-run behavior, idempotent state tracking with resume capability, and centralized logging to `~/.linuxinstaller.log`.
+- Smarter DE and gaming handling: better desktop-environment detection, more flexible flatpak/snap handling, and dedicated gaming/performance tweaks.
+
 ### 🎯 **Universal Distribution Support**
 - **Arch Linux**: Full AUR integration, Pacman optimization, Plymouth boot screen
 - **Fedora**: RPM Fusion repositories, DNF optimization, firewalld configuration  
@@ -51,7 +60,7 @@
 
 ```bash
 # Download and run the installer
-wget https://github.com/yourusername/linuxinstaller/raw/main/install.sh
+wget https://github.com/GAndromidas/linuxinstaller/raw/main/install.sh
 chmod +x install.sh
 sudo ./install.sh
 ```
@@ -119,8 +128,8 @@ arch:
       - curl
       - vim
     aur:
-      - visual-studio-code-bin
-      - google-chrome
+      - onlyoffice-bin
+      - rustdesk-bin
 ```
 
 ### Distribution-Specific Configs

@@ -65,10 +65,10 @@ fedora_system_preparation() {
     step "Fedora System Preparation"
 
     # Enable RPM Fusion repositories
-    enable_rpmfusion_repos
+    fedora_enable_rpmfusion
 
     # Configure DNF for optimal performance
-    configure_dnf_fedora
+    fedora_configure_dnf
 
     # Update system
     log_info "Updating Fedora system..."
@@ -80,7 +80,7 @@ fedora_system_preparation() {
     log_success "Fedora system preparation completed"
 }
 
-enable_rpmfusion_repos() {
+fedora_enable_rpmfusion() {
     step "Enabling RPM Fusion Repositories"
 
     # Check if already enabled
@@ -101,7 +101,7 @@ enable_rpmfusion_repos() {
     fi
 }
 
-configure_dnf_fedora() {
+fedora_configure_dnf() {
     log_info "Configuring DNF for optimal performance..."
 
     # Backup original config
@@ -330,6 +330,106 @@ fedora_setup_flatpak() {
     log_success "Flatpak configured with Flathub"
 }
 
+# Additional Fedora helper setup functions
+fedora_setup_copr() {
+    step "Setting up COPR repositories"
+    if command -v yq >/dev/null 2>&1 && [ -f "$CONFIGS_DIR/fedora/programs.yaml" ]; then
+        mapfile -t coprs < <(yq e '.copr[]?.repo // ""' "$CONFIGS_DIR/fedora/programs.yaml" 2>/dev/null)
+        for repo in "${coprs[@]}"; do
+            if [ -n "$repo" ]; then
+                log_info "Enabling COPR repository: $repo"
+                if ! sudo dnf copr enable -y "$repo" >/dev/null 2>&1; then
+                    log_warn "Failed to enable COPR repo: $repo"
+                else
+                    log_success "Enabled COPR repo: $repo"
+                fi
+            fi
+        done
+    else
+        log_info "No COPR entries found in configuration or 'yq' missing"
+    fi
+}
+
+fedora_setup_shell() {
+    step "Setting up ZSH shell environment"
+
+    if [ "$SHELL" != "$(command -v zsh)" ]; then
+        log_info "Changing default shell to ZSH..."
+        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+            log_success "Default shell changed to ZSH"
+        else
+            log_warning "Failed to change shell. You may need to do this manually."
+        fi
+    fi
+
+    mkdir -p "$HOME/.config"
+
+    if [ -f "$FEDORA_CONFIGS_DIR/.zshrc" ]; then
+        cp "$FEDORA_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc"
+    fi
+
+    if [ -f "$FEDORA_CONFIGS_DIR/starship.toml" ]; then
+        cp "$FEDORA_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
+    fi
+
+    if command -v fastfetch >/dev/null 2>&1; then
+        mkdir -p "$HOME/.config/fastfetch"
+        local dest_config="$HOME/.config/fastfetch/config.jsonc"
+        if [ -f "$FEDORA_CONFIGS_DIR/config.jsonc" ]; then
+            cp "$FEDORA_CONFIGS_DIR/config.jsonc" "$dest_config"
+            log_success "Applied custom fastfetch config"
+        else
+            if [ ! -f "$dest_config" ]; then
+                fastfetch --gen-config &>/dev/null
+            fi
+        fi
+    fi
+}
+
+fedora_setup_solaar() {
+    # Mirror existing solaar setup from other modules
+    step "Setting up Logitech Hardware Support for Fedora"
+
+    if [ "$INSTALL_MODE" == "server" ]; then
+        log_info "Server mode selected, skipping solaar installation"
+        return 0
+    fi
+
+    if [ -z "${XDG_CURRENT_DESKTOP:-}" ]; then
+        log_info "No desktop environment detected, skipping solaar installation"
+        return 0
+    fi
+
+    local has_logitech=false
+    if lsusb | grep -i logitech >/dev/null 2>&1; then
+        has_logitech=true
+        log_info "Logitech hardware detected via USB"
+    fi
+
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        if bluetoothctl devices | grep -i logitech >/dev/null 2>&1; then
+            has_logitech=true
+            log_info "Logitech Bluetooth device detected"
+        fi
+    fi
+
+    if [ "$has_logitech" = true ]; then
+        log_info "Installing solaar for Logitech hardware management..."
+        if install_pkg solaar; then
+            log_success "Solaar installed successfully"
+            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
+                log_success "Solaar service enabled and started"
+            else
+                log_warn "Failed to enable solaar service"
+            fi
+        else
+            log_warn "Failed to install solaar"
+        fi
+    else
+        log_info "No Logitech hardware detected, skipping solaar installation"
+    fi
+}
+
 # =============================================================================
 # MAIN FEDORA CONFIGURATION FUNCTION
 # =============================================================================
@@ -399,6 +499,19 @@ fedora_main_config() {
 
     log_success "Fedora configuration completed"
 }
+
+# Export functions for use by main installer
+export -f fedora_main_config
+export -f fedora_system_preparation
+export -f fedora_configure_dnf
+export -f fedora_enable_rpmfusion
+export -f fedora_install_essentials
+export -f fedora_configure_bootloader
+export -f fedora_enable_system_services
+export -f fedora_setup_flatpak
+export -f fedora_setup_copr
+export -f fedora_setup_shell
+export -f fedora_setup_solaar
 
 fedora_setup_shell() {
     step "Setting up ZSH shell environment"

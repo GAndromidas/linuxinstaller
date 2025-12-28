@@ -170,118 +170,224 @@ EOF
   exit 0
 }
 
-# Ensure essential tools (gum, yq) are present
+# Ensure essential tools (gum, yq, figlet) are present and usable
 bootstrap_tools() {
     log_info "Bootstrapping installer tools..."
 
-    # 1. GUM (UI)
+    # Try to proceed even when network is flaky, but warn if no internet
+    # Use a non-fatal ping check here (check_internet exits the script on failure,
+    # so we avoid calling it to allow the installer to continue in degraded mode).
+    if ! ping -c 1 -W 5 google.com >/dev/null 2>&1; then
+        log_warn "No internet connection detected. Some helper installs may fail or be skipped."
+    fi
+
+    # 1. GUM (UI) - try package manager, then fallback to binary download
     if ! command -v gum >/dev/null 2>&1; then
-        echo "Installing gum for UI..."
         if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would install gum"
+            log_info "[DRY-RUN] Would install gum for UI"
         else
-            # Attempt to install gum based on distro
+            log_info "Installing gum for UI..."
+            # Try package manager first
             if [ "$DISTRO_ID" == "arch" ]; then
-                 sudo pacman -S --noconfirm gum >/dev/null 2>&1
+                sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
             else
-                 $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1
+                $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1 || true
             fi
-            GUM_INSTALLED_BY_SCRIPT=true
+
+            # If not available from packages, try binary as fallback
+            if ! command -v gum >/dev/null 2>&1; then
+                log_info "Attempting to download gum binary as fallback..."
+                if curl -fsSL "https://github.com/charmbracelet/gum/releases/latest/download/gum-linux-amd64" -o /tmp/gum >/dev/null 2>&1 && sudo mv /tmp/gum /usr/local/bin/gum && sudo chmod +x /usr/local/bin/gum; then
+                    log_success "Installed gum binary to /usr/local/bin/gum"
+                    GUM_INSTALLED_BY_SCRIPT=true
+                else
+                    log_warn "Failed to install gum via package manager or download. UI will fall back to basic output."
+                fi
+            else
+                GUM_INSTALLED_BY_SCRIPT=true
+            fi
         fi
     fi
 
-    # 2. YQ (YAML Parser)
+    # 2. YQ (YAML Parser) - try package manager, then fallback to binary download
     if ! command -v yq >/dev/null 2>&1; then
-        echo "Installing yq for configuration parsing..."
         if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would install yq"
+            log_info "[DRY-RUN] Would install yq for configuration parsing"
         else
+            log_info "Installing yq for configuration parsing..."
             if [ "$DISTRO_ID" == "arch" ]; then
-                 sudo pacman -S --noconfirm go-yq >/dev/null 2>&1
+                sudo pacman -S --noconfirm go-yq >/dev/null 2>&1 || true
             else
-                 $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1
+                $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1 || true
             fi
-            YQ_INSTALLED_BY_SCRIPT=true
+
+            # Binary fallback (official yq)
+            if ! command -v yq >/dev/null 2>&1; then
+                log_info "Attempting to download yq binary as fallback..."
+                if curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" -o /tmp/yq >/dev/null 2>&1 && sudo mv /tmp/yq /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq; then
+                    log_success "Installed yq binary to /usr/local/bin/yq"
+                    YQ_INSTALLED_BY_SCRIPT=true
+                else
+                    log_warn "Failed to install yq. YAML-driven features may not work properly."
+                fi
+            else
+                YQ_INSTALLED_BY_SCRIPT=true
+            fi
         fi
+    fi
+
+    # 3. FIGLET (Optional, provides nicer banners)
+    if ! command -v figlet >/dev/null 2>&1; then
+        if [ "$DRY_RUN" = true ]; then
+            log_info "[DRY-RUN] Would install figlet (used for banners)"
+        else
+            log_info "Installing figlet for banner output..."
+            if [ "$DISTRO_ID" == "arch" ]; then
+                sudo pacman -S --noconfirm figlet >/dev/null 2>&1 || true
+            else
+                $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1 || true
+            fi
+
+            if command -v figlet >/dev/null 2>&1; then
+                FIGLET_INSTALLED_BY_SCRIPT=true
+            else
+                log_warn "Figlet not available; banner output will use a simple fallback"
+            fi
+        fi
+    fi
+
+    # Report what is available
+    if command -v gum >/dev/null 2>&1; then
+        log_info "UX helper available: gum"
+    fi
+    if command -v yq >/dev/null 2>&1; then
+        log_info "Config parser available: yq"
+    fi
+    if command -v figlet >/dev/null 2>&1; then
+        log_info "Banner helper available: figlet"
     fi
 }
 
 
 
-# Package Installation Logic using yq and programs.yaml
+# Package Installation Logic (robust parsing of many YAML shapes)
 install_package_group() {
     local section_path="$1"
     local title="$2"
+    local mode="${INSTALL_MODE:-standard}"
 
     log_info "Processing package group: $title ($section_path)"
 
     if [ ! -f "$PROGRAMS_YAML" ]; then
-         log_error "Config file not found: $PROGRAMS_YAML"
+         log_warn "Config file not found: $PROGRAMS_YAML. Skipping $title."
          return
     fi
 
     # Determine package types available for this distro
-    local pkg_types="native"
+    local pkg_types
     case "$DISTRO_ID" in
-        arch)   pkg_types="native aur" ;;
+        arch)   pkg_types="native aur flatpak" ;;
         ubuntu) pkg_types="native snap flatpak" ;;
         *)      pkg_types="native flatpak" ;; # fedora, debian
     esac
 
     for type in $pkg_types; do
-        # Construct yq query logic
-        local query=""
+        log_info "Searching for package definitions (type: $type) for '$section_path'..."
 
-        # Logic to handle different sections in YAML
-        if [[ "$section_path" == "gaming" ]]; then
-            # Gaming: .gaming.<distro>.<type>
-            query=".gaming.${DISTRO_ID}.${type}[]"
-        elif [[ "$section_path" == "kde" || "$section_path" == "gnome" || "$section_path" == "cosmic" ]]; then
-            # DE specific: .<distro>.<mode>.<de>.install[]
-            # We use INSTALL_MODE if available, else standard
-            local mode="${INSTALL_MODE:-standard}"
-            query=".${DISTRO_ID}.${mode}.${section_path}.install[]"
+        # Candidate yq queries (try in order until we find packages)
+        local queries=()
+
+        if [[ "$section_path" == "kde" || "$section_path" == "gnome" || "$section_path" == "cosmic" ]]; then
+            # Desktop environment specific
+            queries+=(".${DISTRO_ID}.${mode}.${section_path}.install[] | .name // .")
+            queries+=(".desktop_environments.${section_path}.install[] | .name // .")
+            queries+=(".${DISTRO_ID}.${section_path}.install[] | .name // .")
+            queries+=(".${section_path}.install[] | .name // .")
+            queries+=(".desktop_environments.${section_path}.${type}[] | .name // .")
+        elif [[ "$section_path" == "gaming" ]]; then
+            queries+=(".gaming.${DISTRO_ID}.${type}[] | .name // .")
+            queries+=(".gaming.${type}[] | .name // .")
+            queries+=(".gaming.${section_path}.${type}[] | .name // .")
         else
-            # Standard modes: .<distro>.<mode>.<type>
-            query=".${DISTRO_ID}.${section_path}.${type}[]"
+            # Installation modes (standard/minimal/server/custom)
+            queries+=(".${DISTRO_ID}.${section_path}.${type}[] | .name // .")
+            queries+=(".${DISTRO_ID}.${section_path}[] | .name // .")
+            queries+=(".${section_path}.${type}[] | .name // .")
+            queries+=(".${section_path}[] | .name // .")
+            queries+=(".${type}.${mode}[] | .name // .")
+            queries+=(".${type}.default[] | .name // .")
+            queries+=(".${PKG_MANAGER}.${mode}[] | .name // .")
+            queries+=(".${PKG_MANAGER}.default[] | .name // .")
+            queries+=(".pacman.packages[] | .name // .")
+            queries+=(".dnf.${mode}[] | .name // .")
+            queries+=(".flatpak.${mode}[] | .name // .")
+            queries+=(".flatpak.default[] | .name // .")
+            queries+=(".essential.${mode}[] | .name // .")
+            queries+=(".essential.default[] | .name // .")
+            queries+=(".custom.${section_path}.${type}[] | .name // .")
         fi
 
-        # Read packages into array
-        mapfile -t packages < <(yq e "$query" "$PROGRAMS_YAML" 2>/dev/null)
+        # Try each query until packages are found
+        local packages=()
+        for q in "${queries[@]}"; do
+            if ! command -v yq >/dev/null 2>&1; then
+                log_warn "yq is not available; skipping YAML-driven package discovery"
+                break
+            fi
 
-        # Filter out nulls or empty lines
-        packages=("${packages[@]//null/}")
+            local out
+            out=$(yq e "$q" "$PROGRAMS_YAML" 2>/dev/null || true)
+            if [ -n "$out" ]; then
+                # Normalize, remove 'null' and empty lines
+                mapfile -t tmp < <(printf "%s\n" "$out" | sed '/^[[:space:]]*null[[:space:]]*$/d' | sed '/^[[:space:]]*$/d')
+                if [ ${#tmp[@]} -gt 0 ]; then
+                    packages=("${tmp[@]}")
+                    break
+                fi
+            fi
+        done
 
-        if [ ${#packages[@]} -eq 0 ] || [ -z "${packages[0]}" ]; then
+        if [ ${#packages[@]} -eq 0 ]; then
+            log_info "No $type packages found for $title"
             continue
         fi
 
-        log_info "Installing $type packages for $title..."
-
-        if [ "$DRY_RUN" = true ]; then
-             gum style --margin "0 2" --foreground "$GUM_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
-             continue
+        # Pretty output of what will be installed
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_FG" --bold "Installing ($type) for $title: ${packages[*]}"
+        else
+            log_info "Installing ($type) for $title: ${packages[*]}"
         fi
 
-        # Installation Command Construction
+        if [ "$DRY_RUN" = true ]; then
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
+            else
+                log_info "[DRY-RUN] Would install ($type): ${packages[*]}"
+            fi
+            continue
+        fi
+
+        # Installation command selection
         local install_cmd=""
         case "$type" in
             native)
                 install_cmd="$PKG_INSTALL $PKG_NOCONFIRM"
                 ;;
             aur)
-                # Check for AUR helper (yay/paru)
-                if command -v yay >/dev/null; then install_cmd="yay -S --noconfirm"
-                elif command -v paru >/dev/null; then install_cmd="paru -S --noconfirm"
+                if command -v yay >/dev/null 2>&1; then
+                    install_cmd="yay -S --noconfirm"
+                elif command -v paru >/dev/null 2>&1; then
+                    install_cmd="paru -S --noconfirm"
                 else
                     log_warn "No AUR helper found. Skipping AUR packages."
                     continue
                 fi
                 ;;
             flatpak)
-                if ! command -v flatpak >/dev/null; then
-                     log_warn "Flatpak not installed. Attempting to install it..."
-                     sudo $PKG_INSTALL $PKG_NOCONFIRM flatpak >> "$INSTALL_LOG" 2>&1
+                if ! command -v flatpak >/dev/null 2>&1; then
+                    log_warn "Flatpak not installed. Attempting to install it..."
+                    $PKG_INSTALL $PKG_NOCONFIRM flatpak >> "$INSTALL_LOG" 2>&1 || true
                 fi
                 install_cmd="flatpak install flathub -y"
                 ;;
@@ -290,17 +396,87 @@ install_package_group() {
                 ;;
         esac
 
-        # Run installation with spinner
-        gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -c "$install_cmd ${packages[*]}" >> "$INSTALL_LOG" 2>&1
+        # Safely build package arguments (quoting)
+        local pkg_args=""
+        for p in "${packages[@]}"; do
+            p="$(echo "$p" | xargs)" # trim
+            pkg_args="$pkg_args $(printf '%q' "$p")"
+        done
+
+        # Execute installation (spinner if available)
+        if supports_gum; then
+            gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+        else
+            log_info "Running: $install_cmd $pkg_args"
+            bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+        fi
 
         if [ $? -eq 0 ]; then
             log_success "Installed ($type): ${packages[*]}"
         else
-            log_error "Failed to install some ($type) packages. Check log."
+            log_error "Failed to install some ($type) packages. Check log: $INSTALL_LOG"
         fi
     done
 }
 
+# --- Final Cleanup ---
+final_cleanup() {
+    step "Final cleanup and optional helper removal"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Final cleanup skipped."
+        return
+    fi
+
+    local remove_list=()
+    [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("gum")
+    [ "${YQ_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("yq")
+    [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("figlet")
+
+    if [ ${#remove_list[@]} -eq 0 ]; then
+        log_info "No temporary helper packages were installed by the script."
+        return
+    fi
+
+    # Prompt the user whether to remove them (interactive)
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "Temporary helper packages detected: ${remove_list[*]}"
+        if gum confirm --default=false "Remove these helper packages now?"; then
+            for pkg in "${remove_list[@]}"; do
+                log_info "Removing $pkg..."
+                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg" >> "$INSTALL_LOG" 2>&1; then
+                    log_success "Removed $pkg via package manager"
+                else
+                    # Fallback: try removing binary placed under /usr/local/bin
+                    if [ -f "/usr/local/bin/$pkg" ]; then
+                        sudo rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
+                    else
+                        log_warn "Failed to remove $pkg via package manager"
+                    fi
+                fi
+            done
+        else
+            log_info "Keeping helper packages as requested by the user."
+        fi
+    else
+        echo "Temporary helper packages detected: ${remove_list[*]}"
+        read -r -p "Remove these helper packages now? [y/N]: " resp
+        if [[ "$resp" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+            for pkg in "${remove_list[@]}"; do
+                log_info "Removing $pkg..."
+                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg" >> "$INSTALL_LOG" 2>&1; then
+                    log_success "Removed $pkg via package manager"
+                else
+                    if [ -f "/usr/local/bin/$pkg" ]; then
+                        sudo rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
+                    else
+                        log_warn "Failed to remove $pkg via package manager"
+                    fi
+                fi
+            done
+        fi
+    fi
+}
 # --- State Management ---
 
 # Function to mark step as completed
@@ -737,10 +913,27 @@ fi
 # 6. Finalization
 step "Finalizing Installation"
 
-
 if [ "$DRY_RUN" = true ]; then
-    gum style --margin "0 2" --foreground "$GUM_FG" --bold "Dry-Run Complete. No changes were made."
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_FG" --bold "Dry-Run Complete. No changes were made."
+    else
+        log_info "Dry-Run Complete. No changes were made."
+    fi
 else
-    gum format --theme=dark --foreground "$GUM_FG" "## Installation Complete!" "Your system is ready. Please reboot to ensure all changes take effect."
+    if supports_gum; then
+        gum format --theme=dark --foreground "$GUM_FG" "## Installation Complete!" "Your system is ready. Performing final cleanup..."
+    else
+        log_success "Installation Complete! Performing final cleanup..."
+    fi
+
+    # Offer to remove temporary helpers the installer added
+    final_cleanup
+
+    if supports_gum; then
+        gum format --theme=dark --foreground "$GUM_FG" "## Done" "Your system is ready. Please reboot to ensure all changes take effect."
+    else
+        log_success "Done. Please reboot your system to ensure all changes take effect."
+    fi
+
     prompt_reboot
 fi
