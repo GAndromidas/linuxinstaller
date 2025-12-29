@@ -42,6 +42,19 @@ FEDORA_NATIVE_STANDARD=(
     "unzip"
 )
 
+# Essential packages installed early (kept small and cross-distro compatible)
+FEDORA_ESSENTIALS=(
+    "zsh"
+    "starship"
+    "zsh-autosuggestions"
+    "zsh-syntax-highlighting"
+    "fastfetch"
+    "fzf"
+    "git"
+    "curl"
+    "ca-certificates"
+)
+
 # Flatpak entries (Flathub IDs)
 FEDORA_FLATPAK_STANDARD=(
     "com.rustdesk.RustDesk"
@@ -49,11 +62,20 @@ FEDORA_FLATPAK_STANDARD=(
 
 # Minimal mode: smaller, essential-centric set
 FEDORA_NATIVE_MINIMAL=(
-    "android-tools"
     "bat"
-    "eza"
+    "bleachbit"
+    "btop"
+    "cmatrix"
     "fastfetch"
+    "filezilla"
     "fzf"
+    "hwinfo"
+    "inxi"
+    "python3-speedtest-cli"
+    "sl"
+    "unrar"
+    "zoxide"
+    "unzip"
 )
 
 FEDORA_FLATPAK_MINIMAL=(
@@ -105,7 +127,7 @@ FEDORA_GAMING_FLATPAK=(
     "com.vysp3r.ProtonPlus"
     "io.github.Faugus.faugus-launcher"
 )
-# COPR repositories (moved from programs.yaml into distro module)
+# COPR repositories
 FEDORA_COPR_REPOS=(
     "alternateved/eza"
 )
@@ -120,6 +142,12 @@ distro_get_packages() {
     local type="$2"
 
     case "$section" in
+        essential)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_ESSENTIALS[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
         standard)
             case "$type" in
                 native)  printf "%s\n" "${FEDORA_NATIVE_STANDARD[@]}" ;;

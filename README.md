@@ -10,7 +10,7 @@
 
 ### 🔧 Notable Improvements
 - Package lists are now centralized in per-distro modules (e.g., `scripts/arch_config.sh`, `scripts/fedora_config.sh`, `scripts/debian_config.sh`) and exposed via the `distro_get_packages()` API; per-distro `programs.yaml` files are no longer required.
-- Improved bootstrapping and safe fallbacks for UI and tooling: the installer now attempts to install `gum`, `yq`, and `figlet` via the package manager and will fall back to downloading reputable binaries when packages are unavailable; DRY-RUN support provides a safe preview mode.
+- Improved bootstrapping and safe fallbacks for UI and tooling: the installer now attempts to ensure `gum` is available (it will try the package manager and fall back to a trusted binary download when necessary). Note: `yq` and `figlet` are no longer automatically installed by the script; YAML-driven features may still work if `yq` is already present on the system. DRY-RUN support provides a safe preview mode.
 - Cleaner UX with graceful fallbacks when `gum` isn't available — plain-text output is consistent and readable while styled `gum` output is used when present.
 - Optional final cleanup step: the installer can optionally remove temporary helper tools it installed (keeps the user's environment tidy).
 - Distribution module fixes and standardization (Arch and Fedora): AUR helper installation and DNF/COPR handling have been standardized and improved for robustness.

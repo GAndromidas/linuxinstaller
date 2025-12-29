@@ -38,9 +38,12 @@ ARCH_ESSENTIALS=(
     "pacman-contrib"
     "plymouth"
     "rsync"
+    "starship"
     "ufw"
     "wget"
     "zsh"
+    "zsh-autosuggestions"
+    "zsh-syntax-highlighting"
     "zoxide"
 )
 
@@ -202,15 +205,14 @@ ARCH_GAMING_NATIVE=(
     "wine"
     "vulkan-icd-loader"
     "mesa"
-)
-
-ARCH_GAMING_AUR=(
     "lib32-vulkan-icd-loader"
     "lib32-mesa"
     "lib32-glibc"
-    "protontricks"
     "mangohud"
+    "lib32-mangohud"
     "gamemode"
+    "lib32-gamemode"
+    "goverlay"
 )
 
 ARCH_GAMING_FLATPAK=(
@@ -228,8 +230,14 @@ distro_get_packages() {
     local type="$2"
 
     case "$section" in
-        standard)
-            case "$type" in
+            essential)
+                case "$type" in
+                    native) printf "%s\n" "${ARCH_ESSENTIALS[@]}" ;;
+                    *) return 0 ;;
+                esac
+                ;;
+            standard)
+                case "$type" in
                 native)
                     # Standard native should include the main standard list plus
                     # the additional standard-specific essentials.

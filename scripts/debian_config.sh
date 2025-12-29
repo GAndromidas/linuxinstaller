@@ -67,6 +67,22 @@ DEBIAN_NATIVE_STANDARD=(
     eza
 )
 
+# Essential packages installed early (installed by the 'essential' package group).
+# Keep this list intentionally small and cross-distro friendly so core user tooling
+# (shell, prompt, fastfetch, and basic UX helpers) are available before later steps.
+DEBIAN_ESSENTIALS=(
+    "zsh"
+    "starship"
+    "zsh-autosuggestions"
+    "zsh-syntax-highlighting"
+    "fastfetch"
+    "fzf"
+    "eza"
+    "git"
+    "curl"
+    "ca-certificates"
+)
+
 DEBIAN_FLATPAK_STANDARD=(
     com.spotify.Client
     com.dropbox.Client
@@ -134,6 +150,12 @@ distro_get_packages() {
     local type="$2"
 
     case "$section" in
+        essential)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_ESSENTIALS[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
         standard)
             case "$type" in
                 native) printf "%s\n" "${DEBIAN_NATIVE_STANDARD[@]}" ;;

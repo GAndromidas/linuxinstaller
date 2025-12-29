@@ -372,9 +372,9 @@ is_btrfs_system() {
 # Standardized reboot prompt
 prompt_reboot() {
     if supports_gum; then
-        # Display a blue title with white borders (wrapper enforces border color)
-        figlet "Reboot System" | gum style --border double --margin "0 2" --padding "0 2" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold
-        if gum confirm "Reboot now to apply all changes?"; then
+        # Use gum styled header instead of figlet for a consistent, dependency-free UI
+        gum style --border double --margin "0 2" --padding "1 2" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "Reboot System" 2>/dev/null || true
+        if gum confirm --default=false "Reboot now to apply all changes?"; then
             log_warn "Rebooting system..."
             sudo reboot
         else

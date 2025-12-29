@@ -24,7 +24,7 @@ EOF
 show_menu() {
     show_linuxinstaller_ascii
 
-    # Try to ensure gum and yq are available; bootstrap_tools should have run already
+    # Try to ensure gum is available; bootstrap_tools should have run already
     # but this is a last-resort attempt (quiet failures are acceptable)
     if ! supports_gum; then
         log_info "gum not detected; UI may fall back to text mode"
@@ -203,10 +203,8 @@ TOTAL_STEPS=0
 CURRENT_STEP=0
 INSTALL_MODE="standard"
 
-# Track installed helpers to clean up later
-FIGLET_INSTALLED_BY_SCRIPT=false
+# Track installed helper (gum) to clean up later
 GUM_INSTALLED_BY_SCRIPT=false
-YQ_INSTALLED_BY_SCRIPT=false
 
 # Installation state
 STATE_FILE="$HOME/.linuxinstaller.state"
@@ -249,7 +247,7 @@ EOF
   exit 0
 }
 
-# Ensure essential tools (gum, yq, figlet) are present and usable
+# Ensure essential tools (gum) are present and usable
 bootstrap_tools() {
     log_info "Bootstrapping installer tools..."
 
@@ -296,62 +294,12 @@ bootstrap_tools() {
         fi
     fi
 
-    # 2. YQ (YAML Parser) - try package manager, then fallback to binary download
-    if ! command -v yq >/dev/null 2>&1; then
-        if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would install yq for configuration parsing"
-        else
-            log_info "Installing yq for configuration parsing..."
-            if [ "$DISTRO_ID" == "arch" ]; then
-                sudo pacman -S --noconfirm go-yq >/dev/null 2>&1 || true
-            else
-                $PKG_INSTALL $PKG_NOCONFIRM yq >/dev/null 2>&1 || true
-            fi
-
-            # Binary fallback (official yq)
-            if ! command -v yq >/dev/null 2>&1; then
-                log_info "Attempting to download yq binary as fallback..."
-                if curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" -o /tmp/yq >/dev/null 2>&1 && sudo mv /tmp/yq /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq; then
-                    log_success "Installed yq binary to /usr/local/bin/yq"
-                    YQ_INSTALLED_BY_SCRIPT=true
-                else
-                    log_warn "Failed to install yq. YAML-driven features may not work properly."
-                fi
-            else
-                YQ_INSTALLED_BY_SCRIPT=true
-            fi
-        fi
-    fi
-
-    # 3. FIGLET (Optional, provides nicer banners)
-    if ! command -v figlet >/dev/null 2>&1; then
-        if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would install figlet (used for banners)"
-        else
-            log_info "Installing figlet for banner output..."
-            if [ "$DISTRO_ID" == "arch" ]; then
-                sudo pacman -S --noconfirm figlet >/dev/null 2>&1 || true
-            else
-                $PKG_INSTALL $PKG_NOCONFIRM figlet >/dev/null 2>&1 || true
-            fi
-
-            if command -v figlet >/dev/null 2>&1; then
-                FIGLET_INSTALLED_BY_SCRIPT=true
-            else
-                log_warn "Figlet not available; banner output will use a simple fallback"
-            fi
-        fi
-    fi
-
+    # YQ & FIGLET auto-installation disabled per user preference (not installing yq or figlet)
+    # YAML-driven features may still work if yq is already provided by the system.
+    # Banner output will use fallback if figlet is not installed.
     # Report what is available
     if supports_gum; then
         log_info "UX helper available: gum"
-    fi
-    if command -v yq >/dev/null 2>&1; then
-        log_info "Config parser available: yq"
-    fi
-    if command -v figlet >/dev/null 2>&1; then
-        log_info "Banner helper available: figlet"
     fi
 }
 
@@ -491,6 +439,66 @@ install_package_group() {
     done
 }
 
+# --- User Shell & Config Setup ---
+
+configure_user_shell_and_configs() {
+    step "Configuring Zsh and user-level configs (zsh, starship, fastfetch)"
+    local target_user="${SUDO_USER:-$USER}"
+    local home_dir
+    home_dir="$(eval echo ~${target_user})"
+    local cfg_dir="$CONFIGS_DIR/$DISTRO_ID"
+
+    log_info "Ensuring zsh and related packages are installed (zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, fastfetch)"
+    install_pkg zsh zsh-autosuggestions zsh-syntax-highlighting starship fastfetch || true
+
+    # Deploy .zshrc (backup if present)
+    if [ -f "$cfg_dir/.zshrc" ]; then
+        if [ -f "$home_dir/.zshrc" ]; then
+            local backup_file="$home_dir/.zshrc.backup.$(date +%s)"
+            cp -a "$home_dir/.zshrc" "$backup_file" || true
+            log_info "Backed up existing .zshrc to $backup_file"
+        fi
+        cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || log_warn "Failed to copy .zshrc"
+        sudo chown "$target_user:$target_user" "$home_dir/.zshrc" || true
+        log_success ".zshrc deployed to $home_dir/.zshrc"
+    else
+        log_info "No distro .zshrc found at $cfg_dir/.zshrc; skipping"
+    fi
+
+    # Deploy starship config
+    if [ -f "$cfg_dir/starship.toml" ]; then
+        mkdir -p "$home_dir/.config"
+        cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || log_warn "Failed to copy starship.toml"
+        sudo chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || true
+        log_success "starship.toml deployed to $home_dir/.config/starship.toml"
+    else
+        log_info "No starship.toml found at $cfg_dir/starship.toml; skipping"
+    fi
+
+    # Deploy fastfetch config
+    if [ -f "$cfg_dir/config.jsonc" ]; then
+        mkdir -p "$home_dir/.config/fastfetch"
+        cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || log_warn "Failed to copy fastfetch config"
+        sudo chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || true
+        log_success "fastfetch configuration deployed to $home_dir/.config/fastfetch/config.jsonc"
+    else
+        log_info "No fastfetch config found at $cfg_dir/config.jsonc; skipping"
+    fi
+
+    # Set default shell for target user
+    if command -v zsh >/dev/null 2>&1; then
+        if chsh -s "$(command -v zsh)" "$target_user" >/dev/null 2>&1; then
+            log_success "Default shell for $target_user set to zsh"
+        else
+            log_warn "Failed to set default shell for $target_user to zsh (may require user interaction)"
+        fi
+    else
+        log_warn "zsh not installed; skipping shell change"
+    fi
+
+    return 0
+}
+
 # --- Final Cleanup ---
 final_cleanup() {
     step "Final cleanup and optional helper removal"
@@ -502,8 +510,6 @@ final_cleanup() {
 
     local remove_list=()
     [ "${GUM_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("gum")
-    [ "${YQ_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("yq")
-    [ "${FIGLET_INSTALLED_BY_SCRIPT:-false}" = true ] && remove_list+=("figlet")
 
     if [ ${#remove_list[@]} -eq 0 ]; then
         log_info "No temporary helper packages were installed by the script."
@@ -810,6 +816,21 @@ fi
 if ! is_step_complete "install_essentials"; then
     install_package_group "essential" "Essential Packages"
     mark_step_complete "install_essentials"
+fi
+
+# Step: Configure shell & user configs (zsh, starship, fastfetch)
+if ! is_step_complete "configure_shell"; then
+    step "Configuring Zsh and user-level configs"
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure Zsh and user config files (copy .zshrc, starship.toml, fastfetch config)"
+    else
+        if declare -f configure_user_shell_and_configs >/dev/null 2>&1; then
+            configure_user_shell_and_configs || log_warn "configure_user_shell_and_configs reported issues (see $INSTALL_LOG)"
+        else
+            log_warn "configure_user_shell_and_configs not defined"
+        fi
+    fi
+    mark_step_complete "configure_shell"
 fi
 
 # Step: Install Packages based on Mode
