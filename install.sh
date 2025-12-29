@@ -26,7 +26,7 @@ show_menu() {
 
     # Try to ensure gum and yq are available; bootstrap_tools should have run already
     # but this is a last-resort attempt (quiet failures are acceptable)
-    if ! command -v gum >/dev/null 2>&1; then
+    if ! supports_gum; then
         log_info "gum not detected; UI may fall back to text mode"
     fi
 
@@ -261,7 +261,7 @@ bootstrap_tools() {
     fi
 
     # 1. GUM (UI) - try package manager, then fallback to binary download
-    if ! command -v gum >/dev/null 2>&1; then
+    if ! supports_gum; then
         if [ "$DRY_RUN" = true ]; then
             log_info "[DRY-RUN] Would install gum for UI"
         else
@@ -271,20 +271,24 @@ bootstrap_tools() {
                 if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
                     log_success "Installed gum via pacman"
                     GUM_INSTALLED_BY_SCRIPT=true
+                    # Refresh detection so wrapper/short-circuits know gum is now available
+                    supports_gum >/dev/null 2>&1 || true
                 fi
             else
                 if $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1; then
                     log_success "Installed gum via package manager"
                     GUM_INSTALLED_BY_SCRIPT=true
+                    supports_gum >/dev/null 2>&1 || true
                 fi
             fi
 
             # If not available from packages, try binary as fallback
-            if ! command -v gum >/dev/null 2>&1; then
+            if ! supports_gum; then
                 log_info "Attempting to download gum binary as fallback..."
                 if curl -fsSL "https://github.com/charmbracelet/gum/releases/latest/download/gum-linux-amd64" -o /tmp/gum >/dev/null 2>&1 && sudo mv /tmp/gum /usr/local/bin/gum && sudo chmod +x /usr/local/bin/gum; then
                     log_success "Installed gum binary to /usr/local/bin/gum"
                     GUM_INSTALLED_BY_SCRIPT=true
+                    supports_gum >/dev/null 2>&1 || true
                 else
                     log_warn "Failed to install gum via package manager or download. UI will fall back to basic output."
                 fi
@@ -340,7 +344,7 @@ bootstrap_tools() {
     fi
 
     # Report what is available
-    if command -v gum >/dev/null 2>&1; then
+    if supports_gum; then
         log_info "UX helper available: gum"
     fi
     if command -v yq >/dev/null 2>&1; then
@@ -703,7 +707,13 @@ fi
 if ! is_step_complete "system_update"; then
     step "Updating System Repositories"
     if [ "$DRY_RUN" = false ]; then
-        gum spin --title "Updating system..." -- bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1
+        if supports_gum; then
+            # Use gum spinner when available; if it fails fall back to the direct update command
+            gum spin --title "Updating system..." -- bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1 || { log_warn "gum spinner failed; falling back to direct update"; bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1; }
+        else
+            # No gum available; run the update directly
+            bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1
+        fi
     fi
     mark_step_complete "system_update"
 fi

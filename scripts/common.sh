@@ -3,11 +3,52 @@
 
 # --- UI and Logging ---
 
-# Check if gum is available for styling, otherwise use basic echo
+# Robust gum detection helpers
+# We prefer an external gum binary (not a shell function), and cache its path in $GUM_BIN.
+# `find_gum_bin()` scans PATH (and common locations) to avoid false positives when a
+# shell function named 'gum' exists (which would make `command -v gum` return true).
+find_gum_bin() {
+    # Scan PATH entries for an executable 'gum' and print its path if found.
+    # Avoid using `command -v` directly because it can report shell functions.
+    local IFS=':'
+    local dir
+    for dir in $PATH; do
+        if [ -x "$dir/gum" ] && [ ! -d "$dir/gum" ]; then
+            printf '%s' "$dir/gum"
+            return 0
+        fi
+    done
+
+    # Common fallback locations in case PATH is unusual
+    for dir in /usr/local/bin /usr/bin /bin /snap/bin /usr/sbin /sbin; do
+        if [ -x "$dir/gum" ]; then
+            printf '%s' "$dir/gum"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 supports_gum() {
-  # Prefer checking for an external 'gum' binary (not a shell function) to avoid false positives.
-  # 'type -P' returns the path to an external command and ignores shell functions/aliases.
-  type -P gum >/dev/null 2>&1
+    # Fast path using type -P (portable) when it finds a binary
+    local candidate
+    candidate="$(type -P gum 2>/dev/null || true)"
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+        GUM_BIN="$candidate"
+        return 0
+    fi
+
+    # Fallback: scan PATH manually to avoid being fooled by shell functions
+    candidate="$(find_gum_bin 2>/dev/null || true)"
+    if [ -n "$candidate" ]; then
+        GUM_BIN="$candidate"
+        return 0
+    fi
+
+    # Not available
+    GUM_BIN=""
+    return 1
 }
 
 # GUM / color scheme (adopted from archinstaller style)
@@ -26,6 +67,9 @@ GUM_WARNING_FG=11
 # Backwards compatibility: keep the legacy variable name pointing to the primary accent
 GUM_FG="$GUM_PRIMARY_FG"
 
+# Cached path to an external gum binary (populated by supports_gum/find_gum_bin)
+GUM_BIN=""
+
 # Ensure we have fallback ANSI colors for systems without 'gum'
 if ! supports_gum; then
     RESET='\033[0m'
@@ -40,16 +84,26 @@ fi
 # This lets existing calls that set --border-foreground "$GUM_FG" still render with white borders.
 # The wrapper replaces any `--border-foreground <value>` with the configured $GUM_BORDER_FG.
 gum() {
-    # Find the external gum binary (ignore shell functions). If not installed, return non-zero.
-    local gum_bin
-    gum_bin="$(type -P gum 2>/dev/null)" || return 127
+    # Use cached GUM_BIN if available; otherwise discover it without being fooled by
+    # the existence of this shell function itself.
+    local gum_bin="$GUM_BIN"
+    if [ -z "$gum_bin" ]; then
+        gum_bin="$(type -P gum 2>/dev/null || true)"
+        if [ -z "$gum_bin" ]; then
+            gum_bin="$(find_gum_bin 2>/dev/null || true)"
+        fi
+    fi
+
+    if [ -z "$gum_bin" ] || [ ! -x "$gum_bin" ]; then
+        # Not installed - return conventional "command not found" code so callers can fall back
+        return 127
+    fi
 
     local new_args=()
     local skip_next=false
 
     for arg in "$@"; do
         if [ "$skip_next" = true ]; then
-            # skip original value since we've replaced it
             skip_next=false
             continue
         fi
