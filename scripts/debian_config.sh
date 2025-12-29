@@ -144,6 +144,12 @@ DEBIAN_GAMING_NATIVE=(
     gamemode
 )
 
+DEBIAN_GAMING_FLATPAK=(
+    io.github.Faugus.faugus-launcher
+    com.heroicgameslauncher.hgl
+    com.vysp3r.ProtonPlus
+)
+
 # distro_get_packages function used by the main installer
 distro_get_packages() {
     local section="$1"
@@ -191,6 +197,7 @@ distro_get_packages() {
         gaming)
             case "$type" in
                 native) printf "%s\n" "${DEBIAN_GAMING_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${DEBIAN_GAMING_FLATPAK[@]}" ;;
                 *) return 0 ;;
             esac
             ;;

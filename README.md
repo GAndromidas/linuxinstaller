@@ -32,7 +32,7 @@
 - **Universal**: Shell setup, ZSH with syntax highlighting, Starship prompt
 
 ### 🎮 **Gaming Environment**
-- Steam, Lutris, and Wine installation
+- Steam, Faugus (Flatpak), and Wine installation
 - Vulkan drivers and graphics optimization
 - MangoHud performance monitoring
 - GameMode system optimization
@@ -85,7 +85,7 @@ Headless server configuration with essential services and security hardening.
 Note: Custom mode has been removed — the installer now supports Standard, Minimal, and Server modes only.
 
 Interactive Gaming Prompt:
-- When you choose Standard or Minimal mode the installer will prompt whether you'd like to install the Gaming package suite (Steam, Lutris, Wine, etc.). If `gum` is available the confirmation dialog defaults to Yes; in text mode you'll be prompted with [Y/n], defaulting to Yes. Server mode is headless and will not prompt for gaming packages.
+When you choose Standard or Minimal mode the installer will prompt whether you'd like to install the Gaming package suite (Steam, Faugus (Flatpak), Wine, etc.). If `gum` is available the confirmation dialog defaults to Yes; in text mode you'll be prompted with [Y/n], defaulting to Yes. Server mode is headless and will not prompt for gaming packages.
 
 ## 📁 Project Structure
 
@@ -237,9 +237,8 @@ Automatic addition to essential groups:
 ## 🎮 Gaming Features
 
 ### Environment Setup
-- Steam and Lutris installation
+- Steam and Faugus (Flatpak) installation
 - Wine configuration and setup
-- Protontricks for Steam compatibility
 
 ### Performance Monitoring
 - MangoHud overlay installation and configuration

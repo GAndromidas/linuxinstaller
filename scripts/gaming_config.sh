@@ -11,7 +11,6 @@ source "$SCRIPT_DIR/distro_check.sh"
 # Gaming-specific package lists
 GAMING_ESSENTIALS=(
     "steam"
-    "lutris"
     "wine"
     "vulkan-icd-loader"
     "mesa"
@@ -21,7 +20,6 @@ GAMING_ARCH=(
     "lib32-vulkan-icd-loader"
     "lib32-mesa"
     "lib32-glibc"
-    "protontricks"
     "mangohud"
     "gamemode"
 )
@@ -30,7 +28,6 @@ GAMING_FEDORA=(
     "lib32-vulkan"
     "lib32-mesa-libGL"
     "lib32-glibc"
-    "protontricks"
     "mangohud"
     "gamemode"
 )
@@ -39,7 +36,6 @@ GAMING_DEBIAN=(
     "lib32-vulkan1"
     "lib32-mesa-libgl1"
     "lib32-glibc"
-    "protontricks"
     "mangohud"
     "gamemode"
 )
@@ -231,63 +227,37 @@ gaming_configure_steam() {
     log_success "Steam configured"
 }
 
-gaming_configure_lutris() {
-    step "Configuring Lutris"
+gaming_install_faugus() {
+    step "Installing Faugus (flatpak)"
 
-    # Install Lutris if not present
-    if ! command -v lutris >/dev/null 2>&1; then
-        if ! install_pkg lutris; then
-            log_warn "Failed to install Lutris"
+    # Only install Faugus via Flatpak on Fedora and Debian/Ubuntu (Arch already includes it in its flatpak lists)
+    if ! command -v flatpak >/dev/null 2>&1; then
+        log_warn "Flatpak not installed. Attempting to install flatpak..."
+        if ! install_pkg flatpak; then
+            log_warn "Failed to install flatpak; skipping Faugus installation"
             return
         fi
     fi
 
-    # Configure Lutris settings
-    local lutris_config_dir="$HOME/.config/lutris"
-    if [ -d "$lutris_config_dir" ]; then
-        log_info "Lutris configuration directory found"
-    else
-        mkdir -p "$lutris_config_dir"
-        log_success "Lutris configuration directory created"
+    # Ensure Flathub remote exists
+    if ! sudo flatpak remote-list | grep -q flathub; then
+        sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
     fi
 
-    log_success "Lutris configured"
-}
+    # Install Faugus from Flathub if not present
+    if flatpak list --app | grep -q "io.github.Faugus.faugus-launcher"; then
+        log_info "Faugus (flatpak) already installed"
+        return 0
+    fi
 
-gaming_setup_protontricks() {
-    step "Setting up Protontricks"
-
-    if command -v protontricks >/dev/null 2>&1; then
-        log_info "Protontricks already installed"
+    if flatpak install flathub -y io.github.Faugus.faugus-launcher >> "$INSTALL_LOG" 2>&1; then
+        log_success "Faugus (flatpak) installed"
     else
-        # Install Protontricks
-        case "$DISTRO_ID" in
-            "arch")
-                if command -v yay >/dev/null 2>&1; then
-                    if ! yay -S --noconfirm protontricks >/dev/null 2>&1; then
-                        log_warn "Failed to install Protontricks via yay"
-                    else
-                        log_success "Protontricks installed via yay"
-                    fi
-                fi
-                ;;
-            "fedora")
-                if ! sudo dnf install -y protontricks >/dev/null 2>&1; then
-                    log_warn "Failed to install Protontricks"
-                else
-                    log_success "Protontricks installed"
-                fi
-                ;;
-            "debian"|"ubuntu")
-                if ! sudo apt-get install -y protontricks >/dev/null 2>&1; then
-                    log_warn "Failed to install Protontricks"
-                else
-                    log_success "Protontricks installed"
-                fi
-                ;;
-        esac
+        log_warn "Failed to install Faugus (flatpak). Check $INSTALL_LOG for details"
     fi
 }
+
+
 
 # =============================================================================
 # MAIN GAMING CONFIGURATION FUNCTION
@@ -332,17 +302,16 @@ gaming_main_config() {
         mark_step_complete "gaming_configure_steam"
     fi
 
-    # Configure Lutris
-    if ! is_step_complete "gaming_configure_lutris"; then
-        gaming_configure_lutris
-        mark_step_complete "gaming_configure_lutris"
+    # Install Faugus (Flatpak) on Fedora, Debian, and Ubuntu
+    if [ "$DISTRO_ID" = "fedora" ] || [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        if ! is_step_complete "gaming_install_faugus"; then
+            gaming_install_faugus
+            mark_step_complete "gaming_install_faugus"
+        fi
     fi
 
-    # Setup Protontricks
-    if ! is_step_complete "gaming_setup_protontricks"; then
-        gaming_setup_protontricks
-        mark_step_complete "gaming_setup_protontricks"
-    fi
+
+
 
     log_success "Gaming configuration completed"
 }
@@ -354,7 +323,4 @@ export -f gaming_configure_performance
 export -f gaming_configure_mangohud
 export -f gaming_configure_gamemode
 export -f gaming_configure_steam
-export -f gaming_configure_lutris
-export -f gaming_setup_protontricks
-
-
+export -f gaming_install_faugus

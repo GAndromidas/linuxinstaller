@@ -129,8 +129,15 @@ security_configure_firewall() {
                 log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in UFW"
             fi
 
-            # Force enable without prompt
-            echo "y" | sudo ufw enable >/dev/null 2>&1
+            # Force enable without prompt, and ensure the ufw systemd service is enabled so rules persist across reboot
+            echo "y" | sudo ufw enable >/dev/null 2>&1 || true
+            if command -v systemctl >/dev/null 2>&1; then
+                if sudo systemctl enable --now ufw >/dev/null 2>&1; then
+                    log_success "UFW enabled and will start on boot"
+                else
+                    log_warn "Failed to enable ufw.service; firewall may not persist across reboot"
+                fi
+            fi
             log_success "UFW configured with SSH and KDE Connect (if applicable)"
             ;;
         "fedora")
@@ -172,8 +179,15 @@ security_configure_firewall() {
                 log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in UFW"
             fi
 
-            # Force enable without prompt
-            echo "y" | sudo ufw enable >/dev/null 2>&1
+            # Force enable without prompt, and ensure the ufw systemd service is enabled so rules persist across reboot
+            echo "y" | sudo ufw enable >/dev/null 2>&1 || true
+            if command -v systemctl >/dev/null 2>&1; then
+                if sudo systemctl enable --now ufw >/dev/null 2>&1; then
+                    log_success "UFW enabled and will start on boot"
+                else
+                    log_warn "Failed to enable ufw.service; firewall may not persist across reboot"
+                fi
+            fi
             log_success "UFW configured with SSH and KDE Connect (if applicable)"
             ;;
     esac
@@ -275,22 +289,7 @@ security_configure_user_groups() {
     done
 }
 
-security_setup_logwatch() {
-    step "Setting up Log Monitoring"
 
-    # Install and configure logwatch
-    if ! install_pkg logwatch; then
-        log_warn "Failed to install logwatch"
-        return
-    fi
-
-    # Configure logwatch
-    if [ -f /etc/logwatch/conf/logwatch.conf ]; then
-        sudo sed -i 's/^Output = stdout/Output = mail/' /etc/logwatch/conf/logwatch.conf 2>/dev/null || true
-        sudo sed -i 's/^Format = text/Format = html/' /etc/logwatch/conf/logwatch.conf 2>/dev/null || true
-        log_success "Logwatch configured"
-    fi
-}
 
 # =============================================================================
 # MAIN SECURITY CONFIGURATION FUNCTION
@@ -341,11 +340,7 @@ security_main_config() {
         mark_step_complete "security_configure_user_groups"
     fi
 
-    # Setup logwatch
-    if ! is_step_complete "security_setup_logwatch"; then
-        security_setup_logwatch
-        mark_step_complete "security_setup_logwatch"
-    fi
+
 
     log_success "Security configuration completed"
 }
@@ -359,4 +354,3 @@ export -f security_configure_apparmor
 export -f security_configure_selinux
 export -f security_configure_ssh
 export -f security_configure_user_groups
-export -f security_setup_logwatch

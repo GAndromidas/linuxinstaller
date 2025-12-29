@@ -38,8 +38,13 @@ show_menu() {
         # Header
         gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
+        # Show OS / DE / CPU / GPU / RAM information (prefers helper from power_config.sh)
+        if declare -f show_system_info >/dev/null 2>&1; then
+            show_system_info
+        else
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected OS: $PRETTY_NAME" 2>/dev/null || true
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
+        fi
         echo ""
 
         # Try interactive gum menu; if it fails or returns no selection, fall back
@@ -90,8 +95,13 @@ show_menu() {
 
     # Fallback plain-text menu
     echo ""
-    echo "Detected System: $PRETTY_NAME"
-    echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    # Show OS / DE / CPU / GPU / RAM information (prefers helper from power_config.sh)
+    if declare -f show_system_info >/dev/null 2>&1; then
+        show_system_info
+    else
+        echo "Detected OS: $PRETTY_NAME"
+        echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    fi
     echo ""
 
     local text_choice
@@ -195,6 +205,14 @@ if [ -f "$SCRIPTS_DIR/wakeonlan_config.sh" ]; then
   source "$SCRIPTS_DIR/wakeonlan_config.sh"
 fi
 
+# Optional power management helper (detection + configuration).
+# This module provides `detect_system_info`, `show_system_info`, and
+# `configure_power_management` to auto-detect CPU/GPU/RAM and configure
+# power-profiles-daemon / cpupower / tuned as appropriate.
+if [ -f "$SCRIPTS_DIR/power_config.sh" ]; then
+  source "$SCRIPTS_DIR/power_config.sh"
+fi
+
 # --- Global Variables ---
 # Flags
 VERBOSE=false
@@ -226,9 +244,8 @@ OPTIONS:
 
 DESCRIPTION:
     A smart, cross-distribution installer that configures your system,
-    installs packages via YAML configuration, and applies tweaks.
+    installs packages, and applies tweaks.
     Supports Arch, Fedora, Debian, and Ubuntu.
-    Combines best practices from archinstaller, fedorainstaller, and debianinstaller.
 
 INSTALLATION MODES:
     Standard        Complete setup with all recommended packages
@@ -410,17 +427,41 @@ install_package_group() {
 
         # Execute installation (special handling for flatpaks so output is visible)
         if [ "$type" = "flatpak" ]; then
+            # Announce minimal header; keep verbose details in the log to avoid noisy console output
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing flatpaks for $title: ${packages[*]}" 2>/dev/null || true
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing Flatpak packages for $title..." 2>/dev/null || true
             else
-                log_info "Installing flatpaks for $title: ${packages[*]}"
+                log_info "Installing Flatpak packages for $title..."
             fi
 
-            # Run flatpak and stream output to the console while also logging
-            if bash -lc "$install_cmd $pkg_args" 2>&1 | tee -a "$INSTALL_LOG"; then
+            # Install flatpaks one-by-one, suppressing flatpak's verbose output and showing a compact status per package
+            local failed_packages=()
+            for pkg in "${packages[@]}"; do
+                pkg="$(echo "$pkg" | xargs)"  # trim whitespace
+                if supports_gum; then
+                    # Use gum spinner while running the install; flatpak output is redirected to the log
+                    if gum spin --spinner dot --title "Flatpak: $pkg" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" >> "$INSTALL_LOG" 2>&1; then
+                        gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✔ $pkg Installed" 2>/dev/null || true
+                    else
+                        gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ $pkg Failed (see $INSTALL_LOG)" 2>/dev/null || true
+                        failed_packages+=("$pkg")
+                    fi
+                else
+                    # Non-gum terminals: print a concise one-line status per package and keep detailed output in the log
+                    printf "%-60s" "Installing Flatpak: $pkg"
+                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >> "$INSTALL_LOG" 2>&1; then
+                        printf "${GREEN} ✔ Installed${RESET}\n"
+                    else
+                        printf "${RED} ✗ Failed${RESET}\n"
+                        failed_packages+=("$pkg")
+                    fi
+                fi
+            done
+
+            if [ ${#failed_packages[@]} -eq 0 ]; then
                 log_success "Installed (flatpak): ${packages[*]}"
             else
-                log_error "Failed to install some flatpak packages. Check log: $INSTALL_LOG"
+                log_error "Failed to install (flatpak): ${failed_packages[*]}. Check log: $INSTALL_LOG"
             fi
         else
             if supports_gum; then
@@ -681,15 +722,15 @@ clear
 if supports_gum && [ -t 0 ]; then
     gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
     echo ""
-    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected System: $PRETTY_NAME" 2>/dev/null || true
-    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
+    # Show OS / DE / CPU / GPU / RAM information (uses helper from power_config.sh if present)
+    show_system_info
 else
     # Non-gum, non-interactive or fallback header (keeps output readable)
     echo ""
     echo "LinuxInstaller: Unified Setup"
     echo ""
-    echo "Detected System: $PRETTY_NAME"
-    echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+    # Show OS / DE / CPU / GPU / RAM information (uses helper from power_config.sh if present)
+    show_system_info
 fi
 
 # Check for previous state (Resume capability)
@@ -700,10 +741,18 @@ else
 fi
 
 # 4. Mode Selection
-# Only ask if we are not resuming or if mode isn't set in state
-if ! is_step_complete "setup_mode"; then
+# Ensure the user is always prompted in interactive runs (so the menu appears on ./install.sh).
+# For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
+if [ -t 0 ]; then
     show_menu
     mark_step_complete "setup_mode"
+else
+    # Non-interactive: only set a default mode if none exists to avoid prompting
+    if ! is_step_complete "setup_mode"; then
+        export INSTALL_MODE="${INSTALL_MODE:-standard}"
+        log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
+        mark_step_complete "setup_mode"
+    fi
 fi
 
 # 5. Core Execution Loop
@@ -816,6 +865,21 @@ fi
 if ! is_step_complete "install_essentials"; then
     install_package_group "essential" "Essential Packages"
     mark_step_complete "install_essentials"
+fi
+
+# Step: Configure Power Management (power-profiles-daemon / cpupower / tuned)
+if ! is_step_complete "configure_power"; then
+    step "Configuring Power Management"
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure power management (power-profiles-daemon / cpupower / tuned)"
+    else
+        if declare -f configure_power_management >/dev/null 2>&1; then
+            configure_power_management || log_warn "configure_power_management reported issues (see $INSTALL_LOG)"
+        else
+            log_warn "configure_power_management not defined"
+        fi
+    fi
+    mark_step_complete "configure_power"
 fi
 
 # Step: Configure shell & user configs (zsh, starship, fastfetch)
