@@ -38,6 +38,7 @@ ARCH_ESSENTIALS=(
     "pacman-contrib"
     "plymouth"
     "rsync"
+    "ufw"
     "wget"
     "zsh"
     "zoxide"
@@ -329,11 +330,13 @@ arch_system_preparation() {
     # Enable multilib repository
     check_and_enable_multilib
 
-    # Optimize mirrorlist based on network speed
-    optimize_mirrors_arch
+    # Install AUR helper (yay) first so AUR-only utilities (e.g., rate-mirrors) can be installed
+    if ! arch_install_aur_helper; then
+        log_warn "AUR helper installation reported issues; some AUR packages may fail"
+    fi
 
-    # Install AUR helper (yay) for package installation
-    arch_install_aur_helper
+    # Optimize mirrorlist using rate-mirrors (installed via AUR helper if necessary)
+    optimize_mirrors_arch
 
     # Update system
     log_info "Updating Arch Linux system..."
@@ -409,6 +412,12 @@ arch_install_aur_helper() {
         return 1
     fi
 
+    # Ensure base-devel group is installed; required for makepkg and building AUR packages
+    if ! sudo pacman -S --noconfirm --needed base-devel >/dev/null 2>&1; then
+        log_error "Failed to install base-devel (required to build AUR packages)"
+        return 1
+    fi
+
     # Clone and build yay manually
     log_info "Building yay AUR helper from source..."
     local temp_dir=$(mktemp -d)
@@ -450,21 +459,43 @@ arch_install_aur_helper() {
 optimize_mirrors_arch() {
     step "Optimizing Arch Linux mirrors"
 
-    # Check if rate-mirrors is available
+    # Ensure rate-mirrors is installed - prefer any available AUR helper (yay/paru) since it is typically an AUR package
     if ! command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "Installing rate-mirrors for mirror optimization..."
-        if ! sudo pacman -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
-            log_warn "Failed to install rate-mirrors-bin"
-            return
+        log_info "Installing rate-mirrors (rate-mirrors-bin) for mirror optimization..."
+
+        if command -v yay >/dev/null 2>&1; then
+            if ! yay -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
+                log_warn "Failed to install rate-mirrors-bin via yay"
+                return 1
+            fi
+        elif command -v paru >/dev/null 2>&1; then
+            if ! paru -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
+                log_warn "Failed to install rate-mirrors-bin via paru"
+                return 1
+            fi
+        else
+            log_info "No AUR helper found; attempting to install with pacman as a fallback..."
+            if ! sudo pacman -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
+                log_warn "Failed to install rate-mirrors-bin; mirror optimization may be skipped"
+                return 1
+            fi
         fi
     fi
 
     # Speed-based detection removed; using default parallel downloads set in PARALLEL_DOWNLOADS (10)
     # No dynamic adjustments based on speed; mirrorlist update follows below.
 
-    # Update mirrorlist
+    # Update mirrorlist using rate-mirrors and refresh pacman DB
     log_info "Updating mirrorlist with optimized mirrors..."
-    if ! sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch >/dev/null 2>&1; then
+    if sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch >/dev/null 2>&1; then
+        log_success "Mirrorlist updated successfully"
+        # Refresh pacman DB to make sure we use the updated mirrors
+        if sudo pacman -Syy >/dev/null 2>&1; then
+            log_success "Refreshed pacman package database (pacman -Syy)"
+        else
+            log_warn "Failed to refresh pacman package database after updating mirrors"
+        fi
+    else
         log_warn "Failed to update mirrorlist automatically"
     fi
 }
@@ -792,39 +823,61 @@ arch_setup_solaar() {
 
     step "Setting up Logitech Hardware Support"
 
-    # Check for Logitech hardware
+    # Check for Logitech hardware (use safe, non-blocking checks)
     local has_logitech=false
 
-    # Check USB devices for Logitech
-    if lsusb | grep -i logitech >/dev/null 2>&1; then
-        has_logitech=true
-        log_info "Logitech hardware detected via USB"
-    fi
-
-    # Check Bluetooth devices for Logitech
-    if command -v bluetoothctl >/dev/null 2>&1; then
-        if bluetoothctl devices | grep -i logitech >/dev/null 2>&1; then
-            has_logitech=true
-            log_info "Logitech Bluetooth device detected"
+    # Check USB devices for Logitech (if lsusb available)
+    if command -v lsusb >/dev/null 2>&1; then
+        if command -v timeout >/dev/null 2>&1; then
+            if timeout 3s lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech hardware detected via USB"
+            fi
+        else
+            if lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech hardware detected via USB"
+            fi
         fi
     fi
 
-    # Check for Logitech HID devices
-    if ls /dev/hidraw* 2>/dev/null | xargs -I {} sh -c 'cat /sys/class/hidraw/{}/device/uevent 2>/dev/null | grep -i logitech' >/dev/null 2>&1; then
-        has_logitech=true
-        log_info "Logitech HID device detected"
+    # Check Bluetooth devices for Logitech (if bluetoothctl available)
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        # ensure the call cannot hang by using timeout where available and redirecting stdin
+        if command -v timeout >/dev/null 2>&1; then
+            if timeout 3s bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech Bluetooth device detected"
+            fi
+        else
+            if bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech Bluetooth device detected"
+            fi
+        fi
     fi
+
+    # Check for Logitech HID devices safely (loop avoids xargs pitfalls)
+    for hid in /dev/hidraw*; do
+        [ -e "$hid" ] || continue
+        hid_base=$(basename "$hid")
+        if grep -qi logitech "/sys/class/hidraw/$hid_base/device/uevent" 2>/dev/null; then
+            has_logitech=true
+            log_info "Logitech HID device detected: $hid"
+            break
+        fi
+    done
 
     if [ "$has_logitech" = true ]; then
         log_info "Installing solaar for Logitech hardware management..."
         if install_pkg solaar; then
             log_success "Solaar installed successfully"
 
-            # Enable solaar service
+            # Enable solaar service if present
             if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
                 log_success "Solaar service enabled and started"
             else
-                log_warn "Failed to enable solaar service"
+                log_warn "Failed to enable solaar service (may not exist on all systems)"
             fi
         else
             log_warn "Failed to install solaar"
@@ -834,13 +887,16 @@ arch_setup_solaar() {
     fi
 }
 
+# Configure UFW as the default firewall for Arch (adds a distro-local override)
+# Arch firewall configuration is handled by security_configure_firewall() in security_config.sh
+
 # Export functions for use by main installer
 export -f arch_main_config
 export -f arch_system_preparation
 export -f arch_setup_aur_helper
 export -f arch_install_aur_helper
-export -f arch_configure_mirrors
 export -f arch_configure_bootloader
+# arch firewall is configured via security_configure_firewall() in security_config.sh
 arch_configure_plymouth() {
     step "Configuring Plymouth boot splash"
 

@@ -15,7 +15,7 @@ SECURITY_ESSENTIALS=(
 )
 
 SECURITY_ARCH=(
-    "firewalld"
+    "ufw"
     "apparmor"
     "apparmor-utils"
 )
@@ -117,30 +117,21 @@ security_configure_firewall() {
 
     case "$DISTRO_ID" in
         "arch")
-            # Configure firewalld for Arch
-            if command -v firewall-cmd >/dev/null 2>&1; then
-                if sudo systemctl enable --now firewalld >/dev/null 2>&1; then
-                    sudo firewall-cmd --set-default-zone=public >/dev/null 2>&1
-                    sudo firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
+            # Configure UFW for Arch
+            sudo ufw default deny incoming >/dev/null 2>&1
+            sudo ufw default allow outgoing >/dev/null 2>&1
+            sudo ufw limit ssh >/dev/null 2>&1
 
-                    # Allow KDE Connect if KDE is detected
-                    if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-                        if sudo firewall-cmd --permanent --add-service=kde-connect >/dev/null 2>&1; then
-                            log_success "KDE Connect service allowed in firewall"
-                        else
-                            # Fallback: manually allow KDE Connect ports
-                            sudo firewall-cmd --permanent --add-port=1714-1764/udp >/dev/null 2>&1
-                            sudo firewall-cmd --permanent --add-port=1714-1764/tcp >/dev/null 2>&1
-                            log_success "KDE Connect ports (1714-1764) allowed in firewall"
-                        fi
-                    fi
-
-                    sudo firewall-cmd --reload >/dev/null 2>&1
-                    log_success "firewalld configured with SSH and KDE Connect (if applicable)"
-                else
-                    log_warn "Failed to enable firewalld"
-                fi
+            # Allow KDE Connect if KDE is detected
+            if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
+                sudo ufw allow 1714:1764/udp >/dev/null 2>&1
+                sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
+                log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in UFW"
             fi
+
+            # Force enable without prompt
+            echo "y" | sudo ufw enable >/dev/null 2>&1
+            log_success "UFW configured with SSH and KDE Connect (if applicable)"
             ;;
         "fedora")
             # Configure firewalld for Fedora

@@ -792,28 +792,50 @@ fedora_setup_solaar() {
 
     step "Setting up Logitech Hardware Support"
 
-    # Check for Logitech hardware
+    # Check for Logitech hardware (use safe, non-blocking checks)
     local has_logitech=false
 
-    # Check USB devices for Logitech
-    if lsusb | grep -i logitech >/dev/null 2>&1; then
-        has_logitech=true
-        log_info "Logitech hardware detected via USB"
-    fi
-
-    # Check Bluetooth devices for Logitech
-    if command -v bluetoothctl >/dev/null 2>&1; then
-        if bluetoothctl devices | grep -i logitech >/dev/null 2>&1; then
-            has_logitech=true
-            log_info "Logitech Bluetooth device detected"
+    # Check USB devices for Logitech (if lsusb available)
+    if command -v lsusb >/dev/null 2>&1; then
+        if command -v timeout >/dev/null 2>&1; then
+            if timeout 3s lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech hardware detected via USB"
+            fi
+        else
+            if lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech hardware detected via USB"
+            fi
         fi
     fi
 
-    # Check for Logitech HID devices
-    if ls /dev/hidraw* 2>/dev/null | xargs -I {} sh -c 'cat /sys/class/hidraw/{}/device/uevent 2>/dev/null | grep -i logitech' >/dev/null 2>&1; then
-        has_logitech=true
-        log_info "Logitech HID device detected"
+    # Check Bluetooth devices for Logitech (if bluetoothctl available)
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        # ensure the call cannot hang by using timeout where available and redirecting stdin
+        if command -v timeout >/dev/null 2>&1; then
+            if timeout 3s bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech Bluetooth device detected"
+            fi
+        else
+            if bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
+                has_logitech=true
+                log_info "Logitech Bluetooth device detected"
+            fi
+        fi
     fi
+
+    # Check for Logitech HID devices safely (loop avoids xargs pitfalls)
+    for hid in /dev/hidraw*; do
+        [ -e "$hid" ] || continue
+        hid_base=$(basename "$hid")
+        if grep -qi logitech "/sys/class/hidraw/$hid_base/device/uevent" 2>/dev/null; then
+            has_logitech=true
+            log_info "Logitech HID device detected: $hid"
+            break
+        fi
+    done
 
     if [ "$has_logitech" = true ]; then
         log_info "Installing solaar for Logitech hardware management..."

@@ -268,9 +268,15 @@ bootstrap_tools() {
             log_info "Installing gum for UI..."
             # Try package manager first
             if [ "$DISTRO_ID" == "arch" ]; then
-                sudo pacman -S --noconfirm gum >/dev/null 2>&1 || true
+                if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
+                    log_success "Installed gum via pacman"
+                    GUM_INSTALLED_BY_SCRIPT=true
+                fi
             else
-                $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1 || true
+                if $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1; then
+                    log_success "Installed gum via package manager"
+                    GUM_INSTALLED_BY_SCRIPT=true
+                fi
             fi
 
             # If not available from packages, try binary as fallback
@@ -282,8 +288,6 @@ bootstrap_tools() {
                 else
                     log_warn "Failed to install gum via package manager or download. UI will fall back to basic output."
                 fi
-            else
-                GUM_INSTALLED_BY_SCRIPT=true
             fi
         fi
     fi
@@ -768,7 +772,6 @@ if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
         }
 
         # Execute pacman configuration
-        detect_network_speed
         configure_pacman
     fi
 
