@@ -21,7 +21,7 @@ ARCH_KEYRING="/etc/pacman.d/gnupg"
 AUR_HELPER="yay"
 PARALLEL_DOWNLOADS=10
 
-# Arch-specific package lists
+# Arch-specific package lists (base/common)
 ARCH_ESSENTIALS=(
     "base-devel"
     "bc"
@@ -49,6 +49,259 @@ ARCH_OPTIMIZATION=(
     "btrfs-assistant"
     "btrfsmaintenance"
 )
+
+# ---------------------------------------------------------------------------
+# Mode-specific, DE-specific and gaming package lists for Arch
+# (defined here so distribution package lists live in the distro module
+# and are easy to maintain; distro_get_packages() exposes a small API
+# for the main installer to query these)
+# ---------------------------------------------------------------------------
+
+# Standard mode (native / pacman packages)
+ARCH_NATIVE_STANDARD=(
+    "android-tools"
+    "bat"
+    "bleachbit"
+    "btop"
+    "chromium"
+    "cmatrix"
+    "cpupower"
+    "dosfstools"
+    "duf"
+    "firefox"
+    "fwupd"
+    "gnome-disk-utility"
+    "hwinfo"
+    "inxi"
+    "mpv"
+    "ncdu"
+    "net-tools"
+    "nmap"
+    "noto-fonts-extra"
+    "samba"
+    "sl"
+    "speedtest-cli"
+    "sshfs"
+    "ttf-hack-nerd"
+    "ttf-liberation"
+    "unrar"
+    "wakeonlan"
+    "xdg-desktop-portal-gtk"
+)
+
+# Standard mode (native essentials / pacman packages)
+ARCH_NATIVE_STANDARD_ESSENTIALS=(
+    "filezilla"
+    "zed"
+)
+
+# AUR packages for Standard
+ARCH_AUR_STANDARD=(
+    "dropbox"
+    "onlyoffice-bin"
+    "rustdesk-bin"
+    "spotify"
+    "ventoy-bin"
+    "via-bin"
+)
+
+# Flatpaks for Standard (Flathub IDs)
+ARCH_FLATPAK_STANDARD=(
+    "it.mijorus.gearlever"
+    "io.github.shiftey.Desktop"
+)
+
+# Minimal mode (intentionally small)
+ARCH_NATIVE_MINIMAL=(
+    "mpv"
+)
+
+ARCH_AUR_MINIMAL=(
+    "onlyoffice-bin"
+    "rustdesk-bin"
+)
+
+ARCH_FLATPAK_MINIMAL=(
+    "it.mijorus.gearlever"
+)
+
+# Server mode (headless / server-lean)
+ARCH_NATIVE_SERVER=(
+    "bat"
+    "btop"
+    "cmatrix"
+    "cpupower"
+    "docker"
+    "docker-compose"
+    "dosfstools"
+    "duf"
+    "expac"
+    "fwupd"
+    "hwinfo"
+    "inxi"
+    "nano"
+    "ncdu"
+    "net-tools"
+    "nmap"
+    "noto-fonts-extra"
+    "samba"
+    "sl"
+    "speedtest-cli"
+    "sshfs"
+    "ttf-hack-nerd"
+    "ttf-liberation"
+    "unrar"
+    "wakeonlan"
+)
+
+# Desktop environment specific packages
+ARCH_DE_KDE_NATIVE=(
+    "gwenview"
+    "kdeconnect"
+    "kdenlive"
+    "kwalletmanager"
+    "kvantum"
+    "okular"
+    "python-pyqt5"
+    "python-pyqt6"
+    "qbittorrent"
+    "spectacle"
+    "smplayer"
+)
+
+ARCH_DE_GNOME_NATIVE=(
+    "adw-gtk-theme"
+    "celluloid"
+    "dconf-editor"
+    "gnome-tweaks"
+    "gufw"
+    "seahorse"
+    "transmission-gtk"
+)
+
+ARCH_DE_COSMIC_NATIVE=(
+    "celluloid"
+    "transmission-gtk"
+)
+
+ARCH_DE_KDE_FLATPAK=(
+    "it.mijorus.gearlever"
+)
+ARCH_DE_GNOME_FLATPAK=(
+    "com.mattjakeman.ExtensionManager"
+    "it.mijorus.gearlever"
+)
+ARCH_DE_COSMIC_FLATPAK=(
+    "it.mijorus.gearlever"
+)
+
+# Gaming packages
+ARCH_GAMING_NATIVE=(
+    "steam"
+    "wine"
+    "vulkan-icd-loader"
+    "mesa"
+)
+
+ARCH_GAMING_AUR=(
+    "lib32-vulkan-icd-loader"
+    "lib32-mesa"
+    "lib32-glibc"
+    "protontricks"
+    "mangohud"
+    "gamemode"
+)
+
+ARCH_GAMING_FLATPAK=(
+    "com.heroicgameslauncher.hgl"
+    "com.vysp3r.ProtonPlus"
+    "io.github.Faugus.faugus-launcher"
+)
+
+# ---------------------------------------------------------------------------
+# Simple query API used by the main installer to fetch package lists.
+# The function prints one package per line (suitable for mapfile usage).
+# ---------------------------------------------------------------------------
+distro_get_packages() {
+    local section="$1"
+    local type="$2"
+
+    case "$section" in
+        standard)
+            case "$type" in
+                native)
+                    # Standard native should include the main standard list plus
+                    # the additional standard-specific essentials.
+                    printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
+                    printf "%s\n" "${ARCH_NATIVE_STANDARD_ESSENTIALS[@]:-}"
+                    ;;
+                aur)    printf "%s\n" "${ARCH_AUR_STANDARD[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_FLATPAK_STANDARD[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        minimal)
+            case "$type" in
+                native)
+                    # Minimal should still install the broader standard native set
+                    # plus the minimal-specific additions to ensure base tooling is present.
+                    printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
+                    printf "%s\n" "${ARCH_NATIVE_MINIMAL[@]:-}"
+                    ;;
+                aur)    printf "%s\n" "${ARCH_AUR_MINIMAL[@]:-}" ;;
+                flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        server)
+            case "$type" in
+                native)
+                    # Server should include the standard native base set in addition
+                    # to server-specific packages for a reliable headless setup.
+                    printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
+                    printf "%s\n" "${ARCH_NATIVE_SERVER[@]:-}"
+                    ;;
+                aur)    printf "%s\n" "${ARCH_AUR_SERVER[@]:-}" ;;
+                flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        kde)
+            case "$type" in
+                native) printf "%s\n" "${ARCH_DE_KDE_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_DE_KDE_FLATPAK[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gnome)
+            case "$type" in
+                native) printf "%s\n" "${ARCH_DE_GNOME_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_DE_GNOME_FLATPAK[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        cosmic)
+            case "$type" in
+                native) printf "%s\n" "${ARCH_DE_COSMIC_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_DE_COSMIC_FLATPAK[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gaming)
+            case "$type" in
+                native) printf "%s\n" "${ARCH_GAMING_NATIVE[@]}" ;;
+                aur)    printf "%s\n" "${ARCH_GAMING_AUR[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_GAMING_FLATPAK[@]:-}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        *)
+            # Unknown section -> return nothing
+            return 0
+            ;;
+    esac
+}
+export -f distro_get_packages
 
 # =============================================================================
 # ARCH LINUX CONFIGURATION FUNCTIONS

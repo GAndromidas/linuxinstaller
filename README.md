@@ -9,7 +9,7 @@
 ## ✨ Features
 
 ### 🔧 Notable Improvements
-- Robust YAML parsing and package discovery across multiple `programs.yaml` shapes (per-distro, package-manager keyed, and desktop-environment sections), improving reliability across Arch, Fedora, Debian, and Ubuntu.
+- Package lists are now centralized in per-distro modules (e.g., `scripts/arch_config.sh`, `scripts/fedora_config.sh`, `scripts/debian_config.sh`) and exposed via the `distro_get_packages()` API; per-distro `programs.yaml` files are no longer required.
 - Improved bootstrapping and safe fallbacks for UI and tooling: the installer now attempts to install `gum`, `yq`, and `figlet` via the package manager and will fall back to downloading reputable binaries when packages are unavailable; DRY-RUN support provides a safe preview mode.
 - Cleaner UX with graceful fallbacks when `gum` isn't available — plain-text output is consistent and readable while styled `gum` output is used when present.
 - Optional final cleanup step: the installer can optionally remove temporary helper tools it installed (keeps the user's environment tidy).
@@ -84,15 +84,17 @@ Headless server configuration with essential services and security hardening.
 
 Note: Custom mode has been removed — the installer now supports Standard, Minimal, and Server modes only.
 
+Interactive Gaming Prompt:
+- When you choose Standard or Minimal mode the installer will prompt whether you'd like to install the Gaming package suite (Steam, Lutris, Wine, etc.). If `gum` is available the confirmation dialog defaults to Yes; in text mode you'll be prompted with [Y/n], defaulting to Yes. Server mode is headless and will not prompt for gaming packages.
+
 ## 📁 Project Structure
 
 ```
 linuxinstaller/
 ├── install.sh                 # Main entry point with enhanced menu system
-├── configs/                   # Distribution-specific configuration files
-│   ├── programs.yaml          # Package lists for different modes
-│   ├── package_map.yaml       # Generic to distro-specific package mappings
-│   ├── arch/                  # Arch Linux specific configs
+├── configs/                   # Distribution-specific static configs (non-package content)
+│   ├── package_map.yaml       # Generic to distro-specific package mappings (optional)
+│   ├── arch/                  # Arch Linux specific configs (themes, fastfetch, KDE shortcuts)
 │   │   ├── .zshrc            # ZSH configuration
 │   │   ├── starship.toml     # Starship prompt config
 │   │   ├── config.jsonc      # Fastfetch system info config
@@ -107,6 +109,11 @@ linuxinstaller/
 │       ├── .zshrc.ubuntu     # Ubuntu-specific ZSH config
 │       ├── starship.toml     # Starship prompt config
 │       └── config.jsonc      # Fastfetch system info config
+├── scripts/                   # Core functionality modules (now also hold package lists)
+│   ├── arch_config.sh         # Arch package lists and configuration (provides distro_get_packages)
+│   ├── fedora_config.sh       # Fedora package lists and configuration (provides distro_get_packages)
+│   ├── debian_config.sh       # Debian/Ubuntu package lists and configuration (provides distro_get_packages)
+│   └── ...                   # Other scripts and modules
 └── scripts/                  # Core functionality modules
     ├── arch_config.sh        # Arch Linux configuration
     ├── fedora_config.sh      # Fedora configuration
@@ -123,20 +130,38 @@ linuxinstaller/
 ## 🔧 Configuration
 
 ### Package Management
-The installer uses YAML-based configuration for package management:
+Package lists are now defined in per-distro modules (e.g., `scripts/arch_config.sh`, `scripts/fedora_config.sh`, `scripts/debian_config.sh`) and are exposed via the `distro_get_packages <section> <type>` API.
 
-```yaml
-# Example from programs.yaml
-arch:
-  standard:
-    native:
-      - git
-      - curl
-      - vim
-    aur:
-      - onlyoffice-bin
-      - rustdesk-bin
-```
+Example (in a distro module):
+
+ARCH_NATIVE_STANDARD=(
+  git
+  curl
+  vim
+)
+ARCH_AUR_STANDARD=(
+  onlyoffice-bin
+  rustdesk-bin
+)
+
+Arch-specific installation behavior:
+- Standard mode (when Arch is detected and you select "Standard"):
+  - The installer will install:
+    - `ARCH_NATIVE_STANDARD` and `ARCH_NATIVE_STANDARD_ESSENTIALS`
+    - `ARCH_AUR_STANDARD`
+    - `ARCH_FLATPAK_STANDARD`
+    - The desktop-environment specific group for your DE (e.g. `ARCH_DE_KDE_NATIVE` or `ARCH_DE_GNOME_NATIVE`)
+  - This ensures the full standard desktop experience and the extra "standard essentials" are included.
+
+- Minimal mode:
+  - The installer will still include the full native base `ARCH_NATIVE_STANDARD` (so base tooling is always present),
+    plus the `ARCH_NATIVE_MINIMAL` set (and `ARCH_AUR_MINIMAL` / `ARCH_FLATPAK_MINIMAL` where applicable).
+
+- Server mode:
+  - The installer will include `ARCH_NATIVE_STANDARD` together with the server-specific native set (`ARCH_NATIVE_SERVER`).
+  - Desktop-environment specific packages are skipped in server mode (headless setup).
+
+This policy ensures the consistent presence of base tooling across modes while keeping minimal and server profiles lean in other respects.
 
 ### Distribution-Specific Configs
 Each distribution has its own configuration directory with optimized settings:

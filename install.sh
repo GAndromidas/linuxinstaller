@@ -66,11 +66,21 @@ show_menu() {
                     log_warn "Gum returned an unexpected choice: '$choice' - falling back to text menu." ;;
             esac
 
-            # If gum returned a valid choice, print a friendly confirmation and return
+            # If gum returned a valid choice, print a friendly confirmation, ask about gaming, and return
             if [ -n "${INSTALL_MODE:-}" ]; then
                 echo ""
                 gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice" 2>/dev/null || true
                 echo ""
+                # Prompt for Gaming immediately after selection (default Yes in gum)
+                if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
+                    if gum confirm "Install Gaming Package Suite?" --default=true; then
+                        export INSTALL_GAMING=true
+                    else
+                        export INSTALL_GAMING=false
+                    fi
+                else
+                    export INSTALL_GAMING=false
+                fi
                 return
             fi
         else
@@ -118,6 +128,34 @@ show_menu() {
     else
         echo "You selected: $friendly"
     fi
+
+    # Prompt for Gaming immediately after selection when applicable (Standard/Minimal)
+    if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
+        if supports_gum && [ -t 0 ]; then
+            if gum confirm "Install Gaming Package Suite?" --default=true; then
+                export INSTALL_GAMING=true
+            else
+                export INSTALL_GAMING=false
+            fi
+        elif [ -t 0 ]; then
+            read -r -p "Install Gaming Package Suite? [Y/n]: " response
+            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
+                export INSTALL_GAMING=true
+            else
+                export INSTALL_GAMING=false
+            fi
+        else
+            # Non-interactive: default to not installing gaming packages to avoid surprises
+            export INSTALL_GAMING=false
+            log_info "Non-interactive mode; defaulting to not installing gaming packages"
+        fi
+    else
+        # If custom groups include gaming, honor it uniformly
+        if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
+            export INSTALL_GAMING=true
+        fi
+    fi
+
     echo ""
 }
 
@@ -319,11 +357,6 @@ install_package_group() {
 
     log_info "Processing package group: $title ($section_path)"
 
-    if [ ! -f "$PROGRAMS_YAML" ]; then
-         log_warn "Config file not found: $PROGRAMS_YAML. Skipping $title."
-         return
-    fi
-
     # Determine package types available for this distro
     local pkg_types
     case "$DISTRO_ID" in
@@ -333,68 +366,39 @@ install_package_group() {
     esac
 
     for type in $pkg_types; do
-        log_info "Searching for package definitions (type: $type) for '$section_path'..."
+        log_info "Collecting package definitions (type: $type) for '$section_path'..."
 
-        # Candidate yq queries (try in order until we find packages)
-        local queries=()
-
-        if [[ "$section_path" == "kde" || "$section_path" == "gnome" || "$section_path" == "cosmic" ]]; then
-            # Desktop environment specific
-            queries+=(".${DISTRO_ID}.${mode}.${section_path}.install[] | .name // .")
-            queries+=(".desktop_environments.${section_path}.install[] | .name // .")
-            queries+=(".${DISTRO_ID}.${section_path}.install[] | .name // .")
-            queries+=(".${section_path}.install[] | .name // .")
-            queries+=(".desktop_environments.${section_path}.${type}[] | .name // .")
-        elif [[ "$section_path" == "gaming" ]]; then
-            queries+=(".gaming.${DISTRO_ID}.${type}[] | .name // .")
-            queries+=(".gaming.${type}[] | .name // .")
-            queries+=(".gaming.${section_path}.${type}[] | .name // .")
-        else
-            # Installation modes (standard/minimal/server/custom)
-            queries+=(".${DISTRO_ID}.${section_path}.${type}[] | .name // .")
-            queries+=(".${DISTRO_ID}.${section_path}[] | .name // .")
-            queries+=(".${section_path}.${type}[] | .name // .")
-            queries+=(".${section_path}[] | .name // .")
-            queries+=(".${type}.${mode}[] | .name // .")
-            queries+=(".${type}.default[] | .name // .")
-            queries+=(".${PKG_MANAGER}.${mode}[] | .name // .")
-            queries+=(".${PKG_MANAGER}.default[] | .name // .")
-            queries+=(".pacman.packages[] | .name // .")
-            queries+=(".dnf.${mode}[] | .name // .")
-            queries+=(".flatpak.${mode}[] | .name // .")
-            queries+=(".flatpak.default[] | .name // .")
-            # Only install 'essential' groups on Arch for the 'standard' mode.
-            # This prevents essential packages from being pulled into 'minimal' or 'server'.
-            if [ "$DISTRO_ID" != "arch" ] || [ "$mode" = "standard" ]; then
-                queries+=(".essential.${mode}[] | .name // .")
-                queries+=(".essential.default[] | .name // .")
-            fi
-            queries+=(".custom.${section_path}.${type}[] | .name // .")
-        fi
-
-        # Try each query until packages are found
+        # Try distro-provided package function first (preferred)
         local packages=()
-        for q in "${queries[@]}"; do
-            if ! command -v yq >/dev/null 2>&1; then
-                log_warn "yq is not available; skipping YAML-driven package discovery"
-                break
-            fi
-
-            local out
-            out=$(yq e "$q" "$PROGRAMS_YAML" 2>/dev/null || true)
-            if [ -n "$out" ]; then
-                # Normalize, remove 'null' and empty lines
-                mapfile -t tmp < <(printf "%s\n" "$out" | sed '/^[[:space:]]*null[[:space:]]*$/d' | sed '/^[[:space:]]*$/d')
-                if [ ${#tmp[@]} -gt 0 ]; then
-                    packages=("${tmp[@]}")
-                    break
-                fi
-            fi
-        done
+        if declare -f distro_get_packages >/dev/null 2>&1; then
+            # distro_get_packages should print one package per line; capture and normalize
+            mapfile -t tmp < <(distro_get_packages "$section_path" "$type" 2>/dev/null || true)
+            mapfile -t packages < <(printf "%s\n" "${tmp[@]}" | sed '/^[[:space:]]*null[[:space:]]*$/d' | sed '/^[[:space:]]*$/d')
+        else
+            # YAML-driven discovery has been removed.
+            # Package lists must be provided by the distro module via 'distro_get_packages()'.
+            log_info "No distro package provider available; skipping deprecated YAML fallback for $title"
+            continue
+        fi
 
         if [ ${#packages[@]} -eq 0 ]; then
             log_info "No $type packages found for $title"
             continue
+        fi
+
+        # Deduplicate package list while preserving order to avoid redundant installs
+        if [ ${#packages[@]} -gt 1 ]; then
+            declare -A _li_seen_pkgs
+            local _li_deduped=()
+            for pkg in "${packages[@]}"; do
+                if [ -n "$pkg" ] && [ -z "${_li_seen_pkgs[$pkg]:-}" ]; then
+                    _li_deduped+=("$pkg")
+                    _li_seen_pkgs[$pkg]=1
+                fi
+            done
+            # Replace packages with deduplicated list
+            packages=("${_li_deduped[@]}")
+            unset _li_seen_pkgs
         fi
 
         # Pretty output of what will be installed
@@ -632,8 +636,26 @@ done
 detect_distro # Sets DISTRO_ID, PKG_INSTALL, etc.
 detect_de # Sets XDG_CURRENT_DESKTOP (e.g., KDE, GNOME)
 
-# Now that we know the distribution, set the programs.yaml path
-PROGRAMS_YAML="$CONFIGS_DIR/$DISTRO_ID/programs.yaml"
+# Source distro module early so it can provide package lists via `distro_get_packages()`
+case "$DISTRO_ID" in
+    "arch")
+        if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
+            source "$SCRIPTS_DIR/arch_config.sh"
+        fi
+        ;;
+    "fedora")
+        if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
+            source "$SCRIPTS_DIR/fedora_config.sh"
+        fi
+        ;;
+    "debian"|"ubuntu")
+        if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
+            source "$SCRIPTS_DIR/debian_config.sh"
+        fi
+        ;;
+esac
+
+# programs.yaml fallback removed; package lists are provided by distro modules (via distro_get_packages())
 
 # Bootstrap UI tools
 bootstrap_tools
@@ -753,6 +775,30 @@ if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
     mark_step_complete "pacman_config"
 fi
 
+# Step: Run Distro System Preparation (install essentials, etc.)
+# Run distro-specific system preparation early so essential helpers are present
+# before package installation and mark the step complete to avoid duplication.
+DSTR_PREP_FUNC="${DISTRO_ID}_system_preparation"
+DSTR_PREP_STEP="${DSTR_PREP_FUNC}"
+if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1 && ! is_step_complete "$DSTR_PREP_STEP"; then
+    step "Running system preparation for $DISTRO_ID"
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would run $DSTR_PREP_FUNC"
+    else
+        if ! "$DSTR_PREP_FUNC"; then
+            log_warn "$DSTR_PREP_FUNC reported issues (see $INSTALL_LOG)"
+        fi
+    fi
+    mark_step_complete "$DSTR_PREP_STEP"
+fi
+
+# Install distro-provided 'essential' group first (if present)
+# Ensures essentials get installed before the main package groups.
+if ! is_step_complete "install_essentials"; then
+    install_package_group "essential" "Essential Packages"
+    mark_step_complete "install_essentials"
+fi
+
 # Step: Install Packages based on Mode
 if ! is_step_complete "install_packages"; then
     step "Installing Packages ($INSTALL_MODE)"
@@ -776,11 +822,10 @@ if ! is_step_complete "install_packages"; then
         install_package_group "gaming" "Gaming Suite"
     fi
 
-    # Interactive prompt for optional Gaming if not explicitly chosen/excluded
-    # (Only for Standard mode if not resuming)
-    if [ "$INSTALL_MODE" == "standard" ] && [ -z "${CUSTOM_GROUPS:-}" ]; then
-        if gum confirm "Install Gaming Package Suite?" --default=false; then
-             install_package_group "gaming" "Gaming Suite"
+    # Use the gaming decision made at menu time (if applicable)
+    if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
+        if [ "${INSTALL_GAMING:-false}" = "true" ]; then
+            install_package_group "gaming" "Gaming Suite"
         fi
     fi
 
@@ -816,6 +861,9 @@ if declare -f wakeonlan_main_config >/dev/null 2>&1; then
         fi
     fi
 fi
+
+# Step: Run Distro System Preparation (install essentials, etc.)
+# (system preparation logic moved earlier in the flow)
 
 # Step: Run Distribution-Specific Configuration
 # This replaces the numbered scripts with unified distribution-specific modules

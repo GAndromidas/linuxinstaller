@@ -22,40 +22,152 @@ FEDORA_MODULAR="/etc/yum.repos.d/fedora-modular.repo"
 # Fedora-specific configuration files
 FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 
-# Fedora-specific package lists
-FEDORA_ESSENTIALS=(
-    "dnf-plugins-core"
-    "git"
-    "curl"
-    "wget"
-    "rsync"
-    "bc"
-    "openssh-server"
-    "cronie"
-    "bluez"
-    "plymouth"
-    "flatpak"
-    "zoxide"
-    "fzf"
+# Fedora-specific package lists (centralized in this module)
+# Mode-specific native packages
+FEDORA_NATIVE_STANDARD=(
+    "android-tools"
+    "bat"
+    "bleachbit"
+    "btop"
+    "cmatrix"
     "fastfetch"
+    "filezilla"
+    "fzf"
+    "hwinfo"
+    "inxi"
+    "python3-speedtest-cli"
+    "sl"
+    "unrar"
+    "zoxide"
+    "unzip"
+)
+
+# Flatpak entries (Flathub IDs)
+FEDORA_FLATPAK_STANDARD=(
+    "com.rustdesk.RustDesk"
+)
+
+# Minimal mode: smaller, essential-centric set
+FEDORA_NATIVE_MINIMAL=(
+    "android-tools"
+    "bat"
     "eza"
+    "fastfetch"
+    "fzf"
 )
 
-FEDORA_DESKTOP=(
-    "gnome-tweaks"
+FEDORA_FLATPAK_MINIMAL=(
+    "com.rustdesk.RustDesk"
+    "it.mijorus.gearlever"
+)
+
+# Server mode (lean, headless)
+FEDORA_NATIVE_SERVER=(
+    "openssh-server"
+    "ufw"
+    "fail2ban"
+    "btop"
+    "duf"
+)
+
+# Desktop environment specific packages (native + flatpak)
+FEDORA_DE_GNOME_NATIVE=(
+    "celluloid"
     "dconf-editor"
-    "gdm"
-    "NetworkManager"
+    "gnome-tweaks"
+    "seahorse"
+    "transmission-gtk"
+)
+FEDORA_DE_GNOME_FLATPAK=(
+    "it.mijorus.gearlever"
+    "com.mattjakeman.ExtensionManager"
 )
 
-FEDORA_GAMING=(
+FEDORA_DE_KDE_NATIVE=(
+    "kvantum"
+    "qbittorrent"
+    "smplayer"
+)
+FEDORA_DE_KDE_FLATPAK=(
+    "it.mijorus.gearlever"
+)
+
+# Gaming packages
+FEDORA_GAMING_NATIVE=(
     "steam"
-    "lutris"
     "mesa-libGL"
     "mesa-libGLU"
     "vulkan"
     "vulkan-loader"
 )
+FEDORA_GAMING_FLATPAK=(
+    "com.heroicgameslauncher.hgl"
+    "com.vysp3r.ProtonPlus"
+    "io.github.Faugus.faugus-launcher"
+)
+# COPR repositories (moved from programs.yaml into distro module)
+FEDORA_COPR_REPOS=(
+    "alternateved/eza"
+)
+
+# ---------------------------------------------------------------------------
+# distro_get_packages() - small, distro-local API for the main installer
+# Usage: distro_get_packages <section> <type>
+# Prints one package name per line (suitable for mapfile usage)
+# ---------------------------------------------------------------------------
+distro_get_packages() {
+    local section="$1"
+    local type="$2"
+
+    case "$section" in
+        standard)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_NATIVE_STANDARD[@]}" ;;
+                flatpak) printf "%s\n" "${FEDORA_FLATPAK_STANDARD[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        minimal)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_NATIVE_MINIMAL[@]}" ;;
+                flatpak) printf "%s\n" "${FEDORA_FLATPAK_MINIMAL[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        server)
+            case "$type" in
+                native) printf "%s\n" "${FEDORA_NATIVE_SERVER[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gnome)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_DE_GNOME_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${FEDORA_DE_GNOME_FLATPAK[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        kde)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_DE_KDE_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${FEDORA_DE_KDE_FLATPAK[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gaming)
+            case "$type" in
+                native)  printf "%s\n" "${FEDORA_GAMING_NATIVE[@]}" ;;
+                flatpak) printf "%s\n" "${FEDORA_GAMING_FLATPAK[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        *)
+            # Unknown section; nothing to return
+            return 0
+            ;;
+    esac
+}
+export -f distro_get_packages
 
 # =============================================================================
 # FEDORA CONFIGURATION FUNCTIONS
@@ -333,9 +445,13 @@ fedora_setup_flatpak() {
 # Additional Fedora helper setup functions
 fedora_setup_copr() {
     step "Setting up COPR repositories"
-    if command -v yq >/dev/null 2>&1 && [ -f "$CONFIGS_DIR/fedora/programs.yaml" ]; then
-        mapfile -t coprs < <(yq e '.copr[]?.repo // ""' "$CONFIGS_DIR/fedora/programs.yaml" 2>/dev/null)
-        for repo in "${coprs[@]}"; do
+    if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
+        # Ensure dnf-plugins-core is available (required for 'dnf copr')
+        if ! sudo dnf install -y dnf-plugins-core >/dev/null 2>&1; then
+            log_warn "Failed to install dnf-plugins-core; COPR setup may fail"
+        fi
+
+        for repo in "${FEDORA_COPR_REPOS[@]}"; do
             if [ -n "$repo" ]; then
                 log_info "Enabling COPR repository: $repo"
                 if ! sudo dnf copr enable -y "$repo" >/dev/null 2>&1; then
@@ -346,7 +462,7 @@ fedora_setup_copr() {
             fi
         done
     else
-        log_info "No COPR entries found in configuration or 'yq' missing"
+        log_info "No COPR entries configured for Fedora"
     fi
 }
 
@@ -657,32 +773,9 @@ fedora_enable_rpmfusion() {
     log_success "RPM Fusion repositories enabled"
 }
 
-fedora_setup_copr() {
-    step "Setting up COPR repositories"
-
-    # Install dnf-plugins-core if not already installed
-    if ! sudo dnf install -y dnf-plugins-core; then
-        log_error "Failed to install dnf-plugins-core"
-        return 1
-    fi
-
-    # Add COPR repositories from programs.yaml
-    # For now, we'll add the eza repository manually
-    log_info "Adding COPR repository for eza..."
-    if ! sudo dnf copr enable -y alternateved/eza; then
-        log_error "Failed to enable COPR repository for eza"
-        return 1
-    fi
-
-    # Update package cache after COPR
-    log_info "Updating package cache after COPR..."
-    if ! sudo dnf makecache -y; then
-        log_error "Failed to update package cache after COPR"
-        return 1
-    fi
-
-    log_success "COPR repositories configured"
-}
+# COPR setup is now implemented via the `FEDORA_COPR_REPOS` array and the modular
+# `fedora_setup_copr()` function defined earlier in this file. The legacy, duplicated
+# implementation which read from `programs.yaml` has been removed.
 
 fedora_setup_solaar() {
     # Skip solaar for server mode

@@ -23,38 +23,161 @@ APT_CONF="/etc/apt/apt.conf.d/99linuxinstaller"
 DEBIAN_CONFIGS_DIR="$SCRIPT_DIR/../configs/debian"
 UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 
-# Debian/Ubuntu-specific package lists
-DEBIAN_ESSENTIALS=(
-    "apt-transport-https"
-    "ca-certificates"
-    "curl"
-    "wget"
-    "rsync"
-    "bc"
-    "openssh-server"
-    "cron"
-    "bluez"
-    "flatpak"
-    "zoxide"
-    "fzf"
-    "fastfetch"
-    "eza"
+# Debian/Ubuntu-specific package lists (centralized in this module)
+DEBIAN_NATIVE_STANDARD=(
+    android-tools
+    bat
+    bleachbit
+    btop
+    chromium
+    cmatrix
+    cpupower
+    dosfstools
+    duf
+    expac
+    firefox
+    fwupd
+    gnome-disk-utility
+    hwinfo
+    inxi
+    mpv
+    ncdu
+    net-tools
+    nmap
+    noto-fonts-extra
+    samba
+    sl
+    speedtest-cli
+    sshfs
+    ttf-hack-nerd
+    ttf-liberation
+    unrar
+    wakeonlan
+    xdg-desktop-portal-gtk
+    apt-transport-https
+    ca-certificates
+    curl
+    wget
+    rsync
+    bc
+    flatpak
+    zoxide
+    fzf
+    fastfetch
+    eza
 )
 
-DEBIAN_DESKTOP=(
-    "gnome-tweaks"
-    "dconf-editor"
-    "ubuntu-desktop"  # Ubuntu specific
-    "gnome-shell-extensions"
+DEBIAN_FLATPAK_STANDARD=(
+    com.spotify.Client
+    com.dropbox.Client
+    org.filezillaproject.Filezilla
+    org.kde.kdenlive
+    org.onlyoffice.desktopeditors
+    com.github.RustRDP.RustDesk
 )
 
-DEBIAN_SERVER=(
-    "openssh-server"
-    "ufw"
-    "fail2ban"
-    "btop"
-    "nethogs"
+DEBIAN_NATIVE_MINIMAL=(
+    mpv
+    curl
+    git
 )
+
+DEBIAN_FLATPAK_MINIMAL=(
+    com.github.RustRDP.RustDesk
+)
+
+DEBIAN_NATIVE_SERVER=(
+    openssh-server
+    ufw
+    fail2ban
+    btop
+    nethogs
+)
+
+DEBIAN_DE_KDE_NATIVE=(
+    gwenview
+    kdeconnect
+    kdenlive
+    kwalletmanager
+    kvantum
+    okular
+    python-pyqt5
+    python-pyqt6
+    qbittorrent
+    spectacle
+    smplayer
+)
+
+DEBIAN_DE_GNOME_NATIVE=(
+    adw-gtk-theme
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    gufw
+    seahorse
+    transmission-gtk
+)
+
+DEBIAN_GAMING_NATIVE=(
+    steam
+    wine
+    lib32-vulkan1
+    lib32-mesa-libgl1
+    lib32-glibc
+    mangohud
+    gamemode
+)
+
+# distro_get_packages function used by the main installer
+distro_get_packages() {
+    local section="$1"
+    local type="$2"
+
+    case "$section" in
+        standard)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_NATIVE_STANDARD[@]}" ;;
+                flatpak) printf "%s\n" "${DEBIAN_FLATPAK_STANDARD[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        minimal)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_NATIVE_MINIMAL[@]}" ;;
+                flatpak) printf "%s\n" "${DEBIAN_FLATPAK_MINIMAL[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        server)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_NATIVE_SERVER[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        kde)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_DE_KDE_NATIVE[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gnome)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_DE_GNOME_NATIVE[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        gaming)
+            case "$type" in
+                native) printf "%s\n" "${DEBIAN_GAMING_NATIVE[@]}" ;;
+                *) return 0 ;;
+            esac
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+export -f distro_get_packages
 
 # =============================================================================
 # DEBIAN/UBUNTU CONFIGURATION FUNCTIONS
@@ -380,12 +503,11 @@ debian_setup_shell() {
 
             # Smart Icon Replacement
             # Default in file is Arch: " "
-            local os_icon=" " # Ubuntu icon (same as Debian)
+            local os_icon=" " # Ubuntu icon
 
             # Replace the icon in the file
-            # We look for the line containing "key": " " and substitute.
-            # Using specific regex to match the exact Arch icon  in the key value.
             sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
+            log_success "Applied custom fastfetch config with Ubuntu icon"
         elif [ -f "$DEBIAN_CONFIGS_DIR/config.jsonc" ]; then
             cp "$DEBIAN_CONFIGS_DIR/config.jsonc" "$dest_config"
 
@@ -394,16 +516,15 @@ debian_setup_shell() {
             local os_icon=" " # Debian icon
 
             # Replace the icon in the file
-            # We look for the line containing "key": " " and substitute.
-            # Using specific regex to match the exact Arch icon  in the key value.
             sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
-        fi
-
             log_success "Applied custom fastfetch config with Debian icon"
         else
            # Generate default if completely missing
            if [ ! -f "$dest_config" ]; then
              fastfetch --gen-config &>/dev/null
+             log_info "Fastfetch config generated (default)"
+           else
+             log_info "Using existing fastfetch configuration"
            fi
         fi
     fi
