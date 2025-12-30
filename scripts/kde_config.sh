@@ -18,12 +18,15 @@ fi
 KDE_ESSENTIALS=(
     "gwenview"
     "kdeconnect"
+    "kdenlive"
     "kwalletmanager"
     "kvantum"
     "okular"
+    "python-pyqt5"
+    "python-pyqt6"
+    "qbittorrent"
     "spectacle"
-    "plasma-nm"
-    "plasma-pa"
+    "smplayer"
 )
 
 KDE_OPTIONAL=(
@@ -40,6 +43,7 @@ KDE_REMOVALS=(
     "digikam"
     "dragon"
     "elisa-player"
+    "htop"
     "k3b"
     "kaddressbook"
     "kamoso"
@@ -299,5 +303,3 @@ export -f kde_configure_theme
 export -f kde_configure_network
 export -f kde_setup_plasma
 export -f kde_install_kdeconnect
-
-

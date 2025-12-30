@@ -16,16 +16,13 @@ fi
 
 # GNOME-specific package lists
 GNOME_ESSENTIALS=(
-    "gnome-tweaks"
+    "adw-gtk-theme"
+    "celluloid"
     "dconf-editor"
-    "gnome-extensions"
-    "gnome-shell-extensions"
-    "gnome-software"
-    "gnome-terminal"
-    "gnome-calculator"
-    "gnome-calendar"
-    "gnome-contacts"
-    "gnome-maps"
+    "gnome-tweaks"
+    "gufw"
+    "seahorse"
+    "transmission-gtk"
 )
 
 GNOME_OPTIONAL=(
@@ -37,6 +34,7 @@ GNOME_OPTIONAL=(
 )
 
 GNOME_REMOVALS=(
+    "htop"
     "rhythmbox"
     "totem"
     "gnome-tour"
