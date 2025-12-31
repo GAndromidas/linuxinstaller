@@ -35,6 +35,7 @@ show_system_info_box() {
             gum style --foreground "$GUM_BODY_FG" "GPU: ${DETECTED_GPU:-Unknown}"
             gum style --foreground "$GUM_BODY_FG" "RAM: ${DETECTED_RAM:-Unknown}"
         } | gum style --border double --margin "1 2" --padding "1 2" --border-foreground "$GUM_BORDER_FG" 2>/dev/null || true
+        echo ""
     else
         echo ""
         echo "System Information:"
@@ -65,7 +66,6 @@ show_menu() {
     if supports_gum && [ -t 0 ]; then
         # Show System Information in Bordered Box
         show_system_info_box
-        echo ""
 
         # Try interactive gum menu; if it fails or returns no selection, fall back
         local choice
@@ -114,10 +114,8 @@ show_menu() {
     fi
 
     # Fallback plain-text menu
-    echo ""
     # Show System Information in Bordered Box (same as gum version)
     show_system_info_box
-    echo ""
 
     local text_choice
     while true; do
