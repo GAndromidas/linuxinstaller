@@ -183,19 +183,11 @@ ARCH_DE_GNOME_NATIVE=(
     "transmission-gtk"
 )
 
-ARCH_DE_COSMIC_NATIVE=(
-    "celluloid"
-    "transmission-gtk"
-)
-
 ARCH_DE_KDE_FLATPAK=(
     "it.mijorus.gearlever"
 )
 ARCH_DE_GNOME_FLATPAK=(
     "com.mattjakeman.ExtensionManager"
-    "it.mijorus.gearlever"
-)
-ARCH_DE_COSMIC_FLATPAK=(
     "it.mijorus.gearlever"
 )
 
@@ -286,13 +278,6 @@ distro_get_packages() {
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_GNOME_NATIVE[@]}" ;;
                 flatpak) printf "%s\n" "${ARCH_DE_GNOME_FLATPAK[@]:-}" ;;
-                *) return 0 ;;
-            esac
-            ;;
-        cosmic)
-            case "$type" in
-                native) printf "%s\n" "${ARCH_DE_COSMIC_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_DE_COSMIC_FLATPAK[@]:-}" ;;
                 *) return 0 ;;
             esac
             ;;

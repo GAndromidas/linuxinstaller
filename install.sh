@@ -823,7 +823,6 @@ if ! is_step_complete "install_packages"; then
     # Install Desktop Environment Specific Packages
     if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
         DE_KEY=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
-        # Normalize DE key if needed (e.g. pop -> gnome/cosmic?)
         if [[ "$DE_KEY" == *"kde"* ]]; then DE_KEY="kde"; fi
         if [[ "$DE_KEY" == *"gnome"* ]]; then DE_KEY="gnome"; fi
 
