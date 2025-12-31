@@ -469,36 +469,9 @@ optimize_mirrors_arch() {
 
     # Ensure rate-mirrors is installed - prefer any available AUR helper (yay/paru) since it is typically an AUR package
     if ! command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "Installing rate-mirrors (rate-mirrors-bin) for mirror optimization..."
-    local rate_mirrors_installed=false
-
-
-        if command -v yay >/dev/null 2>&1; then
-            if ! yay -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
-                log_warn "Failed to install rate-mirrors-bin via yay"
-                return 1
-            fi
-        elif command -v paru >/dev/null 2>&1; then
-            if ! paru -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
-                log_warn "Failed to install rate-mirrors-bin via paru"
-                return 1
-            fi
-        else
-            log_info "No AUR helper found; attempting to install with pacman as a fallback..."
-            if ! sudo pacman -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
-                log_warn "Failed to install rate-mirrors-bin; mirror optimization may be skipped"
-                return 1
-            fi
-        fi
-    fi
-
-    # Speed-based detection removed; using default parallel downloads set in PARALLEL_DOWNLOADS (10)
-    # Skip mirror update if rate-mirrors-bin installation failed
-    if [ "$rate_mirrors_installed" = false ]; then
-        log_warn "Skipping mirror update due to rate-mirrors-bin installation failure"
+        log_info "Rate-mirrors not available, skipping mirror optimization (optional tool)"
         return 0
     fi
-    # No dynamic adjustments based on speed; mirrorlist update follows below.
 
     # Update mirrorlist using rate-mirrors and refresh pacman DB
     log_info "Updating mirrorlist with optimized mirrors..."
