@@ -24,13 +24,11 @@ MAINTENANCE_ARCH=(
 
 MAINTENANCE_FEDORA=(
     "timeshift"
-    "grub2-btrfs"
     "btrfs-progs"
 )
 
 MAINTENANCE_DEBIAN=(
     "timeshift"
-    "grub-btrfs"
     "btrfs-progs"
 )
 
@@ -294,53 +292,14 @@ maintenance_configure_grub_snapshots() {
         return
     fi
 
-    # Handle TimeShift (Fedora/Debian/Ubuntu)
-    if [ "$DISTRO_ID" != "arch" ]; then
-        log_info "Configuring TimeShift GRUB integration..."
+    # Determine what to install based on distro
+    local grub_btrfs_package=""
+    local grub_update_command=""
 
-        # Install grub-btrfs for TimeShift snapshot menu
-        if [ "$DISTRO_ID" = "fedora" ]; then
-            if command -v dnf >/dev/null 2>&1; then
-                if ! rpm -q grub2-btrfs >/dev/null 2>&1; then
-                    log_info "Installing grub2-btrfs for TimeShift support..."
-                    install_pkg "grub2-btrfs" || log_warn "Failed to install grub2-btrfs"
-                else
-                    log_info "grub2-btrfs already installed"
-                fi
-            fi
-        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-            if ! command -v grub-btrfs >/dev/null 2>&1; then
-                log_info "Installing grub-btrfs for TimeShift support..."
-                install_pkg "grub-btrfs" || log_warn "Failed to install grub-btrfs"
-            else
-                log_info "grub-btrfs already installed"
-            fi
-        fi
-
-        # Regenerate GRUB configuration
-        log_info "Regenerating GRUB configuration with TimeShift snapshot support..."
-        if command -v update-grub >/dev/null 2>&1; then
-            if sudo update-grub >/dev/null 2>&1; then
-                log_success "GRUB configuration complete - TimeShift snapshots will appear in boot menu"
-            else
-                log_warn "Failed to regenerate GRUB configuration"
-            fi
-        fi
-        return
-    fi
-
-    # Handle Snapper (Arch only)
     if [ "$DISTRO_ID" = "arch" ]; then
-        log_info "Configuring Snapper GRUB integration (Arch)..."
-
-        if ! command -v snapper >/dev/null 2>&1; then
-            log_info "Snapper not installed, skipping GRUB configuration"
-            return
-        fi
-
-        # Install grub-btrfs for Arch
+        # Arch: Use grub-btrfs (Arch-specific, doesn't work with systemd-boot)
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
-            log_info "Installing grub-btrfs for Snapper support..."
+            log_info "Installing grub-btrfs for Snapper snapshot support..."
             install_pkg "grub-btrfs" || {
                 log_warn "Failed to install grub-btrfs"
                 return 1
@@ -348,7 +307,7 @@ maintenance_configure_grub_snapshots() {
         else
             log_info "grub-btrfs already installed"
         fi
-
+        
         # Enable grub-btrfsd service for automatic snapshot detection
         if command -v grub-btrfsd >/dev/null 2>&1; then
             if sudo systemctl enable --now grub-btrfsd.service >/dev/null 2>&1; then
@@ -357,18 +316,39 @@ maintenance_configure_grub_snapshots() {
                 log_warn "Failed to enable grub-btrfsd service"
             fi
         fi
-
-        # Regenerate GRUB configuration
-        log_info "Regenerating GRUB configuration with Snapper snapshot support..."
+        
+        grub_update_command="grub-mkconfig"
+        
+    else
+        # Fedora/Debian/Ubuntu: Use standard grub-btrfs package (already in their repos)
+        # No need to check/install - it should be there if using GRUB
+        if [ "$DISTRO_ID" = "fedora" ] || [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+            log_info "Using system grub-btrfs for TimeShift snapshot support"
+            log_info "GRUB integration works via standard GRUB packages"
+            # grub-btrfs should already be installed with GRUB
+            # No special package installation needed
+        fi
+        
+        # Find correct GRUB update command
         if command -v grub-mkconfig >/dev/null 2>&1; then
-            if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-                log_success "GRUB configuration complete - Snapper snapshots will appear in boot menu"
-            else
-                log_warn "Failed to regenerate GRUB configuration"
-            fi
+            grub_update_command="grub-mkconfig"
+        elif command -v update-grub >/dev/null 2>&1; then
+            grub_update_command="update-grub"
         else
             log_warn "GRUB regeneration command not found. Please regenerate manually."
         fi
+    fi
+
+    # Regenerate GRUB configuration
+    if [ -n "$grub_update_command" ]; then
+        log_info "Regenerating GRUB configuration with snapshot support..."
+        if sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+            log_success "GRUB configuration complete - snapshots will appear in boot menu"
+        else
+            log_warn "Failed to regenerate GRUB configuration"
+        fi
+    else
+        log_warn "GRUB regeneration command not found. Please regenerate manually."
     fi
 }
 
