@@ -735,7 +735,21 @@ fi
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
-    show_resume_menu
+    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
+        show_resume_menu
+    else
+        log_info "No previous installation state found. Starting fresh."
+    fi
+else
+    log_warn "Dry-Run Mode Active: No changes will be applied."
+fi
+
+# 4. Mode Selection
+# Ensure that user is always prompted in interactive runs (so that menu appears on ./install.sh).
+# For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
+if [ "$DRY_RUN" = false ]; then
+    show_menu
+    mark_step_complete "setup_mode"
 else
     log_warn "Dry-Run Mode Active: No changes will be applied."
 fi
