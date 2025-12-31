@@ -210,9 +210,14 @@ mkdir -p "$(dirname "$STATE_FILE")"
 # Mark a step as completed in the state file
 mark_step_complete() {
     local step_name="$1"
+    local friendly="${CURRENT_STEP_MESSAGE:-$step_name}"
     if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
         echo "$step_name" >> "$STATE_FILE"
     fi
+    # Show a concise, friendly success message for the completed step
+    log_success "$friendly"
+    # Clear the saved friendly message
+    CURRENT_STEP_MESSAGE=""
 }
 
 # Check if a step has been completed
@@ -235,7 +240,6 @@ show_resume_menu() {
             echo ""
             gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Completed steps:"
             while IFS= read -r step; do
-                 # Completed steps are successes (green check + white body if desired)
                  gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ $step"
             done < "$STATE_FILE"
             echo ""

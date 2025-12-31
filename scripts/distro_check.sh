@@ -125,22 +125,11 @@ define_common_packages() {
     export HELPER_UTILS
 }
 
-# Resolve package name across different distributions using package_map.yaml
+# Resolve package name across different distributions (hardcoded fallback)
 resolve_package_name() {
     local pkg="$1"
-    local map_file="$(dirname "${BASH_SOURCE[0]}")/../configs/package_map.yaml"
-
-    # 1. Try YAML lookup
-    if [ -f "$map_file" ] && command -v yq >/dev/null; then
-        local val=$(yq -r ".mappings[\"$pkg\"].$DISTRO_ID // .mappings[\"$pkg\"].common" "$map_file" 2>/dev/null)
-        if [ "$val" != "null" ] && [ -n "$val" ]; then
-            echo "$val"
-            return
-        fi
-    fi
-
-    # 2. Hardcoded Fallback (Bootstrap or yq missing)
     local mapped="$pkg"
+
     if [ "$DISTRO_ID" != "arch" ]; then
         case "$pkg" in
             pacman-contrib|expac|yay|mkinitcpio) echo ""; return ;;
