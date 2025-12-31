@@ -20,35 +20,6 @@ EOF
     echo -e "${RESET}"
 }
 
-# Show System Info in Bordered Box
-show_system_info_box() {
-    detect_system_info 2>/dev/null || true
-
-    if supports_gum; then
-        # Create bordered box with system information
-        {
-            gum style --foreground "$GUM_PRIMARY_FG" --bold "System Information"
-            echo ""
-            gum style --foreground "$GUM_BODY_FG" "OS:  ${DETECTED_OS:-$PRETTY_NAME}"
-            gum style --foreground "$GUM_BODY_FG" "DE:  ${XDG_CURRENT_DESKTOP:-None}"
-            gum style --foreground "$GUM_BODY_FG" "CPU: ${DETECTED_CPU:-Unknown}"
-            gum style --foreground "$GUM_BODY_FG" "GPU: ${DETECTED_GPU:-Unknown}"
-            gum style --foreground "$GUM_BODY_FG" "RAM: ${DETECTED_RAM:-Unknown}"
-        } | gum style --border double --margin "1 2" --padding "1 2" --border-foreground "$GUM_BORDER_FG" 2>/dev/null || true
-        echo ""
-    else
-        echo ""
-        echo "System Information:"
-        echo "-------------------"
-        echo "OS:  ${DETECTED_OS:-$PRETTY_NAME}"
-        echo "DE:  ${XDG_CURRENT_DESKTOP:-None}"
-        echo "CPU: ${DETECTED_CPU:-Unknown}"
-        echo "GPU: ${DETECTED_GPU:-Unknown}"
-        echo "RAM: ${DETECTED_RAM:-Unknown}"
-        echo "-------------------"
-    fi
-}
-
 # Enhanced Menu Function
 show_menu() {
     show_linuxinstaller_ascii
@@ -64,9 +35,6 @@ show_menu() {
     # If gum is available and we have an interactive TTY, try to gum-based UI.
     # If gum fails or we don't have a TTY, gracefully fall back to a simple text menu.
     if supports_gum && [ -t 0 ]; then
-        # Show System Information in Bordered Box
-        show_system_info_box
-
         # Try interactive gum menu; if it fails or returns no selection, fall back
         local choice
         choice=$(gum choose --height 10 --header "Please select an installation mode:" \
@@ -114,9 +82,6 @@ show_menu() {
     fi
 
     # Fallback plain-text menu
-    # Show System Information in Bordered Box (same as gum version)
-    show_system_info_box
-
     local text_choice
     while true; do
         echo "Please select an installation mode:"
@@ -1130,29 +1095,14 @@ fi
 # 6. Finalization
 step "Finalizing Installation"
 
-if [ "$DRY_RUN" = true ]; then
-    if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Dry-Run Complete. No changes were made."
-    else
-        log_info "Dry-Run Complete. No changes were made."
-    fi
-else
-    if supports_gum; then
-        gum format --theme=dark --foreground "$GUM_PRIMARY_FG" "## Installation Complete!"
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is ready. Performing final cleanup..."
-    else
-        log_success "Installation Complete! Performing final cleanup..."
-    fi
-
-    # Offer to remove temporary helpers the installer added
+if [ "$DRY_RUN" = false ]; then
     final_cleanup
+fi
 
-    if supports_gum; then
-        gum format --theme=dark --foreground "$GUM_PRIMARY_FG" "## Done"
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is ready. Please reboot to ensure all changes take effect."
-    else
-        log_success "Done. Please reboot your system to ensure all changes take effect."
-    fi
-
+# Source and show installation summary with reboot prompt
+if [ -f "$SCRIPTS_DIR/installation_summary.sh" ]; then
+    source "$SCRIPTS_DIR/installation_summary.sh"
+    show_installation_summary
+else
     prompt_reboot
 fi
