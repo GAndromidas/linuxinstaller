@@ -1036,23 +1036,6 @@ if ! is_step_complete "de_config" && [ "$INSTALL_MODE" != "server" ]; then
     mark_step_complete "de_config"
 fi
 
-# Step: Run Gaming Configuration (if applicable)
-if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
-    step "Configuring Gaming Environment"
-
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would configure gaming environment"
-    else
-        if [ -f "$SCRIPTS_DIR/gaming_config.sh" ]; then
-            source "$SCRIPTS_DIR/gaming_config.sh"
-            gaming_main_config
-        else
-            log_warn "Gaming configuration module not found"
-        fi
-    fi
-    mark_step_complete "gaming_config"
-fi
-
 # Step: Run Security Configuration
 if ! is_step_complete "security_config"; then
     step "Configuring Security Features"
@@ -1102,6 +1085,23 @@ if ! is_step_complete "maintenance_config"; then
         fi
     fi
     mark_step_complete "maintenance_config"
+fi
+
+# Step: Run Gaming Configuration (if applicable)
+if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
+    step "Configuring Gaming Environment"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure gaming environment"
+    else
+        if [ -f "$SCRIPTS_DIR/gaming_config.sh" ]; then
+            source "$SCRIPTS_DIR/gaming_config.sh"
+            gaming_main_config
+        else
+            log_warn "Gaming configuration module not found"
+        fi
+    fi
+    mark_step_complete "gaming_config"
 fi
 
 # 6. Finalization
