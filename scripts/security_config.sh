@@ -34,6 +34,7 @@ SECURITY_DEBIAN=(
 # SECURITY CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install security packages for all distributions
 security_install_packages() {
     step "Installing Security Packages"
 
@@ -81,6 +82,7 @@ security_install_packages() {
     esac
 }
 
+# Configure Fail2ban intrusion prevention system
 security_configure_fail2ban() {
     step "Configuring Fail2ban"
 
@@ -111,6 +113,7 @@ security_configure_fail2ban() {
     fi
 }
 
+# Configure firewall (UFW for Arch/Debian/Ubuntu, firewalld for Fedora)
 security_configure_firewall() {
     step "Configuring Firewall"
 
@@ -192,6 +195,7 @@ security_configure_firewall() {
     esac
 }
 
+# Configure AppArmor security framework
 security_configure_apparmor() {
     step "Configuring AppArmor"
 
@@ -211,6 +215,7 @@ security_configure_apparmor() {
     fi
 }
 
+# Configure SELinux security framework (Fedora only)
 security_configure_selinux() {
     step "Configuring SELinux"
 
@@ -229,6 +234,7 @@ security_configure_selinux() {
     fi
 }
 
+# Configure SSH server security settings
 security_configure_ssh() {
     step "Configuring SSH Security"
 
@@ -257,6 +263,7 @@ security_configure_ssh() {
     fi
 }
 
+# Configure user group memberships for system access
 security_configure_user_groups() {
     step "Configuring User Groups"
 

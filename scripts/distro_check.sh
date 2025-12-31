@@ -2,6 +2,7 @@
 
 # Distro Detection and Package Manager Abstraction
 
+# Detect Linux distribution and set package manager variables
 detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -78,6 +79,7 @@ detect_de() {
     export XDG_CURRENT_DESKTOP
 }
 
+# Setup primary and backup universal package manager (flatpak/snap/native)
 setup_package_providers() {
     # Determine primary and backup universal package manager
     if [ "$DISTRO_ID" = "ubuntu" ]; then
@@ -98,6 +100,7 @@ setup_package_providers() {
     export PRIMARY_UNIVERSAL_PKG BACKUP_UNIVERSAL_PKG
 }
 
+# Define common utility packages for all distros
 define_common_packages() {
     # Common packages
     COMMON_UTILS="bc curl git rsync ufw fzf fastfetch eza zoxide"
@@ -122,6 +125,7 @@ define_common_packages() {
     export HELPER_UTILS
 }
 
+# Resolve package name across different distributions using package_map.yaml
 resolve_package_name() {
     local pkg="$1"
     local map_file="$(dirname "${BASH_SOURCE[0]}")/../configs/package_map.yaml"

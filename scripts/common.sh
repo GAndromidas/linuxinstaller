@@ -3,10 +3,7 @@
 
 # --- UI and Logging ---
 
-# Robust gum detection helpers
-# We prefer an external gum binary (not a shell function), and cache its path in $GUM_BIN.
-# `find_gum_bin()` scans PATH (and common locations) to avoid false positives when a
-# shell function named 'gum' exists (which would make `command -v gum` return true).
+# Find gum binary in PATH and common locations, avoiding shell function false positives
 find_gum_bin() {
     # Scan PATH entries for an executable 'gum' and print its path if found.
     # Avoid using `command -v` directly because it can report shell functions.
@@ -30,6 +27,7 @@ find_gum_bin() {
     return 1
 }
 
+# Check if gum UI helper is available and executable
 supports_gum() {
     # Fast path using type -P (portable) when it finds a binary
     local candidate
@@ -80,9 +78,7 @@ if ! supports_gum; then
     BLUE='\033[1;36m'    # bright cyan for headers/title
 fi
 
-# Wrapper around the 'gum' binary to enforce consistent borders and color choices.
-# This lets existing calls that set --border-foreground "$GUM_FG" still render with white borders.
-# The wrapper replaces any `--border-foreground <value>` with the configured $GUM_BORDER_FG.
+# Wrapper around gum binary to enforce consistent borders and colors
 gum() {
     # Use cached GUM_BIN if available; otherwise discover it without being fooled by
     # the existence of this shell function itself.
@@ -121,7 +117,7 @@ gum() {
     "$gum_bin" "${new_args[@]}"
 }
 
-# A standardized way to print step headers (blue accent for the title, white for the body)
+# Print step header with consistent formatting
 step() {
     local message="$1"
     if supports_gum; then
@@ -135,7 +131,7 @@ step() {
     echo "STEP: $message" >> "$INSTALL_LOG"
 }
 
-# Standardized logging functions
+# Log informational message (only shows in verbose mode)
 log_info() {
     local message="$1"
     # Always write informational messages to the install log
@@ -151,6 +147,7 @@ log_info() {
     fi
 }
 
+# Log success message
 log_success() {
     local message="$1"
     if supports_gum; then
@@ -165,6 +162,7 @@ log_success() {
     echo "[SUCCESS] $message" >> "$INSTALL_LOG"
 }
 
+# Log warning message
 log_warn() {
     local message="$1"
     if supports_gum; then
@@ -178,6 +176,7 @@ log_warn() {
     echo "[WARNING] $message" >> "$INSTALL_LOG"
 }
 
+# Log error message
 log_error() {
     local message="$1"
     if supports_gum; then
@@ -192,6 +191,7 @@ log_error() {
 }
 
 # --- Compatibility Aliases ---
+# Backwards compatibility aliases for logging functions
 ui_info() { log_info "$@"; }
 ui_success() { log_success "$@"; }
 ui_warn() { log_warn "$@"; }
@@ -207,7 +207,7 @@ STATE_FILE="$HOME/.linuxinstaller.state"
 # Initialize state file directory if needed
 mkdir -p "$(dirname "$STATE_FILE")"
 
-# Function to mark step as completed
+# Mark a step as completed in the state file
 mark_step_complete() {
     local step_name="$1"
     if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
@@ -215,18 +215,18 @@ mark_step_complete() {
     fi
 }
 
-# Function to check if step was completed
+# Check if a step has been completed
 is_step_complete() {
     local step_name="$1"
     [ -f "$STATE_FILE" ] && grep -q "^$step_name$" "$STATE_FILE"
 }
 
-# Function to clear state
+# Clear all completed steps from state file
 clear_state() {
     rm -f "$STATE_FILE"
 }
 
-# Resume menu
+# Display menu to resume or start fresh installation
 show_resume_menu() {
     if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
         log_info "Previous installation detected. The following steps were completed:"
@@ -280,7 +280,7 @@ show_resume_menu() {
 
 # --- Package Management Wrappers (ENFORCES NON-INTERACTIVE) ---
 
-# Wrapper to install one or more packages silently
+# Install one or more packages silently
 install_pkg() {
     if [ $# -eq 0 ]; then
         log_warn "install_pkg: No packages provided to install."
@@ -295,7 +295,7 @@ install_pkg() {
     fi
 }
 
-# Wrapper to remove one or more packages silently
+# Remove one or more packages silently
 remove_pkg() {
     if [ $# -eq 0 ]; then
         log_warn "remove_pkg: No packages provided to remove."
@@ -309,7 +309,7 @@ remove_pkg() {
     fi
 }
 
-# Wrapper to update the system silently
+# Update system packages silently
 update_system() {
     log_info "Updating system packages..."
     # The update command can be complex, so we handle it carefully
@@ -324,12 +324,12 @@ update_system() {
 
 # --- System & Hardware Checks ---
 
-# Check if the system is running in UEFI mode
+# Check if system is running in UEFI mode
 is_uefi() {
     [ -d /sys/firmware/efi/efivars ]
 }
 
-# Check for an active internet connection
+# Check for active internet connection (exits if no connection)
 check_internet() {
     if ! ping -c 1 -W 5 google.com &>/dev/null; then
         log_error "No internet connection detected. Aborting."
@@ -337,7 +337,7 @@ check_internet() {
     fi
 }
 
-# Arch-specific helper functions
+# Detect the system bootloader (grub or systemd-boot)
 detect_bootloader() {
     if [ -d /sys/firmware/efi ]; then
         if [ -f /boot/efi/EFI/arch/grubx64.efi ] || [ -f /boot/efi/EFI/BOOT/BOOTX64.EFI ]; then
@@ -356,6 +356,7 @@ detect_bootloader() {
     fi
 }
 
+# Check if system uses btrfs filesystem
 is_btrfs_system() {
     if [ -f /proc/mounts ]; then
         grep -q " btrfs " /proc/mounts
@@ -369,7 +370,7 @@ is_btrfs_system() {
 
 # --- Finalization ---
 
-# Standardized reboot prompt
+# Prompt user to reboot the system
 prompt_reboot() {
     if supports_gum; then
         # Use gum styled header instead of figlet for a consistent, dependency-free UI

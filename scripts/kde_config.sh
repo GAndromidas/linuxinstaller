@@ -75,6 +75,7 @@ KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 # KDE CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install essential KDE packages and remove unnecessary ones
 kde_install_packages() {
     step "Installing KDE Packages"
 
@@ -105,6 +106,7 @@ kde_install_packages() {
     done
 }
 
+# Configure KDE global keyboard shortcuts
 kde_configure_shortcuts() {
     step "Configuring KDE Shortcuts"
 
@@ -143,6 +145,7 @@ kde_configure_shortcuts() {
     dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/org.kde.konsole.desktop org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1 || true
 }
 
+# Configure KDE desktop wallpaper
 kde_configure_wallpaper() {
     step "Configuring KDE Wallpaper"
 
@@ -160,6 +163,7 @@ kde_configure_wallpaper() {
     fi
 }
 
+# Configure KDE desktop theme and appearance settings
 kde_configure_theme() {
     step "Configuring KDE Theme"
 
@@ -182,6 +186,7 @@ kde_configure_theme() {
     log_success "KDE theme configured"
 }
 
+# Configure KDE network settings and NetworkManager integration
 kde_configure_network() {
     step "Configuring KDE Network Settings"
 
@@ -204,6 +209,7 @@ kde_configure_network() {
     log_success "KDE network settings configured"
 }
 
+# Configure KDE Plasma desktop environment settings
 kde_setup_plasma() {
     step "Setting up KDE Plasma Desktop"
 
@@ -225,6 +231,7 @@ kde_setup_plasma() {
     log_success "KDE Plasma desktop configured"
 }
 
+# Install and configure KDE Connect for device integration
 kde_install_kdeconnect() {
     step "Installing and Configuring KDE Connect"
 

@@ -316,6 +316,7 @@ export -f distro_get_packages
 # ARCH LINUX CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Prepare Arch Linux system for configuration
 arch_system_preparation() {
     step "Arch Linux System Preparation"
 
@@ -356,6 +357,7 @@ arch_system_preparation() {
     log_success "Arch system preparation completed"
 }
 
+# Configure pacman package manager settings for Arch Linux
 configure_pacman_arch() {
     log_info "Configuring pacman for optimal performance..."
 
@@ -386,6 +388,7 @@ configure_pacman_arch() {
     log_success "pacman configured with optimizations"
 }
 
+# Enable multilib repository for 32-bit software support
 check_and_enable_multilib() {
     log_info "Checking and enabling multilib repository..."
 
@@ -398,6 +401,7 @@ check_and_enable_multilib() {
     fi
 }
 
+# Install yay AUR helper for Arch Linux
 arch_install_aur_helper() {
     step "Installing AUR Helper (yay)"
 
@@ -464,6 +468,7 @@ arch_install_aur_helper() {
     rm -rf "$temp_dir"
 }
 
+# Optimize Arch Linux mirror list for faster package downloads
 optimize_mirrors_arch() {
     step "Optimizing Arch Linux mirrors"
 
@@ -488,11 +493,13 @@ optimize_mirrors_arch() {
     fi
 }
 
+# Wrapper function to install AUR helper
 arch_setup_aur_helper() {
     # Simple wrapper that calls the new function
     arch_install_aur_helper
 }
 
+# Configure bootloader (GRUB or systemd-boot) for Arch Linux
 arch_configure_bootloader() {
     step "Configuring Arch Linux Bootloader"
 
@@ -513,6 +520,7 @@ arch_configure_bootloader() {
     esac
 }
 
+# Configure GRUB bootloader settings for Arch Linux
 configure_grub_arch() {
     log_info "Configuring GRUB for Arch Linux..."
 
@@ -552,10 +560,9 @@ configure_grub_arch() {
     log_info "Regenerating GRUB configuration..."
     if ! sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
         log_error "Failed to regenerate GRUB config"
-        return 1
+            return 1
+        fi
     fi
-
-    log_success "GRUB configured successfully"
 }
 
 configure_systemd_boot_arch() {
@@ -602,6 +609,7 @@ configure_systemd_boot_arch() {
     fi
 }
 
+# Enable and configure essential systemd services for Arch Linux
 arch_enable_system_services() {
     step "Enabling Arch Linux System Services"
 
@@ -627,6 +635,7 @@ arch_enable_system_services() {
     arch_configure_zram
 }
 
+# Configure ZRAM compressed swap for Arch Linux
 arch_configure_zram() {
     step "Configuring ZRAM for Arch Linux"
 
@@ -653,6 +662,7 @@ EOF
     fi
 }
 
+# Configure system locales for Greek and US English on Arch Linux
 arch_configure_locale() {
     step "Configuring Arch Linux Locales (Greek and US)"
 
@@ -794,6 +804,7 @@ ARCH_CONFIGS_DIR="$SCRIPT_DIR/../configs/arch"
 # KDE-specific configuration files
 KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs/arch"
 
+# Setup ZSH shell environment and configuration files for Arch Linux
 arch_setup_shell() {
     step "Setting up ZSH shell environment"
 
@@ -855,6 +866,7 @@ arch_setup_shell() {
 # Shortcuts are now configured via kde_config.sh for all distros
     log_info "KDE shortcuts will be configured via kde_config.sh"
 
+# Setup KDE global keyboard shortcuts for Arch Linux
 arch_setup_kde_shortcuts() {
     [[ "${XDG_CURRENT_DESKTOP:-}" != "KDE" ]] && return
 
@@ -872,6 +884,7 @@ arch_setup_kde_shortcuts() {
     fi
 }
 
+# Setup Solaar for Logitech hardware management on Arch Linux
 arch_setup_solaar() {
     # Skip solaar for server mode
     if [ "$INSTALL_MODE" == "server" ]; then
@@ -961,6 +974,7 @@ export -f arch_setup_aur_helper
 export -f arch_install_aur_helper
 export -f arch_configure_bootloader
 # arch firewall is configured via security_configure_firewall() in security_config.sh
+# Configure Plymouth boot splash screen for Arch Linux
 arch_configure_plymouth() {
     step "Configuring Plymouth boot splash"
 
@@ -1049,6 +1063,7 @@ export -f arch_enable_system_services
 export -f arch_configure_zram
 export -f arch_configure_plymouth
 
+# Configure bootloader (GRUB or systemd-boot) for Arch Linux
 arch_configure_bootloader() {
     step "Configuring Arch Linux Bootloader"
 
@@ -1073,6 +1088,7 @@ arch_configure_bootloader() {
 # AUR HELPER INSTALLATION AND MIRROR CONFIGURATION
 # =============================================================================
 
+# Configure Arch Linux package mirrors for optimal performance
 arch_configure_mirrors() {
     step "Configuring Arch Linux Mirrors"
 

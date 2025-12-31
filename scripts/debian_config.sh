@@ -209,6 +209,7 @@ export -f distro_get_packages
 # DEBIAN/UBUNTU CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Prepare Debian/Ubuntu system for configuration
 debian_system_preparation() {
     step "Debian/Ubuntu System Preparation"
 
@@ -232,6 +233,7 @@ debian_system_preparation() {
     log_success "Debian/Ubuntu system preparation completed"
 }
 
+# Configure APT package manager settings for Debian/Ubuntu
 configure_apt_debian() {
     log_info "Configuring APT for optimal performance..."
 
@@ -263,6 +265,7 @@ EOF
     log_success "APT configured with optimizations"
 }
 
+# Install essential packages for Debian/Ubuntu
 debian_install_essentials() {
     step "Installing Debian/Ubuntu Essential Packages"
 
@@ -298,6 +301,7 @@ debian_install_essentials() {
     fi
 }
 
+# Configure bootloader (GRUB or systemd-boot) for Debian/Ubuntu
 debian_configure_bootloader() {
     step "Configuring Debian/Ubuntu Bootloader"
 
@@ -318,6 +322,7 @@ debian_configure_bootloader() {
     esac
 }
 
+# Configure GRUB bootloader settings for Debian/Ubuntu
 configure_grub_debian() {
     log_info "Configuring GRUB for Debian/Ubuntu..."
 
@@ -363,6 +368,7 @@ configure_grub_debian() {
     log_success "GRUB configured successfully"
 }
 
+# Configure systemd-boot bootloader settings for Debian/Ubuntu
 configure_systemd_boot_debian() {
     log_info "Configuring systemd-boot for Debian/Ubuntu..."
 
@@ -407,6 +413,7 @@ configure_systemd_boot_debian() {
     fi
 }
 
+# Enable and configure essential systemd services for Debian/Ubuntu
 debian_enable_system_services() {
     step "Enabling Debian/Ubuntu System Services"
 
@@ -442,6 +449,7 @@ debian_enable_system_services() {
     log_success "UFW configured and enabled"
 }
 
+# Setup Flatpak and Flathub for Debian/Ubuntu
 debian_setup_flatpak() {
     step "Setting up Flatpak for Debian/Ubuntu"
 
@@ -458,6 +466,7 @@ debian_setup_flatpak() {
     log_success "Flatpak configured with Flathub"
 }
 
+# Setup Snap package manager for Ubuntu
 debian_setup_snap() {
     step "Setting up Snap for Ubuntu"
 
@@ -482,6 +491,7 @@ debian_setup_snap() {
     fi
 }
 
+# Setup ZSH shell environment and configuration files for Debian/Ubuntu
 debian_setup_shell() {
     step "Setting up ZSH shell environment"
 
@@ -556,6 +566,7 @@ debian_setup_shell() {
     fi
 }
 
+# Setup Solaar for Logitech hardware management on Debian/Ubuntu
 debian_setup_solaar() {
     # Skip solaar for server mode
     if [ "$INSTALL_MODE" == "server" ]; then
@@ -635,6 +646,7 @@ debian_setup_solaar() {
     fi
 }
 
+# Configure system locales for Greek and US English on Debian/Ubuntu
 debian_configure_locale() {
     step "Configuring Debian/Ubuntu Locales (Greek and US)"
 

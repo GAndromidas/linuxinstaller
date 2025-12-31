@@ -49,6 +49,7 @@ GNOME_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 # GNOME CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install essential GNOME packages and remove unnecessary ones
 gnome_install_packages() {
     step "Installing GNOME Packages"
 
@@ -72,6 +73,7 @@ gnome_install_packages() {
     done
 }
 
+# Configure GNOME shell extensions
 gnome_configure_extensions() {
     step "Configuring GNOME Extensions"
 
@@ -103,6 +105,7 @@ gnome_configure_extensions() {
     done
 }
 
+# Configure GNOME desktop theme and appearance settings
 gnome_configure_theme() {
     step "Configuring GNOME Theme"
 
@@ -127,6 +130,7 @@ gnome_configure_theme() {
     log_success "GNOME theme configured"
 }
 
+# Configure GNOME keyboard shortcuts
 gnome_configure_shortcuts() {
     step "Configuring GNOME Shortcuts"
 
@@ -177,6 +181,7 @@ gnome_configure_shortcuts() {
     log_success "Shortcut 'Meta+Enter' created for GNOME Terminal."
 }
 
+# Configure GNOME desktop environment settings
 gnome_configure_desktop() {
     step "Configuring GNOME Desktop"
 
@@ -207,6 +212,7 @@ gnome_configure_desktop() {
     log_success "GNOME desktop configured"
 }
 
+# Configure GNOME network settings
 gnome_configure_network() {
     step "Configuring GNOME Network Settings"
 
@@ -228,6 +234,7 @@ gnome_configure_network() {
     log_success "GNOME network settings configured"
 }
 
+# Install and configure GNOME Software application
 gnome_install_gnome_software() {
     step "Installing and Configuring GNOME Software"
 

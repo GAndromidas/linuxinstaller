@@ -6,7 +6,7 @@ set -uo pipefail
 # Supports: Arch Linux, Fedora, Debian, Ubuntu
 # =============================================================================
 
-# LinuxInstaller ASCII Art Function
+# Show LinuxInstaller ASCII art banner
 show_linuxinstaller_ascii() {
     clear
     echo -e "${BLUE}"
@@ -212,6 +212,7 @@ mkdir -p "$(dirname "$STATE_FILE")"
 
 # --- Helper Functions ---
 
+# Display help message and usage information
 show_help() {
   cat << EOF
 LinuxInstaller - Unified Post-Install Script
@@ -246,7 +247,7 @@ EOF
   exit 0
 }
 
-# Ensure essential tools (gum) are present and usable
+# Bootstrap essential tools (gum UI helper) for the installer
 bootstrap_tools() {
     log_info "Bootstrapping installer tools..."
 
@@ -304,7 +305,7 @@ bootstrap_tools() {
 
 
 
-# Package Installation Logic (robust parsing of many YAML shapes)
+# Install a group of packages based on mode and package type (native, aur, flatpak, snap)
 install_package_group() {
     local section_path="$1"
     local title="$2"
@@ -464,6 +465,7 @@ install_package_group() {
 
 # --- User Shell & Config Setup ---
 
+# Configure zsh shell and user config files (zshrc, starship, fastfetch)
 configure_user_shell_and_configs() {
     step "Configuring Zsh and user-level configs (zsh, starship, fastfetch)"
     local target_user="${SUDO_USER:-$USER}"
@@ -520,6 +522,8 @@ configure_user_shell_and_configs() {
 }
 
 # --- Final Cleanup ---
+
+# Clean up temporary helper packages (gum) installed by the script
 final_cleanup() {
     step "Final cleanup and optional helper removal"
 

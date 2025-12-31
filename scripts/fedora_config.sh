@@ -202,6 +202,7 @@ export -f distro_get_packages
 # FEDORA CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Prepare Fedora system for configuration
 fedora_system_preparation() {
     step "Fedora System Preparation"
 
@@ -221,6 +222,7 @@ fedora_system_preparation() {
     log_success "Fedora system preparation completed"
 }
 
+# Enable RPM Fusion repositories for Fedora
 fedora_enable_rpmfusion() {
     step "Enabling RPM Fusion Repositories"
 
@@ -242,6 +244,7 @@ fedora_enable_rpmfusion() {
     fi
 }
 
+# Configure DNF package manager settings for Fedora
 fedora_configure_dnf() {
     log_info "Configuring DNF for optimal performance..."
 
@@ -276,6 +279,7 @@ fedora_configure_dnf() {
     log_success "DNF configured with optimizations"
 }
 
+# Install essential packages for Fedora
 fedora_install_essentials() {
     step "Installing Fedora Essential Packages"
 
@@ -301,6 +305,7 @@ fedora_install_essentials() {
     fi
 }
 
+# Configure bootloader (GRUB or systemd-boot) for Fedora
 fedora_configure_bootloader() {
     step "Configuring Fedora Bootloader"
 
@@ -321,6 +326,7 @@ fedora_configure_bootloader() {
     esac
 }
 
+# Configure GRUB bootloader settings for Fedora
 configure_grub_fedora() {
     log_info "Configuring GRUB for Fedora..."
 
@@ -373,6 +379,7 @@ configure_grub_fedora() {
     log_success "GRUB configured successfully"
 }
 
+# Configure systemd-boot bootloader settings for Fedora
 configure_systemd_boot_fedora() {
     log_info "Configuring systemd-boot for Fedora..."
 
@@ -417,6 +424,7 @@ configure_systemd_boot_fedora() {
     fi
 }
 
+# Enable and configure essential systemd services for Fedora
 fedora_enable_system_services() {
     step "Enabling Fedora System Services"
 
@@ -455,6 +463,7 @@ fedora_enable_system_services() {
     fi
 }
 
+# Setup Flatpak and Flathub for Fedora
 fedora_setup_flatpak() {
     step "Setting up Flatpak for Fedora"
 
@@ -472,6 +481,7 @@ fedora_setup_flatpak() {
 }
 
 # Additional Fedora helper setup functions
+# Setup COPR repositories for Fedora
 fedora_setup_copr() {
     step "Setting up COPR repositories"
     if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
@@ -495,6 +505,7 @@ fedora_setup_copr() {
     fi
 }
 
+# Setup ZSH shell environment and configuration files for Fedora
 fedora_setup_shell() {
     step "Setting up ZSH shell environment"
 
@@ -531,6 +542,7 @@ fedora_setup_shell() {
     fi
 }
 
+# Setup Solaar for Logitech hardware management on Fedora
 fedora_setup_solaar() {
     # Mirror existing solaar setup from other modules
     step "Setting up Logitech Hardware Support for Fedora"
@@ -575,6 +587,7 @@ fedora_setup_solaar() {
     fi
 }
 
+# Configure system locales for Greek and US English on Fedora
 fedora_configure_locale() {
     step "Configuring Fedora Locales (Greek and US)"
 
@@ -753,6 +766,7 @@ fedora_setup_shell() {
 # DNF OPTIMIZATION AND REPOSITORY CONFIGURATION
 # =============================================================================
 
+# Configure DNF package manager settings for Fedora
 fedora_configure_dnf() {
     step "Configuring DNF for optimal performance"
 
@@ -811,6 +825,7 @@ fedora_configure_dnf() {
     log_success "DNF configuration completed"
 }
 
+# Enable RPM Fusion repositories for Fedora
 fedora_enable_rpmfusion() {
     step "Enabling RPM Fusion repositories"
 
@@ -842,6 +857,7 @@ fedora_enable_rpmfusion() {
 # `fedora_setup_copr()` function defined earlier in this file. The legacy, duplicated
 # implementation which read from `programs.yaml` has been removed.
 
+# Setup Solaar for Logitech hardware management on Fedora
 fedora_setup_solaar() {
     # Skip solaar for server mode
     if [ "$INSTALL_MODE" == "server" ]; then

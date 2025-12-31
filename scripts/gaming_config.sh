@@ -14,6 +14,7 @@ source "$SCRIPT_DIR/distro_check.sh"
 # GAMING CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install gaming packages for current distribution
 gaming_install_packages() {
     step "Installing Gaming Packages"
 
@@ -41,6 +42,7 @@ gaming_install_packages() {
     fi
 }
 
+# Configure system settings for optimal gaming performance
 gaming_configure_performance() {
     step "Configuring Gaming Performance"
 
@@ -70,6 +72,7 @@ gaming_configure_performance() {
     fi
 }
 
+# Configure MangoHud for gaming overlay statistics
 gaming_configure_mangohud() {
     step "Configuring MangoHud"
 
@@ -83,6 +86,7 @@ gaming_configure_mangohud() {
     log_success "MangoHud configured"
 }
 
+# Configure GameMode for performance optimization during gaming
 gaming_configure_gamemode() {
     step "Configuring GameMode"
 
@@ -100,6 +104,7 @@ gaming_configure_gamemode() {
     fi
 }
 
+# Install and configure Steam gaming platform
 gaming_configure_steam() {
     step "Configuring Steam"
 
@@ -126,6 +131,7 @@ gaming_configure_steam() {
     log_success "Steam configured"
 }
 
+# Install Faugus game launcher via Flatpak
 gaming_install_faugus() {
     step "Installing Faugus (flatpak)"
 

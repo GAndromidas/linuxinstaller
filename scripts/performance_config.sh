@@ -39,6 +39,7 @@ PERFORMANCE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 # PERFORMANCE CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Configure ZRAM compressed swap for performance
 performance_configure_zram() {
     step "Configuring ZRAM for Performance"
 
@@ -65,6 +66,7 @@ EOF
     fi
 }
 
+# Configure system swappiness for optimal performance
 performance_configure_swappiness() {
     step "Configuring System Swappiness"
 
@@ -80,6 +82,7 @@ performance_configure_swappiness() {
     fi
 }
 
+# Configure CPU governor for optimal performance
 performance_configure_cpu_governor() {
     step "Configuring CPU Governor"
 
@@ -108,6 +111,7 @@ EOF
     fi
 }
 
+# Configure filesystem performance optimizations
 performance_configure_filesystem() {
     step "Configuring Filesystem Performance"
 
@@ -130,6 +134,7 @@ performance_configure_filesystem() {
     fi
 }
 
+# Configure network performance settings
 performance_configure_network() {
     step "Configuring Network Performance"
 
@@ -149,6 +154,7 @@ EOF
     fi
 }
 
+# Configure kernel parameters for performance
 performance_configure_kernel() {
     step "Configuring Kernel Performance"
 
@@ -169,6 +175,7 @@ EOF
     fi
 }
 
+# Configure systemd services for performance
 performance_configure_services() {
     step "Configuring Service Performance"
 
@@ -206,6 +213,7 @@ performance_configure_services() {
     done
 }
 
+# Install performance optimization packages for all distributions
 performance_install_performance_packages() {
     step "Installing Performance Packages"
 
@@ -253,6 +261,7 @@ performance_install_performance_packages() {
     esac
 }
 
+# Configure Btrfs filesystem performance optimizations
 performance_configure_btrfs() {
     step "Configuring Btrfs Performance"
 
@@ -281,6 +290,7 @@ performance_configure_btrfs() {
     fi
 }
 
+# Configure system settings for optimal gaming performance
 performance_configure_gaming() {
     step "Configuring Gaming Performance"
 

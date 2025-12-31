@@ -22,6 +22,7 @@ fi
 # System detection helpers
 # -----------------------------------------------------------------------------
 
+# Detect and populate system information (OS, CPU, GPU, RAM)
 detect_system_info() {
     # Populates globals:
     # - DETECTED_OS
@@ -75,6 +76,7 @@ detect_system_info() {
     export DETECTED_OS DETECTED_CPU DETECTED_GPU DETECTED_RAM CPU_VENDOR
 }
 
+# Display detected system information to user
 show_system_info() {
     # Print system information in the same style as other headers
     detect_system_info
@@ -99,7 +101,7 @@ show_system_info() {
 # Power management configuration
 # -----------------------------------------------------------------------------
 
-# Helper: attempt to install package(s) with fallbacks
+# Helper function to attempt package installation with fallbacks
 _try_install() {
     # Args: package1 [package2 ...]
     for pkg in "$@"; do
@@ -128,6 +130,7 @@ _try_install() {
     return 1
 }
 
+# Configure power management (power-profiles-daemon, cpupower, or tuned)
 configure_power_management() {
     step "Configuring Power Management"
 

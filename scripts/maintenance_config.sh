@@ -36,6 +36,7 @@ MAINTENANCE_DEBIAN=(
 # MAINTENANCE CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install maintenance packages for all distributions
 maintenance_install_packages() {
     step "Installing Maintenance Packages"
 
@@ -352,6 +353,7 @@ maintenance_configure_grub_snapshots() {
     fi
 }
 
+# Configure Btrfs snapshot management
 maintenance_configure_btrfs_snapshots() {
     step "Configuring Btrfs Snapshots"
 
@@ -409,6 +411,7 @@ maintenance_configure_btrfs_snapshots() {
     fi
 }
 
+# Configure automatic system updates for Fedora/Debian/Ubuntu
 maintenance_configure_automatic_updates() {
     step "Configuring Automatic Updates"
 
