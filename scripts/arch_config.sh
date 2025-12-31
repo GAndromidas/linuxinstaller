@@ -470,6 +470,8 @@ optimize_mirrors_arch() {
     # Ensure rate-mirrors is installed - prefer any available AUR helper (yay/paru) since it is typically an AUR package
     if ! command -v rate-mirrors >/dev/null 2>&1; then
         log_info "Installing rate-mirrors (rate-mirrors-bin) for mirror optimization..."
+    local rate_mirrors_installed=false
+
 
         if command -v yay >/dev/null 2>&1; then
             if ! yay -S --noconfirm --needed rate-mirrors-bin >/dev/null 2>&1; then
@@ -491,6 +493,11 @@ optimize_mirrors_arch() {
     fi
 
     # Speed-based detection removed; using default parallel downloads set in PARALLEL_DOWNLOADS (10)
+    # Skip mirror update if rate-mirrors-bin installation failed
+    if [ "$rate_mirrors_installed" = false ]; then
+        log_warn "Skipping mirror update due to rate-mirrors-bin installation failure"
+        return 0
+    fi
     # No dynamic adjustments based on speed; mirrorlist update follows below.
 
     # Update mirrorlist using rate-mirrors and refresh pacman DB
@@ -753,7 +760,10 @@ arch_setup_shell() {
         if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
             log_success "Default shell changed to ZSH"
         else
-            log_warning "Failed to change shell. You may need to do this manually."
+            log_warning "Failed to change shell automatically"
+            log_info "Please run this command manually to change your shell:"
+            log_info "  sudo chsh -s $(command -v zsh) $USER"
+            log_info "After changing your shell, log out and log back in for changes to take effect."
         fi
     fi
 
@@ -798,6 +808,9 @@ arch_setup_shell() {
         fi
     fi
 }
+
+# Shortcuts are now configured via kde_config.sh for all distros
+    log_info "KDE shortcuts will be configured via kde_config.sh"
 
 arch_setup_kde_shortcuts() {
     [[ "${XDG_CURRENT_DESKTOP:-}" != "KDE" ]] && return

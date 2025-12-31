@@ -24,7 +24,6 @@ KDE_ESSENTIALS=(
     "okular"
     "python-pyqt5"
     "python-pyqt6"
-    "qbittorrent"
     "spectacle"
     "smplayer"
 )
@@ -70,6 +69,8 @@ KDE_REMOVALS=(
 # KDE-specific configuration files
 KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
+KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
+
 # =============================================================================
 # KDE CONFIGURATION FUNCTIONS
 # =============================================================================
@@ -88,11 +89,18 @@ kde_install_packages() {
 
     # Remove unnecessary KDE packages
     log_info "Removing unnecessary KDE packages..."
+    # Remove unnecessary KDE packages
+    log_info "Removing unnecessary KDE packages..."
     for package in "${KDE_REMOVALS[@]}"; do
+        if ! is_package_installed "$package"; then
+            log_info "Package '$package' not installed, skipping removal"
+            continue
+        fi
+        
         if remove_pkg "$package"; then
             log_success "Removed KDE package: $package"
         else
-            log_warn "Failed to remove KDE package: $package (may not be installed)"
+            log_warn "Failed to remove KDE package: $package"
         fi
     done
 }
@@ -126,7 +134,7 @@ kde_configure_shortcuts() {
 
     # Setup Meta+Enter to Launch Terminal (Konsole)
     log_info "Setting up 'Meta+Enter' to launch Konsole..."
-    $kwrite --file "$config_file" --group "org.kde.konsole.desktop" --key "new-window" "Meta+Return,none,New Window" || true
+    $kwrite --file "$config_file" --group "org.kde.konsole.desktop" --key "new-window" "Meta+Return,none,New Window,New Window" || true
     log_success "Attempted to set 'Meta+Enter' to launch Konsole. You may need to log out for this to apply."
 
     # Reload the shortcut daemon
@@ -153,6 +161,16 @@ kde_configure_wallpaper() {
 }
 
 kde_configure_theme() {
+/kde_configure_theme()/{a\
+    if [ -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf" ]; then\
+        rm -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf"\
+        log_info "Removed Arch MangoHud config (migrated to script-based setup)"\
+    fi\
+    if [ -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc" ]; then\
+        rm -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc"\
+        log_info "Removed Arch KDE shortcuts config (migrated to script-based setup)"\
+    fi\
+}
     step "Configuring KDE Theme"
 
     local kwrite="kwriteconfig5"
@@ -292,6 +310,15 @@ kde_main_config() {
     fi
 
     log_success "KDE configuration completed"
+    # Cleanup redundant Arch-specific config files (now configured via scripts)
+    if [ -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf" ]; then
+        rm -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf"
+        log_info "Removed Arch MangoHud config (migrated to script-based setup)"
+    fi
+    if [ -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc" ]; then
+        rm -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc"
+        log_info "Removed Arch KDE shortcuts config (configured via kde_config.sh)"
+    fi
 }
 
 # Export functions for use by main installer
@@ -303,3 +330,31 @@ export -f kde_configure_theme
 export -f kde_configure_network
 export -f kde_setup_plasma
 export -f kde_install_kdeconnect
+# Check if a package is installed (distro-agnostic)
+is_package_installed() {
+    local pkg="$1"
+    
+    case "$DISTRO_ID" in
+        "arch")
+            pacman -Qq "$pkg" >/dev/null 2>&1
+            ;;
+        "fedora")
+            rpm -q "$pkg" >/dev/null 2>&1
+            ;;
+        "debian"|"ubuntu")
+            dpkg -l | grep -q "^ii  $pkg"
+            ;;
+        *)
+            # Fallback: try to query package manager
+            if command -v pacman >/dev/null 2>&1; then
+                pacman -Qq "$pkg" >/dev/null 2>&1
+            elif command -v rpm >/dev/null 2>&1; then
+                rpm -q "$pkg" >/dev/null 2>&1
+            elif command -v dpkg >/dev/null 2>&1; then
+                dpkg -l | grep -q "^ii  $pkg"
+            else
+                return 1
+            fi
+            ;;
+    esac
+}
