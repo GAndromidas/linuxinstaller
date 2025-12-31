@@ -165,8 +165,8 @@ gaming_main_config() {
     log_info "Starting gaming configuration..."
 
     # Check if gaming mode is enabled
-    if [ "$INSTALL_MODE" != "standard" ] && [ "$INSTALL_MODE" != "gaming" ]; then
-        log_info "Gaming mode not selected for this installation mode"
+    if [ "${INSTALL_GAMING:-false}" != "true" ]; then
+        log_info "Gaming installation not requested. Skipping gaming configuration."
         return 0
     fi
 

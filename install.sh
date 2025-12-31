@@ -1037,7 +1037,7 @@ if ! is_step_complete "de_config" && [ "$INSTALL_MODE" != "server" ]; then
 fi
 
 # Step: Run Gaming Configuration (if applicable)
-if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ]; then
+if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
     step "Configuring Gaming Environment"
 
     if [ "$DRY_RUN" = true ]; then
