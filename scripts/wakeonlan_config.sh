@@ -187,26 +187,6 @@ wakeonlan_persist_via_nm() {
 
 # Enable WoL on a single interface (runtime + persistence)
 wakeonlan_enable_iface() {
-    local iface="$1"
-
-    # Runtime enablement
-    if [ "${DRY_RUN:-false}" = "true" ]; then
-        log_info "[DRY-RUN] Would run: ethtool -s $iface wol g"
-    else
-        if sudo ethtool -s "$iface" wol g >> "$INSTALL_LOG" 2>&1; then
-            log_success "Enabled Wake-on-LAN (runtime) on $iface"
-        else
-            log_warn "Failed to enable Wake-on-LAN (runtime) on $iface. Check $INSTALL_LOG for details."
-        fi
-    fi
-
-    # Persistence: try NetworkManager first, then systemd unit fallback
-    if wakeonlan_persist_via_nm "$iface"; then
-        return 0
-    fi
-
-    wakeonlan_create_systemd_service "$iface"
-}
 
 # Disable WoL on a single interface (runtime + persistence cleanup)
 wakeonlan_disable_iface() {
@@ -316,14 +296,27 @@ wakeonlan_enable_all() {
     local cnt=0
     for iface in "${devs[@]}"; do
         log_info "Processing interface: $iface"
-        wakeonlan_enable_iface "$iface"
-        cnt=$((cnt + 1))
-    done
-
-    log_success "Configured Wake-on-LAN on $cnt interface(s)"
-    mark_step_complete "wakeonlan_setup"
 }
 
+    local cnt=0
+    local success_count=0
+    
+    for iface in "${devs[@]}"; do
+        log_info "Processing interface: $iface"
+        if wakeonlan_enable_iface "$iface"; then
+            success_count=$((success_count + 1))
+        fi
+        cnt=$((cnt + 1))
+    done
+    
+    if [ $success_count -gt 0 ]; then
+        log_success "Configured Wake-on-LAN on $success_count interface(s) out of $cnt attempted"
+        mark_step_complete "wakeonlan_setup"
+    else
+        log_warn "No suitable interfaces found for Wake-on-LAN configuration"
+        log_info "Wake-on-LAN may not be supported on virtual/wireless interfaces"
+        mark_step_complete "wakeonlan_setup"
+    fi
 # Disable WoL on all detected wired interfaces and remove persistence
 wakeonlan_disable_all() {
     step "Disabling Wake-on-LAN for wired interfaces"
@@ -376,3 +369,53 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         *) echo "Usage: $0 {enable|disable|status}" ; exit 2 ;;
     esac
 fi
+# Test if an interface supports Wake-on-LAN before attempting configuration
+wakeonlan_supports_wol() {
+    local iface="$1"
+    
+    # Test if interface supports Wake-on-LAN
+    local wol_support
+    wol_support=$(sudo ethtool "$iface" 2>/dev/null | awk '/Wake-on:/ {print $2}')
+    
+    # If ethtool couldn't get Wake-on info, assume not supported
+    if [ -z "$wol_support" ]; then
+        log_info "Unable to determine Wake-on-LAN support for $iface"
+        return 1
+    fi
+    
+    # Check if WoL can be enabled (has g or d option)
+    # g = enabled, d = disabled, no WoL support reported
+    if [[ "$wol_support" != *"g"* && "$wol_support" != *"d"* ]]; then
+        log_info "Interface $iface does not support Wake-on-LAN or is not suitable"
+        return 1
+    fi
+    
+    return 0
+}
+wakeonlan_enable_iface() {
+    local iface="$1"
+    
+    # Check if interface supports Wake-on-LAN before attempting configuration
+    if ! wakeonlan_supports_wol "$iface"; then
+        log_info "Interface $iface does not support Wake-on-LAN or cannot be configured. Skipping."
+        return 1
+    fi
+    
+    # Runtime enablement
+    if [ "${DRY_RUN:-false}" = "true" ]; then
+        log_info "[DRY-RUN] Would run: ethtool -s $iface wol g"
+    else
+        if sudo ethtool -s "$iface" wol g >> "$INSTALL_LOG" 2>&1; then
+            log_success "Enabled Wake-on-LAN (runtime) on $iface"
+        else
+            log_warn "Failed to enable Wake-on-LAN (runtime) on $iface. This may be normal for some virtual/wireless interfaces."
+        fi
+    fi
+    
+    # Persistence: try NetworkManager first, then systemd unit fallback
+    if wakeonlan_persist_via_nm "$iface"; then
+        return 0
+    fi
+    
+    wakeonlan_create_systemd_service "$iface"
+}

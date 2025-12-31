@@ -17,7 +17,6 @@ SECURITY_ESSENTIALS=(
 SECURITY_ARCH=(
     "ufw"
     "apparmor"
-    "apparmor-utils"
 )
 
 SECURITY_FEDORA=(
