@@ -20,6 +20,34 @@ EOF
     echo -e "${RESET}"
 }
 
+# Show System Info in Bordered Box
+show_system_info_box() {
+    detect_system_info 2>/dev/null || true
+
+    if supports_gum; then
+        # Create bordered box with system information
+        {
+            gum style --foreground "$GUM_PRIMARY_FG" --bold "System Information"
+            echo ""
+            gum style --foreground "$GUM_BODY_FG" "OS:  ${DETECTED_OS:-$PRETTY_NAME}"
+            gum style --foreground "$GUM_BODY_FG" "DE:  ${XDG_CURRENT_DESKTOP:-None}"
+            gum style --foreground "$GUM_BODY_FG" "CPU: ${DETECTED_CPU:-Unknown}"
+            gum style --foreground "$GUM_BODY_FG" "GPU: ${DETECTED_GPU:-Unknown}"
+            gum style --foreground "$GUM_BODY_FG" "RAM: ${DETECTED_RAM:-Unknown}"
+        } | gum style --border double --margin "1 2" --padding "1 2" --border-foreground "$GUM_BORDER_FG" 2>/dev/null || true
+    else
+        echo ""
+        echo "System Information:"
+        echo "-------------------"
+        echo "OS:  ${DETECTED_OS:-$PRETTY_NAME}"
+        echo "DE:  ${XDG_CURRENT_DESKTOP:-None}"
+        echo "CPU: ${DETECTED_CPU:-Unknown}"
+        echo "GPU: ${DETECTED_GPU:-Unknown}"
+        echo "RAM: ${DETECTED_RAM:-Unknown}"
+        echo "-------------------"
+    fi
+}
+
 # Enhanced Menu Function
 show_menu() {
     show_linuxinstaller_ascii
@@ -32,19 +60,11 @@ show_menu() {
 
     echo ""
 
-    # If gum is available and we have an interactive TTY, try the gum-based UI.
+    # If gum is available and we have an interactive TTY, try to gum-based UI.
     # If gum fails or we don't have a TTY, gracefully fall back to a simple text menu.
     if supports_gum && [ -t 0 ]; then
-        # Header
-        gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
-        echo ""
-        # Show OS / DE / CPU / GPU / RAM information (prefers helper from power_config.sh)
-        if declare -f show_system_info >/dev/null 2>&1; then
-            show_system_info
-        else
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected OS: $PRETTY_NAME" 2>/dev/null || true
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
-        fi
+        # Show System Information in Bordered Box
+        show_system_info_box
         echo ""
 
         # Try interactive gum menu; if it fails or returns no selection, fall back
@@ -95,13 +115,8 @@ show_menu() {
 
     # Fallback plain-text menu
     echo ""
-    # Show OS / DE / CPU / GPU / RAM information (prefers helper from power_config.sh)
-    if declare -f show_system_info >/dev/null 2>&1; then
-        show_system_info
-    else
-        echo "Detected OS: $PRETTY_NAME"
-        echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
-    fi
+    # Show System Information in Bordered Box (same as gum version)
+    show_system_info_box
     echo ""
 
     local text_choice
@@ -714,21 +729,9 @@ bootstrap_tools
 
 # 3. Welcome & Resume Check
 clear
-# Prefer the interactive gum header when available and running in a TTY.
-# Otherwise, fall back to a simple, readable text header so the script doesn't 'flash'.
-if supports_gum && [ -t 0 ]; then
-    gum style --border double --margin "1 2" --padding "1 4" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "LinuxInstaller: Unified Setup" 2>/dev/null || true
-    echo ""
-    # Show OS / DE / CPU / GPU / RAM information (uses helper from power_config.sh if present)
-    show_system_info
-else
-    # Non-gum, non-interactive or fallback header (keeps output readable)
-    echo ""
-    echo "LinuxInstaller: Unified Setup"
-    echo ""
-    # Show OS / DE / CPU / GPU / RAM information (uses helper from power_config.sh if present)
-    show_system_info
-fi
+# Show System Information in Bordered Box
+show_system_info_box
+echo ""
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
