@@ -526,13 +526,13 @@ configure_user_shell_and_configs() {
         log_info "No fastfetch config found at $cfg_dir/config.jsonc; skipping"
     fi
 
-    # Set default shell for target user
+    # Set default shell for target user (skip chsh to avoid hang)
     if command -v zsh >/dev/null 2>&1; then
-        if chsh -s "$(command -v zsh)" "$target_user" >/dev/null 2>&1; then
-            log_success "Default shell for $target_user set to zsh"
-        else
-            log_warn "Failed to set default shell for $target_user to zsh (may require user interaction)"
-        fi
+        log_info "Zsh is installed. Default shell can be changed manually with: chsh -s zsh"
+        log_info "Skipping automatic shell change to prevent installation hang"
+    else
+        log_warn "zsh not installed; skipping shell change"
+    fi
     else
         log_warn "zsh not installed; skipping shell change"
     fi
