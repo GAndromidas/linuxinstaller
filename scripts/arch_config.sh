@@ -653,6 +653,70 @@ EOF
     fi
 }
 
+arch_configure_locale() {
+    step "Configuring Arch Linux Locales (Greek and US)"
+
+    local locale_file="/etc/locale.gen"
+
+    if [ ! -f "$locale_file" ]; then
+        log_error "locale.gen file not found"
+        return 1
+    fi
+
+    # Backup original file
+    sudo cp "$locale_file" "${locale_file}.backup"
+
+    # Uncomment Greek locale (el_GR.UTF-8)
+    if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then
+        log_info "Enabling Greek locale (el_GR.UTF-8)..."
+        sudo sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
+        log_success "Greek locale enabled"
+    elif grep -q "^el_GR.UTF-8 UTF-8" "$locale_file"; then
+        log_info "Greek locale already enabled"
+    else
+        log_warn "Greek locale not found in locale.gen"
+    fi
+
+    # Uncomment US English locale (en_US.UTF-8)
+    if grep -q "^#en_US.UTF-8 UTF-8" "$locale_file"; then
+        log_info "Enabling US English locale (en_US.UTF-8)..."
+        sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
+        log_success "US English locale enabled"
+    elif grep -q "^en_US.UTF-8 UTF-8" "$locale_file"; then
+        log_info "US English locale already enabled"
+    else
+        log_warn "US English locale not found in locale.gen"
+    fi
+
+    # Generate locales
+    log_info "Generating locales..."
+    if sudo locale-gen >/dev/null 2>&1; then
+        log_success "Locales generated successfully"
+    else
+        log_error "Failed to generate locales"
+        return 1
+    fi
+
+    # Set default locale to Greek (can be changed by user)
+    local locale_conf="/etc/locale.conf"
+
+    if [ ! -f "$locale_conf" ]; then
+        sudo touch "$locale_conf"
+    fi
+
+    # Set LANG to Greek
+    log_info "Setting default locale to Greek (el_GR.UTF-8)..."
+    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+        log_success "Default locale set to el_GR.UTF-8"
+    else
+        log_warn "Failed to set default locale"
+    fi
+
+    log_info "Locale configuration completed"
+    log_info "To change system locale, edit /etc/locale.conf"
+    log_info "Available locales: el_GR.UTF-8 (Greek), en_US.UTF-8 (US English)"
+}
+
 # =============================================================================
 # MAIN ARCH CONFIGURATION FUNCTION
 # =============================================================================
@@ -713,6 +777,12 @@ arch_main_config() {
     if ! is_step_complete "arch_system_services"; then
         arch_enable_system_services
         mark_step_complete "arch_system_services"
+    fi
+
+    # Locale Configuration
+    if ! is_step_complete "arch_locale"; then
+        arch_configure_locale
+        mark_step_complete "arch_locale"
     fi
 
     log_success "Arch Linux configuration completed"
@@ -1129,5 +1199,6 @@ export -f arch_enable_system_services
 export -f arch_configure_zram
 export -f arch_install_aur_helper
 export -f arch_configure_mirrors
+export -f arch_configure_locale
 
 export -f arch_configure_plymouth

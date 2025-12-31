@@ -575,6 +575,36 @@ fedora_setup_solaar() {
     fi
 }
 
+fedora_configure_locale() {
+    step "Configuring Fedora Locales (Greek and US)"
+
+    # Install language packs for Greek and US English
+    log_info "Installing language packs..."
+    if ! sudo dnf install -y glibc-langpack-el glibc-langpack-en >/dev/null 2>&1; then
+        log_warn "Failed to install language packs"
+    else
+        log_success "Language packs installed"
+    fi
+
+    local locale_conf="/etc/locale.conf"
+
+    if [ ! -f "$locale_conf" ]; then
+        sudo touch "$locale_conf"
+    fi
+
+    # Set LANG to Greek
+    log_info "Setting default locale to Greek (el_GR.UTF-8)..."
+    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+        log_success "Default locale set to el_GR.UTF-8"
+    else
+        log_warn "Failed to set default locale"
+    fi
+
+    log_info "Locale configuration completed"
+    log_info "To change system locale, edit /etc/locale.conf"
+    log_info "Available locales: el_GR.UTF-8 (Greek), en_US.UTF-8 (US English)"
+}
+
 # =============================================================================
 # MAIN FEDORA CONFIGURATION FUNCTION
 # =============================================================================
@@ -640,6 +670,12 @@ fedora_main_config() {
     if ! is_step_complete "fedora_solaar_setup"; then
         fedora_setup_solaar
         mark_step_complete "fedora_solaar_setup"
+    fi
+
+    # Locale Configuration
+    if ! is_step_complete "fedora_locale"; then
+        fedora_configure_locale
+        mark_step_complete "fedora_locale"
     fi
 
     log_success "Fedora configuration completed"
@@ -897,3 +933,4 @@ export -f fedora_enable_system_services
 export -f fedora_setup_flatpak
 export -f fedora_setup_shell
 export -f fedora_setup_solaar
+export -f fedora_configure_locale

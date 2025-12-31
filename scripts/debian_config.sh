@@ -635,6 +635,77 @@ debian_setup_solaar() {
     fi
 }
 
+debian_configure_locale() {
+    step "Configuring Debian/Ubuntu Locales (Greek and US)"
+
+    # Install language packs
+    log_info "Installing language packs..."
+    if [ "$DISTRO_ID" == "ubuntu" ]; then
+        if ! sudo apt-get install -y language-pack-el language-pack-en >/dev/null 2>&1; then
+            log_warn "Failed to install language packs"
+        else
+            log_success "Language packs installed"
+        fi
+    else
+        # Debian uses locale packages
+        if ! sudo apt-get install -y locales >/dev/null 2>&1; then
+            log_warn "Failed to install locales package"
+        else
+            log_success "Locales package installed"
+        fi
+    fi
+
+    local locale_file="/etc/locale.gen"
+
+    if [ -f "$locale_file" ]; then
+        sudo cp "$locale_file" "${locale_file}.backup"
+
+        # Uncomment Greek locale
+        if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then
+            log_info "Enabling Greek locale (el_GR.UTF-8)..."
+            sudo sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
+            log_success "Greek locale enabled"
+        elif grep -q "^el_GR.UTF-8 UTF-8" "$locale_file"; then
+            log_info "Greek locale already enabled"
+        fi
+
+        # Uncomment US English locale
+        if grep -q "^#en_US.UTF-8 UTF-8" "$locale_file"; then
+            log_info "Enabling US English locale (en_US.UTF-8)..."
+            sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
+            log_success "US English locale enabled"
+        elif grep -q "^en_US.UTF-8 UTF-8" "$locale_file"; then
+            log_info "US English locale already enabled"
+        fi
+
+        # Generate locales
+        log_info "Generating locales..."
+        if sudo locale-gen >/dev/null 2>&1; then
+            log_success "Locales generated successfully"
+        else
+            log_warn "Failed to generate locales"
+        fi
+    fi
+
+    local locale_conf="/etc/default/locale"
+
+    if [ ! -f "$locale_conf" ]; then
+        sudo touch "$locale_conf"
+    fi
+
+    # Set LANG to Greek
+    log_info "Setting default locale to Greek (el_GR.UTF-8)..."
+    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+        log_success "Default locale set to el_GR.UTF-8"
+    else
+        log_warn "Failed to set default locale"
+    fi
+
+    log_info "Locale configuration completed"
+    log_info "To change system locale, edit /etc/default/locale (Debian) or /etc/locale.conf (Ubuntu)"
+    log_info "Available locales: el_GR.UTF-8 (Greek), en_US.UTF-8 (US English)"
+}
+
 # =============================================================================
 # MAIN DEBIAN CONFIGURATION FUNCTION
 # =============================================================================
@@ -690,6 +761,12 @@ debian_main_config() {
         mark_step_complete "debian_solaar_setup"
     fi
 
+    # Locale Configuration
+    if ! is_step_complete "debian_locale"; then
+        debian_configure_locale
+        mark_step_complete "debian_locale"
+    fi
+
     log_success "Debian/Ubuntu configuration completed"
 }
 
@@ -703,3 +780,4 @@ export -f debian_setup_flatpak
 export -f debian_setup_snap
 export -f debian_setup_shell
 export -f debian_setup_solaar
+export -f debian_configure_locale
