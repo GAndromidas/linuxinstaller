@@ -533,9 +533,6 @@ configure_user_shell_and_configs() {
     else
         log_warn "zsh not installed; skipping shell change"
     fi
-    else
-        log_warn "zsh not installed; skipping shell change"
-    fi
 
     return 0
 }
