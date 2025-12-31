@@ -17,19 +17,21 @@ MAINTENANCE_ESSENTIALS=(
 MAINTENANCE_ARCH=(
     "snap-pac"
     "snapper"
+    "grub-btrfs"
     "linux-lts"
     "linux-lts-headers"
 )
 
 MAINTENANCE_FEDORA=(
+    "timeshift"
+    "grub2-btrfs"
     "btrfs-progs"
-    "dnf-automatic"
 )
 
 MAINTENANCE_DEBIAN=(
-    "btrfs-tools"
-    "unattended-upgrades"
-    "apticron"
+    "timeshift"
+    "grub-btrfs"
+    "btrfs-progs"
 )
 
 # =============================================================================
@@ -83,8 +85,80 @@ maintenance_install_packages() {
     esac
 }
 
+# Configure TimeShift for Fedora/Debian/Ubuntu
+maintenance_configure_timeshift() {
+    step "Configuring TimeShift"
+
+    if ! command -v timeshift >/dev/null 2>&1; then
+        log_info "TimeShift not installed, skipping configuration"
+        return
+    fi
+
+    log_info "Configuring TimeShift for optimal snapshot management..."
+
+    # Ensure TimeShift directory exists
+    sudo mkdir -p /etc/timeshift
+
+    # Configure TimeShift with user's desired settings
+    local TS_CONFIG="/etc/timeshift/timeshift.json"
+
+    # Backup existing config
+    if [ -f "$TS_CONFIG" ]; then
+        sudo cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        log_info "TimeShift config backed up"
+    fi
+
+    # Create/Update TimeShift configuration
+    sudo tee "$TS_CONFIG" >/dev/null << 'EOF'
+{
+    "snapshot_device_uuid": null,
+    "snapshot_device": "",
+    "snapshot_list_devices": "false",
+    "snapshot_mnt": "/",
+    "snapshot_output_dir": "",
+    "snapshot_output_dirs": [],
+    "schedule_monthly": false,
+    "schedule_weekly": false,
+    "schedule_daily": false,
+    "schedule_hourly": false,
+    "schedule_boot": false,
+    "schedule_startup": false,
+    "count_max": 5,
+    "count_min": 0,
+    "count": 0,
+    "date_format": "%Y-%m-%d %H:%M",
+    "exclude": [
+        "/home/*/.cache*",
+        "/home/*/.local/share/Trash*",
+        "/home/*/.thumbnails/*",
+        "/home/*/.local/share/Steam/*",
+        "/var/cache/*",
+        "/var/tmp/*",
+        "/var/log/journal/*",
+        "/home/*/Downloads/*"
+    ]
+}
+EOF
+
+    # Configure Timeshift to use BTRFS mode
+    if command -v timeshift >/dev/null 2>&1; then
+        sudo sed -i 's/snapshot_device_uuid": null/"snapshot_device_uuid": null/' "$TS_CONFIG" 2>/dev/null || true
+        sudo sed -i 's/snapshot_device": ""/"snapshot_device": ""/' "$TS_CONFIG" 2>/dev/null || true
+    fi
+
+    log_success "TimeShift configured: max 5 snapshots, no automatic schedules"
+    log_info "Automatic snapshots disabled as requested"
+    log_info "Excludes: downloads, cache, thumbnails, Steam, logs"
+}
+
+# Configure Snapper for Arch (only)
 maintenance_configure_snapper_settings() {
-    step "Configuring Snapper Settings"
+    step "Configuring Snapper (Arch Only)"
+
+    if [ "$DISTRO_ID" != "arch" ]; then
+        log_info "Snapper is Arch-specific. Skipping."
+        return
+    fi
 
     if ! command -v snapper >/dev/null 2>&1; then
         log_info "Snapper not installed, skipping configuration"
@@ -131,49 +205,28 @@ maintenance_configure_snapper_settings() {
     log_info "Timeline snapshots disabled as requested"
 }
 
+# Setup pre-update snapshots (TimeShift for non-Arch, Snapper for Arch)
 maintenance_setup_pre_update_snapshots() {
     step "Setting Up Pre-Update Snapshot Function"
 
-    if ! command -v snapper >/dev/null 2>&1; then
-        log_info "Snapper not installed, skipping snapshot hook setup"
-        return
-    fi
-
-    local HOOK_DIR=""
-    local HOOK_SCRIPT=""
-
-    case "$DISTRO_ID" in
-        "arch")
-            HOOK_DIR="/etc/pacman.d/hooks"
-            HOOK_SCRIPT="snapper-notify.hook"
-            ;;
-        "fedora")
-            HOOK_DIR="/etc/dnf/plugins"
-            HOOK_SCRIPT="snapper-notify.sh"
-            ;;
-        "debian"|"ubuntu")
-            HOOK_DIR="/etc/apt/apt.conf.d"
-            HOOK_SCRIPT="99snapper-notify"
-            ;;
-        *)
-            log_info "No package hook supported for $DISTRO_ID"
+    if [ "$DISTRO_ID" = "arch" ]; then
+        # Use Snapper for Arch
+        if ! command -v snapper >/dev/null 2>&1; then
+            log_info "Snapper not installed, skipping snapshot hook setup"
             return
-            ;;
-    esac
+        fi
 
-    if [ -z "$HOOK_DIR" ]; then
-        return
-    fi
+        # Arch: Pacman hook
+        local HOOK_DIR="/etc/pacman.d/hooks"
+        local HOOK_SCRIPT="snapper-notify.hook"
 
-    sudo mkdir -p "$HOOK_DIR"
+        sudo mkdir -p "$HOOK_DIR"
 
-    case "$DISTRO_ID" in
-        "arch")
-            if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
-                sudo cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-            fi
+        if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
+            sudo cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        fi
 
-            cat << 'EOF' | sudo tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
+        cat << 'EOF' | sudo tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
 [Trigger]
 Operation = Upgrade
 Operation = Install
@@ -191,61 +244,48 @@ Description = Create post-update snapshot
 When = PostTransaction
 Exec = /usr/bin/sh -c 'snapper -c root create -d "Post-update: $(date +"%%Y-%%m-%%d %%H:%%M")" && echo "Snapshots created. View with: snapper list"'
 EOF
-            log_success "Pacman hook installed for pre/post-update snapshots"
-            ;;
-        "fedora")
-            if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
-                sudo cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-            fi
+        log_success "Pacman hook installed for pre/post-update snapshots (Snapper)"
 
-            cat << 'EOF' | sudo tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
+    else
+        # Use TimeShift for Fedora/Debian/Ubuntu
+        if ! command -v timeshift >/dev/null 2>&1; then
+            log_info "TimeShift not installed, skipping snapshot hook setup"
+            return
+        fi
+
+        # TimeShift doesn't have built-in pre/post hooks, but we can create wrapper functions
+        # Create a wrapper script for manual use
+        cat << 'EOF' | sudo tee /usr/local/bin/system-update-snapshot >/dev/null
 #!/bin/bash
-# DNF plugin for creating snapshots before/after package operations
+# Create TimeShift snapshot before system update
+# Usage: system-update-snapshot [description]
 
-pre_transaction() {
-    if command -v snapper >/dev/null 2>&1; then
-        snapper -c root create -d "Pre-update: $(date +%Y-%m-%d\ %H:%M)"
+DESCRIPTION="${1:-Pre-update}"
+
+if command -v timeshift >/dev/null 2>&1; then
+    echo "Creating TimeShift snapshot: $DESCRIPTION"
+    sudo timeshift --create --description "$DESCRIPTION"
+    echo "Snapshot created successfully!"
+else
+    echo "TimeShift not installed. Please install it first."
+    exit 1
+fi
+EOF
+        sudo chmod +x /usr/local/bin/system-update-snapshot
+
+        log_success "System update snapshot wrapper created: /usr/local/bin/system-update-snapshot"
+        log_info "Usage: Run 'system-update-snapshot' before updates manually"
     fi
 }
 
-post_transaction() {
-    if command -v snapper >/dev/null 2>&1; then
-        snapper -c root create -d "Post-update: $(date +%Y-%m-%d\ %H:%M)"
-    fi
-}
-
-# Hook into DNF
-EOF
-            sudo chmod +x "$HOOK_DIR/$HOOK_SCRIPT"
-            log_success "DNF hook installed for pre/post-update snapshots"
-            ;;
-        "debian"|"ubuntu")
-            if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
-                sudo cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-            fi
-
-            cat << 'EOF' | sudo tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
-DPkg::Pre-Install-Pkgs { "snapper -c root create -d \"Pre-install: \$(date +%Y-%m-%d\\ %H:%M)\""; }
-DPkg::Post-Invoke { "if [ \$1 = \"configure\" ] || [ \$1 = \"remove\" ]; then snapper -c root create -d \"Post-operation: \$(date +%Y-%m-%d\\ %H:%M)\"; fi"; }
-EOF
-            log_success "APT hook installed for pre/post-update snapshots"
-            ;;
-    esac
-}
-
+# Configure GRUB for snapshot boot menu (TimeShift for non-Arch, Snapper for Arch)
 maintenance_configure_grub_snapshots() {
     step "Configuring GRUB for Snapshot Boot Menu"
-
-    if ! command -v snapper >/dev/null 2>&1; then
-        log_info "Snapper not installed, skipping GRUB configuration"
-        return
-    fi
 
     local bootloader
     bootloader=$(detect_bootloader)
     log_info "Detected bootloader: $bootloader"
 
-    # Only configure GRUB, skip systemd-boot and others
     if [ "$bootloader" != "grub" ]; then
         log_info "Non-GRUB bootloader detected ($bootloader). Skipping GRUB snapshot menu."
         if [ "$bootloader" = "systemd-boot" ]; then
@@ -254,10 +294,53 @@ maintenance_configure_grub_snapshots() {
         return
     fi
 
-    # Install grub-btrfs if on Arch
+    # Handle TimeShift (Fedora/Debian/Ubuntu)
+    if [ "$DISTRO_ID" != "arch" ]; then
+        log_info "Configuring TimeShift GRUB integration..."
+
+        # Install grub-btrfs for TimeShift snapshot menu
+        if [ "$DISTRO_ID" = "fedora" ]; then
+            if command -v dnf >/dev/null 2>&1; then
+                if ! rpm -q grub2-btrfs >/dev/null 2>&1; then
+                    log_info "Installing grub2-btrfs for TimeShift support..."
+                    install_pkg "grub2-btrfs" || log_warn "Failed to install grub2-btrfs"
+                else
+                    log_info "grub2-btrfs already installed"
+                fi
+            fi
+        elif [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+            if ! command -v grub-btrfs >/dev/null 2>&1; then
+                log_info "Installing grub-btrfs for TimeShift support..."
+                install_pkg "grub-btrfs" || log_warn "Failed to install grub-btrfs"
+            else
+                log_info "grub-btrfs already installed"
+            fi
+        fi
+
+        # Regenerate GRUB configuration
+        log_info "Regenerating GRUB configuration with TimeShift snapshot support..."
+        if command -v update-grub >/dev/null 2>&1; then
+            if sudo update-grub >/dev/null 2>&1; then
+                log_success "GRUB configuration complete - TimeShift snapshots will appear in boot menu"
+            else
+                log_warn "Failed to regenerate GRUB configuration"
+            fi
+        fi
+        return
+    fi
+
+    # Handle Snapper (Arch only)
     if [ "$DISTRO_ID" = "arch" ]; then
+        log_info "Configuring Snapper GRUB integration (Arch)..."
+
+        if ! command -v snapper >/dev/null 2>&1; then
+            log_info "Snapper not installed, skipping GRUB configuration"
+            return
+        fi
+
+        # Install grub-btrfs for Arch
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
-            log_info "Installing grub-btrfs for GRUB snapshot support..."
+            log_info "Installing grub-btrfs for Snapper support..."
             install_pkg "grub-btrfs" || {
                 log_warn "Failed to install grub-btrfs"
                 return 1
@@ -274,25 +357,18 @@ maintenance_configure_grub_snapshots() {
                 log_warn "Failed to enable grub-btrfsd service"
             fi
         fi
-    fi
 
-    # Regenerate GRUB configuration
-    log_info "Regenerating GRUB configuration with snapshot support..."
-    if command -v grub-mkconfig >/dev/null 2>&1; then
-        if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-            log_success "GRUB configuration complete - snapshots will appear in boot menu"
+        # Regenerate GRUB configuration
+        log_info "Regenerating GRUB configuration with Snapper snapshot support..."
+        if command -v grub-mkconfig >/dev/null 2>&1; then
+            if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+                log_success "GRUB configuration complete - Snapper snapshots will appear in boot menu"
+            else
+                log_warn "Failed to regenerate GRUB configuration"
+            fi
         else
-            log_warn "Failed to regenerate GRUB configuration"
+            log_warn "GRUB regeneration command not found. Please regenerate manually."
         fi
-    elif command -v update-grub >/dev/null 2>&1; then
-        # For Debian/Ubuntu systems
-        if sudo update-grub >/dev/null 2>&1; then
-            log_success "GRUB configuration complete - snapshots will appear in boot menu"
-        else
-            log_warn "Failed to regenerate GRUB configuration"
-        fi
-    else
-        log_warn "GRUB regeneration command not found. Please regenerate manually."
     fi
 }
 
@@ -304,9 +380,18 @@ maintenance_configure_btrfs_snapshots() {
 
         local bootloader
         bootloader=$(detect_bootloader)
+        log_info "Detected bootloader: $bootloader"
 
-        # Configure Snapper settings (disable timeline, limit to 5 snapshots)
-        maintenance_configure_snapper_settings
+        # Choose snapshot tool based on distro
+        # Arch: Snapper (better GRUB integration with grub-btrfs)
+        # Fedora/Debian/Ubuntu: TimeShift (simpler, better for cross-distro)
+        if [ "$DISTRO_ID" = "arch" ]; then
+            log_info "Using Snapper for Arch (excellent GRUB integration)"
+            maintenance_configure_snapper_settings
+        else
+            log_info "Using TimeShift for $DISTRO_ID (simple, cross-distro, better GUI)"
+            maintenance_configure_timeshift
+        fi
 
         # Setup pre/post-update snapshot hooks for all distros
         maintenance_setup_pre_update_snapshots
@@ -320,10 +405,22 @@ maintenance_configure_btrfs_snapshots() {
         sudo systemctl enable --now btrfs-defrag@-.timer >/dev/null 2>&1 || true
 
         # Create initial snapshot
-        if sudo snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
-            log_success "Initial snapshot created"
+        if [ "$DISTRO_ID" = "arch" ]; then
+            # Use Snapper
+            if sudo snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
+                log_success "Initial snapshot created (Snapper)"
+            else
+                log_warn "Failed to create initial snapshot (non-critical)"
+            fi
         else
-            log_warn "Failed to create initial snapshot (non-critical)"
+            # Use TimeShift
+            if command -v timeshift >/dev/null 2>&1; then
+                if sudo timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
+                    log_success "Initial snapshot created (TimeShift)"
+                else
+                    log_warn "Failed to create initial snapshot (non-critical)"
+                fi
+            fi
         fi
 
         log_success "Btrfs snapshots configured"
@@ -415,6 +512,7 @@ export -f maintenance_main_config
 export -f maintenance_install_packages
 export -f maintenance_configure_btrfs_snapshots
 export -f maintenance_configure_automatic_updates
+export -f maintenance_configure_timeshift
 export -f maintenance_configure_snapper_settings
 export -f maintenance_setup_pre_update_snapshots
 export -f maintenance_configure_grub_snapshots
