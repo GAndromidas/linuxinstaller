@@ -126,7 +126,11 @@ show_menu() {
         echo "  2) Minimal - Essential tools only for lightweight installations"
         echo "  3) Server - Headless server configuration"
         echo "  4) Exit"
-        read -r -p "Enter choice [1-4]: " text_choice
+        read -r -t 300 -p "Enter choice [1-4]: " text_choice 2>/dev/null || {
+            echo "No input received. Using default: Standard"
+            text_choice="1"
+            break
+        }
 
         case "$text_choice" in
             1) export INSTALL_MODE="standard" ; break ;;
@@ -729,9 +733,6 @@ bootstrap_tools
 
 # 3. Welcome & Resume Check
 clear
-# Show System Information in Bordered Box
-show_system_info_box
-echo ""
 
 # Check for previous state (Resume capability)
 if [ "$DRY_RUN" = false ]; then
@@ -747,11 +748,21 @@ fi
 # 4. Mode Selection
 # Ensure that user is always prompted in interactive runs (so that menu appears on ./install.sh).
 # For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
-if [ "$DRY_RUN" = false ]; then
-    show_menu
-    mark_step_complete "setup_mode"
+if [ -t 0 ]; then
+    # Interactive terminal - show menu
+    if [ "$DRY_RUN" = false ]; then
+        show_menu
+        mark_step_complete "setup_mode"
+    else
+        log_warn "Dry-Run Mode Active: No changes will be applied."
+    fi
 else
-    log_warn "Dry-Run Mode Active: No changes will be applied."
+    # Non-interactive: only set a default mode if none exists to avoid prompting
+    if ! is_step_complete "setup_mode"; then
+        export INSTALL_MODE="${INSTALL_MODE:-standard}"
+        log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
+        mark_step_complete "setup_mode"
+    fi
 fi
 
 # 4. Mode Selection
