@@ -137,9 +137,6 @@ DEBIAN_DE_GNOME_NATIVE=(
 DEBIAN_GAMING_NATIVE=(
     steam
     wine
-    lib32-vulkan1
-    lib32-mesa-libgl1
-    lib32-glibc
     mangohud
     gamemode
 )

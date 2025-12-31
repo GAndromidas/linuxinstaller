@@ -8,37 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 source "$SCRIPT_DIR/distro_check.sh"
 
-# Gaming-specific package lists
-GAMING_ESSENTIALS=(
-    "steam"
-    "wine"
-    "vulkan-icd-loader"
-    "mesa"
-)
 
-GAMING_ARCH=(
-    "lib32-vulkan-icd-loader"
-    "lib32-mesa"
-    "lib32-glibc"
-    "mangohud"
-    "gamemode"
-)
-
-GAMING_FEDORA=(
-    "lib32-vulkan"
-    "lib32-mesa-libGL"
-    "lib32-glibc"
-    "mangohud"
-    "gamemode"
-)
-
-GAMING_DEBIAN=(
-    "lib32-vulkan1"
-    "lib32-mesa-libgl1"
-    "lib32-glibc"
-    "mangohud"
-    "gamemode"
-)
 
 # =============================================================================
 # GAMING CONFIGURATION FUNCTIONS
@@ -47,48 +17,28 @@ GAMING_DEBIAN=(
 gaming_install_packages() {
     step "Installing Gaming Packages"
 
-    log_info "Installing gaming essential packages..."
-    for package in "${GAMING_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install gaming package: $package"
-        else
-            log_success "Installed gaming package: $package"
-        fi
-    done
+    log_info "Installing gaming packages for $DISTRO_ID..."
 
-    # Install distribution-specific gaming packages
-    case "$DISTRO_ID" in
-        "arch")
-            log_info "Installing Arch-specific gaming packages..."
-            for package in "${GAMING_ARCH[@]}"; do
+    if declare -f distro_get_packages >/dev/null 2>&1; then
+        mapfile -t gaming_packages < <(distro_get_packages "gaming" "native" 2>/dev/null || true)
+
+        if [ ${#gaming_packages[@]} -eq 0 ]; then
+            log_warn "No gaming packages found for $DISTRO_ID"
+            return
+        fi
+
+        for package in "${gaming_packages[@]}"; do
+            if [ -n "$package" ]; then
                 if ! install_pkg "$package"; then
-                    log_warn "Failed to install Arch gaming package: $package"
+                    log_warn "Failed to install gaming package: $package"
                 else
-                    log_success "Installed Arch gaming package: $package"
+                    log_success "Installed gaming package: $package"
                 fi
-            done
-            ;;
-        "fedora")
-            log_info "Installing Fedora-specific gaming packages..."
-            for package in "${GAMING_FEDORA[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Fedora gaming package: $package"
-                else
-                    log_success "Installed Fedora gaming package: $package"
-                fi
-            done
-            ;;
-        "debian"|"ubuntu")
-            log_info "Installing Debian/Ubuntu-specific gaming packages..."
-            for package in "${GAMING_DEBIAN[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Debian gaming package: $package"
-                else
-                    log_success "Installed Debian gaming package: $package"
-                fi
-            done
-            ;;
-    esac
+            fi
+        done
+    else
+        log_warn "distro_get_packages function not available. Gaming packages cannot be installed."
+    fi
 }
 
 gaming_configure_performance() {
@@ -123,65 +73,14 @@ gaming_configure_performance() {
 gaming_configure_mangohud() {
     step "Configuring MangoHud"
 
-    if command -v mangohud >/dev/null 2>&1; then
-        log_info "MangoHud already installed"
-        return 0
+    if ! command -v mangohud >/dev/null 2>&1; then
+        log_warn "MangoHud not found. Install it via the distro's gaming packages."
+        return
     fi
 
-    # Install MangoHud
-    case "$DISTRO_ID" in
-        "arch")
-            if command -v yay >/dev/null 2>&1; then
-                if ! yay -S --noconfirm mangohud >/dev/null 2>&1; then
-                    log_warn "Failed to install MangoHud via yay"
-                else
-                    log_success "MangoHud installed via yay"
-                fi
-            elif command -v paru >/dev/null 2>&1; then
-                if ! paru -S --noconfirm mangohud >/dev/null 2>&1; then
-                    log_warn "Failed to install MangoHud via paru"
-                else
-                    log_success "MangoHud installed via paru"
-                fi
-            fi
-            ;;
-        "fedora")
-            if ! sudo dnf install -y mangohud >/dev/null 2>&1; then
-                log_warn "Failed to install MangoHud"
-            else
-                log_success "MangoHud installed"
-            fi
-            ;;
-        "debian"|"ubuntu")
-            if ! sudo apt-get install -y mangohud >/dev/null 2>&1; then
-                log_warn "Failed to install MangoHud"
-            else
-                log_success "MangoHud installed"
-            fi
-            ;;
-    esac
-
-    # Configure MangoHud
-    if [ -f "$HOME/.config/MangoHud/MangoHud.conf" ]; then
-        log_info "MangoHud configuration already exists"
-    else
-        mkdir -p "$HOME/.config/MangoHud"
-        cat > "$HOME/.config/MangoHud/MangoHud.conf" << EOF
-# MangoHud Configuration
-fps_limit=0
-cpu_stats
-gpu_stats
-vram
-ram
-io
-core_load
-gpu_core_clock
-gpu_mem_clock
-gpu_temp
-gpu_power
-EOF
-        log_success "MangoHud configured"
-    fi
+    log_info "MangoHud is installed and ready to use"
+    log_info "To use MangoHud with games, run: mangohud <game_command>"
+    log_success "MangoHud configured"
 }
 
 gaming_configure_gamemode() {
@@ -230,7 +129,6 @@ gaming_configure_steam() {
 gaming_install_faugus() {
     step "Installing Faugus (flatpak)"
 
-    # Only install Faugus via Flatpak on Fedora and Debian/Ubuntu (Arch already includes it in its flatpak lists)
     if ! command -v flatpak >/dev/null 2>&1; then
         log_warn "Flatpak not installed. Attempting to install flatpak..."
         if ! install_pkg flatpak; then
@@ -302,12 +200,10 @@ gaming_main_config() {
         mark_step_complete "gaming_configure_steam"
     fi
 
-    # Install Faugus (Flatpak) on Fedora, Debian, and Ubuntu
-    if [ "$DISTRO_ID" = "fedora" ] || [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-        if ! is_step_complete "gaming_install_faugus"; then
-            gaming_install_faugus
-            mark_step_complete "gaming_install_faugus"
-        fi
+    # Install Faugus (Flatpak)
+    if ! is_step_complete "gaming_install_faugus"; then
+        gaming_install_faugus
+        mark_step_complete "gaming_install_faugus"
     fi
 
 

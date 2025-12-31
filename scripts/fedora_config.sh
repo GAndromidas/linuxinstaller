@@ -117,10 +117,11 @@ FEDORA_DE_KDE_FLATPAK=(
 # Gaming packages
 FEDORA_GAMING_NATIVE=(
     "steam"
-    "mesa-libGL"
-    "mesa-libGLU"
-    "vulkan"
+    "wine"
+    "mesa-vulkan-drivers"
     "vulkan-loader"
+    "mangohud"
+    "gamemode"
 )
 FEDORA_GAMING_FLATPAK=(
     "com.heroicgameslauncher.hgl"
