@@ -32,7 +32,7 @@ detect_system_info() {
 
     # CPU (prefer lscpu)
     if command -v lscpu >/dev/null 2>&1; then
-        DETECTED_CPU="$(lscpu 2>/dev/null | awk -F: '/Model name/{gsub(/^ +| +$/,\"\",$2); print $2; exit} /Architecture/{arch=$2} END{ if(!NR) print \"Unknown\" }' | xargs)"
+        DETECTED_CPU="$(lscpu 2>/dev/null | awk -F: '/^Model name:/ {print $2; exit}' | xargs || true)"
     else
         # Fallback to /proc/cpuinfo
         DETECTED_CPU="$(awk -F: '/model name/{print $2; exit}' /proc/cpuinfo | xargs || true)"
@@ -67,8 +67,8 @@ detect_system_info() {
     fi
 
     # Expose short CPU vendor detection
-    CPU_VENDOR="$(awk -F: '/vendor_id/ {gsub(/^ +| +$/,\"\",$2); print $2; exit}' /proc/cpuinfo || true)"
-    [ -z "$CPU_VENDOR" ] && CPU_VENDOR="$(awk -F: '/Hardware/ {gsub(/^ +| +$/,\"\",$2); print $2; exit}' /proc/cpuinfo || true)"
+    CPU_VENDOR="$(awk -F: '/^vendor_id/ {print $2; exit}' /proc/cpuinfo || true)"
+    [ -z "$CPU_VENDOR" ] && CPU_VENDOR="$(awk -F: '/^vendor_id/ {print $2; exit}' /proc/cpuinfo || true)"
     CPU_VENDOR="${CPU_VENDOR:-Unknown}"
 
     # Provide global variables for other scripts
