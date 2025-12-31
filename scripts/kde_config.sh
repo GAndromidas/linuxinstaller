@@ -161,16 +161,6 @@ kde_configure_wallpaper() {
 }
 
 kde_configure_theme() {
-/kde_configure_theme()/{a\
-    if [ -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf" ]; then\
-        rm -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf"\
-        log_info "Removed Arch MangoHud config (migrated to script-based setup)"\
-    fi\
-    if [ -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc" ]; then\
-        rm -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc"\
-        log_info "Removed Arch KDE shortcuts config (migrated to script-based setup)"\
-    fi\
-}
     step "Configuring KDE Theme"
 
     local kwrite="kwriteconfig5"
