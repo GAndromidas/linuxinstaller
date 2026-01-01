@@ -234,6 +234,7 @@ bootstrap_tools() {
                 supports_gum >/dev/null 2>&1 || true
             fi
         fi
+    fi
 }
 
 
