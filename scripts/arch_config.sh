@@ -1,6 +1,12 @@
 #!/bin/bash
 set -uo pipefail
 
+# Safety function to check if a variable is set
+var_is_set() {
+    local var_name="$1"
+    [[ -n ${!var_name+x} ]]
+}
+
 # Arch Linux Configuration Module for LinuxInstaller
 # Based on archinstaller best practices
 
@@ -330,35 +336,78 @@ arch_system_preparation() {
     fi
 
     # Install rate-mirrors-bin AUR package for mirror optimization (REQUIRED)
-    if command -v yay >/dev/null 2>&1 && ! command -v rate-mirrors >/dev/null 2>&1; then
+    if ! command -v rate-mirrors >/dev/null 2>&1; then
+        if ! command -v yay >/dev/null 2>&1; then
+            log_error "Both yay and rate-mirrors are not available."
+            log_error "rate-mirrors is required for Arch mirror optimization."
+            log_info "Please install yay first: pacman -S yay"
+            log_info "Then install rate-mirrors-bin: yay -S rate-mirrors-bin"
+            return 1
+        fi
+
         step "Installing rate-mirrors-bin for mirror optimization"
 
         # Determine which user to run yay as (never as root for AUR builds)
+        # Initialize yay_user to prevent unbound variable errors
         local yay_user=""
         if [ "$EUID" -eq 0 ]; then
             if [ -n "${SUDO_USER:-}" ]; then
                 yay_user="$SUDO_USER"
             else
-                # Fallback to first real user if SUDO_USER not set
-                yay_user=$(getent passwd 1000 | cut -d: -f1)
+                # Try to find the user who invoked sudo
+                yay_user=$(logname 2>/dev/null || who am i | awk '{print $1}' | head -1)
+                if [ -z "${yay_user:-}" ] || [ "${yay_user:-}" = "root" ]; then
+                    # Fallback to first real user if SUDO_USER not set
+                    yay_user=$(getent passwd 1000 | cut -d: -f1 2>/dev/null)
+                fi
             fi
-            if [ -z "$yay_user" ]; then
-                log_error "Cannot determine user to run yay as"
+            if [ -z "${yay_user:-}" ] || [ "${yay_user:-}" = "root" ]; then
+                log_error "Cannot determine non-root user to run yay as"
+                log_error "Please run this script as a regular user, not root"
+                return 1
+            fi
+            # Verify the user exists and can run yay
+            if ! getent passwd "$yay_user" >/dev/null 2>&1; then
+                log_error "User '$yay_user' does not exist"
                 return 1
             fi
         else
-            yay_user="$USER"
+            yay_user="${USER:-$(whoami)}"
         fi
 
-        if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin >/dev/null 2>&1; then
-            log_success "rate-mirrors-bin installed successfully"
-        else
-            log_error "Failed to install rate-mirrors-bin"
-            log_info "This is a required tool for Arch installation"
-            log_info "Please check your internet connection and try again"
-            log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
+        # Final safety check for yay_user
+        if [ -z "${yay_user:-}" ]; then
+            log_error "Failed to determine user for yay installation"
             return 1
         fi
+
+        log_info "Installing rate-mirrors-bin as user: $yay_user"
+
+        # Try to install rate-mirrors-bin with better error handling
+        local install_output=""
+        local exit_code=0
+
+        if install_output=$(sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin 2>&1); then
+            log_success "rate-mirrors-bin installed successfully"
+
+            # Clean up any temp files from the installation
+            if [ "$EUID" -eq 0 ] && [ -n "${yay_user:-}" ]; then
+                sudo -u "$yay_user" rm -rf "/tmp/yay"* "/tmp/makepkg"* 2>/dev/null || true
+            fi
+        else
+            exit_code=$?
+            log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
+            log_error "Installation output: $install_output"
+            log_info "This is a required tool for Arch mirror optimization"
+            log_info "Troubleshooting steps:"
+            log_info "  1. Check internet connection: ping -c 3 google.com"
+            log_info "  2. Update package databases: sudo pacman -Syy"
+            log_info "  3. Try manual installation: yay -S rate-mirrors-bin"
+            log_info "  4. Check yay is working: yay --version"
+            return 1
+        fi
+    else
+        log_info "rate-mirrors is already available"
     fi
 
     # Optimize mirrorlist using rate-mirrors
@@ -499,7 +548,7 @@ arch_install_aur_helper() {
             # Fallback to first real user if SUDO_USER not set
             build_user=$(getent passwd 1000 | cut -d: -f1)
         fi
-        if [ -z "$build_user" ]; then
+        if [ -z "${build_user:-}" ]; then
             log_error "Cannot determine user for AUR build"
             rm -rf "$temp_dir"
             return 1
@@ -518,6 +567,16 @@ arch_install_aur_helper() {
             if supports_gum; then
                 gum style "✓ yay installed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
             fi
+
+            # Clean up /tmp directory that yay uses for building
+            log_info "Cleaning up temporary build files..."
+            if [ "$EUID" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+                # Clean up build user's temp files if we're running as root
+                sudo -u "$build_user" rm -rf "/tmp/yay"* "/tmp/makepkg"*
+            fi
+            # Also clean any root-owned temp files
+            rm -rf /tmp/yay* /tmp/makepkg* 2>/dev/null || true
+            log_info "Temporary build files cleaned up"
         else
             cd - >/dev/null
             rm -rf "$temp_dir"
@@ -931,20 +990,6 @@ configure_systemd_boot_arch() {
                     log_success "Updated $entry (added options)"
                     updated=true
                 fi
-            fi
-        fi
-
-        if [ -n "$yay_user" ]; then
-            log_info "Installing rate-mirrors-bin from AUR with yay (as user: $yay_user)..."
-            if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin; then
-                log_success "rate-mirrors-bin installed successfully"
-            else
-                local exit_code=$?
-                log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
-                log_info "This is a required tool for Arch installation"
-                log_info "Please check your internet connection and try again"
-                log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
-                return 1
             fi
         fi
     done
