@@ -1,6 +1,11 @@
 #!/bin/bash
 set -uo pipefail
 
+# Check if running as root, re-exec with sudo if not
+if [ "$(id -u)" -ne 0 ]; then
+    exec sudo "$0" "$@"
+fi
+
 # =============================================================================
 # LinuxInstaller - Unified Post-Installation Script
 # Supports: Arch Linux, Fedora, Debian, Ubuntu
@@ -181,7 +186,7 @@ show_help() {
 LinuxInstaller - Unified Post-Install Script
 
 USAGE:
-    sudo ./install.sh [OPTIONS]
+    ./install.sh [OPTIONS]
 
 OPTIONS:
     -h, --help      Show this help message
@@ -224,7 +229,7 @@ bootstrap_tools() {
 
         # Try package manager first
         if [ "$DISTRO_ID" == "arch" ]; then
-            if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
+            if pacman -S --noconfirm gum >/dev/null 2>&1; then
                 GUM_INSTALLED_BY_SCRIPT=true
                 supports_gum >/dev/null 2>&1 || true
             fi
@@ -319,7 +324,7 @@ install_package_group() {
                 install_cmd="flatpak install flathub -y"
                 ;;
             snap)
-                install_cmd="sudo snap install"
+                install_cmd="snap install"
                 ;;
         esac
 
@@ -445,13 +450,13 @@ configure_user_shell_and_configs() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
             fi
         else
-            if sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
@@ -466,21 +471,21 @@ configure_user_shell_and_configs() {
             cp -a "$home_dir/.zshrc" "$backup_file" || true
         fi
         cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || true
-        sudo chown "$target_user:$target_user" "$home_dir/.zshrc" || true
+        chown "$target_user:$target_user" "$home_dir/.zshrc" || true
     fi
 
     # Deploy starship config
     if [ -f "$cfg_dir/starship.toml" ]; then
         mkdir -p "$home_dir/.config"
         cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || true
-        sudo chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || true
+        chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || true
     fi
 
     # Deploy fastfetch config
     if [ -f "$cfg_dir/config.jsonc" ]; then
         mkdir -p "$home_dir/.config/fastfetch"
         cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || true
-        sudo chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || true
+        chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || true
     fi
 
     return 0
@@ -512,12 +517,12 @@ final_cleanup() {
         if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
+                if $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     # Fallback: try removing binary placed under /usr/local/bin
                     if [ -f "/usr/local/bin/$pkg" ]; then
-                        sudo rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
+                        rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
                     else
                         log_warn "Failed to remove $pkg via package manager"
                     fi
@@ -532,11 +537,11 @@ final_cleanup() {
         if [[ "$resp" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
+                if $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     if [ -f "/usr/local/bin/$pkg" ]; then
-                        sudo rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
+                        rm -f "/usr/local/bin/$pkg" && log_success "Removed /usr/local/bin/$pkg" || log_warn "Failed to remove /usr/local/bin/$pkg"
                     else
                         log_warn "Failed to remove $pkg via package manager"
                     fi
@@ -636,31 +641,31 @@ if [ "$DISTRO_ID" == "arch" ]; then
 
             # Handle ParallelDownloads - works whether commented or uncommented
             if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-                sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+                sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
             elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-                sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
+                sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
             else
-                sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
+                sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
             fi
 
             # Handle Color setting
             if grep -q "^#Color" /etc/pacman.conf; then
-                sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
+                sed -i 's/^#Color/Color/' /etc/pacman.conf
             fi
 
             # Handle VerbosePkgLists setting
             if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
-                sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
+                sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
             fi
 
             # Add ILoveCandy if not already present
             if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
-                sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
+                sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
             fi
 
             # Enable multilib if not already enabled
             if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-                echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
+                echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | tee -a /etc/pacman.conf >/dev/null
             fi
         }
 
@@ -719,7 +724,7 @@ if [ "$DISTRO_ID" == "fedora" ]; then
     if [ "$DRY_RUN" = false ]; then
         if command -v dnf >/dev/null; then
             # Install eza from COPR
-            if sudo dnf copr enable -y eza-community/eza >/dev/null 2>&1; then
+            if dnf copr enable -y eza-community/eza >/dev/null 2>&1; then
                 install_pkg eza
                 log_success "Enabled eza COPR repository and installed eza"
             else

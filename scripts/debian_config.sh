@@ -214,15 +214,15 @@ debian_system_preparation() {
     step "Debian/Ubuntu System Preparation"
 
     # Update package lists
-    sudo apt-get update >/dev/null 2>&1 || return 1
+    apt-get update >/dev/null 2>&1 || return 1
 
     # Upgrade system
     if supports_gum; then
-        if gum spin --spinner dot --title "Upgrading system" -- sudo apt-get upgrade -y >/dev/null 2>&1; then
+        if gum spin --spinner dot --title "Upgrading system" -- apt-get upgrade -y >/dev/null 2>&1; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System upgraded"
         fi
     else
-        sudo apt-get upgrade -y >/dev/null 2>&1 || true
+        apt-get upgrade -y >/dev/null 2>&1 || true
     fi
 
     # Configure APT for optimal performance
@@ -234,7 +234,7 @@ configure_apt_debian() {
     log_info "Configuring APT for optimal performance..."
 
     # Create APT configuration for performance
-    sudo tee "$APT_CONF" > /dev/null << EOF
+    tee "$APT_CONF" > /dev/null << EOF
 // LinuxInstaller APT Configuration
 APT::Get::Assume-Yes "true";
 APT::Get::Fix-Broken "true";
@@ -249,12 +249,12 @@ EOF
     # Configure APT sources for faster downloads
     if [ "$DISTRO_ID" == "ubuntu" ]; then
         # Enable universe and multiverse repositories
-        sudo add-apt-repository universe >/dev/null 2>&1 || true
-        sudo add-apt-repository multiverse >/dev/null 2>&1 || true
+        add-apt-repository universe >/dev/null 2>&1 || true
+        add-apt-repository multiverse >/dev/null 2>&1 || true
 
         # Set fastest mirror
         if command -v netselect-apt >/dev/null 2>&1; then
-            sudo netselect-apt -n ubuntu >/dev/null 2>&1 || true
+            netselect-apt -n ubuntu >/dev/null 2>&1 || true
         fi
     fi
 
@@ -282,13 +282,13 @@ debian_install_essentials() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- sudo apt-get install -y "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- apt-get install -y "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
             fi
         else
-            if sudo apt-get install -y "$pkg" >/dev/null 2>&1; then
+            if apt-get install -y "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
@@ -337,7 +337,7 @@ configure_grub_debian() {
     fi
 
     # Set timeout
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+    sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
 
     # Add Debian/Ubuntu-specific kernel parameters
     local debian_params="quiet splash"
@@ -359,13 +359,13 @@ configure_grub_debian() {
     done
 
     if [ "$changed" = true ]; then
-        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
+        sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
         log_success "Updated GRUB kernel parameters"
     fi
 
     # Regenerate GRUB config
     log_info "Regenerating GRUB configuration..."
-    if ! sudo update-grub >/dev/null 2>&1; then
+    if ! update-grub >/dev/null 2>&1; then
         log_error "Failed to regenerate GRUB config"
         return 1
     fi
@@ -399,11 +399,11 @@ configure_systemd_boot_debian() {
         if [ -f "$entry" ]; then
             if ! grep -q "splash" "$entry"; then
                 if grep -q "^options" "$entry"; then
-                    sudo sed -i "/^options/ s/$/ $debian_params/" "$entry"
+                    sed -i "/^options/ s/$/ $debian_params/" "$entry"
                     log_success "Updated $entry"
                     updated=true
                 else
-                    echo "options $debian_params" | sudo tee -a "$entry" >/dev/null
+                    echo "options $debian_params" | tee -a "$entry" >/dev/null
                     log_success "Updated $entry (added options)"
                     updated=true
                 fi
@@ -432,7 +432,7 @@ debian_enable_system_services() {
 
     for service in "${services[@]}"; do
         if systemctl list-unit-files | grep -q "^$service"; then
-            if sudo systemctl enable --now "$service" >/dev/null 2>&1; then
+            if systemctl enable --now "$service" >/dev/null 2>&1; then
                 log_success "Enabled and started $service"
             else
                 log_warn "Failed to enable $service"
@@ -447,10 +447,10 @@ debian_enable_system_services() {
     fi
 
     # Configure UFW
-    sudo ufw default deny incoming >/dev/null 2>&1
-    sudo ufw default allow outgoing >/dev/null 2>&1
-    sudo ufw limit ssh >/dev/null 2>&1
-    echo "y" | sudo ufw enable >/dev/null 2>&1
+    ufw default deny incoming >/dev/null 2>&1
+    ufw default allow outgoing >/dev/null 2>&1
+    ufw limit ssh >/dev/null 2>&1
+    echo "y" | ufw enable >/dev/null 2>&1
     log_success "UFW configured and enabled"
 }
 
@@ -487,8 +487,8 @@ debian_setup_snap() {
         fi
 
         # Enable snapd service
-        sudo systemctl enable --now snapd >/dev/null 2>&1
-        sudo systemctl enable --now snapd.socket >/dev/null 2>&1
+        systemctl enable --now snapd >/dev/null 2>&1
+        systemctl enable --now snapd.socket >/dev/null 2>&1
 
         log_success "Snap configured"
     else
@@ -503,7 +503,7 @@ debian_setup_shell() {
     # Set ZSH as default
     if [ "$SHELL" != "$(command -v zsh)" ]; then
         log_info "Changing default shell to ZSH..."
-        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+        if chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
             log_success "Default shell changed to ZSH"
         else
             log_warning "Failed to change shell. You may need to do this manually."
@@ -638,7 +638,7 @@ debian_setup_solaar() {
             log_success "Solaar installed successfully"
 
             # Enable solaar service if present
-            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
+            if systemctl enable --now solaar.service >/dev/null 2>&1; then
                 log_success "Solaar service enabled and started"
             else
                 log_warn "Failed to enable solaar service (may not exist on all systems)"
@@ -658,14 +658,14 @@ debian_configure_locale() {
     # Install language packs
     log_info "Installing language packs..."
     if [ "$DISTRO_ID" == "ubuntu" ]; then
-        if ! sudo apt-get install -y language-pack-el language-pack-en >/dev/null 2>&1; then
+        if ! apt-get install -y language-pack-el language-pack-en >/dev/null 2>&1; then
             log_warn "Failed to install language packs"
         else
             log_success "Language packs installed"
         fi
     else
         # Debian uses locale packages
-        if ! sudo apt-get install -y locales >/dev/null 2>&1; then
+        if ! apt-get install -y locales >/dev/null 2>&1; then
             log_warn "Failed to install locales package"
         else
             log_success "Locales package installed"
@@ -675,12 +675,12 @@ debian_configure_locale() {
     local locale_file="/etc/locale.gen"
 
     if [ -f "$locale_file" ]; then
-        sudo cp "$locale_file" "${locale_file}.backup"
+        cp "$locale_file" "${locale_file}.backup"
 
         # Uncomment Greek locale
         if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then
             log_info "Enabling Greek locale (el_GR.UTF-8)..."
-            sudo sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
+            sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
             log_success "Greek locale enabled"
         elif grep -q "^el_GR.UTF-8 UTF-8" "$locale_file"; then
             log_info "Greek locale already enabled"
@@ -689,7 +689,7 @@ debian_configure_locale() {
         # Uncomment US English locale
         if grep -q "^#en_US.UTF-8 UTF-8" "$locale_file"; then
             log_info "Enabling US English locale (en_US.UTF-8)..."
-            sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
+            sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
             log_success "US English locale enabled"
         elif grep -q "^en_US.UTF-8 UTF-8" "$locale_file"; then
             log_info "US English locale already enabled"
@@ -697,7 +697,7 @@ debian_configure_locale() {
 
         # Generate locales
         log_info "Generating locales..."
-        if sudo locale-gen >/dev/null 2>&1; then
+        if locale-gen >/dev/null 2>&1; then
             log_success "Locales generated successfully"
         else
             log_warn "Failed to generate locales"
@@ -707,12 +707,12 @@ debian_configure_locale() {
     local locale_conf="/etc/default/locale"
 
     if [ ! -f "$locale_conf" ]; then
-        sudo touch "$locale_conf"
+        touch "$locale_conf"
     fi
 
     # Set LANG to Greek
     log_info "Setting default locale to Greek (el_GR.UTF-8)..."
-    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+    if bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
         log_success "Default locale set to el_GR.UTF-8"
     else
         log_warn "Failed to set default locale"

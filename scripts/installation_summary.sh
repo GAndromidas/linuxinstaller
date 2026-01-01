@@ -85,7 +85,7 @@ show_installation_summary() {
         else
             log_info "Rebooting system in 10 seconds..."
             sleep 10
-            sudo reboot
+            reboot
         fi
     else
         echo ""
@@ -93,7 +93,7 @@ show_installation_summary() {
         if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             log_info "Rebooting system in 10 seconds..."
             sleep 10
-            sudo reboot
+            reboot
         else
             log_info "Reboot deferred. Please reboot manually when ready."
         fi

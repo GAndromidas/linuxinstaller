@@ -103,7 +103,7 @@ maintenance_install_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if gum spin --spinner dot --title "" -- sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -112,7 +112,7 @@ maintenance_install_packages() {
             fi
         else
             log_info "Installing $pkg: $desc"
-            if sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
                 log_success "✓ $pkg installed"
             else
@@ -166,15 +166,15 @@ maintenance_configure_timeshift() {
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  This creates snapshots to protect your system from updates"
     fi
 
-    sudo mkdir -p /etc/timeshift
+    mkdir -p /etc/timeshift
 
     local TS_CONFIG="/etc/timeshift/timeshift.json"
 
     if [ -f "$TS_CONFIG" ]; then
-        sudo cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
     fi
 
-    sudo tee "$TS_CONFIG" >/dev/null << 'EOF'
+    tee "$TS_CONFIG" >/dev/null << 'EOF'
 {
     "snapshot_device_uuid": null,
     "snapshot_device": "",
@@ -233,43 +233,43 @@ maintenance_configure_snapper_settings() {
     fi
 
     # Create snapper config if it doesn't exist
-    if ! sudo snapper -c root create-config / >/dev/null 2>&1; then
+    if ! snapper -c root create-config / >/dev/null 2>&1; then
         log_warn "Failed to create Snapper configuration"
         return
     fi
 
     # Backup existing config
     if [ -f /etc/snapper/configs/root ]; then
-        sudo cp /etc/snapper/configs/root "/etc/snapper/configs/root.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        cp /etc/snapper/configs/root "/etc/snapper/configs/root.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
     fi
 
     # Configure Snapper with best practice settings
     # Enable timeline snapshots for automatic protection
-    sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
-    sudo sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
-    sudo sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
+    sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
+    sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' /etc/snapper/configs/root
 
     # Set reasonable limits for timeline snapshots
-    sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="10"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="4"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="12"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="10"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="4"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="12"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
 
     # Set number of snapshots to keep to 10
-    sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
-    sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' /etc/snapper/configs/root
+    sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
+    sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' /etc/snapper/configs/root
 
     # Enable timeline and cleanup timers for automatic snapshots
     if supports_gum; then
-        gum spin --spinner dot --title "Enabling snapshot timers..." -- sudo systemctl enable --now snapper-timeline.timer snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
+        gum spin --spinner dot --title "Enabling snapshot timers..." -- systemctl enable --now snapper-timeline.timer snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
         gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled"
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline: Hourly (10), Daily (7), Weekly (4), Monthly (12)"
     else
-        sudo systemctl enable --now snapper-timeline.timer >/dev/null 2>&1
-        sudo systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1
-        sudo systemctl enable --now snapper-boot.timer >/dev/null 2>&1
+        systemctl enable --now snapper-timeline.timer >/dev/null 2>&1
+        systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1
+        systemctl enable --now snapper-boot.timer >/dev/null 2>&1
         log_success "✓ Snapper timers enabled"
     fi
 }
@@ -295,13 +295,13 @@ maintenance_setup_pre_update_snapshots() {
         local HOOK_DIR="/etc/pacman.d/hooks"
         local HOOK_SCRIPT="snapper-notify.hook"
 
-        sudo mkdir -p "$HOOK_DIR"
+        mkdir -p "$HOOK_DIR"
 
         if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
-            sudo cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+            cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
         fi
 
-        cat << 'EOF' | sudo tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
+        cat << 'EOF' | tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
 [Trigger]
 Operation = Upgrade
 Operation = Install
@@ -335,21 +335,21 @@ EOF
             return
         fi
 
-        cat << 'EOF' | sudo tee /usr/local/bin/system-update-snapshot >/dev/null
+        cat << 'EOF' | tee /usr/local/bin/system-update-snapshot >/dev/null
 #!/bin/bash
 DESCRIPTION="${1:-Pre-update}"
 
 if command -v timeshift >/dev/null 2>&1; then
-    sudo timeshift --create --description "$DESCRIPTION"
+    timeshift --create --description "$DESCRIPTION"
 else
     exit 1
 fi
 EOF
-        sudo chmod +x /usr/local/bin/system-update-snapshot
+        chmod +x /usr/local/bin/system-update-snapshot
 
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Run this before updates: sudo system-update-snapshot"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Run this before updates: system-update-snapshot"
         else
             log_success "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
         fi
@@ -381,16 +381,16 @@ maintenance_configure_grub_snapshots() {
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
             if supports_gum; then
                 gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
-                if gum spin --spinner dot --title "" -- sudo pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
+                if gum spin --spinner dot --title "" -- pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
                     gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
                 fi
             else
-                sudo pacman -S --noconfirm grub-btrfs >/dev/null 2>&1 || true
+                pacman -S --noconfirm grub-btrfs >/dev/null 2>&1 || true
             fi
         fi
 
         if command -v grub-btrfsd >/dev/null 2>&1; then
-            sudo systemctl enable --now grub-btrfsd.service >/dev/null 2>&1
+            systemctl enable --now grub-btrfsd.service >/dev/null 2>&1
         fi
 
         grub_update_command="grub-mkconfig"
@@ -405,12 +405,12 @@ maintenance_configure_grub_snapshots() {
     if [ -n "$grub_update_command" ]; then
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Updating GRUB configuration"
-            if gum spin --spinner dot --title "Regenerating boot menu..." -- sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "Regenerating boot menu..." -- $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ GRUB updated with snapshot boot menu"
                 gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Reboot and hold 'Shift' to see snapshot boot entries"
             fi
         else
-            sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
+            $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
             log_success "✓ GRUB updated with snapshot support"
         fi
     fi
@@ -453,13 +453,13 @@ maintenance_configure_btrfs_snapshots() {
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Weekly scrub ( Sundays at 2:00 AM )"
         fi
         # Weekly scrub on Sunday at 2:00 AM
-        sudo mkdir -p /etc/systemd/system/btrfs-scrub@.timer.d
-        cat << 'EOF' | sudo tee /etc/systemd/system/btrfs-scrub@root.timer.d/override.conf >/dev/null
+        mkdir -p /etc/systemd/system/btrfs-scrub@.timer.d
+        cat << 'EOF' | tee /etc/systemd/system/btrfs-scrub@root.timer.d/override.conf >/dev/null
 [Timer]
 OnCalendar=Sun *-*-* 02:00:00
 Persistent=true
 EOF
-        sudo systemctl enable --now btrfs-scrub@root.timer >/dev/null 2>&1
+        systemctl enable --now btrfs-scrub@root.timer >/dev/null 2>&1
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs scrub scheduled"
         fi
@@ -470,13 +470,13 @@ EOF
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Monthly balance ( 1st Sunday at 3:00 AM )"
         fi
         # Monthly balance on first Sunday at 3:00 AM
-        sudo mkdir -p /etc/systemd/system/btrfs-balance@.timer.d
-        cat << 'EOF' | sudo tee /etc/systemd/system/btrfs-balance@root.timer.d/override.conf >/dev/null
+        mkdir -p /etc/systemd/system/btrfs-balance@.timer.d
+        cat << 'EOF' | tee /etc/systemd/system/btrfs-balance@root.timer.d/override.conf >/dev/null
 [Timer]
 OnCalendar=Sun *-*-01 03:00:00
 Persistent=true
 EOF
-        sudo systemctl enable --now btrfs-balance@root.timer >/dev/null 2>&1
+        systemctl enable --now btrfs-balance@root.timer >/dev/null 2>&1
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs balance scheduled"
         fi
@@ -484,7 +484,7 @@ EOF
 
     # Create initial snapshot
     if [ "$DISTRO_ID" = "arch" ]; then
-        if sudo snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
+        if snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
             if supports_gum; then
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
             else
@@ -493,7 +493,7 @@ EOF
         fi
     else
         if command -v timeshift >/dev/null 2>&1; then
-            if sudo timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
+            if timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
                 if supports_gum; then
                     gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
                 else
@@ -516,9 +516,9 @@ maintenance_configure_automatic_updates() {
             fi
             # Configure dnf-automatic
             if [ -f /etc/dnf/automatic.conf ]; then
-                sudo sed -i 's/^apply_updates = no/apply_updates = yes/' /etc/dnf/automatic.conf 2>/dev/null || true
-                sudo sed -i 's/^upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf 2>/dev/null || true
-                if sudo systemctl enable --now dnf-automatic-install.timer >/dev/null 2>&1; then
+                sed -i 's/^apply_updates = no/apply_updates = yes/' /etc/dnf/automatic.conf 2>/dev/null || true
+                sed -i 's/^upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf 2>/dev/null || true
+                if systemctl enable --now dnf-automatic-install.timer >/dev/null 2>&1; then
                     if supports_gum; then
                         gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ dnf-automatic configured and enabled"
                     else
@@ -536,18 +536,18 @@ maintenance_configure_automatic_updates() {
             fi
             # Configure unattended-upgrades
             if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
-                sudo sed -i 's|//\("o=Debian,a=stable"\)|"\${distro_id}:\${distro_codename}-security"|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
-                sudo sed -i 's|//Unattended-Upgrade::AutoFixInterruptedDpkg|Unattended-Upgrade::AutoFixInterruptedDpkg|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
-                sudo sed -i 's|//Unattended-Upgrade::MinimalSteps|Unattended-Upgrade::MinimalSteps|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
-                sudo sed -i 's|//Unattended-Upgrade::Remove-Unused-Dependencies|Unattended-Upgrade::Remove-Unused-Dependencies|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+                sed -i 's|//\("o=Debian,a=stable"\)|"\${distro_id}:\${distro_codename}-security"|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+                sed -i 's|//Unattended-Upgrade::AutoFixInterruptedDpkg|Unattended-Upgrade::AutoFixInterruptedDpkg|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+                sed -i 's|//Unattended-Upgrade::MinimalSteps|Unattended-Upgrade::MinimalSteps|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
+                sed -i 's|//Unattended-Upgrade::Remove-Unused-Dependencies|Unattended-Upgrade::Remove-Unused-Dependencies|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
             fi
 
             if [ -f /etc/apt/apt.conf.d/20auto-upgrades ]; then
-                sudo sed -i 's|APT::Periodic::Update-Package-Lists "0"|APT::Periodic::Update-Package-Lists "1"|' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null || true
-                sudo sed -i 's|APT::Periodic::Unattended-Upgrade "0"|APT::Periodic::Unattended-Upgrade "1"|' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null || true
+                sed -i 's|APT::Periodic::Update-Package-Lists "0"|APT::Periodic::Update-Package-Lists "1"|' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null || true
+                sed -i 's|APT::Periodic::Unattended-Upgrade "0"|APT::Periodic::Unattended-Upgrade "1"|' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null || true
             fi
 
-            if sudo systemctl enable --now unattended-upgrades >/dev/null 2>&1; then
+            if systemctl enable --now unattended-upgrades >/dev/null 2>&1; then
                 if supports_gum; then
                     gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ unattended-upgrades configured and enabled"
                 else
@@ -595,8 +595,8 @@ maintenance_main_config() {
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: snapper list"
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: Select from boot menu"
         else
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: sudo timeshift --list"
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: sudo timeshift --restore"
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: timeshift --list"
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: timeshift --restore"
         fi
         echo ""
     fi

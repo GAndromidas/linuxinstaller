@@ -307,10 +307,10 @@ arch_system_preparation() {
 
     # Initialize keyring if needed
     if [ ! -d "$ARCH_KEYRING" ]; then
-        if ! sudo pacman-key --init >/dev/null 2>&1; then
+        if ! pacman-key --init >/dev/null 2>&1; then
             return 1
         fi
-        if ! sudo pacman-key --populate archlinux >/dev/null 2>&1; then
+        if ! pacman-key --populate archlinux >/dev/null 2>&1; then
             return 1
         fi
     fi
@@ -331,11 +331,11 @@ arch_system_preparation() {
 
     # Update system
     if supports_gum; then
-        if gum spin --spinner dot --title "Updating system" -- sudo pacman -Syu --noconfirm >/dev/null 2>&1; then
+        if gum spin --spinner dot --title "Updating system" -- pacman -Syu --noconfirm >/dev/null 2>&1; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
         fi
     else
-        sudo pacman -Syu --noconfirm >/dev/null 2>&1 || true
+        pacman -Syu --noconfirm >/dev/null 2>&1 || true
     fi
 }
 
@@ -345,26 +345,26 @@ configure_pacman_arch() {
 
     # Backup original config
     if [ -f "$ARCH_REPOS_FILE" ] && [ ! -f "${ARCH_REPOS_FILE}.backup" ]; then
-        sudo cp "$ARCH_REPOS_FILE" "${ARCH_REPOS_FILE}.backup"
+        cp "$ARCH_REPOS_FILE" "${ARCH_REPOS_FILE}.backup"
     fi
 
     # Enable Color output
     if grep -q "^#Color" "$ARCH_REPOS_FILE"; then
-        sudo sed -i 's/^#Color/Color/' "$ARCH_REPOS_FILE"
+        sed -i 's/^#Color/Color/' "$ARCH_REPOS_FILE"
     fi
 
     # Enable ParallelDownloads
     if grep -q "^#ParallelDownloads" "$ARCH_REPOS_FILE"; then
-        sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $PARALLEL_DOWNLOADS/" "$ARCH_REPOS_FILE"
+        sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $PARALLEL_DOWNLOADS/" "$ARCH_REPOS_FILE"
     elif grep -q "^ParallelDownloads" "$ARCH_REPOS_FILE"; then
-        sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $PARALLEL_DOWNLOADS/" "$ARCH_REPOS_FILE"
+        sed -i "s/^ParallelDownloads.*/ParallelDownloads = $PARALLEL_DOWNLOADS/" "$ARCH_REPOS_FILE"
     else
-        sudo sed -i "/^\[options\]/a ParallelDownloads = $PARALLEL_DOWNLOADS" "$ARCH_REPOS_FILE"
+        sed -i "/^\[options\]/a ParallelDownloads = $PARALLEL_DOWNLOADS" "$ARCH_REPOS_FILE"
     fi
 
     # Enable ILoveCandy
     if grep -q "^#ILoveCandy" "$ARCH_REPOS_FILE"; then
-        sudo sed -i 's/^#ILoveCandy/ILoveCandy/' "$ARCH_REPOS_FILE"
+        sed -i 's/^#ILoveCandy/ILoveCandy/' "$ARCH_REPOS_FILE"
     fi
 
     # Clean old package cache to free up disk space
@@ -379,19 +379,19 @@ configure_pacman_arch() {
         fi
 
         if supports_gum; then
-            gum spin --spinner dot --title "Cleaning old package cache..." -- sudo paccache -r -k 3 >/dev/null 2>&1
+            gum spin --spinner dot --title "Cleaning old package cache..." -- paccache -r -k 3 >/dev/null 2>&1
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Old packages cleaned (keeping last 3 versions)"
         else
-            sudo paccache -r -k 3 >/dev/null 2>&1
+            paccache -r -k 3 >/dev/null 2>&1
             log_success "Old packages cleaned (keeping last 3 versions)"
         fi
 
         # Clean uninstalled packages cache
         if supports_gum; then
-            gum spin --spinner dot --title "Removing cache for uninstalled packages..." -- sudo paccache -r -u -k 0 >/dev/null 2>&1
+            gum spin --spinner dot --title "Removing cache for uninstalled packages..." -- paccache -r -u -k 0 >/dev/null 2>&1
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Cache for uninstalled packages removed"
         else
-            sudo paccache -r -u -k 0 >/dev/null 2>&1
+            paccache -r -u -k 0 >/dev/null 2>&1
             log_success "Cache for uninstalled packages removed"
         fi
 
@@ -419,7 +419,7 @@ check_and_enable_multilib() {
 
     if ! grep -q "^\[multilib\]" "$ARCH_REPOS_FILE"; then
         log_info "Enabling multilib repository..."
-        sudo sed -i '/\[options\]/a # Multilib repository\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' "$ARCH_REPOS_FILE"
+        sed -i '/\[options\]/a # Multilib repository\n[multilib]\nInclude = /etc/pacman.d/mirrorlist' "$ARCH_REPOS_FILE"
         log_success "multilib repository enabled"
     else
         log_info "multilib repository already enabled"
@@ -434,7 +434,7 @@ arch_install_aur_helper() {
         return 0
     fi
 
-    if ! sudo pacman -S --noconfirm --needed base-devel git >/dev/null 2>&1; then
+    if ! pacman -S --noconfirm --needed base-devel git >/dev/null 2>&1; then
         return 1
     fi
 
@@ -444,10 +444,10 @@ arch_install_aur_helper() {
     local run_as_user=""
     if [ "$EUID" -eq 0 ]; then
          if [ -n "${SUDO_USER:-}" ]; then
-             run_as_user="sudo -u $SUDO_USER"
+             run_as_user="-u $SUDO_USER"
              chown "$SUDO_USER:$SUDO_USER" "$temp_dir"
          else
-             run_as_user="sudo -u nobody"
+             run_as_user="-u nobody"
              chown nobody:nobody "$temp_dir"
          fi
     fi
@@ -487,10 +487,10 @@ optimize_mirrors_arch() {
 
     # Update mirrorlist using rate-mirrors and refresh pacman DB
     log_info "Updating mirrorlist with optimized mirrors..."
-    if sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch >/dev/null 2>&1; then
+    if rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch >/dev/null 2>&1; then
         log_success "Mirrorlist updated successfully"
         # Refresh pacman DB to make sure we use the updated mirrors
-        if sudo pacman -Syy >/dev/null 2>&1; then
+        if pacman -Syy >/dev/null 2>&1; then
             log_success "Refreshed pacman package database (pacman -Syy)"
         else
             log_warn "Failed to refresh pacman package database after updating mirrors"
@@ -519,7 +519,7 @@ arch_enable_system_services() {
 
     for service in "${services[@]}"; do
         if systemctl list-unit-files | grep -q "^$service"; then
-            if sudo systemctl enable --now "$service" >/dev/null 2>&1; then
+            if systemctl enable --now "$service" >/dev/null 2>&1; then
                 log_success "Enabled and started $service"
             else
                 log_warn "Failed to enable $service"
@@ -542,13 +542,13 @@ arch_configure_zram() {
 
     if [ ! -f /etc/systemd/zram-generator.conf ]; then
         log_info "Creating ZRAM configuration..."
-        sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
+        tee /etc/systemd/zram-generator.conf > /dev/null << EOF
 [zram0]
 zram-size = min(ram, 8192)
 compression-algorithm = zstd
 EOF
-        sudo systemctl daemon-reload
-        if sudo systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
+        systemctl daemon-reload
+        if systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
             log_success "ZRAM configured and started"
         else
             log_warn "Failed to start ZRAM service"
@@ -570,12 +570,12 @@ arch_configure_locale() {
     fi
 
     # Backup original file
-    sudo cp "$locale_file" "${locale_file}.backup"
+    cp "$locale_file" "${locale_file}.backup"
 
     # Uncomment Greek locale (el_GR.UTF-8)
     if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then
         log_info "Enabling Greek locale (el_GR.UTF-8)..."
-        sudo sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
+        sed -i 's/^#el_GR.UTF-8 UTF-8/el_GR.UTF-8 UTF-8/' "$locale_file"
         log_success "Greek locale enabled"
     elif grep -q "^el_GR.UTF-8 UTF-8" "$locale_file"; then
         log_info "Greek locale already enabled"
@@ -586,7 +586,7 @@ arch_configure_locale() {
     # Uncomment US English locale (en_US.UTF-8)
     if grep -q "^#en_US.UTF-8 UTF-8" "$locale_file"; then
         log_info "Enabling US English locale (en_US.UTF-8)..."
-        sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
+        sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' "$locale_file"
         log_success "US English locale enabled"
     elif grep -q "^en_US.UTF-8 UTF-8" "$locale_file"; then
         log_info "US English locale already enabled"
@@ -596,7 +596,7 @@ arch_configure_locale() {
 
     # Generate locales
     log_info "Generating locales..."
-    if sudo locale-gen >/dev/null 2>&1; then
+    if locale-gen >/dev/null 2>&1; then
         log_success "Locales generated successfully"
     else
         log_error "Failed to generate locales"
@@ -607,12 +607,12 @@ arch_configure_locale() {
     local locale_conf="/etc/locale.conf"
 
     if [ ! -f "$locale_conf" ]; then
-        sudo touch "$locale_conf"
+        touch "$locale_conf"
     fi
 
     # Set LANG to Greek
     log_info "Setting default locale to Greek (el_GR.UTF-8)..."
-    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+    if bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
         log_success "Default locale set to el_GR.UTF-8"
     else
         log_warn "Failed to set default locale"
@@ -681,12 +681,12 @@ arch_setup_shell() {
     # Set ZSH as default
     if [ "$SHELL" != "$(command -v zsh)" ]; then
         log_info "Changing default shell to ZSH..."
-        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+        if chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
             log_success "Default shell changed to ZSH"
         else
             log_warning "Failed to change shell automatically"
             log_info "Please run this command manually to change your shell:"
-            log_info "  sudo chsh -s $(command -v zsh) $USER"
+            log_info "  chsh -s $(command -v zsh) $USER"
             log_info "After changing your shell, log out and log back in for changes to take effect."
         fi
     fi
@@ -821,7 +821,7 @@ arch_setup_solaar() {
             log_success "Solaar installed successfully"
 
             # Enable solaar service if present
-            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
+            if systemctl enable --now solaar.service >/dev/null 2>&1; then
                 log_success "Solaar service enabled and started"
             else
                 log_warn "Failed to enable solaar service (may not exist on all systems)"
@@ -860,12 +860,12 @@ arch_configure_plymouth() {
     if [ -f /etc/mkinitcpio.conf ]; then
         if ! grep -q 'plymouth' /etc/mkinitcpio.conf && ! grep -q 'sd-plymouth' /etc/mkinitcpio.conf; then
             log_info "Adding 'plymouth' hook to /etc/mkinitcpio.conf"
-            sudo sed -i '/^HOOKS=/ s/)/ plymouth)/' /etc/mkinitcpio.conf || true
+            sed -i '/^HOOKS=/ s/)/ plymouth)/' /etc/mkinitcpio.conf || true
             log_info "Regenerating initramfs..."
-            if sudo mkinitcpio -P >/dev/null 2>&1; then
+            if mkinitcpio -P >/dev/null 2>&1; then
                 log_success "Initramfs regenerated with plymouth hook"
             else
-                log_warn "Failed to regenerate initramfs; please run 'sudo mkinitcpio -P' manually"
+                log_warn "Failed to regenerate initramfs; please run 'mkinitcpio -P' manually"
             fi
         else
             log_info "mkinitcpio already contains plymouth hook"
@@ -876,11 +876,11 @@ arch_configure_plymouth() {
     if [ -f /etc/default/grub ]; then
         if ! grep -q 'splash' /etc/default/grub; then
             log_info "Adding 'splash' to GRUB kernel parameters"
-            sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/& splash/' /etc/default/grub || true
-            if sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+            sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/& splash/' /etc/default/grub || true
+            if grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
                 log_success "GRUB configuration updated with splash"
             else
-                log_warn "Failed to regenerate GRUB config; please run 'sudo grub-mkconfig -o /boot/grub/grub.cfg' manually"
+                log_warn "Failed to regenerate GRUB config; please run 'grub-mkconfig -o /boot/grub/grub.cfg' manually"
             fi
         else
             log_info "GRUB already contains 'splash' parameter"
@@ -901,7 +901,7 @@ arch_configure_plymouth() {
         for entry in "$entries_dir"/*.conf; do
             [ -e "$entry" ] || continue
             if [ -f "$entry" ] && grep -q '^options' "$entry" && ! grep -q 'splash' "$entry"; then
-                if sudo sed -i "/^options/ s/$/ splash/" "$entry" >/dev/null 2>&1; then
+                if sed -i "/^options/ s/$/ splash/" "$entry" >/dev/null 2>&1; then
                     log_success "Added 'splash' to $entry"
                 else
                     log_warn "Failed to add 'splash' to $entry"
@@ -963,13 +963,13 @@ arch_configure_mirrors() {
 
     # Backup original mirrorlist
     if [ -f "$ARCH_MIRRORLIST" ]; then
-        sudo cp "$ARCH_MIRRORLIST" "$ARCH_MIRRORLIST.backup"
+        cp "$ARCH_MIRRORLIST" "$ARCH_MIRRORLIST.backup"
         log_info "Backed up original mirrorlist to ${ARCH_MIRRORLIST}.backup"
     fi
 
     # Update mirrors using rate-mirrors
     log_info "Updating mirror list with rate-mirrors..."
-    if sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch; then
+    if rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch; then
         log_success "Mirror list updated successfully"
     else
         log_warn "Failed to update mirror list"
@@ -978,7 +978,7 @@ arch_configure_mirrors() {
 
     # Sync package databases
     log_info "Synchronizing package databases..."
-    if sudo pacman -Syy; then
+    if pacman -Syy; then
         log_success "Package databases synchronized"
     else
         log_warn "Failed to synchronize package databases"
@@ -995,7 +995,7 @@ configure_grub_arch() {
     fi
 
     # Set timeout
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+    sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
 
     # Add Arch-specific kernel parameters including plymouth
     local arch_params="quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"
@@ -1017,13 +1017,13 @@ configure_grub_arch() {
     done
 
     if [ "$changed" = true ]; then
-        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
+        sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
         log_success "Updated GRUB kernel parameters"
     fi
 
     # Regenerate GRUB config
     log_info "Regenerating GRUB configuration..."
-    if ! sudo grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+    if ! grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
         log_error "Failed to regenerate GRUB config"
         return 1
     fi
@@ -1056,11 +1056,11 @@ configure_systemd_boot_arch() {
         if [ -f "$entry" ]; then
             if ! grep -q "splash" "$entry"; then
                 if grep -q "^options" "$entry"; then
-                    sudo sed -i "/^options/ s/$/ $arch_params/" "$entry"
+                    sed -i "/^options/ s/$/ $arch_params/" "$entry"
                     log_success "Updated $entry"
                     updated=true
                 else
-                    echo "options $arch_params" | sudo tee -a "$entry" >/dev/null
+                    echo "options $arch_params" | tee -a "$entry" >/dev/null
                     log_success "Updated $entry (added options)"
                     updated=true
                 fi

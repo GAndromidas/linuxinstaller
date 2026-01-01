@@ -364,7 +364,7 @@ prompt_reboot() {
         gum style --border double --margin "0 2" --padding "1 2" --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" --bold "Reboot System" 2>/dev/null || true
         if gum confirm --default=true "Reboot now to apply all changes?"; then
             log_warn "Rebooting system..."
-            sudo reboot
+            reboot
         else
             log_info "Please reboot your system later to apply all changes."
         fi
@@ -373,7 +373,7 @@ prompt_reboot() {
         read -r -p "Reboot now to apply all changes? [Y/n]: " response
         if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
             echo "Rebooting system..."
-            sudo reboot
+            reboot
         else
             echo "Please reboot your system later to apply all changes."
         fi

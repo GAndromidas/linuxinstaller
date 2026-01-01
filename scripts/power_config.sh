@@ -113,17 +113,17 @@ _try_install() {
                 return 0
             fi
         else
-            # Fallback: try sudo package manager generic installs (best-effort)
+            # Fallback: try package manager generic installs (best-effort)
             if [ "${DRY_RUN:-false}" = "true" ]; then
                 log_info "[DRY-RUN] Would install $pkg"
                 return 0
             fi
             if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get install -y "$pkg" >/dev/null 2>&1 && return 0 || true
+                apt-get install -y "$pkg" >/dev/null 2>&1 && return 0 || true
             elif command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y "$pkg" >/dev/null 2>&1 && return 0 || true
+                dnf install -y "$pkg" >/dev/null 2>&1 && return 0 || true
             elif command -v pacman >/dev/null 2>&1; then
-                sudo pacman -S --noconfirm "$pkg" >/dev/null 2>&1 && return 0 || true
+                pacman -S --noconfirm "$pkg" >/dev/null 2>&1 && return 0 || true
             fi
         fi
     done
@@ -142,7 +142,7 @@ configure_power_management() {
     # 1) Prefer power-profiles-daemon (modern desktops)
     if command -v powerprofilesctl >/dev/null 2>&1; then
         log_info "power-profiles-daemon detected"
-        if sudo systemctl enable --now power-profiles-daemon >/dev/null 2>&1; then
+        if systemctl enable --now power-profiles-daemon >/dev/null 2>&1; then
             log_success "power-profiles-daemon enabled"
         else
             log_warn "Failed to enable power-profiles-daemon service"
@@ -150,11 +150,11 @@ configure_power_management() {
 
         # Set sensible default profile; use performance for gaming mode if requested
         if [ "${INSTALL_GAMING:-false}" = "true" ]; then
-            if sudo powerprofilesctl set performance >/dev/null 2>&1; then
+            if powerprofilesctl set performance >/dev/null 2>&1; then
                 log_success "power-profiles-daemon profile set to 'performance'"
             fi
         else
-            if sudo powerprofilesctl set balanced >/dev/null 2>&1; then
+            if powerprofilesctl set balanced >/dev/null 2>&1; then
                 log_success "power-profiles-daemon profile set to 'balanced'"
             fi
         fi
@@ -165,14 +165,14 @@ configure_power_management() {
     if _try_install power-profiles-daemon; then
         if command -v powerprofilesctl >/dev/null 2>&1; then
             log_success "power-profiles-daemon installed"
-            if sudo systemctl enable --now power-profiles-daemon >/dev/null 2>&1; then
+            if systemctl enable --now power-profiles-daemon >/dev/null 2>&1; then
                 log_success "power-profiles-daemon enabled"
             fi
             # Configure default profile
             if [ "${INSTALL_GAMING:-false}" = "true" ]; then
-                sudo powerprofilesctl set performance >/dev/null 2>&1 || true
+                powerprofilesctl set performance >/dev/null 2>&1 || true
             else
-                sudo powerprofilesctl set balanced >/dev/null 2>&1 || true
+                powerprofilesctl set balanced >/dev/null 2>&1 || true
             fi
             return 0
         fi
@@ -186,7 +186,7 @@ configure_power_management() {
         # Try common package names in order
         if _try_install cpupower linux-cpupower cpufrequtils; then
             # enable cpupower if supported
-            if sudo systemctl enable --now cpupower >/dev/null 2>&1 || sudo systemctl enable --now cpupower.service >/dev/null 2>&1; then
+            if systemctl enable --now cpupower >/dev/null 2>&1 || systemctl enable --now cpupower.service >/dev/null 2>&1; then
                 log_success "cpupower enabled"
             else
                 log_warn "cpupower installed but enabling service failed or service not provided by package"
@@ -195,7 +195,7 @@ configure_power_management() {
             # Try to set governor to performance for gaming
             if command -v cpupower >/dev/null 2>&1; then
                 if [ "${INSTALL_GAMING:-false}" = "true" ]; then
-                    sudo cpupower frequency-set -g performance >/dev/null 2>&1 || true
+                    cpupower frequency-set -g performance >/dev/null 2>&1 || true
                 fi
             fi
             return 0
@@ -209,14 +209,14 @@ configure_power_management() {
     # 3) Fallback to tuned (legacy / older systems)
     if command -v tuned-adm >/dev/null 2>&1; then
         log_info "tuned already installed"
-        if sudo systemctl enable --now tuned >/dev/null 2>&1; then
+        if systemctl enable --now tuned >/dev/null 2>&1; then
             log_success "tuned enabled"
             return 0
         fi
     fi
 
     if _try_install tuned; then
-        if sudo systemctl enable --now tuned >/dev/null 2>&1; then
+        if systemctl enable --now tuned >/dev/null 2>&1; then
             log_success "tuned installed and enabled"
             return 0
         else

@@ -92,21 +92,21 @@ security_configure_fail2ban() {
 
         # Copy default config to local config
         if [ -f /etc/fail2ban/jail.conf ]; then
-            sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+            cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
         fi
 
         # Configure fail2ban settings
-        sudo sed -i 's/^backend = auto/backend = systemd/' /etc/fail2ban/jail.local 2>/dev/null || true
-        sudo sed -i 's/^bantime  = 10m/bantime = 1h/' /etc/fail2ban/jail.local 2>/dev/null || true
-        sudo sed -i 's/^findtime  = 10m/findtime = 10m/' /etc/fail2ban/jail.local 2>/dev/null || true
-        sudo sed -i 's/^maxretry = 5/maxretry = 3/' /etc/fail2ban/jail.local 2>/dev/null || true
+        sed -i 's/^backend = auto/backend = systemd/' /etc/fail2ban/jail.local 2>/dev/null || true
+        sed -i 's/^bantime  = 10m/bantime = 1h/' /etc/fail2ban/jail.local 2>/dev/null || true
+        sed -i 's/^findtime  = 10m/findtime = 10m/' /etc/fail2ban/jail.local 2>/dev/null || true
+        sed -i 's/^maxretry = 5/maxretry = 3/' /etc/fail2ban/jail.local 2>/dev/null || true
 
         # Enable SSH jail
-        sudo sed -i 's/^enabled = false/enabled = true/' /etc/fail2ban/jail.local 2>/dev/null || true
+        sed -i 's/^enabled = false/enabled = true/' /etc/fail2ban/jail.local 2>/dev/null || true
     fi
 
     # Enable and start fail2ban service
-    if sudo systemctl enable --now fail2ban >/dev/null 2>&1; then
+    if systemctl enable --now fail2ban >/dev/null 2>&1; then
         log_success "fail2ban enabled and started"
     else
         log_warn "Failed to enable fail2ban service"
@@ -120,21 +120,21 @@ security_configure_firewall() {
     case "$DISTRO_ID" in
         "arch")
             # Configure UFW for Arch
-            sudo ufw default deny incoming >/dev/null 2>&1
-            sudo ufw default allow outgoing >/dev/null 2>&1
-            sudo ufw limit ssh >/dev/null 2>&1
+            ufw default deny incoming >/dev/null 2>&1
+            ufw default allow outgoing >/dev/null 2>&1
+            ufw limit ssh >/dev/null 2>&1
 
             # Allow KDE Connect if KDE is detected
             if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-                sudo ufw allow 1714:1764/udp >/dev/null 2>&1
-                sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
+                ufw allow 1714:1764/udp >/dev/null 2>&1
+                ufw allow 1714:1764/tcp >/dev/null 2>&1
                 log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in UFW"
             fi
 
             # Force enable without prompt, and ensure the ufw systemd service is enabled so rules persist across reboot
-            echo "y" | sudo ufw enable >/dev/null 2>&1 || true
+            echo "y" | ufw enable >/dev/null 2>&1 || true
             if command -v systemctl >/dev/null 2>&1; then
-                if sudo systemctl enable --now ufw >/dev/null 2>&1; then
+                if systemctl enable --now ufw >/dev/null 2>&1; then
                     log_success "UFW enabled and will start on boot"
                 else
                     log_warn "Failed to enable ufw.service; firewall may not persist across reboot"
@@ -145,23 +145,23 @@ security_configure_firewall() {
         "fedora")
             # Configure firewalld for Fedora
             if command -v firewall-cmd >/dev/null 2>&1; then
-                if sudo systemctl enable --now firewalld >/dev/null 2>&1; then
-                    sudo firewall-cmd --set-default-zone=public >/dev/null 2>&1
-                    sudo firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
+                if systemctl enable --now firewalld >/dev/null 2>&1; then
+                    firewall-cmd --set-default-zone=public >/dev/null 2>&1
+                    firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
 
                     # Allow KDE Connect if KDE is detected
                     if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-                        if sudo firewall-cmd --permanent --add-service=kde-connect >/dev/null 2>&1; then
+                        if firewall-cmd --permanent --add-service=kde-connect >/dev/null 2>&1; then
                             log_success "KDE Connect service allowed in firewall"
                         else
                             # Fallback: manually allow KDE Connect ports
-                            sudo firewall-cmd --permanent --add-port=1714-1764/udp >/dev/null 2>&1
-                            sudo firewall-cmd --permanent --add-port=1714-1764/tcp >/dev/null 2>&1
+                            firewall-cmd --permanent --add-port=1714-1764/udp >/dev/null 2>&1
+                            firewall-cmd --permanent --add-port=1714-1764/tcp >/dev/null 2>&1
                             log_success "KDE Connect ports (1714-1764) allowed in firewall"
                         fi
                     fi
 
-                    sudo firewall-cmd --reload >/dev/null 2>&1
+                    firewall-cmd --reload >/dev/null 2>&1
                     log_success "firewalld configured with SSH and KDE Connect (if applicable)"
                 else
                     log_warn "Failed to enable firewalld"
@@ -170,21 +170,21 @@ security_configure_firewall() {
             ;;
         "debian"|"ubuntu")
             # Configure UFW for Debian/Ubuntu
-            sudo ufw default deny incoming >/dev/null 2>&1
-            sudo ufw default allow outgoing >/dev/null 2>&1
-            sudo ufw limit ssh >/dev/null 2>&1
+            ufw default deny incoming >/dev/null 2>&1
+            ufw default allow outgoing >/dev/null 2>&1
+            ufw limit ssh >/dev/null 2>&1
 
             # Allow KDE Connect if KDE is detected
             if [ "${XDG_CURRENT_DESKTOP:-}" = "KDE" ]; then
-                sudo ufw allow 1714:1764/udp >/dev/null 2>&1
-                sudo ufw allow 1714:1764/tcp >/dev/null 2>&1
+                ufw allow 1714:1764/udp >/dev/null 2>&1
+                ufw allow 1714:1764/tcp >/dev/null 2>&1
                 log_success "KDE Connect ports (1714-1764 UDP/TCP) allowed in UFW"
             fi
 
             # Force enable without prompt, and ensure the ufw systemd service is enabled so rules persist across reboot
-            echo "y" | sudo ufw enable >/dev/null 2>&1 || true
+            echo "y" | ufw enable >/dev/null 2>&1 || true
             if command -v systemctl >/dev/null 2>&1; then
-                if sudo systemctl enable --now ufw >/dev/null 2>&1; then
+                if systemctl enable --now ufw >/dev/null 2>&1; then
                     log_success "UFW enabled and will start on boot"
                 else
                     log_warn "Failed to enable ufw.service; firewall may not persist across reboot"
@@ -202,11 +202,11 @@ security_configure_apparmor() {
     if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         if command -v apparmor_parser >/dev/null 2>&1; then
             # Enable AppArmor
-            if sudo systemctl enable --now apparmor >/dev/null 2>&1; then
+            if systemctl enable --now apparmor >/dev/null 2>&1; then
                 log_success "AppArmor enabled and started"
 
                 # Load default profiles
-                sudo apparmor_parser -q /etc/apparmor.d/* >/dev/null 2>&1 || true
+                apparmor_parser -q /etc/apparmor.d/* >/dev/null 2>&1 || true
                 log_success "AppArmor profiles loaded"
             else
                 log_warn "Failed to enable AppArmor"
@@ -227,7 +227,7 @@ security_configure_selinux() {
                 log_info "SELinux is already enabled"
             else
                 log_info "SELinux is disabled, enabling..."
-                sudo setenforce 1 >/dev/null 2>&1
+                setenforce 1 >/dev/null 2>&1
                 log_success "SELinux enabled in permissive mode"
             fi
         fi
@@ -243,19 +243,19 @@ security_configure_ssh() {
 
         # Backup original config
         if [ ! -f /etc/ssh/sshd_config.backup ]; then
-            sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
         fi
 
         # Apply security settings
-        sudo sed -i 's/^#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
-        sudo sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
-        sudo sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
-        sudo sed -i 's/^#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config 2>/dev/null || true
-        sudo sed -i 's/^#ClientAliveInterval 0/ClientAliveInterval 300/' /etc/ssh/sshd_config 2>/dev/null || true
-        sudo sed -i 's/^#ClientAliveCountMax 3/ClientAliveCountMax 2/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#MaxAuthTries 6/MaxAuthTries 3/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#ClientAliveInterval 0/ClientAliveInterval 300/' /etc/ssh/sshd_config 2>/dev/null || true
+        sed -i 's/^#ClientAliveCountMax 3/ClientAliveCountMax 2/' /etc/ssh/sshd_config 2>/dev/null || true
 
         # Restart SSH service
-        if sudo systemctl restart sshd >/dev/null 2>&1; then
+        if systemctl restart sshd >/dev/null 2>&1; then
             log_success "SSH configuration applied"
         else
             log_warn "Failed to restart SSH service"
@@ -284,7 +284,7 @@ security_configure_user_groups() {
     for group in "${groups[@]}"; do
         if getent group "$group" >/dev/null; then
             if ! id -nG "$USER" | grep -qw "$group"; then
-                sudo usermod -aG "$group" "$USER"
+                usermod -aG "$group" "$USER"
                 log_success "Added user to group: $group"
             else
                 log_info "User already in group: $group"

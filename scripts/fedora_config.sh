@@ -213,11 +213,11 @@ fedora_system_preparation() {
 
     # Update system
     if supports_gum; then
-        if gum spin --spinner dot --title "Updating system" -- sudo dnf update -y >/dev/null 2>&1; then
+        if gum spin --spinner dot --title "Updating system" -- dnf update -y >/dev/null 2>&1; then
             gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
         fi
     else
-        sudo dnf update -y >/dev/null 2>&1 || true
+        dnf update -y >/dev/null 2>&1 || true
     fi
 }
 
@@ -229,13 +229,13 @@ fedora_enable_rpmfusion() {
         local fedora_version=$(rpm -E %fedora)
 
         if supports_gum; then
-            if gum spin --spinner dot --title "Enabling RPM Fusion" -- sudo dnf install -y \
+            if gum spin --spinner dot --title "Enabling RPM Fusion" -- dnf install -y \
                 https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
                 https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1; then
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ RPM Fusion enabled"
             fi
         else
-            sudo dnf install -y \
+            dnf install -y \
                 https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
                 https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1 || true
         fi
@@ -248,7 +248,7 @@ fedora_configure_dnf() {
 
     # Backup original config
     if [ -f "$FEDORA_REPOS_FILE" ] && [ ! -f "${FEDORA_REPOS_FILE}.backup" ]; then
-        sudo cp "$FEDORA_REPOS_FILE" "${FEDORA_REPOS_FILE}.backup"
+        cp "$FEDORA_REPOS_FILE" "${FEDORA_REPOS_FILE}.backup"
     fi
 
     # Optimize DNF configuration
@@ -263,15 +263,15 @@ fedora_configure_dnf() {
     for opt in "${optimizations[@]}"; do
         local key=$(echo "$opt" | cut -d= -f1)
         if grep -q "^$key" "$FEDORA_REPOS_FILE"; then
-            sudo sed -i "s/^$key=.*/$opt/" "$FEDORA_REPOS_FILE"
+            sed -i "s/^$key=.*/$opt/" "$FEDORA_REPOS_FILE"
         else
-            echo "$opt" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
+            echo "$opt" | tee -a "$FEDORA_REPOS_FILE" >/dev/null
         fi
     done
 
     # Enable PowerTools repository for additional packages
     if [ -f /etc/yum.repos.d/fedora-cisco-openh264.repo ]; then
-        sudo dnf config-manager --set-enabled fedora-cisco-openh264 >/dev/null 2>&1 || true
+        dnf config-manager --set-enabled fedora-cisco-openh264 >/dev/null 2>&1 || true
     fi
 
     log_success "DNF configured with optimizations"
@@ -283,7 +283,7 @@ fedora_install_essentials() {
 
     log_info "Installing essential packages..."
     for package in "${FEDORA_ESSENTIALS[@]}"; do
-        if ! sudo dnf install -y "$package" >/dev/null 2>&1; then
+        if ! dnf install -y "$package" >/dev/null 2>&1; then
             log_warn "Failed to install essential package: $package"
         else
             log_success "Installed essential package: $package"
@@ -294,7 +294,7 @@ fedora_install_essentials() {
     if [ "$INSTALL_MODE" != "server" ]; then
         log_info "Installing desktop packages..."
         for package in "${FEDORA_DESKTOP[@]}"; do
-            if ! sudo dnf install -y "$package" >/dev/null 2>&1; then
+            if ! dnf install -y "$package" >/dev/null 2>&1; then
                 log_warn "Failed to install desktop package: $package"
             else
                 log_success "Installed desktop package: $package"
@@ -334,7 +334,7 @@ configure_grub_fedora() {
     fi
 
     # Set timeout
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+    sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
 
     # Add Fedora-specific kernel parameters
     local fedora_params="quiet splash"
@@ -356,19 +356,19 @@ configure_grub_fedora() {
     done
 
     if [ "$changed" = true ]; then
-        sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
+        sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_params\"|" /etc/default/grub
         log_success "Updated GRUB kernel parameters"
     fi
 
     # Regenerate GRUB config
     log_info "Regenerating GRUB configuration..."
     if [ -d /sys/firmware/efi ]; then
-        if ! sudo grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg >/dev/null 2>&1; then
+        if ! grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg >/dev/null 2>&1; then
             log_error "Failed to regenerate GRUB config"
             return 1
         fi
     else
-        if ! sudo grub2-mkconfig -o /boot/grub2/grub.cfg >/dev/null 2>&1; then
+        if ! grub2-mkconfig -o /boot/grub2/grub.cfg >/dev/null 2>&1; then
             log_error "Failed to regenerate GRUB config"
             return 1
         fi
@@ -403,11 +403,11 @@ configure_systemd_boot_fedora() {
         if [ -f "$entry" ]; then
             if ! grep -q "splash" "$entry"; then
                 if grep -q "^options" "$entry"; then
-                    sudo sed -i "/^options/ s/$/ $fedora_params/" "$entry"
+                    sed -i "/^options/ s/$/ $fedora_params/" "$entry"
                     log_success "Updated $entry"
                     updated=true
                 else
-                    echo "options $fedora_params" | sudo tee -a "$entry" >/dev/null
+                    echo "options $fedora_params" | tee -a "$entry" >/dev/null
                     log_success "Updated $entry (added options)"
                     updated=true
                 fi
@@ -436,7 +436,7 @@ fedora_enable_system_services() {
 
     for service in "${services[@]}"; do
         if systemctl list-unit-files | grep -q "^$service"; then
-            if sudo systemctl enable --now "$service" >/dev/null 2>&1; then
+            if systemctl enable --now "$service" >/dev/null 2>&1; then
                 log_success "Enabled and started $service"
             else
                 log_warn "Failed to enable $service"
@@ -445,16 +445,16 @@ fedora_enable_system_services() {
     done
 
     # Configure firewall (firewalld for Fedora)
-    if ! sudo dnf install -y firewalld >/dev/null 2>&1; then
+    if ! dnf install -y firewalld >/dev/null 2>&1; then
         log_warn "Failed to install firewalld"
         return
     fi
 
     # Configure firewalld
-    if sudo systemctl enable --now firewalld >/dev/null 2>&1; then
-        sudo firewall-cmd --set-default-zone=public >/dev/null 2>&1
-        sudo firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
-        sudo firewall-cmd --reload >/dev/null 2>&1
+    if systemctl enable --now firewalld >/dev/null 2>&1; then
+        firewall-cmd --set-default-zone=public >/dev/null 2>&1
+        firewall-cmd --permanent --add-service=ssh >/dev/null 2>&1
+        firewall-cmd --reload >/dev/null 2>&1
         log_success "firewalld enabled and configured"
     else
         log_warn "Failed to enable firewalld"
@@ -467,7 +467,7 @@ fedora_setup_flatpak() {
 
     if ! command -v flatpak >/dev/null; then
         log_info "Installing Flatpak..."
-        if ! sudo dnf install -y flatpak >/dev/null 2>&1; then
+        if ! dnf install -y flatpak >/dev/null 2>&1; then
             log_warn "Failed to install Flatpak"
             return
         fi
@@ -484,14 +484,14 @@ fedora_setup_copr() {
     step "Setting up COPR repositories"
     if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
         # Ensure dnf-plugins-core is available (required for 'dnf copr')
-        if ! sudo dnf install -y dnf-plugins-core >/dev/null 2>&1; then
+        if ! dnf install -y dnf-plugins-core >/dev/null 2>&1; then
             log_warn "Failed to install dnf-plugins-core; COPR setup may fail"
         fi
 
         for repo in "${FEDORA_COPR_REPOS[@]}"; do
             if [ -n "$repo" ]; then
                 log_info "Enabling COPR repository: $repo"
-                if ! sudo dnf copr enable -y "$repo" >/dev/null 2>&1; then
+                if ! dnf copr enable -y "$repo" >/dev/null 2>&1; then
                     log_warn "Failed to enable COPR repo: $repo"
                 else
                     log_success "Enabled COPR repo: $repo"
@@ -509,7 +509,7 @@ fedora_setup_shell() {
 
     if [ "$SHELL" != "$(command -v zsh)" ]; then
         log_info "Changing default shell to ZSH..."
-        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+        if chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
             log_success "Default shell changed to ZSH"
         else
             log_warning "Failed to change shell. You may need to do this manually."
@@ -572,7 +572,7 @@ fedora_setup_solaar() {
         log_info "Installing solaar for Logitech hardware management..."
         if install_pkg solaar; then
             log_success "Solaar installed successfully"
-            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
+            if systemctl enable --now solaar.service >/dev/null 2>&1; then
                 log_success "Solaar service enabled and started"
             else
                 log_warn "Failed to enable solaar service"
@@ -591,7 +591,7 @@ fedora_configure_locale() {
 
     # Install language packs for Greek and US English
     log_info "Installing language packs..."
-    if ! sudo dnf install -y glibc-langpack-el glibc-langpack-en >/dev/null 2>&1; then
+    if ! dnf install -y glibc-langpack-el glibc-langpack-en >/dev/null 2>&1; then
         log_warn "Failed to install language packs"
     else
         log_success "Language packs installed"
@@ -600,12 +600,12 @@ fedora_configure_locale() {
     local locale_conf="/etc/locale.conf"
 
     if [ ! -f "$locale_conf" ]; then
-        sudo touch "$locale_conf"
+        touch "$locale_conf"
     fi
 
     # Set LANG to Greek
     log_info "Setting default locale to Greek (el_GR.UTF-8)..."
-    if sudo bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
+    if bash -c "echo 'LANG=el_GR.UTF-8' > '$locale_conf'"; then
         log_success "Default locale set to el_GR.UTF-8"
     else
         log_warn "Failed to set default locale"
@@ -651,8 +651,8 @@ fedora_configure_hostname() {
                 echo ""
 
                 if gum confirm "Yes, change hostname to: $new_hostname"; then
-                    if echo "$new_hostname" | sudo tee /etc/hostname >/dev/null; then
-                        sudo hostnamectl set-hostname "$new_hostname"
+                    if echo "$new_hostname" | tee /etc/hostname >/dev/null; then
+                        hostnamectl set-hostname "$new_hostname"
                         log_success "Hostname changed to: $new_hostname"
                         log_info "Reboot required for changes to take effect"
                     else
@@ -689,8 +689,8 @@ fedora_configure_hostname() {
                 echo ""
                 read -r -p "Yes, change hostname to: $new_hostname? [y/N]: " confirm
                 if [[ "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-                    if echo "$new_hostname" | sudo tee /etc/hostname >/dev/null; then
-                        sudo hostnamectl set-hostname "$new_hostname"
+                    if echo "$new_hostname" | tee /etc/hostname >/dev/null; then
+                        hostnamectl set-hostname "$new_hostname"
                         log_success "Hostname changed to: $new_hostname"
                         log_info "Reboot required for changes to take effect"
                     else

@@ -48,20 +48,20 @@ gaming_configure_performance() {
 
     # Enable performance governor
     if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
-        echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+        echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
         log_success "Set CPU governor to performance"
     fi
 
     # Configure swappiness for gaming
     if [ -f /proc/sys/vm/swappiness ]; then
-        echo 10 | sudo tee /proc/sys/vm/swappiness >/dev/null 2>&1
+        echo 10 | tee /proc/sys/vm/swappiness >/dev/null 2>&1
         log_success "Optimized swappiness for gaming (set to 10)"
     fi
 
     # Configure graphics settings
     if command -v nvidia-settings >/dev/null 2>&1; then
         log_info "Configuring NVIDIA settings for gaming..."
-        sudo nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
+        nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
         log_success "NVIDIA performance mode enabled"
     fi
 
@@ -74,7 +74,7 @@ gaming_configure_performance() {
         fi
     done
     if [ "$has_ssd" = true ]; then
-        sudo systemctl enable --now fstrim.timer >/dev/null 2>&1
+        systemctl enable --now fstrim.timer >/dev/null 2>&1
         log_success "Enabled TRIM for SSD optimization"
     fi
 }
@@ -101,7 +101,7 @@ gaming_configure_gamemode() {
         log_info "GameMode already installed"
 
         # Enable and start GameMode service
-        if sudo systemctl enable --now gamemoded >/dev/null 2>&1; then
+        if systemctl enable --now gamemoded >/dev/null 2>&1; then
             log_success "GameMode service enabled and started"
         else
             log_warn "Failed to enable GameMode service"
@@ -151,8 +151,8 @@ gaming_install_faugus() {
     fi
 
     # Ensure Flathub remote exists
-    if ! sudo flatpak remote-list | grep -q flathub; then
-        sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+    if ! flatpak remote-list | grep -q flathub; then
+        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
     fi
 
     # Install Faugus from Flathub if not present

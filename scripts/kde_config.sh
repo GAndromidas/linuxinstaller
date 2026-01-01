@@ -196,9 +196,9 @@ kde_configure_network() {
 
     # Enable NetworkManager integration
     if systemctl list-unit-files | grep -q NetworkManager; then
-        if ! sudo systemctl is-enabled NetworkManager >/dev/null 2>&1; then
-            sudo systemctl enable NetworkManager >/dev/null 2>&1
-            sudo systemctl start NetworkManager >/dev/null 2>&1
+        if ! systemctl is-enabled NetworkManager >/dev/null 2>&1; then
+            systemctl enable NetworkManager >/dev/null 2>&1
+            systemctl start NetworkManager >/dev/null 2>&1
             log_success "NetworkManager enabled and started"
         fi
     fi
@@ -254,8 +254,8 @@ kde_install_kdeconnect() {
 
     # Enable KDE Connect service
     if systemctl list-unit-files | grep -q kdeconnectd; then
-        sudo systemctl enable kdeconnectd >/dev/null 2>&1
-        sudo systemctl start kdeconnectd >/dev/null 2>&1
+        systemctl enable kdeconnectd >/dev/null 2>&1
+        systemctl start kdeconnectd >/dev/null 2>&1
     fi
 
     log_success "KDE Connect installed and configured"

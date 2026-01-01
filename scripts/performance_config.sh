@@ -50,13 +50,13 @@ performance_configure_zram() {
 
     if [ ! -f /etc/systemd/zram-generator.conf ]; then
         log_info "Creating ZRAM configuration..."
-        sudo tee /etc/systemd/zram-generator.conf > /dev/null << EOF
+        tee /etc/systemd/zram-generator.conf > /dev/null << EOF
 [zram0]
 zram-size = min(ram, 8192)
 compression-algorithm = zstd
 EOF
-        sudo systemctl daemon-reload
-        if sudo systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
+        systemctl daemon-reload
+        if systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
             log_success "ZRAM configured and started"
         else
             log_warn "Failed to start ZRAM service"
@@ -72,13 +72,13 @@ performance_configure_swappiness() {
 
     # Optimize swappiness for performance
     if [ -f /proc/sys/vm/swappiness ]; then
-        echo 10 | sudo tee /proc/sys/vm/swappiness >/dev/null 2>&1
+        echo 10 | tee /proc/sys/vm/swappiness >/dev/null 2>&1
         log_success "Optimized swappiness for performance (set to 10)"
     fi
 
     # Make it persistent
     if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
-        echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.conf >/dev/null
+        echo "vm.swappiness=10" | tee -a /etc/sysctl.conf >/dev/null
     fi
 }
 
@@ -88,13 +88,13 @@ performance_configure_cpu_governor() {
 
     # Enable performance governor for better performance
     if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
-        echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+        echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
         log_success "Set CPU governor to performance"
     fi
 
     # Make it persistent with a systemd service
     if [ ! -f /etc/systemd/system/cpu-performance.service ]; then
-        sudo tee /etc/systemd/system/cpu-performance.service > /dev/null << EOF
+        tee /etc/systemd/system/cpu-performance.service > /dev/null << EOF
 [Unit]
 Description=Set CPU Governor to Performance
 After=multi-user.target
@@ -106,7 +106,7 @@ ExecStart=/bin/bash -c 'echo performance > /sys/devices/system/cpu/cpu*/cpufreq/
 [Install]
 WantedBy=multi-user.target
 EOF
-        sudo systemctl enable cpu-performance.service >/dev/null 2>&1
+        systemctl enable cpu-performance.service >/dev/null 2>&1
         log_success "CPU performance service created and enabled"
     fi
 }
@@ -117,7 +117,7 @@ performance_configure_filesystem() {
 
     # Enable TRIM for SSDs
     if [ -f /sys/block/*/queue/discard_max_bytes ]; then
-        sudo systemctl enable --now fstrim.timer >/dev/null 2>&1
+        systemctl enable --now fstrim.timer >/dev/null 2>&1
         log_success "Enabled TRIM for SSD optimization"
     fi
 
@@ -127,7 +127,7 @@ performance_configure_filesystem() {
         if [ -n "$current_mount" ]; then
             # Add performance mount options
             if ! grep -q "noatime" /etc/fstab; then
-                sudo sed -i 's|ext4 defaults|ext4 defaults,noatime|' /etc/fstab 2>/dev/null || true
+                sed -i 's|ext4 defaults|ext4 defaults,noatime|' /etc/fstab 2>/dev/null || true
                 log_success "Added noatime mount option for performance"
             fi
         fi
@@ -140,7 +140,7 @@ performance_configure_network() {
 
     # Optimize network settings
     if [ ! -f /etc/sysctl.d/99-performance.conf ]; then
-        sudo tee /etc/sysctl.d/99-performance.conf > /dev/null << EOF
+        tee /etc/sysctl.d/99-performance.conf > /dev/null << EOF
 # Performance optimizations
 net.core.rmem_max = 134217728
 net.core.wmem_max = 134217728
@@ -149,7 +149,7 @@ net.ipv4.tcp_wmem = 4096 65536 134217728
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-        sudo sysctl -p /etc/sysctl.d/99-performance.conf >/dev/null 2>&1
+        sysctl -p /etc/sysctl.d/99-performance.conf >/dev/null 2>&1
         log_success "Network performance optimized"
     fi
 }
@@ -160,7 +160,7 @@ performance_configure_kernel() {
 
     # Optimize kernel parameters for performance
     if [ ! -f /etc/sysctl.d/99-kernel-performance.conf ]; then
-        sudo tee /etc/sysctl.d/99-kernel-performance.conf > /dev/null << EOF
+        tee /etc/sysctl.d/99-kernel-performance.conf > /dev/null << EOF
 # Kernel performance optimizations
 vm.dirty_ratio = 5
 vm.dirty_background_ratio = 2
@@ -170,7 +170,7 @@ vm.vfs_cache_pressure = 50
 kernel.sched_migration_cost_ns = 500000
 kernel.sched_wakeup_granularity_ns = 1000000
 EOF
-        sudo sysctl -p /etc/sysctl.d/99-kernel-performance.conf >/dev/null 2>&1
+        sysctl -p /etc/sysctl.d/99-kernel-performance.conf >/dev/null 2>&1
         log_success "Kernel performance optimized"
     fi
 }
@@ -190,7 +190,7 @@ performance_configure_services() {
     for service in "${services_to_disable[@]}"; do
         if systemctl list-unit-files | grep -q "^$service"; then
             if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
-                sudo systemctl disable "$service" >/dev/null 2>&1
+                systemctl disable "$service" >/dev/null 2>&1
                 log_info "Disabled service: $service"
             fi
         fi
@@ -205,8 +205,8 @@ performance_configure_services() {
 
     for service in "${services_to_enable[@]}"; do
         if systemctl list-unit-files | grep -q "^$service"; then
-            if ! sudo systemctl is-enabled "$service" >/dev/null 2>&1; then
-                sudo systemctl enable --now "$service" >/dev/null 2>&1
+            if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
+                systemctl enable --now "$service" >/dev/null 2>&1
                 log_success "Enabled service: $service"
             fi
         fi
@@ -273,16 +273,16 @@ performance_configure_btrfs() {
         if [ -n "$btrfs_mount" ]; then
             # Add compression mount option
             if ! grep -q "compress=zstd" /etc/fstab; then
-                sudo sed -i "s|btrfs.*defaults|btrfs defaults,compress=zstd|" /etc/fstab 2>/dev/null || true
+                sed -i "s|btrfs.*defaults|btrfs defaults,compress=zstd|" /etc/fstab 2>/dev/null || true
                 log_success "Added Btrfs compression mount option"
             fi
         fi
 
         # Configure Btrfs maintenance
         if [ -f /usr/bin/btrfs ]; then
-            sudo systemctl enable --now btrfs-scrub@-.timer >/dev/null 2>&1
-            sudo systemctl enable --now btrfs-balance@-.timer >/dev/null 2>&1
-            sudo systemctl enable --now btrfs-defrag@-.timer >/dev/null 2>&1
+            systemctl enable --now btrfs-scrub@-.timer >/dev/null 2>&1
+            systemctl enable --now btrfs-balance@-.timer >/dev/null 2>&1
+            systemctl enable --now btrfs-defrag@-.timer >/dev/null 2>&1
             log_success "Btrfs maintenance services enabled"
         fi
     else
@@ -297,21 +297,21 @@ performance_configure_gaming() {
     if [ "$INSTALL_MODE" == "gaming" ] || [ "$INSTALL_MODE" == "standard" ]; then
         # Enable performance governor for gaming
         if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
-            echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
+            echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1
             log_success "Set CPU governor to performance for gaming"
         fi
 
         # Optimize GPU settings
         if command -v nvidia-settings >/dev/null 2>&1; then
             log_info "Configuring NVIDIA settings for gaming..."
-            sudo nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
+            nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
             log_success "NVIDIA performance mode enabled"
         fi
 
         # Configure audio latency
         if [ -f /etc/pulse/daemon.conf ]; then
-            sudo sed -i 's/^;default-fragments = 4/default-fragments = 2/' /etc/pulse/daemon.conf 2>/dev/null || true
-            sudo sed -i 's/^;default-fragment-size-msec = 25/default-fragment-size-msec = 10/' /etc/pulse/daemon.conf 2>/dev/null || true
+            sed -i 's/^;default-fragments = 4/default-fragments = 2/' /etc/pulse/daemon.conf 2>/dev/null || true
+            sed -i 's/^;default-fragment-size-msec = 25/default-fragment-size-msec = 10/' /etc/pulse/daemon.conf 2>/dev/null || true
             log_success "Audio latency optimized for gaming"
         fi
     fi

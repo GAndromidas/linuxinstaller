@@ -233,9 +233,9 @@ gnome_configure_network() {
 
     # Enable NetworkManager
     if systemctl list-unit-files | grep -q NetworkManager; then
-        if ! sudo systemctl is-enabled NetworkManager >/dev/null 2>&1; then
-            sudo systemctl enable NetworkManager >/dev/null 2>&1
-            sudo systemctl start NetworkManager >/dev/null 2>&1
+        if ! systemctl is-enabled NetworkManager >/dev/null 2>&1; then
+            systemctl enable NetworkManager >/dev/null 2>&1
+            systemctl start NetworkManager >/dev/null 2>&1
             log_success "NetworkManager enabled and started"
         fi
     fi
