@@ -39,7 +39,7 @@ detect_distro() {
             PKG_MANAGER="apt"
             PKG_INSTALL="sudo apt-get install"
             PKG_REMOVE="sudo apt-get remove"
-            PKG_UPDATE="sudo apt-get update && sudo apt-get upgrade"
+            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
             PKG_CLEAN="sudo apt-get clean"
             ;;
@@ -48,7 +48,25 @@ detect_distro() {
             PKG_MANAGER="apt"
             PKG_INSTALL="sudo apt-get install"
             PKG_REMOVE="sudo apt-get remove"
-            PKG_UPDATE="sudo apt-get update && sudo apt-get upgrade"
+            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -yq"
+            PKG_NOCONFIRM="-y"
+            PKG_CLEAN="sudo apt-get clean"
+            ;;
+        fedora)
+            DISTRO_ID="fedora"
+            PKG_MANAGER="dnf"
+            PKG_INSTALL="sudo dnf install"
+            PKG_REMOVE="sudo dnf remove"
+            PKG_UPDATE="sudo dnf upgrade -y"
+            PKG_NOCONFIRM="-y"
+            PKG_CLEAN="sudo dnf clean all"
+            ;;
+        ubuntu)
+            DISTRO_ID="ubuntu"
+            PKG_MANAGER="apt"
+            PKG_INSTALL="sudo apt-get install"
+            PKG_REMOVE="sudo apt-get remove"
+            PKG_UPDATE="sudo apt-get update && sudo apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
             PKG_CLEAN="sudo apt-get clean"
             ;;
@@ -106,7 +124,7 @@ define_common_packages() {
     COMMON_UTILS="bc curl git rsync ufw fzf fastfetch eza zoxide"
 
     # Use resolver implicitly by listing generic names where possible,
-    # but for bootstrap we hardcode to ensure they exist before resolver (yq) is ready
+    # but for bootstrap we hardcode to ensure they exist before resolver is ready
     case "$DISTRO_ID" in
         arch)
             HELPER_UTILS=($COMMON_UTILS base-devel bluez-utils cronie openssh pacman-contrib plymouth flatpak)

@@ -622,8 +622,102 @@ fedora_configure_locale() {
 # MAIN FEDORA CONFIGURATION FUNCTION
 # =============================================================================
 
+# Configure system hostname for Fedora
+fedora_configure_hostname() {
+    step "Configuring System Hostname"
+
+    local current_hostname
+    current_hostname=$(hostname)
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Current hostname: $current_hostname"
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Do you want to change the hostname?"
+        echo ""
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Hostname identifies your system on the network."
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Choose wisely as it will be used by:"
+
+        if gum confirm "Change hostname?" --default=false; then
+            echo ""
+            local new_hostname
+            new_hostname=$(gum input --placeholder "my-fedora" --prompt "Enter new hostname: " --width 40)
+
+            if [ -n "$new_hostname" ] && [ "$new_hostname" != "$current_hostname" ]; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "⚠ You are about to change hostname to: $new_hostname"
+                echo ""
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "This will:"
+                gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Update /etc/hostname"
+                gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Require a reboot to take effect"
+                echo ""
+                gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Are you sure you want to proceed?"
+                echo ""
+
+                if gum confirm "Yes, change hostname to: $new_hostname"; then
+                    if echo "$new_hostname" | sudo tee /etc/hostname >/dev/null; then
+                        sudo hostnamectl set-hostname "$new_hostname"
+                        log_success "Hostname changed to: $new_hostname"
+                        log_info "Reboot required for changes to take effect"
+                    else
+                        log_error "Failed to change hostname"
+                    fi
+                else
+                    log_info "Hostname change cancelled by user"
+                fi
+            else
+                log_info "Hostname unchanged (empty or same as current)"
+            fi
+        else
+            log_info "Hostname change skipped by user"
+        fi
+    else
+        echo "Current hostname: $current_hostname"
+        echo ""
+        echo "Hostname identifies your system on the network."
+        echo "Choose wisely as it will be used by:"
+        echo "  • SSH connections"
+        echo "  • Network identification"
+        echo "  • System logs"
+        echo ""
+        read -r -p "Change hostname? [y/N]: " response
+        if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+            read -r -p "Enter new hostname: " new_hostname
+            if [ -n "$new_hostname" ] && [ "$new_hostname" != "$current_hostname" ]; then
+                echo ""
+                echo "⚠  You are about to change hostname to: $new_hostname"
+                echo ""
+                echo "This will:"
+                echo "  • Update /etc/hostname"
+                echo "  • Require a reboot to take effect"
+                echo ""
+                read -r -p "Yes, change hostname to: $new_hostname? [y/N]: " confirm
+                if [[ "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+                    if echo "$new_hostname" | sudo tee /etc/hostname >/dev/null; then
+                        sudo hostnamectl set-hostname "$new_hostname"
+                        log_success "Hostname changed to: $new_hostname"
+                        log_info "Reboot required for changes to take effect"
+                    else
+                        log_error "Failed to change hostname"
+                    fi
+                else
+                    log_info "Hostname change cancelled by user"
+                fi
+            else
+                log_info "Hostname unchanged (empty or same as current)"
+            fi
+        else
+            log_info "Hostname change skipped by user"
+        fi
+    fi
+}
+
+# =============================================================================
+# MAIN FEDORA CONFIGURATION FUNCTION
+# =============================================================================
+
 fedora_main_config() {
     log_info "Starting Fedora configuration..."
+
+    fedora_configure_hostname
 
     fedora_system_preparation
 
@@ -662,247 +756,5 @@ export -f fedora_setup_flatpak
 export -f fedora_setup_copr
 export -f fedora_setup_shell
 export -f fedora_setup_solaar
-
-fedora_setup_shell() {
-    step "Setting up ZSH shell environment"
-
-    # Set ZSH as default
-    if [ "$SHELL" != "$(command -v zsh)" ]; then
-        log_info "Changing default shell to ZSH..."
-        if sudo chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
-            log_success "Default shell changed to ZSH"
-        else
-            log_warning "Failed to change shell. You may need to do this manually."
-        fi
-    fi
-
-    # Deploy config files
-    mkdir -p "$HOME/.config"
-
-    # Copy distro-specific .zshrc
-    if [ -f "$FEDORA_CONFIGS_DIR/.zshrc" ]; then
-        cp "$FEDORA_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc"
-    fi
-
-    # Copy starship config
-    if [ -f "$FEDORA_CONFIGS_DIR/starship.toml" ]; then
-        cp "$FEDORA_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
-    fi
-
-    # Fastfetch setup
-    if command -v fastfetch >/dev/null; then
-        mkdir -p "$HOME/.config/fastfetch"
-
-        local dest_config="$HOME/.config/fastfetch/config.jsonc"
-
-        # Overwrite with custom if available
-        if [ -f "$FEDORA_CONFIGS_DIR/config.jsonc" ]; then
-            cp "$FEDORA_CONFIGS_DIR/config.jsonc" "$dest_config"
-
-            # Smart Icon Replacement
-            # Default in file is Arch: " "
-            local os_icon=" " # Fedora icon
-
-            # Replace the icon in the file
-            # We look for the line containing "key": " " and substitute.
-            # Using specific regex to match the exact Arch icon  in the key value.
-            sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
-
-            log_success "Applied custom fastfetch config with Fedora icon"
-        else
-           # Generate default if completely missing
-           if [ ! -f "$dest_config" ]; then
-             fastfetch --gen-config &>/dev/null
-           fi
-        fi
-    fi
-}
-
-# =============================================================================
-# DNF OPTIMIZATION AND REPOSITORY CONFIGURATION
-# =============================================================================
-
-# Configure DNF package manager settings for Fedora
-fedora_configure_dnf() {
-    step "Configuring DNF for optimal performance"
-
-    # Create or update dnf.conf
-    if [ ! -f "$FEDORA_REPOS_FILE" ]; then
-        sudo touch "$FEDORA_REPOS_FILE"
-    fi
-
-    # Add DNF optimizations
-    log_info "Adding DNF optimizations..."
-
-    # Enable fastestmirror
-    if ! grep -q "^fastestmirror=true" "$FEDORA_REPOS_FILE"; then
-        echo "fastestmirror=true" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
-        log_success "Enabled fastestmirror"
-    else
-        log_info "fastestmirror already enabled"
-    fi
-
-    # Set parallel downloads
-    if ! grep -q "^max_parallel_downloads" "$FEDORA_REPOS_FILE"; then
-        echo "max_parallel_downloads=10" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
-        log_success "Set max_parallel_downloads=10"
-    else
-        sudo sed -i 's/^max_parallel_downloads=.*/max_parallel_downloads=10/' "$FEDORA_REPOS_FILE"
-        log_info "Updated max_parallel_downloads=10"
-    fi
-
-    # Enable default yes (assume yes for all prompts)
-    if ! grep -q "^assumeyes" "$FEDORA_REPOS_FILE"; then
-        echo "assumeyes=True" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
-        log_success "Enabled assumeyes=True"
-    else
-        sudo sed -i 's/^assumeyes=.*/assumeyes=True/' "$FEDORA_REPOS_FILE"
-        log_info "Updated assumeyes=True"
-    fi
-
-    # Enable color output
-    if ! grep -q "^color" "$FEDORA_REPOS_FILE"; then
-        echo "color=always" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
-        log_success "Enabled color output"
-    else
-        sudo sed -i 's/^color=.*/color=always/' "$FEDORA_REPOS_FILE"
-        log_info "Updated color setting"
-    fi
-
-    # Enable delta RPMs for faster downloads
-    if ! grep -q "^deltarpm" "$FEDORA_REPOS_FILE"; then
-        echo "deltarpm=True" | sudo tee -a "$FEDORA_REPOS_FILE" >/dev/null
-        log_success "Enabled delta RPMs"
-    else
-        sudo sed -i 's/^deltarpm=.*/deltarpm=True/' "$FEDORA_REPOS_FILE"
-        log_info "Updated delta RPM setting"
-    fi
-
-    log_success "DNF configuration completed"
-}
-
-# Enable RPM Fusion repositories for Fedora
-fedora_enable_rpmfusion() {
-    step "Enabling RPM Fusion repositories"
-
-    # Enable RPM Fusion Free
-    log_info "Enabling RPM Fusion Free repository..."
-    if ! sudo dnf install -y rpmfusion-free-release; then
-        log_error "Failed to enable RPM Fusion Free"
-        return 1
-    fi
-
-    # Enable RPM Fusion Non-Free
-    log_info "Enabling RPM Fusion Non-Free repository..."
-    if ! sudo dnf install -y rpmfusion-nonfree-release; then
-        log_error "Failed to enable RPM Fusion Non-Free"
-        return 1
-    fi
-
-    # Update package cache
-    log_info "Updating package cache..."
-    if ! sudo dnf makecache -y; then
-        log_error "Failed to update package cache"
-        return 1
-    fi
-
-    log_success "RPM Fusion repositories enabled"
-}
-
-# COPR setup is now implemented via the `FEDORA_COPR_REPOS` array and the modular
-# `fedora_setup_copr()` function defined earlier in this file. The legacy, duplicated
-# implementation which read from `programs.yaml` has been removed.
-
-# Setup Solaar for Logitech hardware management on Fedora
-fedora_setup_solaar() {
-    # Skip solaar for server mode
-    if [ "$INSTALL_MODE" == "server" ]; then
-        log_info "Server mode selected, skipping solaar installation"
-        return 0
-    fi
-
-    # Skip solaar if no desktop environment
-    if [ -z "${XDG_CURRENT_DESKTOP:-}" ]; then
-        log_info "No desktop environment detected, skipping solaar installation"
-        return 0
-    fi
-
-    step "Setting up Logitech Hardware Support"
-
-    # Check for Logitech hardware (use safe, non-blocking checks)
-    local has_logitech=false
-
-    # Check USB devices for Logitech (if lsusb available)
-    if command -v lsusb >/dev/null 2>&1; then
-        if command -v timeout >/dev/null 2>&1; then
-            if timeout 3s lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
-                has_logitech=true
-                log_info "Logitech hardware detected via USB"
-            fi
-        else
-            if lsusb 2>/dev/null | grep -i logitech >/dev/null 2>&1; then
-                has_logitech=true
-                log_info "Logitech hardware detected via USB"
-            fi
-        fi
-    fi
-
-    # Check Bluetooth devices for Logitech (if bluetoothctl available)
-    if command -v bluetoothctl >/dev/null 2>&1; then
-        # ensure the call cannot hang by using timeout where available and redirecting stdin
-        if command -v timeout >/dev/null 2>&1; then
-            if timeout 3s bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
-                has_logitech=true
-                log_info "Logitech Bluetooth device detected"
-            fi
-        else
-            if bluetoothctl devices </dev/null | grep -i logitech >/dev/null 2>&1; then
-                has_logitech=true
-                log_info "Logitech Bluetooth device detected"
-            fi
-        fi
-    fi
-
-    # Check for Logitech HID devices safely (loop avoids xargs pitfalls)
-    for hid in /dev/hidraw*; do
-        [ -e "$hid" ] || continue
-        hid_base=$(basename "$hid")
-        if grep -qi logitech "/sys/class/hidraw/$hid_base/device/uevent" 2>/dev/null; then
-            has_logitech=true
-            log_info "Logitech HID device detected: $hid"
-            break
-        fi
-    done
-
-    if [ "$has_logitech" = true ]; then
-        log_info "Installing solaar for Logitech hardware management..."
-        if install_pkg solaar; then
-            log_success "Solaar installed successfully"
-
-            # Enable solaar service
-            if sudo systemctl enable --now solaar.service >/dev/null 2>&1; then
-                log_success "Solaar service enabled and started"
-            else
-                log_warn "Failed to enable solaar service"
-            fi
-        else
-            log_warn "Failed to install solaar"
-        fi
-    else
-        log_info "No Logitech hardware detected, skipping solaar installation"
-    fi
-}
-
-# Export functions for use by main installer
-export -f fedora_main_config
-export -f fedora_system_preparation
-export -f fedora_configure_dnf
-export -f fedora_enable_rpmfusion
-export -f fedora_setup_copr
-export -f fedora_install_essentials
-export -f fedora_configure_bootloader
-export -f fedora_enable_system_services
-export -f fedora_setup_flatpak
-export -f fedora_setup_shell
-export -f fedora_setup_solaar
 export -f fedora_configure_locale
+export -f fedora_configure_hostname

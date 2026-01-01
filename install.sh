@@ -254,9 +254,6 @@ bootstrap_tools() {
         fi
     fi
 
-    # YQ & FIGLET auto-installation disabled per user preference (not installing yq or figlet)
-    # YAML-driven features may still work if yq is already provided by the system.
-    # Banner output will use fallback if figlet is not installed.
     # Report what is available
     if supports_gum; then
         log_info "UX helper available: gum"
@@ -607,13 +604,7 @@ fi
 # Step: System Update
 step "Updating System Repositories"
 if [ "$DRY_RUN" = false ]; then
-    if supports_gum; then
-        # Use gum spinner when available; if it fails fall back to the direct update command
-        gum spin --title "Updating system..." -- bash -c "$PKG_UPDATE $PKG_NOCONFIRM" || { log_warn "gum spinner failed; falling back to direct update"; bash -c "$PKG_UPDATE $PKG_NOCONFIRM"; }
-    else
-        # No gum available; run the update directly
-        bash -c "$PKG_UPDATE $PKG_NOCONFIRM"
-    fi
+    update_system
 fi
 
 # Step: Pacman Configuration (Arch Linux only)
