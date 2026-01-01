@@ -274,7 +274,7 @@ install_pkg() {
         return
     fi
     log_info "Installing package(s): $*"
-    if ! sudo $PKG_INSTALL $PKG_NOCONFIRM "$@"; then
+    if ! $PKG_INSTALL $PKG_NOCONFIRM "$@"; then
         log_error "Failed to install package(s): $*."
         # Optionally, exit on failure: exit 1
     else
@@ -289,7 +289,7 @@ remove_pkg() {
         return
     fi
     log_info "Removing package(s): $*"
-    if ! sudo $PKG_REMOVE $PKG_NOCONFIRM "$@"; then
+    if ! $PKG_REMOVE $PKG_NOCONFIRM "$@"; then
         log_error "Failed to remove package(s): $*."
     else
         log_success "Successfully removed: $*"

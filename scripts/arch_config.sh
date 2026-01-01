@@ -955,6 +955,12 @@ arch_configure_bootloader() {
 arch_configure_mirrors() {
     step "Configuring Arch Linux Mirrors"
 
+    # Check if rate-mirrors is available
+    if ! command -v rate-mirrors >/dev/null 2>&1; then
+        log_info "rate-mirrors not available, skipping mirror optimization"
+        return 0
+    fi
+
     # Backup original mirrorlist
     if [ -f "$ARCH_MIRRORLIST" ]; then
         sudo cp "$ARCH_MIRRORLIST" "$ARCH_MIRRORLIST.backup"
@@ -966,8 +972,8 @@ arch_configure_mirrors() {
     if sudo rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch; then
         log_success "Mirror list updated successfully"
     else
-        log_error "Failed to update mirror list"
-        return 1
+        log_warn "Failed to update mirror list"
+        return 0
     fi
 
     # Sync package databases
@@ -975,8 +981,8 @@ arch_configure_mirrors() {
     if sudo pacman -Syy; then
         log_success "Package databases synchronized"
     else
-        log_error "Failed to synchronize package databases"
-        return 1
+        log_warn "Failed to synchronize package databases"
+        return 0
     fi
 }
 

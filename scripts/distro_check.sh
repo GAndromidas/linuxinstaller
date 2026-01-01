@@ -19,56 +19,38 @@ detect_distro() {
         arch|archlinux|cachyos|endeavouros|manjaro)
             DISTRO_ID="arch"
             PKG_MANAGER="pacman"
-            PKG_INSTALL="sudo pacman -S --needed"
-            PKG_REMOVE="sudo pacman -Rns"
-            PKG_UPDATE="sudo pacman -Syu"
+            PKG_INSTALL="pacman -S --needed"
+            PKG_REMOVE="pacman -Rns"
+            PKG_UPDATE="pacman -Syu"
             PKG_NOCONFIRM="--noconfirm"
-            PKG_CLEAN="sudo pacman -Sc --noconfirm"
+            PKG_CLEAN="pacman -Sc --noconfirm"
             ;;
         fedora)
             DISTRO_ID="fedora"
             PKG_MANAGER="dnf"
-            PKG_INSTALL="sudo dnf install"
-            PKG_REMOVE="sudo dnf remove"
-            PKG_UPDATE="sudo dnf upgrade"
+            PKG_INSTALL="dnf install"
+            PKG_REMOVE="dnf remove"
+            PKG_UPDATE="dnf upgrade"
             PKG_NOCONFIRM="-y"
-            PKG_CLEAN="sudo dnf clean all"
+            PKG_CLEAN="dnf clean all"
             ;;
         debian)
             DISTRO_ID="debian"
             PKG_MANAGER="apt"
-            PKG_INSTALL="sudo apt-get install"
-            PKG_REMOVE="sudo apt-get remove"
-            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -yq"
+            PKG_INSTALL="apt-get install"
+            PKG_REMOVE="apt-get remove"
+            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
-            PKG_CLEAN="sudo apt-get clean"
+            PKG_CLEAN="apt-get clean"
             ;;
         ubuntu)
             DISTRO_ID="ubuntu"
             PKG_MANAGER="apt"
-            PKG_INSTALL="sudo apt-get install"
-            PKG_REMOVE="sudo apt-get remove"
-            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive sudo apt-get update && DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -yq"
+            PKG_INSTALL="apt-get install"
+            PKG_REMOVE="apt-get remove"
+            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
-            PKG_CLEAN="sudo apt-get clean"
-            ;;
-        fedora)
-            DISTRO_ID="fedora"
-            PKG_MANAGER="dnf"
-            PKG_INSTALL="sudo dnf install"
-            PKG_REMOVE="sudo dnf remove"
-            PKG_UPDATE="sudo dnf upgrade -y"
-            PKG_NOCONFIRM="-y"
-            PKG_CLEAN="sudo dnf clean all"
-            ;;
-        ubuntu)
-            DISTRO_ID="ubuntu"
-            PKG_MANAGER="apt"
-            PKG_INSTALL="sudo apt-get install"
-            PKG_REMOVE="sudo apt-get remove"
-            PKG_UPDATE="sudo apt-get update && sudo apt-get upgrade -yq"
-            PKG_NOCONFIRM="-y"
-            PKG_CLEAN="sudo apt-get clean"
+            PKG_CLEAN="apt-get clean"
             ;;
         *)
             echo "Error: Unsupported distribution: $DISTRO_ID"

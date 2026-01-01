@@ -66,7 +66,14 @@ gaming_configure_performance() {
     fi
 
     # Enable TRIM for SSDs
-    if [ -f /sys/block/*/queue/discard_max_bytes ]; then
+    local has_ssd=false
+    for discard_file in /sys/block/*/queue/discard_max_bytes; do
+        if [ -f "$discard_file" ]; then
+            has_ssd=true
+            break
+        fi
+    done
+    if [ "$has_ssd" = true ]; then
         sudo systemctl enable --now fstrim.timer >/dev/null 2>&1
         log_success "Enabled TRIM for SSD optimization"
     fi

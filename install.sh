@@ -346,13 +346,13 @@ install_package_group() {
                 fi
 
                 if supports_gum; then
-                    if gum spin --spinner dot --title "" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" 2>/dev/null; then
+                    if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
                     fi
                 else
-                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >/dev/null 2>&1; then
+                    if $install_cmd "$pkg" >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
@@ -376,13 +376,13 @@ install_package_group() {
                 fi
 
                 if supports_gum; then
-                    if gum spin --spinner dot --title "" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" 2>/dev/null; then
+                    if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
                     fi
                 else
-                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >/dev/null 2>&1; then
+                    if $install_cmd "$pkg" >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
