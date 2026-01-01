@@ -582,12 +582,10 @@ esac
 # Bootstrap UI tools
 bootstrap_tools
 
-# 3. Welcome & Resume Check
-clear
-
-# 4. Mode Selection
+# 3. Mode Selection
 # Ensure that user is always prompted in interactive runs (so that menu appears on ./install.sh).
 # For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
+clear
 if [ -t 0 ]; then
     # Interactive terminal - show menu
     if [ "$DRY_RUN" = false ]; then
@@ -603,20 +601,7 @@ else
     fi
 fi
 
-# 4. Mode Selection
-# Ensure the user is always prompted in interactive runs (so the menu appears on ./install.sh).
-# For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
-if [ -t 0 ]; then
-    show_menu
-else
-    # Non-interactive: only set a default mode if none exists to avoid prompting
-    if [ -z "${INSTALL_MODE:-}" ]; then
-        export INSTALL_MODE="${INSTALL_MODE:-standard}"
-        log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
-    fi
-fi
-
-# 5. Core Execution Loop
+# 4. Core Execution Loop
 # We define a list of logical steps.
 
 # Step: System Update
@@ -927,7 +912,7 @@ if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; t
     fi
 fi
 
-# 6. Finalization
+# 5. Finalization
 step "Finalizing Installation"
 
 if [ "$DRY_RUN" = false ]; then
