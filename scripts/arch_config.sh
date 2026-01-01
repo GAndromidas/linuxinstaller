@@ -324,18 +324,23 @@ arch_system_preparation() {
     # Enable multilib repository
     check_and_enable_multilib
 
-    # Install AUR helper (yay) first so AUR-only utilities (e.g., rate-mirrors) can be installed
+    # Install AUR helper (yay) first so AUR-only utilities (e.g., rate-mirrors-bin) can be installed
     if ! arch_install_aur_helper; then
         :
     fi
 
-    # Install rate-mirrors AUR package for mirror optimization
+    # Install rate-mirrors-bin AUR package for mirror optimization (REQUIRED)
     if command -v yay >/dev/null 2>&1 && ! command -v rate-mirrors >/dev/null 2>&1; then
-        step "Installing rate-mirrors for mirror optimization"
-        if yay -S --noconfirm --needed rate-mirrors >/dev/null 2>&1; then
-            log_success "rate-mirrors installed"
+        step "Installing rate-mirrors-bin for mirror optimization"
+        log_info "Installing rate-mirrors-bin from AUR..."
+        if yay -S --noconfirm --needed rate-mirrors-bin; then
+            log_success "rate-mirrors-bin installed successfully"
         else
-            log_warn "Failed to install rate-mirrors (optional tool)"
+            log_error "Failed to install rate-mirrors-bin"
+            log_info "This is a required tool for Arch installation"
+            log_info "Please check your internet connection and try again"
+            log_info "You can manually install with: yay -S rate-mirrors-bin"
+            return 1
         fi
     fi
 
@@ -638,7 +643,7 @@ arch_main_config() {
 
     arch_system_preparation
 
-    # AUR helper and rate-mirrors are already installed/configured in system preparation
+    # AUR helper and rate-mirrors-bin are already installed/configured in system preparation
     log_success "AUR helper (yay) and mirrors are ready"
 
     arch_configure_bootloader
@@ -959,10 +964,11 @@ arch_configure_bootloader() {
 arch_configure_mirrors() {
     step "Configuring Arch Linux Mirrors"
 
-    # Check if rate-mirrors is available
+    # Check if rate-mirrors is available (REQUIRED)
     if ! command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "rate-mirrors not available, skipping mirror optimization"
-        return 0
+        log_error "rate-mirrors is not installed. This is required for Arch installation."
+        log_info "Please install rate-mirrors-bin from AUR: yay -S rate-mirrors-bin"
+        return 1
     fi
 
     # Update mirrors using rate-mirrors and sync pacman DB (exact command as requested)
