@@ -366,7 +366,7 @@ install_pkg() {
 
             # Validate user exists before using sudo
             if [ -n "$yay_user" ] && getent passwd "$yay_user" >/dev/null 2>&1; then
-                sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
+                sudo -u "$yay_user" yay -S --noconfirm --needed --removemake "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
             else
                 log_error "Cannot determine valid user for AUR installation"
                 install_status=1

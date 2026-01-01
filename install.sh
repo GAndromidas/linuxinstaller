@@ -478,7 +478,7 @@ get_install_command() {
             ;;
         aur)
             if command -v yay >/dev/null 2>&1; then
-                install_cmd="yay -S --noconfirm --removemake --nocleanafter"
+                install_cmd="yay -S --noconfirm --removemake"
             else
                 log_error "yay not found. Please install yay first."
                 return 1

@@ -387,7 +387,8 @@ arch_system_preparation() {
         local install_output=""
         local exit_code=0
 
-        if install_output=$(sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin 2>&1); then
+        # Install ONLY rate-mirrors-bin from AUR
+        if install_output=$(sudo -u "$yay_user" yay -S --noconfirm --needed --removemake rate-mirrors-bin 2>&1); then
             log_success "rate-mirrors-bin installed successfully"
 
             # Clean up any temp files from the installation
@@ -398,7 +399,7 @@ arch_system_preparation() {
             exit_code=$?
             log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
             log_error "Installation output: $install_output"
-            log_info "This is a required tool for Arch mirror optimization"
+            log_info "rate-mirrors-bin is required for Arch mirror optimization"
             log_info "Troubleshooting steps:"
             log_info "  1. Check internet connection: ping -c 3 google.com"
             log_info "  2. Update package databases: sudo pacman -Syy"
