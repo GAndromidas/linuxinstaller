@@ -332,14 +332,32 @@ arch_system_preparation() {
     # Install rate-mirrors-bin AUR package for mirror optimization (REQUIRED)
     if command -v yay >/dev/null 2>&1 && ! command -v rate-mirrors >/dev/null 2>&1; then
         step "Installing rate-mirrors-bin for mirror optimization"
+
+        # Determine which user to run yay as (never as root for AUR builds)
+        local yay_user=""
+        if [ "$EUID" -eq 0 ]; then
+            if [ -n "${SUDO_USER:-}" ]; then
+                yay_user="$SUDO_USER"
+            else
+                # Fallback to first real user if SUDO_USER not set
+                yay_user=$(getent passwd 1000 | cut -d: -f1)
+            fi
+            if [ -z "$yay_user" ]; then
+                log_error "Cannot determine user to run yay as"
+                return 1
+            fi
+        else
+            yay_user="$USER"
+        fi
+
         log_info "Installing rate-mirrors-bin from AUR..."
-        if yay -S --noconfirm --needed rate-mirrors-bin; then
+        if sudo -u "$yay_user" yay -S --noconfirm --needed rate-mirrors-bin; then
             log_success "rate-mirrors-bin installed successfully"
         else
             log_error "Failed to install rate-mirrors-bin"
             log_info "This is a required tool for Arch installation"
             log_info "Please check your internet connection and try again"
-            log_info "You can manually install with: yay -S rate-mirrors-bin"
+            log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
             return 1
         fi
     fi
