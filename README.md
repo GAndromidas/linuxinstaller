@@ -1,7 +1,5 @@
 <div align="center">
 
-# LinuxInstaller
-
 <img width="600" height="135" alt="LinuxInstaller Banner" src="https://github.com/user-attachments/assets/adb433bd-ebab-4c51-a72d-6208164e1026" />
 
 ![LinuxInstaller Banner](https://img.shields.io/badge/LinuxInstaller-v1.0-cyan?style=for-the-badge&logo=linux&logoColor=white)
