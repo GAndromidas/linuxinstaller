@@ -1,6 +1,6 @@
-# LinuxInstaller
-
 <div align="center">
+
+# LinuxInstaller
 
 <img width="600" height="135" alt="LinuxInstaller Banner" src="https://github.com/user-attachments/assets/adb433bd-ebab-4c51-a72d-6208164e1026" />
 
