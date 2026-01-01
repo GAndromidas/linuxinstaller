@@ -106,47 +106,163 @@ kde_install_packages() {
     done
 }
 
-# Configure KDE global keyboard shortcuts
+# Configure KDE global keyboard shortcuts (Plasma 6.5+ compatible)
 kde_configure_shortcuts() {
     step "Configuring KDE Shortcuts"
 
-    local config_file="$HOME/.config/kglobalshortcutsrc"
+    # Determine target user for shortcuts
+    local target_user="${SUDO_USER:-$USER}"
+    local user_home
+
+    # Get the target user's home directory
+    if [ "$target_user" = "root" ]; then
+        user_home="/root"
+    else
+        user_home=$(getent passwd "$target_user" 2>/dev/null | cut -d: -f6)
+        if [ -z "$user_home" ]; then
+            user_home="/home/$target_user"
+        fi
+    fi
+
+    local config_file="$user_home/.config/kglobalshortcutsrc"
+
+    # Detect KDE/Plasma version for compatibility
+    local plasma_version=""
+    local plasma_major=""
+    local plasma_minor=""
+
+    if command -v plasmashell >/dev/null 2>&1; then
+        # Try multiple methods to detect Plasma version
+        plasma_version=$(plasmashell --version 2>/dev/null | grep -oP 'Plasma \K[0-9]+\.[0-9]+' || echo "")
+        if [ -z "$plasma_version" ]; then
+            # Fallback: check package version
+            plasma_version=$(pacman -Q plasma-desktop 2>/dev/null | grep -oP '\d+\.\d+' || echo "")
+        fi
+        if [ -z "$plasma_version" ]; then
+            # Another fallback: check kf6 or kf5 packages
+            if pacman -Q kf6 2>/dev/null >/dev/null; then
+                plasma_version="6.x"
+            elif pacman -Q kf5 2>/dev/null >/dev/null; then
+                plasma_version="5.x"
+            fi
+        fi
+    fi
+
+    # Parse version components
+    if [[ "$plasma_version" =~ ([0-9]+)\.([0-9]+) ]]; then
+        plasma_major="${BASH_REMATCH[1]}"
+        plasma_minor="${BASH_REMATCH[2]}"
+    fi
+
+    log_info "Detected KDE Plasma version: ${plasma_version:-unknown} (major: ${plasma_major:-?}, minor: ${plasma_minor:-?})"
 
     if ! command -v kwriteconfig5 >/dev/null 2>&1 && ! command -v kwriteconfig6 >/dev/null 2>&1; then
         log_error "kwriteconfig command not found. Cannot configure KDE shortcuts."
+        log_info "Make sure KDE Plasma is properly installed."
         return 1
     fi
 
     local kwrite="kwriteconfig5"
-    if command -v kwriteconfig6 >/dev/null 2>&1; then kwrite="kwriteconfig6"; fi
-
     local kread="kreadconfig5"
-    if command -v kreadconfig6 >/dev/null 2>&1; then kread="kreadconfig6"; fi
+    local kbuild="kbuildsycoca5"
 
-    # Setup Meta+Q to Close Window
-    log_info "Setting up 'Meta+Q' to close windows..."
-    local current_close_shortcut
-    current_close_shortcut=$($kread --file "$config_file" --group kwin --key "Window Close" || echo "Alt+F4")
-    if ! [[ "$current_close_shortcut" == *",Super+Q"* ]]; then
-        $kwrite --file "$config_file" --group kwin --key "Window Close" "${current_close_shortcut},Super+Q" || true
-        log_success "Shortcut 'Meta+Q' added for closing windows."
-    else
-        log_warn "Shortcut 'Meta+Q' for closing windows already seems to be set. Skipping."
+    # Use KDE 6 tools if available (Plasma 6.0+)
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+        kwrite="kwriteconfig6"
+        kread="kreadconfig6"
+        kbuild="kbuildsycoca6"
+        log_info "Using KDE 6 configuration tools"
     fi
 
-    # Setup Meta+Enter to Launch Terminal (terminal-agnostic)
-    log_info "Setting up 'Meta+Enter' to launch default terminal..."
-    $kwrite --file "$config_file" --group services --key "krunner" "Meta+Return,none,Run Command,Run Command" || true
-    $kwrite --file "$config_file" --group services --key "Launch Terminal" "Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'x-terminal-emulator',Launch Terminal" || true
-    log_success "Shortcut 'Meta+Enter' set to launch default terminal."
+    # Ensure config directory exists
+    mkdir -p "$(dirname "$config_file")" || {
+        log_warn "Failed to create KDE config directory"
+        return 1
+    }
 
-    # Reload the configuration and shortcut daemon
-    log_info "Reloading shortcut configuration..."
-    local kbuild="kbuildsycoca5"
-    if command -v kbuildsycoca6 >/dev/null 2>&1; then kbuild="kbuildsycoca6"; fi
-    $kbuild >/dev/null 2>&1 || true
-    dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/kwin org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1 || true
-    log_success "Shortcuts reloaded successfully."
+    # For Plasma 6.5+, use different shortcut configuration approach
+    if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]] || [[ "$plasma_version" == "unknown" && "$plasma_major" == "6" ]]; then
+        log_info "Configuring shortcuts for Plasma 6.5+..."
+
+        # Create a comprehensive shortcuts configuration
+        cat > "$config_file" << 'EOF'
+[$Version]
+update_info=kded.upd:replace-home-shortcuts
+
+[data]
+Version=2
+
+[kdeglobals]
+Version=2
+
+[kwin]
+Window Close=Alt+F4,Super+Q
+
+[org.kde.kglobalaccel]
+component=krunner
+interface=org.kde.krunner.App
+method=activate
+path=/MainApplication
+
+[services]
+Launch Konsole=Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'konsole',Launch Konsole
+EOF
+
+        log_success "Applied Plasma 6.5+ compatible shortcuts configuration"
+    else
+        # Legacy Plasma configuration for versions < 6.5
+        log_info "Configuring shortcuts for Plasma < 6.5..."
+
+        # Setup Meta+Q to Close Window
+        log_info "Setting up 'Meta+Q' to close windows..."
+        local current_close_shortcut
+        current_close_shortcut=$($kread --file "$config_file" --group kwin --key "Window Close" 2>/dev/null || echo "Alt+F4")
+        if ! [[ "$current_close_shortcut" == *",Super+Q"* ]] && ! [[ "$current_close_shortcut" == *"Super+Q"* ]]; then
+            $kwrite --file "$config_file" --group kwin --key "Window Close" "${current_close_shortcut},Super+Q" 2>/dev/null || true
+            log_success "Shortcut 'Meta+Q' added for closing windows."
+        else
+            log_info "Shortcut 'Meta+Q' for closing windows already set."
+        fi
+
+        # Setup Meta+Enter to Launch Terminal (Konsole for KDE)
+        log_info "Setting up 'Meta+Enter' to launch Konsole..."
+        $kwrite --file "$config_file" --group services --key "krunner" "Meta+Return,none,Run Command,Run Command" 2>/dev/null || true
+        $kwrite --file "$config_file" --group services --key "Launch Terminal" "Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'konsole',Launch Konsole" 2>/dev/null || true
+        log_success "Shortcut 'Meta+Enter' set to launch Konsole."
+    fi
+
+    # Set proper ownership
+    chown "$target_user:$target_user" "$config_file" 2>/dev/null || true
+
+    # Reload the configuration and shortcut daemon as the target user
+    log_info "Reloading KDE shortcut configuration..."
+    if [ "$target_user" != "root" ]; then
+        # Run KDE commands as the target user
+        su - "$target_user" -c "$kbuild >/dev/null 2>&1" 2>/dev/null || true
+
+        # Try different D-Bus methods for different Plasma versions
+        if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]] || [[ "$plasma_version" == "unknown" && "$plasma_major" == "6" ]]; then
+            # Plasma 6.5+ specific reload
+            su - "$target_user" -c "dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /kglobalaccel org.kde.kglobalaccel.reconfigure >/dev/null 2>&1" 2>/dev/null || \
+            su - "$target_user" -c "kquitapp6 kglobalaccel 2>/dev/null && kstart6 kglobalaccel 2>/dev/null" 2>/dev/null || \
+            su - "$target_user" -c "systemctl --user restart plasma-kglobalaccel.service" 2>/dev/null || true
+        else
+            # Legacy Plasma reload
+            su - "$target_user" -c "dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/kwin org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1" 2>/dev/null || true
+        fi
+    fi
+
+    log_success "KDE shortcuts configured and reloaded."
+
+    if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]]; then
+        log_info "Plasma 6.5+ detected - shortcuts configured using modern method."
+        log_info "May require logout/login for all shortcuts to take effect."
+    else
+        log_info "Plasma ${plasma_version:-legacy} detected - shortcuts applied using standard method."
+    fi
+
+    log_info "Test shortcuts: Meta+Q (close window), Meta+Enter (launch Konsole)"
+    log_info "If shortcuts don't work, try: System Settings → Shortcuts → Global Shortcuts"
 }
 
 # Configure KDE desktop wallpaper
@@ -288,10 +404,8 @@ kde_main_config() {
         rm -f "$SCRIPT_DIR/../configs/arch/MangoHud.conf"
         log_info "Removed Arch MangoHud config (migrated to script-based setup)"
     fi
-    if [ -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc" ]; then
-        rm -f "$SCRIPT_DIR/../configs/arch/kglobalshortcutsrc"
-        log_info "Removed Arch KDE shortcuts config (configured via kde_config.sh)"
-    fi
+    # Note: KDE shortcuts are now handled dynamically by kde_configure_shortcuts
+    # The static kglobalshortcutsrc file is no longer used
 }
 
 # Export functions for use by main installer

@@ -88,7 +88,7 @@ performance_configure_filesystem() {
     step "Configuring Filesystem Performance"
 
     # Enable TRIM for SSDs
-    if [ -f /sys/block/*/queue/discard_max_bytes ]; then
+    if ls /sys/block/*/queue/discard_max_bytes >/dev/null 2>&1; then
         systemctl enable --now fstrim.timer >/dev/null 2>&1
         log_success "Enabled TRIM for SSD optimization"
     fi

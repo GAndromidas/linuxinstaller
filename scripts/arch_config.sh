@@ -678,65 +678,38 @@ arch_main_config() {
 # Arch-specific configuration files
 ARCH_CONFIGS_DIR="$SCRIPT_DIR/../configs/arch"
 
-# KDE-specific configuration files
-KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs/arch"
+# KDE configuration is now handled dynamically by kde_config.sh
 
-# Setup ZSH shell environment and configuration files for Arch Linux
+# Setup ZSH shell environment for Arch Linux
+# Note: Configuration file deployment is handled by the main configure_user_shell_and_configs function
 arch_setup_shell() {
     step "Setting up ZSH shell environment"
 
-    # Set ZSH as default
-    if [ "$SHELL" != "$(command -v zsh)" ]; then
-        log_info "Changing default shell to ZSH..."
-        if chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
-            log_success "Default shell changed to ZSH"
-        else
-            log_warning "Failed to change shell automatically"
-            log_info "Please run this command manually to change your shell:"
-            log_info "  chsh -s $(command -v zsh) $USER"
-            log_info "After changing your shell, log out and log back in for changes to take effect."
+    # Determine target user for shell change
+    local target_user="${SUDO_USER:-$USER}"
+
+    # Set ZSH as default shell for the target user (not root)
+    if [ "$target_user" != "root" ]; then
+        local current_shell
+        current_shell=$(getent passwd "$target_user" | cut -d: -f7)
+        local zsh_path
+        zsh_path=$(command -v zsh 2>/dev/null)
+
+        if [ -n "$zsh_path" ] && [ "$current_shell" != "$zsh_path" ]; then
+            log_info "Changing default shell to ZSH for user $target_user..."
+            if chsh -s "$zsh_path" "$target_user" 2>/dev/null; then
+                log_success "Default shell changed to ZSH for $target_user"
+                log_info "Shell change will take effect after logout/login"
+            else
+                log_warning "Failed to change shell automatically for $target_user"
+                log_info "Please run this command manually:"
+                log_info "  sudo chsh -s $zsh_path $target_user"
+            fi
+        elif [ "$current_shell" = "$zsh_path" ]; then
+            log_info "ZSH is already the default shell for $target_user"
         fi
-    fi
-
-    # Deploy config files
-    mkdir -p "$HOME/.config"
-
-    # Copy distro-specific .zshrc
-    if [ -f "$ARCH_CONFIGS_DIR/.zshrc" ]; then
-        cp "$ARCH_CONFIGS_DIR/.zshrc" "$HOME/.zshrc" && log_success "Updated config: .zshrc"
-    fi
-
-    # Copy starship config
-    if [ -f "$ARCH_CONFIGS_DIR/starship.toml" ]; then
-        cp "$ARCH_CONFIGS_DIR/starship.toml" "$HOME/.config/starship.toml" && log_success "Updated config: starship.toml"
-    fi
-
-    # Fastfetch setup
-    if command -v fastfetch >/dev/null; then
-        mkdir -p "$HOME/.config/fastfetch"
-
-        local dest_config="$HOME/.config/fastfetch/config.jsonc"
-
-        # Overwrite with custom if available
-        if [ -f "$ARCH_CONFIGS_DIR/config.jsonc" ]; then
-            cp "$ARCH_CONFIGS_DIR/config.jsonc" "$dest_config"
-
-            # Smart Icon Replacement
-            # Default in file is Arch: " "
-            local os_icon=" " # Default/Arch
-
-            # Replace the icon in the file
-            # We look for the line containing "key": " " and substitute.
-            # Using specific regex to match the exact Arch icon  in the key value.
-            sed -i "s/\"key\": \" \"/\"key\": \"$os_icon\"/" "$dest_config"
-
-            log_success "Applied custom fastfetch config with Arch icon"
-        else
-           # Generate default if completely missing
-           if [ ! -f "$dest_config" ]; then
-             fastfetch --gen-config &>/dev/null
-           fi
-        fi
+    else
+        log_info "Running as root - shell configuration handled by main function"
     fi
 }
 
@@ -744,21 +717,13 @@ arch_setup_shell() {
     log_info "KDE shortcuts will be configured via kde_config.sh"
 
 # Setup KDE global keyboard shortcuts for Arch Linux
+# Note: KDE shortcuts are now handled by kde_config.sh for all distributions
 arch_setup_kde_shortcuts() {
     [[ "${XDG_CURRENT_DESKTOP:-}" != "KDE" ]] && return
 
-    step "Setting up KDE global shortcuts"
-    local src="$KDE_CONFIGS_DIR/kglobalshortcutsrc"
-    local dest="$HOME/.config/kglobalshortcutsrc"
-
-    if [ -f "$src" ]; then
-        mkdir -p "$(dirname "$dest")"
-        cp "$src" "$dest"
-        log_success "Applied KDE shortcuts (Meta+Q: Close, Meta+Ret: Terminal)"
-        log_info "Changes take effect after re-login"
-    else
-        log_warning "KDE shortcuts config missing"
-    fi
+    log_info "KDE shortcuts will be configured via kde_config.sh for all distributions"
+    # KDE shortcuts are now handled centrally by kde_config.sh
+    # This prevents conflicts and ensures consistent configuration
 }
 
 # Setup Solaar for Logitech hardware management on Arch Linux
@@ -932,6 +897,59 @@ arch_configure_plymouth() {
  export -f arch_enable_system_services
  export -f arch_configure_plymouth
 
+# Configure systemd-boot for Arch Linux
+configure_systemd_boot_arch() {
+    log_info "Configuring systemd-boot for Arch Linux..."
+
+    local entries_dir=""
+    if [ -d "/boot/loader/entries" ]; then
+        entries_dir="/boot/loader/entries"
+    elif [ -d "/efi/loader/entries" ]; then
+        entries_dir="/efi/loader/entries"
+    elif [ -d "/boot/efi/loader/entries" ]; then
+        entries_dir="/boot/efi/loader/entries"
+    fi
+
+    if [ -z "$entries_dir" ]; then
+        log_error "Could not find systemd-boot entries directory"
+        return 1
+    fi
+
+    local arch_params="quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"
+    local updated=false
+
+    for entry in "$entries_dir"/*.conf; do
+        [ -e "$entry" ] || continue
+        if [ -f "$entry" ]; then
+            if ! grep -q "splash" "$entry"; then
+                if grep -q "^options" "$entry"; then
+                    sed -i "/^options/ s/$/ $arch_params/" "$entry"
+                    log_success "Updated $entry"
+                    updated=true
+                else
+                    echo "options $arch_params" | tee -a "$entry" >/dev/null
+                    log_success "Updated $entry (added options)"
+                    updated=true
+                fi
+            fi
+        fi
+
+        if [ -n "$yay_user" ]; then
+            log_info "Installing rate-mirrors-bin from AUR with yay (as user: $yay_user)..."
+            if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin; then
+                log_success "rate-mirrors-bin installed successfully"
+            else
+                local exit_code=$?
+                log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
+                log_info "This is a required tool for Arch installation"
+                log_info "Please check your internet connection and try again"
+                log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
+                return 1
+            fi
+        fi
+    done
+}
+
 # Configure bootloader (GRUB or systemd-boot) for Arch Linux
 arch_configure_bootloader() {
     step "Configuring Arch Linux Bootloader"
@@ -1029,60 +1047,6 @@ configure_grub_arch() {
 
     log_success "GRUB configured successfully"
 }
-
-configure_systemd_boot_arch() {
-    log_info "Configuring systemd-boot for Arch Linux..."
-
-    local entries_dir=""
-    if [ -d "/boot/loader/entries" ]; then
-        entries_dir="/boot/loader/entries"
-    elif [ -d "/efi/loader/entries" ]; then
-        entries_dir="/efi/loader/entries"
-    elif [ -d "/boot/efi/loader/entries" ]; then
-        entries_dir="/boot/efi/loader/entries"
-    fi
-
-    if [ -z "$entries_dir" ]; then
-        log_error "Could not find systemd-boot entries directory"
-        return 1
-    fi
-
-    local arch_params="quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"
-    local updated=false
-
-    for entry in "$entries_dir"/*.conf; do
-        [ -e "$entry" ] || continue
-        if [ -f "$entry" ]; then
-            if ! grep -q "splash" "$entry"; then
-                if grep -q "^options" "$entry"; then
-                    sed -i "/^options/ s/$/ $arch_params/" "$entry"
-                    log_success "Updated $entry"
-                    updated=true
-                else
-                    echo "options $arch_params" | tee -a "$entry" >/dev/null
-                    log_success "Updated $entry (added options)"
-                    updated=true
-                fi
-            fi
-        fi
-
-        if [ -n "$yay_user" ]; then
-            log_info "Installing rate-mirrors-bin from AUR with yay (as user: $yay_user)..."
-            if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin; then
-                log_success "rate-mirrors-bin installed successfully"
-            else
-                local exit_code=$?
-                log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
-                log_info "This is a required tool for Arch installation"
-                log_info "Please check your internet connection and try again"
-                log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
-                return 1
-            fi
-        fi
-    fi
-}
-
-
 
 export -f arch_system_preparation
 export -f arch_setup_aur_helper

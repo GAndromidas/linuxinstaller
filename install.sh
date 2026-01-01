@@ -407,13 +407,6 @@ install_package_group() {
             continue
         fi
 
-        # Get installation command for this package type
-        local install_cmd
-        install_cmd=$(get_install_command "$type")
-        if [ -z "$install_cmd" ]; then
-            continue
-        fi
-
 # Get installation command for specific package type
 get_install_command() {
     local type="$1"
@@ -457,68 +450,68 @@ get_install_command() {
     echo "$install_cmd"
 }
 
+# Get installation command for this package type
+local install_cmd
+install_cmd=$(get_install_command "$type")
+if [ -z "$install_cmd" ]; then
+    continue
+fi
+
 # Enable password asterisks for sudo prompts (visible feedback when typing)
 enable_password_feedback() {
-    local sudoers_file="/etc/sudoers"
+    log_info "Enabling password asterisks for sudo prompts..."
 
-    if [ -f "$sudoers_file" ]; then
-        if ! grep -q "Defaults pwfeedback" "$sudoers_file"; then
-            log_info "Enabling password asterisks for sudo prompts..."
-            case "$DISTRO_ID" in
-                arch)
-                    visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                    if [ $? -eq 0 ]; then
-                        log_success "Password asterisks enabled via visudo (Arch)"
-                    else
-                        log_warn "Failed to enable password asterisks via visudo"
-                    fi
-                    ;;
-                debian|ubuntu)
-                    if command -v visudo >/dev/null 2>&1; then
-                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                        if [ $? -eq 0 ]; then
-                            log_success "Password asterisks enabled via visudo ($DISTRO_ID)"
-                        else
-                            log_warn "Failed to enable password asterisks via visudo"
-                        fi
-                    else
-                        echo "Defaults pwfeedback" >> "$sudoers_file"
-                        log_success "Password asterisks enabled via direct echo ($DISTRO_ID)"
-                    fi
-                    ;;
-                fedora)
-                    if command -v visudo >/dev/null 2>&1; then
-                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                        if [ $? -eq 0 ]; then
-                            log_success "Password asterisks enabled via visudo (Fedora)"
-                        else
-                            log_warn "Failed to enable password asterisks via visudo"
-                        fi
-                    else
-                        echo "Defaults pwfeedback" >> "$sudoers_file"
-                        log_success "Password asterisks enabled via direct echo (Fedora)"
-                    fi
-                    ;;
-                *)
-                    if command -v visudo >/dev/null 2>&1; then
-                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                        if [ $? -eq 0 ]; then
-                            log_success "Password asterisks enabled via visudo"
-                        else
-                            log_warn "Failed to enable password asterisks via visudo"
-                        fi
-                    else
-                        echo "Defaults pwfeedback" >> "$sudoers_file"
-                        log_success "Password asterisks enabled via direct echo"
-                        log_warn "Please run 'visudo' to validate sudoers file"
-                    fi
-                    ;;
-            esac
+    # Check if already enabled
+    if grep -q "Defaults pwfeedback" /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+        log_info "Password feedback already enabled"
+        return 0
+    fi
+
+    # Try to add to sudoers.d directory (safer than modifying main sudoers file)
+    local sudoers_d_file="/etc/sudoers.d/linuxinstaller-pwfeedback"
+
+    if [ -d "/etc/sudoers.d" ]; then
+        echo "# Enable password feedback for better UX" > "$sudoers_d_file"
+        echo "Defaults pwfeedback" >> "$sudoers_d_file"
+        chmod 0440 "$sudoers_d_file"
+
+        # Validate the sudoers file
+        if visudo -c "$sudoers_d_file" >/dev/null 2>&1; then
+            log_success "Password asterisks enabled via sudoers.d"
+            log_info "Password feedback will show asterisks (*) when typing passwords"
+            return 0
         else
-            log_info "Password feedback already enabled"
+            # Clean up invalid file
+            rm -f "$sudoers_d_file"
+            log_warn "Generated sudoers file failed validation"
+        fi
+    fi
+
+    # Fallback: try to modify main sudoers file (riskier)
+    log_warn "Attempting to modify main sudoers file (use with caution)..."
+    if [ -f "/etc/sudoers" ] && ! grep -q "Defaults pwfeedback" "/etc/sudoers"; then
+        # Create backup
+        cp "/etc/sudoers" "/etc/sudoers.backup.$(date +%Y%m%d_%H%M%S)"
+
+        echo "" >> "/etc/sudoers"
+        echo "# Enable password feedback for better UX" >> "/etc/sudoers"
+        echo "Defaults pwfeedback" >> "/etc/sudoers"
+
+        # Validate the modified sudoers file
+        if visudo -c "/etc/sudoers" >/dev/null 2>&1; then
+            log_success "Password asterisks enabled via main sudoers file"
+            log_info "Password feedback will show asterisks (*) when typing passwords"
+        else
+            # Restore backup
+            mv "/etc/sudoers.backup.$(date +%Y%m%d_%H%M%S)" "/etc/sudoers"
+            log_error "Failed to modify sudoers file - backup restored"
+            log_error "Password feedback not enabled"
+            return 1
         fi
     else
-        log_warn "sudoers file not found, skipping password feedback configuration"
+        log_warn "Could not enable password feedback"
+        log_info "You can manually enable it by adding 'Defaults pwfeedback' to /etc/sudoers"
+        return 1
     fi
 }
 
@@ -983,6 +976,12 @@ if [ "$DRY_RUN" = false ]; then
     update_system
 fi
 
+# Step: Enable password feedback for better UX
+step "Enabling password feedback"
+if [ "$DRY_RUN" = false ]; then
+    enable_password_feedback
+fi
+
 # Step: Run Distro System Preparation (install essentials, etc.)
 # Run distro-specific system preparation early so essential helpers are present
 # before package installation and mark the step complete to avoid duplication.
@@ -1121,6 +1120,12 @@ if [ "$DRY_RUN" = false ]; then
             log_warn "No specific configuration module for $DISTRO_ID"
             ;;
     esac
+
+    # Step: Configure user shell and config files (universal)
+    step "Configuring User Shell and Configuration Files"
+    if [ "$DRY_RUN" = false ]; then
+        configure_user_shell_and_configs
+    fi
 fi
 
 # Step: Run Desktop Environment Configuration

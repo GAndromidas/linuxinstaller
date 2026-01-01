@@ -106,7 +106,7 @@ Install Gaming Package Suite? (Y/n)
 ✓ Performance optimizations applied (CPU governor, ZRAM)
 ✓ Gaming suite installed (Steam, Wine, GPU drivers)
 ✓ Development environment configured (zsh, neovim, git)
-✓ Desktop environment customized (KDE Plasma with shortcuts)
+✓ Desktop environment customized (KDE Plasma 5.x/6.x with shortcuts)
 
 Total installation time: 12m 34s
 🔄 System reboot recommended for all changes to take effect.
@@ -220,7 +220,7 @@ NVIDIA GPU (0x10de)  → Manual installation required (licensing)
 ```
 
 ### Desktop Environment Integration
-- **KDE Plasma**: Global shortcuts (Meta+Q close, Meta+Return terminal)
+- **KDE Plasma**: Global shortcuts (Meta+Q close, Meta+Return terminal) - Plasma 5.x & 6.x compatible
 - **GNOME**: Extension installation and workspace configuration
 - **Universal**: Zsh with starship prompt and fastfetch system info
 
