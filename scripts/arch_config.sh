@@ -446,21 +446,29 @@ arch_install_aur_helper() {
     local temp_dir=$(mktemp -d)
     chmod 777 "$temp_dir"
 
-    local run_as_user=""
+    # Determine which user to run AUR build as (never as root)
+    local build_user=""
     if [ "$EUID" -eq 0 ]; then
-         if [ -n "${SUDO_USER:-}" ]; then
-             run_as_user="-u $SUDO_USER"
-             chown "$SUDO_USER:$SUDO_USER" "$temp_dir"
-         else
-             run_as_user="-u nobody"
-             chown nobody:nobody "$temp_dir"
-         fi
+        if [ -n "${SUDO_USER:-}" ]; then
+            build_user="$SUDO_USER"
+        else
+            # Fallback to first real user if SUDO_USER not set
+            build_user=$(getent passwd 1000 | cut -d: -f1)
+        fi
+        if [ -z "$build_user" ]; then
+            log_error "Cannot determine user for AUR build"
+            rm -rf "$temp_dir"
+            return 1
+        fi
+        chown "$build_user:$build_user" "$temp_dir"
+    else
+        build_user="$USER"
     fi
 
     cd "$temp_dir" || return 1
 
-    if $run_as_user git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
-        if $run_as_user makepkg -si --noconfirm --needed >/dev/null 2>&1; then
+    if sudo -u "$build_user" git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
+        if sudo -u "$build_user" makepkg -si --noconfirm --needed >/dev/null 2>&1; then
             if supports_gum; then
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ yay installed"
             fi
