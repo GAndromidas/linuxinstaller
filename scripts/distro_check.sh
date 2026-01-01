@@ -39,7 +39,7 @@ detect_distro() {
             PKG_MANAGER="apt"
             PKG_INSTALL="apt-get install"
             PKG_REMOVE="apt-get remove"
-            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq"
+            PKG_UPDATE="apt-get update && apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
             PKG_CLEAN="apt-get clean"
             ;;
@@ -48,7 +48,7 @@ detect_distro() {
             PKG_MANAGER="apt"
             PKG_INSTALL="apt-get install"
             PKG_REMOVE="apt-get remove"
-            PKG_UPDATE="DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq"
+            PKG_UPDATE="apt-get update && apt-get upgrade -yq"
             PKG_NOCONFIRM="-y"
             PKG_CLEAN="apt-get clean"
             ;;
@@ -139,7 +139,6 @@ resolve_package_name() {
     if [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         case "$pkg" in
             base-devel) mapped="build-essential" ;;
-            android-tools) mapped="adb fastboot" ;;
             cronie) mapped="cron" ;;
             bluez-utils) mapped="bluez" ;;
             openssh) mapped="openssh-server" ;;

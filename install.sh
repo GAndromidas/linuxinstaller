@@ -236,7 +236,7 @@ bootstrap_tools() {
                 supports_gum >/dev/null 2>&1 || true
             fi
         else
-            if $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1; then
+            if install_pkg gum >/dev/null 2>&1; then
                 GUM_INSTALLED_BY_SCRIPT=true
                 supports_gum >/dev/null 2>&1 || true
             fi
@@ -308,7 +308,11 @@ install_package_group() {
         local install_cmd=""
         case "$type" in
             native)
-                install_cmd="$PKG_INSTALL $PKG_NOCONFIRM"
+                if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+                    install_cmd="DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM"
+                else
+                    install_cmd="$PKG_INSTALL $PKG_NOCONFIRM"
+                fi
                 ;;
             aur)
                 if command -v yay >/dev/null 2>&1; then
@@ -321,7 +325,11 @@ install_package_group() {
                 ;;
             flatpak)
                 if ! command -v flatpak >/dev/null 2>&1; then
-                    $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
+                    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+                        DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
+                    else
+                        $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
+                    fi
                 fi
                 install_cmd="flatpak install flathub -y"
                 ;;
@@ -437,25 +445,54 @@ install_package_group() {
             for pkg in "${packages[@]}"; do
                 pkg="$(echo "$pkg" | xargs)"
 
-                # Check if package is already installed
-                if is_package_installed "$pkg"; then
-                    skipped+=("$pkg")
+                # Resolve package name for current distro
+                local resolved_pkg
+                resolved_pkg="$(resolve_package_name "$pkg")"
+
+                # If resolved_pkg is empty, skip this package (removed for this distro)
+                if [ -z "$resolved_pkg" ]; then
                     continue
                 fi
 
-                # Check if package exists (for native packages only)
-                if [ "$type" = "native" ] && ! package_exists "$pkg"; then
-                    log_warn "Package '$pkg' not found in repositories, attempting installation anyway"
+                # For native packages, check if all resolved packages are installed
+                if [ "$type" = "native" ]; then
+                    local all_installed=true
+                    local check_pkg
+                    for check_pkg in $resolved_pkg; do
+                        if ! is_package_installed "$check_pkg"; then
+                            all_installed=false
+                            break
+                        fi
+                    done
+
+                    if [ "$all_installed" = true ]; then
+                        skipped+=("$pkg")
+                        continue
+                    fi
+
+                    # Check if packages exist in repositories
+                    local missing_in_repo=false
+                    for check_pkg in $resolved_pkg; do
+                        if ! package_exists "$check_pkg"; then
+                            missing_in_repo=true
+                            break
+                        fi
+                    done
+
+                    if [ "$missing_in_repo" = true ]; then
+                        log_warn "Package '$pkg' (resolved to: $resolved_pkg) not found in repositories, attempting installation anyway"
+                    fi
                 fi
 
+                # Install all resolved packages
                 if supports_gum; then
-                    if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                    if gum spin --spinner dot --title "" -- $install_cmd $resolved_pkg >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
                     fi
                 else
-                    if $install_cmd "$pkg" >/dev/null 2>&1; then
+                    if $install_cmd $resolved_pkg >/dev/null 2>&1; then
                         installed+=("$pkg")
                     else
                         failed+=("$pkg")
@@ -518,13 +555,13 @@ configure_user_shell_and_configs() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
             fi
         else
-            if $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+            if install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
@@ -578,10 +615,10 @@ final_cleanup() {
     if supports_gum; then
         gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Temporary helper packages detected:"
         gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${remove_list[*]}"
-        if gum confirm --default=false "Remove these helper packages now?"; then
+            if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
+                if remove_pkg "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     # Fallback: try removing binary placed under /usr/local/bin
@@ -601,7 +638,7 @@ final_cleanup() {
         if [[ "$resp" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
+                if remove_pkg "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     if [ -f "/usr/local/bin/$pkg" ]; then

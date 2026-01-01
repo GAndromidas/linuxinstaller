@@ -274,7 +274,16 @@ install_pkg() {
         return
     fi
     log_info "Installing package(s): $*"
-    if ! $PKG_INSTALL $PKG_NOCONFIRM "$@"; then
+    local install_status
+    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM "$@"
+        install_status=$?
+    else
+        $PKG_INSTALL $PKG_NOCONFIRM "$@"
+        install_status=$?
+    fi
+
+    if [ $install_status -ne 0 ]; then
         log_error "Failed to install package(s): $*."
         # Optionally, exit on failure: exit 1
     else
@@ -289,7 +298,16 @@ remove_pkg() {
         return
     fi
     log_info "Removing package(s): $*"
-    if ! $PKG_REMOVE $PKG_NOCONFIRM "$@"; then
+    local remove_status
+    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        DEBIAN_FRONTEND=noninteractive $PKG_REMOVE $PKG_NOCONFIRM "$@"
+        remove_status=$?
+    else
+        $PKG_REMOVE $PKG_NOCONFIRM "$@"
+        remove_status=$?
+    fi
+
+    if [ $remove_status -ne 0 ]; then
         log_error "Failed to remove package(s): $*."
     else
         log_success "Successfully removed: $*"
@@ -299,9 +317,16 @@ remove_pkg() {
 # Update system packages silently
 update_system() {
     log_info "Updating system packages..."
-    # The update command can be complex, so we handle it carefully
-    # The PKG_UPDATE variable from distro_check.sh should already be sudo'd
-    if ! $PKG_UPDATE $PKG_NOCONFIRM; then
+    local update_status
+    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        DEBIAN_FRONTEND=noninteractive $PKG_UPDATE
+        update_status=$?
+    else
+        $PKG_UPDATE $PKG_NOCONFIRM
+        update_status=$?
+    fi
+
+    if [ $update_status -ne 0 ]; then
         log_error "System update failed."
     else
         log_success "System updated successfully."

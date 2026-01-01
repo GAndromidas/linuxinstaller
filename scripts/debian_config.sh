@@ -25,16 +25,16 @@ UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 
 # Debian/Ubuntu-specific package lists (centralized in this module)
 DEBIAN_NATIVE_STANDARD=(
-    android-tools
+    adb
+    fastboot
     bat
     bleachbit
     btop
     chromium
     cmatrix
-    cpupower
+    linux-tools-common
     dosfstools
     duf
-    expac
     firefox
     fwupd
     gnome-disk-utility
@@ -44,13 +44,13 @@ DEBIAN_NATIVE_STANDARD=(
     ncdu
     net-tools
     nmap
-    noto-fonts-extra
+    fonts-noto-extra
     samba
     sl
     speedtest-cli
     sshfs
-    ttf-hack-nerd
-    ttf-liberation
+    fonts-hack
+    fonts-liberation
     unrar
     wakeonlan
     xdg-desktop-portal-gtk
@@ -125,7 +125,6 @@ DEBIAN_DE_KDE_NATIVE=(
 )
 
 DEBIAN_DE_GNOME_NATIVE=(
-    adw-gtk-theme
     celluloid
     dconf-editor
     gnome-tweaks
