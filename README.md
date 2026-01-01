@@ -6,8 +6,8 @@
 
 ![LinuxInstaller Banner](https://img.shields.io/badge/LinuxInstaller-v1.0-cyan?style=for-the-badge&logo=linux&logoColor=white)
 [![Beautiful UI](https://img.shields.io/badge/UI-Gum--Powered-00ADD8?style=flat-square)](https://github.com/charmbracelet/gum)
-[![Cross-Platform](https://img.shields.io/badge/Distributions-4_Supported-FF6B35?style=flat-square)](https://github.com/your-repo/linuxinstaller)
-[![Security First](https://img.shields.io/badge/Security-Hardened-4CAF50?style=flat-square)](https://github.com/your-repo/linuxinstaller)
+[![Cross-Platform](https://img.shields.io/badge/Distributions-4_Supported-FF6B35?style=flat-square)](https://github.com/GAndromidas/linuxinstaller)
+[![Security First](https://img.shields.io/badge/Security-Hardened-4CAF50?style=flat-square)](https://github.com/GAndromidas/linuxinstaller)
 
 **Transform your Linux installation into a beautiful, powerful development environment with a single command**
 
@@ -37,10 +37,10 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 ### Basic Installation
 ```bash
 # Download and run (one-liner)
-wget -qO- https://raw.githubusercontent.com/your-repo/linuxinstaller/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 
 # Or clone and run locally
-git clone https://github.com/your-repo/linuxinstaller.git
+git clone https://github.com/GAndromidas/linuxinstaller.git
 cd linuxinstaller
 chmod +x install.sh
 sudo ./install.sh
@@ -320,7 +320,7 @@ We welcome contributions! Here's how to get involved:
 ### Development Setup
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/linuxinstaller.git
+git clone https://github.com/GAndromidas/linuxinstaller.git
 cd linuxinstaller
 
 # Make changes to scripts
@@ -391,14 +391,14 @@ Special thanks to all beta testers, bug reporters, and feature contributors who 
 **Run the command below and choose your adventure!**
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/your-repo/linuxinstaller/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 ```
 
 ---
 
 **Built with ❤️ for the Linux community**
 
-[⬆ Back to Top](#linuxinstaller) • [📖 Wiki](https://github.com/your-repo/linuxinstaller/wiki) • [🐛 Issues](https://github.com/your-repo/linuxinstaller/issues)
+[⬆ Back to Top](#linuxinstaller) • [📖 Wiki](https://github.com/GAndromidas/linuxinstaller/wiki) • [🐛 Issues](https://github.com/GAndromidas/linuxinstaller/issues)
 
 </div></content>
 <parameter name="filePath">linuxinstaller/README.md
