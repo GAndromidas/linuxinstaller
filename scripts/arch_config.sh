@@ -386,13 +386,20 @@ arch_system_preparation() {
 
         log_info "Installing rate-mirrors-bin as user: $yay_user"
 
+        # Validate yay_user exists and is not root
+        if [ -z "$yay_user" ] || [ "$yay_user" = "root" ]; then
+            log_error "Cannot install rate-mirrors-bin: no suitable user found"
+            log_info "Please install rate-mirrors-bin manually: yay -S rate-mirrors-bin"
+            return 1
+        fi
+
         # Try to install rate-mirrors-bin with better error handling
         local install_output=""
         local exit_code=0
 
-        # Install ONLY rate-mirrors-bin from AUR
-        # Since we're running as root, configure yay to use sudo non-interactively
-        if install_output=$(yay -S --noconfirm --needed --removemake --sudoflags "--non-interactive" rate-mirrors-bin 2>&1); then
+        # Install rate-mirrors-bin as regular user (not root) to avoid makepkg security restrictions
+        log_info "Switching to user $yay_user to install AUR package..."
+        if install_output=$(su - "$yay_user" -c "yay -S --noconfirm --needed --removemake rate-mirrors-bin" 2>&1); then
             log_success "rate-mirrors-bin installed successfully"
         else
             exit_code=$?
@@ -402,7 +409,8 @@ arch_system_preparation() {
             log_info "Troubleshooting steps:"
             log_info "  1. Check internet connection: ping -c 3 google.com"
             log_info "  2. Update package databases: sudo pacman -Syy"
-            log_info "  3. Try manual installation: yay -S rate-mirrors-bin"
+            log_info "  2. Switch to regular user and try: yay -S rate-mirrors-bin"
+            log_info "  3. Or install manually as $yay_user: su - $yay_user -c 'yay -S rate-mirrors-bin'"
             log_info "  4. Check yay is working: yay --version"
             return 1
         fi

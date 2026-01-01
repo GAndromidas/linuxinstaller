@@ -364,8 +364,15 @@ install_pkg() {
                 yay_user="$USER"
             fi
 
-            # Install AUR packages directly as root (since script runs as root)
-            yay -S --noconfirm --needed --removemake --sudoflags "--non-interactive" "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
+            # Validate yay_user exists and is not root
+            if [ -z "$yay_user" ] || [ "$yay_user" = "root" ]; then
+                log_error "Cannot install AUR packages: no suitable user found"
+                install_status=1
+            else
+                # Install AUR packages as regular user (not root)
+                log_info "Installing AUR packages as user: $yay_user"
+                su - "$yay_user" -c "yay -S --noconfirm --needed --removemake '${aur_packages[*]}'" >/dev/null 2>&1 || install_status=$?
+            fi
         fi
     else
         $PKG_INSTALL $PKG_NOCONFIRM "${valid_packages[@]}"
