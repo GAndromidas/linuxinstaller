@@ -353,7 +353,7 @@ shellcheck install.sh scripts/*.sh
 ## 📄 License
 
 ```
-MIT License - Copyright (c) 2024 LinuxInstaller Team
+MIT License - Copyright (c) 2024 George Andromidas
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

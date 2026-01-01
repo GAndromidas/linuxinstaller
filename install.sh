@@ -43,7 +43,7 @@ fi
 #   • Active internet connection
 #   • Supported Linux distribution
 #
-# AUTHOR: LinuxInstaller Team
+# AUTHOR: George Andromidas
 # LICENSE: See LICENSE file
 # =============================================================================
 
