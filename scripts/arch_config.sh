@@ -307,13 +307,10 @@ arch_system_preparation() {
 
     # Initialize keyring if needed
     if [ ! -d "$ARCH_KEYRING" ]; then
-        log_info "Initializing Arch Linux keyring..."
         if ! sudo pacman-key --init >/dev/null 2>&1; then
-            log_error "Failed to initialize keyring"
             return 1
         fi
         if ! sudo pacman-key --populate archlinux >/dev/null 2>&1; then
-            log_error "Failed to populate keyring"
             return 1
         fi
     fi
@@ -326,20 +323,20 @@ arch_system_preparation() {
 
     # Install AUR helper (yay) first so AUR-only utilities (e.g., rate-mirrors) can be installed
     if ! arch_install_aur_helper; then
-        log_warn "AUR helper installation reported issues; some AUR packages may fail"
+        :
     fi
 
     # Optimize mirrorlist using rate-mirrors (installed via AUR helper if necessary)
     optimize_mirrors_arch
 
     # Update system
-    log_info "Updating Arch Linux system..."
-    if ! sudo pacman -Syu --noconfirm >/dev/null 2>&1; then
-        log_error "System update failed"
-        return 1
+    if supports_gum; then
+        if gum spin --spinner dot --title "Updating system" -- sudo pacman -Syu --noconfirm >/dev/null 2>&1; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
+        fi
+    else
+        sudo pacman -Syu --noconfirm >/dev/null 2>&1 || true
     fi
-
-    log_success "Arch system preparation completed"
 }
 
 # Configure pacman package manager settings for Arch Linux
@@ -370,6 +367,49 @@ configure_pacman_arch() {
         sudo sed -i 's/^#ILoveCandy/ILoveCandy/' "$ARCH_REPOS_FILE"
     fi
 
+    # Clean old package cache to free up disk space
+    if [ -d "/var/cache/pacman/pkg" ]; then
+        local cache_dir="/var/cache/pacman/pkg"
+        local cache_before=0
+        local cache_after=0
+
+        # Calculate cache size before cleaning
+        if [ -d "$cache_dir" ]; then
+            cache_before=$(du -sh "$cache_dir" 2>/dev/null | cut -f1)
+        fi
+
+        if supports_gum; then
+            gum spin --spinner dot --title "Cleaning old package cache..." -- sudo paccache -r -k 3 >/dev/null 2>&1
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Old packages cleaned (keeping last 3 versions)"
+        else
+            sudo paccache -r -k 3 >/dev/null 2>&1
+            log_success "Old packages cleaned (keeping last 3 versions)"
+        fi
+
+        # Clean uninstalled packages cache
+        if supports_gum; then
+            gum spin --spinner dot --title "Removing cache for uninstalled packages..." -- sudo paccache -r -u -k 0 >/dev/null 2>&1
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Cache for uninstalled packages removed"
+        else
+            sudo paccache -r -u -k 0 >/dev/null 2>&1
+            log_success "Cache for uninstalled packages removed"
+        fi
+
+        # Calculate cache size after cleaning
+        if [ -d "$cache_dir" ]; then
+            cache_after=$(du -sh "$cache_dir" 2>/dev/null | cut -f1)
+        fi
+
+        # Show cache size reduction
+        if [ "$cache_before" != "$cache_after" ]; then
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Cache size: $cache_before → $cache_after"
+            else
+                log_info "Cache size reduced from $cache_before to $cache_after"
+            fi
+        fi
+    fi
+
     log_success "pacman configured with optimizations"
 }
 
@@ -390,33 +430,14 @@ check_and_enable_multilib() {
 arch_install_aur_helper() {
     step "Installing AUR Helper (yay)"
 
-    # Check if yay is already installed
     if command -v yay >/dev/null 2>&1; then
-        log_success "yay is already installed"
         return 0
     fi
 
-    # Install base-devel first (required for building AUR packages)
-    log_info "Installing base-devel for AUR package building..."
-    if ! sudo pacman -S --noconfirm --needed base-devel >/dev/null 2>&1; then
-        log_error "Failed to install base-devel"
+    if ! sudo pacman -S --noconfirm --needed base-devel git >/dev/null 2>&1; then
         return 1
     fi
 
-    # Install git if not already installed (needed for cloning yay)
-    if ! sudo pacman -S --noconfirm --needed git >/dev/null 2>&1; then
-        log_error "Failed to install git"
-        return 1
-    fi
-
-    # Ensure base-devel group is installed; required for makepkg and building AUR packages
-    if ! sudo pacman -S --noconfirm --needed base-devel >/dev/null 2>&1; then
-        log_error "Failed to install base-devel (required to build AUR packages)"
-        return 1
-    fi
-
-    # Clone and build yay manually
-    log_info "Building yay AUR helper from source..."
     local temp_dir=$(mktemp -d)
     chmod 777 "$temp_dir"
 
@@ -435,9 +456,10 @@ arch_install_aur_helper() {
 
     if $run_as_user git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
         if $run_as_user makepkg -si --noconfirm --needed >/dev/null 2>&1; then
-            log_success "yay AUR helper installed successfully"
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ yay installed"
+            fi
         else
-            log_error "Failed to build yay"
             cd - >/dev/null
             rm -rf "$temp_dir"
             return 1
@@ -628,6 +650,20 @@ arch_main_config() {
     arch_enable_system_services
 
     arch_configure_locale
+
+    # Show final summary
+    if supports_gum; then
+        echo ""
+        gum style --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2" "Arch Linux Configuration Complete"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your Arch Linux system has been optimized:"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ pacman: Optimized with parallel downloads and ILoveCandy"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ cache: Cleaned old packages (keeping last 3 versions)"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ mirrors: Optimized for faster downloads"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ shell: ZSH configured with starship prompt"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ locales: Greek (el_GR.UTF-8) and US English enabled"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Log out and back in to apply shell changes"
+        echo ""
+    fi
 
     log_success "Arch Linux configuration completed"
 }

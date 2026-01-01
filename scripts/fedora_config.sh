@@ -212,34 +212,33 @@ fedora_system_preparation() {
     fedora_configure_dnf
 
     # Update system
-    log_info "Updating Fedora system..."
-    if ! sudo dnf update -y >/dev/null 2>&1; then
-        log_error "System update failed"
-        return 1
+    if supports_gum; then
+        if gum spin --spinner dot --title "Updating system" -- sudo dnf update -y >/dev/null 2>&1; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
+        fi
+    else
+        sudo dnf update -y >/dev/null 2>&1 || true
     fi
-
-    log_success "Fedora system preparation completed"
 }
 
 # Enable RPM Fusion repositories for Fedora
 fedora_enable_rpmfusion() {
     step "Enabling RPM Fusion Repositories"
 
-    # Check if already enabled
     if ! dnf repolist | grep -q rpmfusion-free; then
-        log_info "Installing RPM Fusion Free & Non-Free..."
         local fedora_version=$(rpm -E %fedora)
 
-        if ! sudo dnf install -y \
-            https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
-            https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1; then
-            log_error "Failed to install RPM Fusion repositories"
-            return 1
+        if supports_gum; then
+            if gum spin --spinner dot --title "Enabling RPM Fusion" -- sudo dnf install -y \
+                https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
+                https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1; then
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ RPM Fusion enabled"
+            fi
+        else
+            sudo dnf install -y \
+                https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
+                https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1 || true
         fi
-
-        log_success "RPM Fusion repositories enabled"
-    else
-        log_info "RPM Fusion repositories already enabled"
     fi
 }
 

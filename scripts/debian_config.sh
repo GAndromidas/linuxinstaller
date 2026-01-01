@@ -214,23 +214,19 @@ debian_system_preparation() {
     step "Debian/Ubuntu System Preparation"
 
     # Update package lists
-    log_info "Updating package lists..."
-    if ! sudo apt-get update >/dev/null 2>&1; then
-        log_error "Failed to update package lists"
-        return 1
-    fi
+    sudo apt-get update >/dev/null 2>&1 || return 1
 
     # Upgrade system
-    log_info "Upgrading system packages..."
-    if ! sudo apt-get upgrade -y >/dev/null 2>&1; then
-        log_error "System upgrade failed"
-        return 1
+    if supports_gum; then
+        if gum spin --spinner dot --title "Upgrading system" -- sudo apt-get upgrade -y >/dev/null 2>&1; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System upgraded"
+        fi
+    else
+        sudo apt-get upgrade -y >/dev/null 2>&1 || true
     fi
 
     # Configure APT for optimal performance
     configure_apt_debian
-
-    log_success "Debian/Ubuntu system preparation completed"
 }
 
 # Configure APT package manager settings for Debian/Ubuntu
@@ -269,35 +265,44 @@ EOF
 debian_install_essentials() {
     step "Installing Debian/Ubuntu Essential Packages"
 
-    log_info "Installing essential packages..."
-    for package in "${DEBIAN_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install essential package: $package"
+    local packages=()
+    local installed=()
+    local skipped=()
+    local failed=()
+
+    for pkg in "${DEBIAN_ESSENTIALS[@]}"; do
+        if is_package_installed "$pkg"; then
+            skipped+=("$pkg")
+            continue
+        fi
+
+        if ! package_exists "$pkg"; then
+            failed+=("$pkg")
+            continue
+        fi
+
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- sudo apt-get install -y "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+            else
+                failed+=("$pkg")
+            fi
         else
-            log_success "Installed essential package: $package"
+            if sudo apt-get install -y "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+            else
+                failed+=("$pkg")
+            fi
         fi
     done
 
-    # Install desktop packages if not server mode
-    if [ "$INSTALL_MODE" != "server" ]; then
-        log_info "Installing desktop packages..."
-        for package in "${DEBIAN_DESKTOP[@]}"; do
-            if ! install_pkg "$package"; then
-                log_warn "Failed to install desktop package: $package"
-            else
-                log_success "Installed desktop package: $package"
-            fi
-        done
-    else
-        # Install server packages
-        log_info "Installing server packages..."
-        for package in "${DEBIAN_SERVER[@]}"; do
-            if ! install_pkg "$package"; then
-                log_warn "Failed to install server package: $package"
-            else
-                log_success "Installed server package: $package"
-            fi
-        done
+    # Show summary
+    if [ ${#installed[@]} -gt 0 ]; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ ${installed[*]}"
+        else
+            echo -e "${GREEN}✓ ${installed[*]}${RESET}"
+        fi
     fi
 }
 

@@ -153,10 +153,25 @@ gnome_configure_shortcuts() {
         log_warn "Shortcut 'Meta+Q' for closing windows already seems to be set. Skipping."
     fi
 
-    # Setup Meta+Enter to Launch Terminal
-    log_info "Setting up 'Meta+Enter' to launch GNOME Terminal..."
+    # Setup Meta+Enter to Launch Terminal (terminal-agnostic)
+    log_info "Setting up 'Meta+Enter' to launch default terminal..."
     local keybinding_path="org.gnome.settings-daemon.plugins.media-keys.custom-keybindings"
     local custom_key="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom_terminal/"
+
+    # Detect default terminal emulator
+    local terminal_cmd=""
+    if command -v kgx >/dev/null 2>&1; then
+        terminal_cmd="kgx"
+    elif command -v gnome-terminal >/dev/null 2>&1; then
+        terminal_cmd="gnome-terminal"
+    elif command -v ptyxis >/dev/null 2>&1; then
+        terminal_cmd="ptyxis"
+    elif command -v x-terminal-emulator >/dev/null 2>&1; then
+        terminal_cmd="x-terminal-emulator"
+    else
+        log_warn "No terminal emulator found, using default fallback"
+        terminal_cmd="gnome-terminal"
+    fi
 
     # Get current custom bindings
     local current_bindings_str
@@ -176,9 +191,9 @@ gnome_configure_shortcuts() {
 
     # Set the properties for our custom binding
     gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${custom_key}" name "Launch Terminal (linuxinstaller)" || true
-    gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${custom_key}" command "gnome-terminal" || true
+    gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${custom_key}" command "$terminal_cmd" || true
     gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${custom_key}" binding "<Super>Return" || true
-    log_success "Shortcut 'Meta+Enter' created for GNOME Terminal."
+    log_success "Shortcut 'Meta+Enter' created for terminal: $terminal_cmd"
 }
 
 # Configure GNOME desktop environment settings

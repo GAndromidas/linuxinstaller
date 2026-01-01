@@ -225,6 +225,48 @@ show_resume_menu() {
 
 # --- Package Management Wrappers (ENFORCES NON-INTERACTIVE) ---
 
+# Check if a package is already installed
+is_package_installed() {
+    local pkg="$1"
+    local distro="${DISTRO_ID:-}"
+
+    case "$distro" in
+        arch)
+            pacman -Q "$pkg" >/dev/null 2>&1
+            ;;
+        fedora)
+            rpm -q "$pkg" >/dev/null 2>&1
+            ;;
+        debian|ubuntu)
+            dpkg -l "$pkg" 2>/dev/null | grep -q '^ii'
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Check if a package exists in repository
+package_exists() {
+    local pkg="$1"
+    local distro="${DISTRO_ID:-}"
+
+    case "$distro" in
+        arch)
+            pacman -Si "$pkg" >/dev/null 2>&1
+            ;;
+        fedora)
+            dnf info "$pkg" >/dev/null 2>&1
+            ;;
+        debian|ubuntu)
+            apt-cache show "$pkg" >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Install one or more packages silently
 install_pkg() {
     if [ $# -eq 0 ]; then

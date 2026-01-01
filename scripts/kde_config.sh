@@ -134,15 +134,19 @@ kde_configure_shortcuts() {
         log_warn "Shortcut 'Meta+Q' for closing windows already seems to be set. Skipping."
     fi
 
-    # Setup Meta+Enter to Launch Terminal (Konsole)
-    log_info "Setting up 'Meta+Enter' to launch Konsole..."
-    $kwrite --file "$config_file" --group "org.kde.konsole.desktop" --key "new-window" "Meta+Return,none,New Window,New Window" || true
-    log_success "Attempted to set 'Meta+Enter' to launch Konsole. You may need to log out for this to apply."
+    # Setup Meta+Enter to Launch Terminal (terminal-agnostic)
+    log_info "Setting up 'Meta+Enter' to launch default terminal..."
+    $kwrite --file "$config_file" --group services --key "krunner" "Meta+Return,none,Run Command,Run Command" || true
+    $kwrite --file "$config_file" --group services --key "Launch Terminal" "Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'x-terminal-emulator',Launch Terminal" || true
+    log_success "Shortcut 'Meta+Enter' set to launch default terminal."
 
-    # Reload the shortcut daemon
+    # Reload the configuration and shortcut daemon
     log_info "Reloading shortcut configuration..."
+    local kbuild="kbuildsycoca5"
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then kbuild="kbuildsycoca6"; fi
+    $kbuild >/dev/null 2>&1 || true
     dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/kwin org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1 || true
-    dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/org.kde.konsole.desktop org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1 || true
+    log_success "Shortcuts reloaded successfully."
 }
 
 # Configure KDE desktop wallpaper

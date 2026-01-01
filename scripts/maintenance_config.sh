@@ -40,48 +40,114 @@ MAINTENANCE_DEBIAN=(
 maintenance_install_packages() {
     step "Installing Maintenance Packages"
 
-    log_info "Installing maintenance essential packages..."
-    for package in "${MAINTENANCE_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install maintenance package: $package"
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Maintenance packages help protect your system with snapshots and updates"
+    fi
+
+    local packages=()
+    local descriptions=()
+    local installed=()
+    local skipped=()
+    local failed=()
+
+    case "$DISTRO_ID" in
+        "arch")
+            packages=("${MAINTENANCE_ARCH[@]}")
+            descriptions=(
+                "snap-pac: Automatic snapshots before/after package updates"
+                "snapper: Btrfs snapshot management tool"
+                "grub-btrfs: GRUB integration for booting from snapshots"
+                "linux-lts: Long-term support kernel for stability"
+                "linux-lts-headers: Headers for LTS kernel (required for modules)"
+            )
+            ;;
+        "fedora")
+            packages=("${MAINTENANCE_FEDORA[@]}")
+            descriptions=(
+                "timeshift: System backup and restore tool"
+                "btrfs-progs: Btrfs filesystem utilities (already installed)"
+            )
+            ;;
+        "debian"|"ubuntu")
+            packages=("${MAINTENANCE_DEBIAN[@]}")
+            descriptions=(
+                "timeshift: System backup and restore tool"
+                "btrfs-progs: Btrfs filesystem utilities (already installed)"
+            )
+            ;;
+    esac
+
+    for i in "${!packages[@]}"; do
+        local pkg="${packages[$i]}"
+        local desc="${descriptions[$i]:-Maintenance tool}"
+
+        # Check if already installed
+        if is_package_installed "$pkg"; then
+            skipped+=("$pkg")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ $pkg (already installed)"
+            fi
+            continue
+        fi
+
+        # Check if package exists
+        if ! package_exists "$pkg"; then
+            failed+=("$pkg")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ $pkg (not found in repositories)"
+            fi
+            continue
+        fi
+
+        # Install with gum spin and show description
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
+            if gum spin --spinner dot --title "" -- sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
+            else
+                failed+=("$pkg")
+                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "  ✗ Failed to install $pkg"
+            fi
         else
-            log_success "Installed maintenance package: $package"
+            log_info "Installing $pkg: $desc"
+            if sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+                log_success "✓ $pkg installed"
+            else
+                failed+=("$pkg")
+                log_error "✗ Failed to install $pkg"
+            fi
         fi
     done
 
-    # Install distribution-specific maintenance packages
-    case "$DISTRO_ID" in
-        "arch")
-            log_info "Installing Arch-specific maintenance packages..."
-            for package in "${MAINTENANCE_ARCH[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Arch maintenance package: $package"
-                else
-                    log_success "Installed Arch maintenance package: $package"
-                fi
-            done
-            ;;
-        "fedora")
-            log_info "Installing Fedora-specific maintenance packages..."
-            for package in "${MAINTENANCE_FEDORA[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Fedora maintenance package: $package"
-                else
-                    log_success "Installed Fedora maintenance package: $package"
-                fi
-            done
-            ;;
-        "debian"|"ubuntu")
-            log_info "Installing Debian/Ubuntu-specific maintenance packages..."
-            for package in "${MAINTENANCE_DEBIAN[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Debian maintenance package: $package"
-                else
-                    log_success "Installed Debian maintenance package: $package"
-                fi
-            done
-            ;;
-    esac
+    # Show summary with gum styling
+    if supports_gum; then
+        echo ""
+        gum style --margin "0 2" --border rounded --border-foreground "$GUM_BORDER_FG" --padding "1 2" "Installation Summary"
+        if [ ${#installed[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Installed: ${#installed[@]} package(s)"
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${installed[*]}"
+        fi
+        if [ ${#skipped[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipped (already installed): ${#skipped[@]} package(s)"
+        fi
+        if [ ${#failed[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Failed: ${#failed[@]} package(s)"
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${failed[*]}"
+        fi
+    else
+        if [ ${#installed[@]} -gt 0 ]; then
+            log_success "✓ Installed: ${#installed[@]} package(s) - ${installed[*]}"
+        fi
+        if [ ${#skipped[@]} -gt 0 ]; then
+            log_info "○ Skipped: ${#skipped[@]} package(s) already installed"
+        fi
+        if [ ${#failed[@]} -gt 0 ]; then
+            log_error "✗ Failed: ${#failed[@]} package(s) - ${failed[*]}"
+        fi
+    fi
 }
 
 # Configure TimeShift for Fedora/Debian/Ubuntu
@@ -89,30 +155,29 @@ maintenance_configure_timeshift() {
     step "Configuring TimeShift"
 
     if ! command -v timeshift >/dev/null 2>&1; then
-        log_info "TimeShift not installed, skipping configuration"
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ TimeShift not installed, skipping configuration"
+        fi
         return
     fi
 
-    log_info "Configuring TimeShift for optimal snapshot management..."
-
-    # Ensure TimeShift directory exists
-    sudo mkdir -p /etc/timeshift
-
-    # Configure TimeShift with user's desired settings
-    local TS_CONFIG="/etc/timeshift/timeshift.json"
-
-    # Backup existing config
-    if [ -f "$TS_CONFIG" ]; then
-        sudo cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-        log_info "TimeShift config backed up"
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "TimeShift: Creating system backup configuration"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  This creates snapshots to protect your system from updates"
     fi
 
-    # Create/Update TimeShift configuration
+    sudo mkdir -p /etc/timeshift
+
+    local TS_CONFIG="/etc/timeshift/timeshift.json"
+
+    if [ -f "$TS_CONFIG" ]; then
+        sudo cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+    fi
+
     sudo tee "$TS_CONFIG" >/dev/null << 'EOF'
 {
     "snapshot_device_uuid": null,
     "snapshot_device": "",
-    "snapshot_list_devices": "false",
     "snapshot_mnt": "/",
     "snapshot_output_dir": "",
     "snapshot_output_dirs": [],
@@ -122,7 +187,7 @@ maintenance_configure_timeshift() {
     "schedule_hourly": false,
     "schedule_boot": false,
     "schedule_startup": false,
-    "count_max": 5,
+    "count_max": 10,
     "count_min": 0,
     "count": 0,
     "date_format": "%Y-%m-%d %H:%M",
@@ -139,15 +204,12 @@ maintenance_configure_timeshift() {
 }
 EOF
 
-    # Configure Timeshift to use BTRFS mode
-    if command -v timeshift >/dev/null 2>&1; then
-        sudo sed -i 's/snapshot_device_uuid": null/"snapshot_device_uuid": null/' "$TS_CONFIG" 2>/dev/null || true
-        sudo sed -i 's/snapshot_device": ""/"snapshot_device": ""/' "$TS_CONFIG" 2>/dev/null || true
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ TimeShift configured for manual snapshots"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Excludes: cache, downloads, Steam, and temporary files"
+    else
+        log_success "✓ TimeShift configured for manual snapshots"
     fi
-
-    log_success "TimeShift configured: max 5 snapshots, no automatic schedules"
-    log_info "Automatic snapshots disabled as requested"
-    log_info "Excludes: downloads, cache, thumbnails, Steam, logs"
 }
 
 # Configure Snapper for Arch (only)
@@ -155,16 +217,20 @@ maintenance_configure_snapper_settings() {
     step "Configuring Snapper (Arch Only)"
 
     if [ "$DISTRO_ID" != "arch" ]; then
-        log_info "Snapper is Arch-specific. Skipping."
         return
     fi
 
     if ! command -v snapper >/dev/null 2>&1; then
-        log_info "Snapper not installed, skipping configuration"
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Snapper not installed, skipping configuration"
+        fi
         return
     fi
 
-    log_info "Configuring Snapper for optimal snapshot management..."
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Snapper: Configuring Btrfs snapshot management"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Automatic snapshots protect your system before/after updates"
+    fi
 
     # Create snapper config if it doesn't exist
     if ! sudo snapper -c root create-config / >/dev/null 2>&1; then
@@ -175,43 +241,53 @@ maintenance_configure_snapper_settings() {
     # Backup existing config
     if [ -f /etc/snapper/configs/root ]; then
         sudo cp /etc/snapper/configs/root "/etc/snapper/configs/root.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-        log_info "Snapper config backed up"
     fi
 
-    # Configure Snapper with user's desired settings
-    # Disable all timeline snapshots (hourly, daily, weekly, monthly, yearly)
-    sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="no"/' /etc/snapper/configs/root
+    # Configure Snapper with best practice settings
+    # Enable timeline snapshots for automatic protection
+    sudo sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
     sudo sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
     sudo sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="0"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
-    sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
+    sudo sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' /etc/snapper/configs/root
+
+    # Set reasonable limits for timeline snapshots
+    sudo sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="10"/' /etc/snapper/configs/root
+    sudo sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
+    sudo sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="4"/' /etc/snapper/configs/root
+    sudo sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="12"/' /etc/snapper/configs/root
     sudo sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
 
-    # Set number of snapshots to keep to 5 (not default 50)
-    sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="5"/' /etc/snapper/configs/root
-    sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
+    # Set number of snapshots to keep to 10
+    sudo sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
+    sudo sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' /etc/snapper/configs/root
 
-    # Enable only boot timer for automatic snapshots
-    sudo systemctl enable --now snapper-boot.timer >/dev/null 2>&1
-
-    # Disable timeline and cleanup timers (we don't want automatic snapshots)
-    sudo systemctl disable --now snapper-timeline.timer >/dev/null 2>&1 || true
-    sudo systemctl disable --now snapper-cleanup.timer >/dev/null 2>&1 || true
-
-    log_success "Snapper configured: boot snapshots only, max 5 snapshots"
-    log_info "Timeline snapshots disabled as requested"
+    # Enable timeline and cleanup timers for automatic snapshots
+    if supports_gum; then
+        gum spin --spinner dot --title "Enabling snapshot timers..." -- sudo systemctl enable --now snapper-timeline.timer snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline: Hourly (10), Daily (7), Weekly (4), Monthly (12)"
+    else
+        sudo systemctl enable --now snapper-timeline.timer >/dev/null 2>&1
+        sudo systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1
+        sudo systemctl enable --now snapper-boot.timer >/dev/null 2>&1
+        log_success "✓ Snapper timers enabled"
+    fi
 }
 
 # Setup pre-update snapshots (TimeShift for non-Arch, Snapper for Arch)
 maintenance_setup_pre_update_snapshots() {
     step "Setting Up Pre-Update Snapshot Function"
 
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Creating automatic snapshots before system updates"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  This protects your system from broken updates"
+    fi
+
     if [ "$DISTRO_ID" = "arch" ]; then
-        # Use Snapper for Arch
         if ! command -v snapper >/dev/null 2>&1; then
-            log_info "Snapper not installed, skipping snapshot hook setup"
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Snapper not available, skipping pre-update snapshots"
+            fi
             return
         fi
 
@@ -243,37 +319,40 @@ Description = Create post-update snapshot
 When = PostTransaction
 Exec = /usr/bin/sh -c 'snapper -c root create -d "Post-update: $(date +"%%Y-%%m-%%d %%H:%%M")" && echo "Snapshots created. View with: snapper list"'
 EOF
-        log_success "Pacman hook installed for pre/post-update snapshots (Snapper)"
+
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Pacman hook installed for pre/post-update snapshots"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Snapshots will be created automatically before/after each package update"
+        else
+            log_success "✓ Pacman hook installed for pre/post-update snapshots"
+        fi
 
     else
-        # Use TimeShift for Fedora/Debian/Ubuntu
         if ! command -v timeshift >/dev/null 2>&1; then
-            log_info "TimeShift not installed, skipping snapshot hook setup"
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ TimeShift not available, skipping pre-update snapshots"
+            fi
             return
         fi
 
-        # TimeShift doesn't have built-in pre/post hooks, but we can create wrapper functions
-        # Create a wrapper script for manual use
         cat << 'EOF' | sudo tee /usr/local/bin/system-update-snapshot >/dev/null
 #!/bin/bash
-# Create TimeShift snapshot before system update
-# Usage: system-update-snapshot [description]
-
 DESCRIPTION="${1:-Pre-update}"
 
 if command -v timeshift >/dev/null 2>&1; then
-    echo "Creating TimeShift snapshot: $DESCRIPTION"
     sudo timeshift --create --description "$DESCRIPTION"
-    echo "Snapshot created successfully!"
 else
-    echo "TimeShift not installed. Please install it first."
     exit 1
 fi
 EOF
         sudo chmod +x /usr/local/bin/system-update-snapshot
 
-        log_success "System update snapshot wrapper created: /usr/local/bin/system-update-snapshot"
-        log_info "Usage: Run 'system-update-snapshot' before updates manually"
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Run this before updates: sudo system-update-snapshot"
+        else
+            log_success "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
+        fi
     fi
 }
 
@@ -281,75 +360,59 @@ EOF
 maintenance_configure_grub_snapshots() {
     step "Configuring GRUB for Snapshot Boot Menu"
 
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Adding snapshots to boot menu"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Allows booting from previous snapshots if updates fail"
+    fi
+
     local bootloader
     bootloader=$(detect_bootloader)
-    log_info "Detected bootloader: $bootloader"
 
     if [ "$bootloader" != "grub" ]; then
-        log_info "Non-GRUB bootloader detected ($bootloader). Skipping GRUB snapshot menu."
-        if [ "$bootloader" = "systemd-boot" ]; then
-            log_info "systemd-boot detected. Snapshots will not be added to boot menu."
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Only GRUB bootloader is supported for snapshot menu"
         fi
         return
     fi
 
-    # Determine what to install based on distro
-    local grub_btrfs_package=""
     local grub_update_command=""
 
     if [ "$DISTRO_ID" = "arch" ]; then
-        # Arch: Use grub-btrfs (Arch-specific, doesn't work with systemd-boot)
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
-            log_info "Installing grub-btrfs for Snapper snapshot support..."
-            install_pkg "grub-btrfs" || {
-                log_warn "Failed to install grub-btrfs"
-                return 1
-            }
-        else
-            log_info "grub-btrfs already installed"
-        fi
-        
-        # Enable grub-btrfsd service for automatic snapshot detection
-        if command -v grub-btrfsd >/dev/null 2>&1; then
-            if sudo systemctl enable --now grub-btrfsd.service >/dev/null 2>&1; then
-                log_success "grub-btrfsd service enabled and started"
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
+                if gum spin --spinner dot --title "" -- sudo pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
+                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
+                fi
             else
-                log_warn "Failed to enable grub-btrfsd service"
+                sudo pacman -S --noconfirm grub-btrfs >/dev/null 2>&1 || true
             fi
         fi
-        
-        grub_update_command="grub-mkconfig"
-        
-    else
-        # Fedora/Debian/Ubuntu: Use standard grub-btrfs package (already in their repos)
-        # No need to check/install - it should be there if using GRUB
-        if [ "$DISTRO_ID" = "fedora" ] || [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-            log_info "Using system grub-btrfs for TimeShift snapshot support"
-            log_info "GRUB integration works via standard GRUB packages"
-            # grub-btrfs should already be installed with GRUB
-            # No special package installation needed
+
+        if command -v grub-btrfsd >/dev/null 2>&1; then
+            sudo systemctl enable --now grub-btrfsd.service >/dev/null 2>&1
         fi
-        
-        # Find correct GRUB update command
+
+        grub_update_command="grub-mkconfig"
+    else
         if command -v grub-mkconfig >/dev/null 2>&1; then
             grub_update_command="grub-mkconfig"
         elif command -v update-grub >/dev/null 2>&1; then
             grub_update_command="update-grub"
-        else
-            log_warn "GRUB regeneration command not found. Please regenerate manually."
         fi
     fi
 
-    # Regenerate GRUB configuration
     if [ -n "$grub_update_command" ]; then
-        log_info "Regenerating GRUB configuration with snapshot support..."
-        if sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-            log_success "GRUB configuration complete - snapshots will appear in boot menu"
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Updating GRUB configuration"
+            if gum spin --spinner dot --title "Regenerating boot menu..." -- sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ GRUB updated with snapshot boot menu"
+                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Reboot and hold 'Shift' to see snapshot boot entries"
+            fi
         else
-            log_warn "Failed to regenerate GRUB configuration"
+            sudo $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
+            log_success "✓ GRUB updated with snapshot support"
         fi
-    else
-        log_warn "GRUB regeneration command not found. Please regenerate manually."
     fi
 }
 
@@ -357,57 +420,87 @@ maintenance_configure_grub_snapshots() {
 maintenance_configure_btrfs_snapshots() {
     step "Configuring Btrfs Snapshots"
 
-    if is_btrfs_system; then
-        log_info "Btrfs filesystem detected, setting up snapshots..."
-
-        local bootloader
-        bootloader=$(detect_bootloader)
-        log_info "Detected bootloader: $bootloader"
-
-        # Choose snapshot tool based on distro
-        # Arch: Snapper (better GRUB integration with grub-btrfs)
-        # Fedora/Debian/Ubuntu: TimeShift (simpler, better for cross-distro)
-        if [ "$DISTRO_ID" = "arch" ]; then
-            log_info "Using Snapper for Arch (excellent GRUB integration)"
-            maintenance_configure_snapper_settings
-        else
-            log_info "Using TimeShift for $DISTRO_ID (simple, cross-distro, better GUI)"
-            maintenance_configure_timeshift
+    if ! is_btrfs_system; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Not a Btrfs system, skipping snapshot configuration"
         fi
+        return
+    fi
 
-        # Setup pre/post-update snapshot hooks for all distros
-        maintenance_setup_pre_update_snapshots
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Btrfs filesystem detected: Configuring snapshot protection"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Snapshots allow you to restore your system if updates break it"
+    fi
 
-        # Configure GRUB for snapshots (only if GRUB bootloader)
-        maintenance_configure_grub_snapshots
+    # Choose snapshot tool based on distro
+    # Arch: Snapper (better GRUB integration with grub-btrfs)
+    # Fedora/Debian/Ubuntu: TimeShift (simpler, better for cross-distro)
+    if [ "$DISTRO_ID" = "arch" ]; then
+        maintenance_configure_snapper_settings
+    else
+        maintenance_configure_timeshift
+    fi
 
-        # Enable Btrfs maintenance services (not snapshots, but maintenance)
-        sudo systemctl enable --now btrfs-scrub@-.timer >/dev/null 2>&1 || true
-        sudo systemctl enable --now btrfs-balance@-.timer >/dev/null 2>&1 || true
-        sudo systemctl enable --now btrfs-defrag@-.timer >/dev/null 2>&1 || true
+    # Setup pre/post-update snapshot hooks for all distros
+    maintenance_setup_pre_update_snapshots
 
-        # Create initial snapshot
-        if [ "$DISTRO_ID" = "arch" ]; then
-            # Use Snapper
-            if sudo snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
-                log_success "Initial snapshot created (Snapper)"
+    # Configure GRUB for snapshots (only if GRUB bootloader)
+    maintenance_configure_grub_snapshots
+
+    # Configure Btrfs maintenance timers with best practice settings
+    if [ -f /etc/systemd/system/btrfs-scrub@.timer ] || command -v btrfs-scrub >/dev/null 2>&1; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Weekly scrub ( Sundays at 2:00 AM )"
+        fi
+        # Weekly scrub on Sunday at 2:00 AM
+        sudo mkdir -p /etc/systemd/system/btrfs-scrub@.timer.d
+        cat << 'EOF' | sudo tee /etc/systemd/system/btrfs-scrub@root.timer.d/override.conf >/dev/null
+[Timer]
+OnCalendar=Sun *-*-* 02:00:00
+Persistent=true
+EOF
+        sudo systemctl enable --now btrfs-scrub@root.timer >/dev/null 2>&1
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs scrub scheduled"
+        fi
+    fi
+
+    if [ -f /etc/systemd/system/btrfs-balance@.timer ] || command -v btrfs-balance >/dev/null 2>&1; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Monthly balance ( 1st Sunday at 3:00 AM )"
+        fi
+        # Monthly balance on first Sunday at 3:00 AM
+        sudo mkdir -p /etc/systemd/system/btrfs-balance@.timer.d
+        cat << 'EOF' | sudo tee /etc/systemd/system/btrfs-balance@root.timer.d/override.conf >/dev/null
+[Timer]
+OnCalendar=Sun *-*-01 03:00:00
+Persistent=true
+EOF
+        sudo systemctl enable --now btrfs-balance@root.timer >/dev/null 2>&1
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs balance scheduled"
+        fi
+    fi
+
+    # Create initial snapshot
+    if [ "$DISTRO_ID" = "arch" ]; then
+        if sudo snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
             else
-                log_warn "Failed to create initial snapshot (non-critical)"
+                log_success "Initial snapshot created"
             fi
-        else
-            # Use TimeShift
-            if command -v timeshift >/dev/null 2>&1; then
-                if sudo timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
-                    log_success "Initial snapshot created (TimeShift)"
+        fi
+    else
+        if command -v timeshift >/dev/null 2>&1; then
+            if sudo timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
+                if supports_gum; then
+                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
                 else
-                    log_warn "Failed to create initial snapshot (non-critical)"
+                    log_success "Initial snapshot created"
                 fi
             fi
         fi
-
-        log_success "Btrfs snapshots configured"
-    else
-        log_info "Btrfs filesystem not detected, skipping snapshot configuration"
     fi
 }
 
@@ -417,18 +510,30 @@ maintenance_configure_automatic_updates() {
 
     case "$DISTRO_ID" in
         "fedora")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring dnf-automatic for security updates"
+                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Security updates will be installed automatically"
+            fi
             # Configure dnf-automatic
             if [ -f /etc/dnf/automatic.conf ]; then
                 sudo sed -i 's/^apply_updates = no/apply_updates = yes/' /etc/dnf/automatic.conf 2>/dev/null || true
                 sudo sed -i 's/^upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf 2>/dev/null || true
                 if sudo systemctl enable --now dnf-automatic-install.timer >/dev/null 2>&1; then
-                    log_success "dnf-automatic configured and enabled"
+                    if supports_gum; then
+                        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ dnf-automatic configured and enabled"
+                    else
+                        log_success "dnf-automatic configured and enabled"
+                    fi
                 else
                     log_warn "Failed to enable dnf-automatic"
                 fi
             fi
             ;;
         "debian"|"ubuntu")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring unattended-upgrades for security updates"
+                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Security updates will be installed automatically"
+            fi
             # Configure unattended-upgrades
             if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
                 sudo sed -i 's|//\("o=Debian,a=stable"\)|"\${distro_id}:\${distro_codename}-security"|' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null || true
@@ -443,7 +548,11 @@ maintenance_configure_automatic_updates() {
             fi
 
             if sudo systemctl enable --now unattended-upgrades >/dev/null 2>&1; then
-                log_success "unattended-upgrades configured and enabled"
+                if supports_gum; then
+                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ unattended-upgrades configured and enabled"
+                else
+                    log_success "unattended-upgrades configured and enabled"
+                fi
             else
                 log_warn "Failed to enable unattended-upgrades"
             fi
@@ -451,7 +560,11 @@ maintenance_configure_automatic_updates() {
         *)
             # For other distributions (including Arch) we intentionally do not
             # create distribution-specific auto-update scripts here.
-            log_info "Automatic updates not configured for $DISTRO_ID by this installer"
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Automatic updates not configured for $DISTRO_ID"
+            else
+                log_info "Automatic updates not configured for $DISTRO_ID by this installer"
+            fi
             ;;
     esac
 }
@@ -470,6 +583,23 @@ maintenance_main_config() {
     maintenance_setup_pre_update_snapshots
 
     maintenance_configure_automatic_updates
+
+    # Show final summary
+    if supports_gum; then
+        echo ""
+        gum style --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2" "Maintenance Configuration Complete"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is now configured for safety and maintenance:"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshots: Protect against broken updates"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs maintenance: Scheduled scrub and balance"
+        if [ "$DISTRO_ID" = "arch" ]; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: snapper list"
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: Select from boot menu"
+        else
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: sudo timeshift --list"
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: sudo timeshift --restore"
+        fi
+        echo ""
+    fi
 
     log_success "Maintenance configuration completed"
 }

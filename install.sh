@@ -212,8 +212,6 @@ bootstrap_tools() {
     log_info "Bootstrapping installer tools..."
 
     # Try to proceed even when network is flaky, but warn if no internet
-    # Use a non-fatal ping check here (check_internet exits the script on failure,
-    # so we avoid calling it to allow the installer to continue in degraded mode).
     if ! ping -c 1 -W 5 google.com >/dev/null 2>&1; then
         log_warn "No internet connection detected. Some helper installs may fail or be skipped."
     fi
@@ -221,44 +219,23 @@ bootstrap_tools() {
     # 1. GUM (UI) - try package manager, then fallback to binary download
     if ! supports_gum; then
         if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] Would install gum for UI"
-        else
-            log_info "Installing gum for UI..."
-            # Try package manager first
-            if [ "$DISTRO_ID" == "arch" ]; then
-                if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
-                    log_success "Installed gum via pacman"
-                    GUM_INSTALLED_BY_SCRIPT=true
-                    # Refresh detection so wrapper/short-circuits know gum is now available
-                    supports_gum >/dev/null 2>&1 || true
-                fi
-            else
-                if $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1; then
-                    log_success "Installed gum via package manager"
-                    GUM_INSTALLED_BY_SCRIPT=true
-                    supports_gum >/dev/null 2>&1 || true
-                fi
-            fi
+            return
+        fi
 
-            # If not available from packages, try binary as fallback
-            if ! supports_gum; then
-                log_info "Attempting to download gum binary as fallback..."
-                if curl -fsSL "https://github.com/charmbracelet/gum/releases/latest/download/gum-linux-amd64" -o /tmp/gum >/dev/null 2>&1 && sudo mv /tmp/gum /usr/local/bin/gum && sudo chmod +x /usr/local/bin/gum; then
-                    log_success "Installed gum binary to /usr/local/bin/gum"
-                    GUM_INSTALLED_BY_SCRIPT=true
-                    supports_gum >/dev/null 2>&1 || true
-                else
-                    log_warn "Failed to install gum via package manager or download. UI will fall back to basic output."
-                fi
+        # Try package manager first
+        if [ "$DISTRO_ID" == "arch" ]; then
+            if sudo pacman -S --noconfirm gum >/dev/null 2>&1; then
+                GUM_INSTALLED_BY_SCRIPT=true
+                supports_gum >/dev/null 2>&1 || true
+            fi
+        else
+            if $PKG_INSTALL $PKG_NOCONFIRM gum >/dev/null 2>&1; then
+                GUM_INSTALLED_BY_SCRIPT=true
+                supports_gum >/dev/null 2>&1 || true
             fi
         fi
-    fi
-
-    # Report what is available
-    if supports_gum; then
-        log_info "UX helper available: gum"
-    fi
 }
+
 
 
 
@@ -266,21 +243,24 @@ bootstrap_tools() {
 install_package_group() {
     local section_path="$1"
     local title="$2"
-    local mode="${INSTALL_MODE:-standard}"
+    local pkg_type="${3:-}"  # Optional: install only specific package type
 
     log_info "Processing package group: $title ($section_path)"
 
-    # Determine package types available for this distro
+    # If specific package type requested, only process that type
     local pkg_types
-    case "$DISTRO_ID" in
-        arch)   pkg_types="native aur flatpak" ;;
-        ubuntu) pkg_types="native snap flatpak" ;;
-        *)      pkg_types="native flatpak" ;; # fedora, debian
-    esac
+    if [ -n "$pkg_type" ]; then
+        pkg_types="$pkg_type"
+    else
+        # Determine package types available for this distro
+        case "$DISTRO_ID" in
+            arch)   pkg_types="native aur flatpak" ;;
+            ubuntu) pkg_types="native snap flatpak" ;;
+            *)      pkg_types="native flatpak" ;; # fedora, debian
+        esac
+    fi
 
     for type in $pkg_types; do
-        log_info "Collecting package definitions (type: $type) for '$section_path'..."
-
         # Try distro-provided package function first (preferred)
         local packages=()
         if declare -f distro_get_packages >/dev/null 2>&1; then
@@ -290,12 +270,10 @@ install_package_group() {
         else
             # YAML-driven discovery has been removed.
             # Package lists must be provided by the distro module via 'distro_get_packages()'.
-            log_info "No distro package provider available; skipping deprecated YAML fallback for $title"
             continue
         fi
 
         if [ ${#packages[@]} -eq 0 ]; then
-            log_info "No $type packages found for $title"
             continue
         fi
 
@@ -314,19 +292,7 @@ install_package_group() {
             unset _li_seen_pkgs
         fi
 
-        # Pretty output of what will be installed
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing ($type) for $title: ${packages[*]}"
-        else
-            log_info "Installing ($type) for $title: ${packages[*]}"
-        fi
-
         if [ "$DRY_RUN" = true ]; then
-            if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "[DRY-RUN] Would install ($type): ${packages[*]}"
-            else
-                log_info "[DRY-RUN] Would install ($type): ${packages[*]}"
-            fi
             continue
         fi
 
@@ -342,13 +308,11 @@ install_package_group() {
                 elif command -v paru >/dev/null 2>&1; then
                     install_cmd="paru -S --noconfirm"
                 else
-                    log_warn "No AUR helper found. Skipping AUR packages."
                     continue
                 fi
                 ;;
             flatpak)
                 if ! command -v flatpak >/dev/null 2>&1; then
-                    log_warn "Flatpak not installed. Attempting to install it..."
                     $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
                 fi
                 install_cmd="flatpak install flathub -y"
@@ -358,63 +322,96 @@ install_package_group() {
                 ;;
         esac
 
-        # Safely build package arguments (quoting)
-        local pkg_args=""
-        for p in "${packages[@]}"; do
-            p="$(echo "$p" | xargs)" # trim
-            pkg_args="$pkg_args $(printf '%q' "$p")"
-        done
+        # Track installed packages
+        local installed=()
+        local skipped=()
+        local failed=()
 
-        # Execute installation (special handling for flatpaks so output is visible)
+        # Execute installation with gum spin
         if [ "$type" = "flatpak" ]; then
-            # Announce minimal header; keep verbose details in the log to avoid noisy console output
-            if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Installing Flatpak packages for $title..." 2>/dev/null || true
-            else
-                log_info "Installing Flatpak packages for $title..."
-            fi
-
-            # Install flatpaks one-by-one, suppressing flatpak's verbose output and showing a compact status per package
-            local failed_packages=()
             for pkg in "${packages[@]}"; do
-                pkg="$(echo "$pkg" | xargs)"  # trim whitespace
+                pkg="$(echo "$pkg" | xargs)"
+                
+                # Check if flatpak is already installed
+                if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
+                    skipped+=("$pkg")
+                    continue
+                fi
+
+                # Check if package exists
+                if ! flatpak info "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                    continue
+                fi
+
                 if supports_gum; then
-                    # Use gum spinner while running the install; flatpak output is redirected to the log
-                    if gum spin --spinner dot --title "Flatpak: $pkg" -- bash -lc "$install_cmd $(printf '%q' "$pkg")"; then
-                        gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✔ $pkg Installed" 2>/dev/null || true
+                    if gum spin --spinner dot --title "" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" 2>/dev/null; then
+                        installed+=("$pkg")
                     else
-                        gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ $pkg Failed" 2>/dev/null || true
-                        failed_packages+=("$pkg")
+                        failed+=("$pkg")
                     fi
                 else
-                    # Non-gum terminals: print a concise one-line status per package
-                    printf "%-60s" "Installing Flatpak: $pkg"
-                    if bash -lc "$install_cmd $(printf '%q' "$pkg")"; then
-                        printf "${GREEN} ✔ Installed${RESET}\n"
+                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >/dev/null 2>&1; then
+                        installed+=("$pkg")
                     else
-                        printf "${RED} ✗ Failed${RESET}\n"
-                        failed_packages+=("$pkg")
+                        failed+=("$pkg")
                     fi
                 fi
             done
-
-            if [ ${#failed_packages[@]} -eq 0 ]; then
-                log_success "Installed (flatpak): ${packages[*]}"
-            else
-                log_error "Failed to install (flatpak): ${failed_packages[*]}"
-            fi
         else
-            if supports_gum; then
-                gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args"
-            else
-                log_info "Running: $install_cmd $pkg_args"
-                bash -lc "$install_cmd $pkg_args"
-            fi
+            for pkg in "${packages[@]}"; do
+                pkg="$(echo "$pkg" | xargs)"
 
-            if [ $? -eq 0 ]; then
-                log_success "Installed ($type): ${packages[*]}"
+                # Check if package is already installed
+                if is_package_installed "$pkg"; then
+                    skipped+=("$pkg")
+                    continue
+                fi
+
+                # Check if package exists (for native packages only)
+                if [ "$type" = "native" ] && ! package_exists "$pkg"; then
+                    failed+=("$pkg")
+                    continue
+                fi
+
+                if supports_gum; then
+                    if gum spin --spinner dot --title "" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" 2>/dev/null; then
+                        installed+=("$pkg")
+                    else
+                        failed+=("$pkg")
+                    fi
+                else
+                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >/dev/null 2>&1; then
+                        installed+=("$pkg")
+                    else
+                        failed+=("$pkg")
+                    fi
+                fi
+            done
+        fi
+
+        # Show summary only
+        if [ ${#installed[@]} -gt 0 ] || [ ${#failed[@]} -gt 0 ]; then
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "$title ($type)"
             else
-                log_error "Failed to install some ($type) packages"
+                echo -e "\n${WHITE}$title ($type)${RESET}"
+            fi
+            
+            if [ ${#installed[@]} -gt 0 ]; then
+                if supports_gum; then
+                    gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ ${installed[*]}"
+                else
+                    echo -e "${GREEN}✓ ${installed[*]}${RESET}"
+                fi
+            fi
+            
+            if [ ${#failed[@]} -gt 0 ]; then
+                if supports_gum; then
+                    gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ Failed: ${failed[*]}"
+                else
+                    echo -e "${RED}✗ Failed: ${failed[*]}${RESET}"
+                fi
             fi
         fi
     done
@@ -430,49 +427,59 @@ configure_user_shell_and_configs() {
     home_dir="$(eval echo ~${target_user})"
     local cfg_dir="$CONFIGS_DIR/$DISTRO_ID"
 
-    log_info "Ensuring zsh and related packages are installed (zsh, zsh-autosuggestions, zsh-syntax-highlighting, starship, fastfetch)"
-    install_pkg zsh zsh-autosuggestions zsh-syntax-highlighting starship fastfetch || true
+    local zsh_packages=(zsh zsh-autosuggestions zsh-syntax-highlighting starship fastfetch)
+    local installed=()
+    local skipped=()
+    local failed=()
+
+    for pkg in "${zsh_packages[@]}"; do
+        if is_package_installed "$pkg"; then
+            skipped+=("$pkg")
+            continue
+        fi
+
+        if ! package_exists "$pkg"; then
+            failed+=("$pkg")
+            continue
+        fi
+
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+            else
+                failed+=("$pkg")
+            fi
+        else
+            if sudo $PKG_INSTALL $PKG_NOCONFIRM "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+            else
+                failed+=("$pkg")
+            fi
+        fi
+    done
 
     # Deploy .zshrc (backup if present)
     if [ -f "$cfg_dir/.zshrc" ]; then
         if [ -f "$home_dir/.zshrc" ]; then
             local backup_file="$home_dir/.zshrc.backup.$(date +%s)"
             cp -a "$home_dir/.zshrc" "$backup_file" || true
-            log_info "Backed up existing .zshrc to $backup_file"
         fi
-        cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || log_warn "Failed to copy .zshrc"
+        cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || true
         sudo chown "$target_user:$target_user" "$home_dir/.zshrc" || true
-        log_success ".zshrc deployed to $home_dir/.zshrc"
-    else
-        log_info "No distro .zshrc found at $cfg_dir/.zshrc; skipping"
     fi
 
     # Deploy starship config
     if [ -f "$cfg_dir/starship.toml" ]; then
         mkdir -p "$home_dir/.config"
-        cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || log_warn "Failed to copy starship.toml"
+        cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || true
         sudo chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || true
-        log_success "starship.toml deployed to $home_dir/.config/starship.toml"
-    else
-        log_info "No starship.toml found at $cfg_dir/starship.toml; skipping"
     fi
 
     # Deploy fastfetch config
     if [ -f "$cfg_dir/config.jsonc" ]; then
         mkdir -p "$home_dir/.config/fastfetch"
-        cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || log_warn "Failed to copy fastfetch config"
+        cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || true
         sudo chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || true
-        log_success "fastfetch configuration deployed to $home_dir/.config/fastfetch/config.jsonc"
-    else
-        log_info "No fastfetch config found at $cfg_dir/config.jsonc; skipping"
-    fi
-
-    # Set default shell for target user (skip chsh to avoid hang)
-    if command -v zsh >/dev/null 2>&1; then
-        log_info "Zsh is installed. Default shell can be changed manually with: chsh -s zsh"
-        log_info "Skipping automatic shell change to prevent installation hang"
-    else
-        log_warn "zsh not installed; skipping shell change"
     fi
 
     return 0
@@ -628,50 +635,40 @@ if [ "$DISTRO_ID" == "arch" ]; then
 
             # Handle ParallelDownloads - works whether commented or uncommented
             if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-                # Line is commented, uncomment and set value
                 sudo sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-                log_success "Uncommented and set ParallelDownloads = $parallel_downloads"
             elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-                # Line exists and is active, update value
                 sudo sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-                log_success "Updated ParallelDownloads = $parallel_downloads"
             else
-                # Line doesn't exist at all, add it
                 sudo sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
-                log_success "Added ParallelDownloads = $parallel_downloads"
             fi
 
             # Handle Color setting
             if grep -q "^#Color" /etc/pacman.conf; then
                 sudo sed -i 's/^#Color/Color/' /etc/pacman.conf
-                log_success "Uncommented Color setting"
             fi
 
             # Handle VerbosePkgLists setting
             if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
                 sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
-                log_success "Uncommented VerbosePkgLists setting"
             fi
 
             # Add ILoveCandy if not already present
             if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
                 sudo sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-                log_success "Added ILoveCandy setting"
             fi
 
             # Enable multilib if not already enabled
             if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
                 echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | sudo tee -a /etc/pacman.conf >/dev/null
-                log_success "Enabled multilib repository"
-            else
-                log_success "Multilib repository already enabled"
             fi
-
-            echo ""
         }
 
         # Execute pacman configuration
         configure_pacman
+
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Pacman optimizations configured"
+        fi
     fi
 fi
 
@@ -691,66 +688,73 @@ if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
     fi
 fi
 
-# Install distro-provided 'essential' group first (if present)
-# Ensures essentials get installed before the main package groups.
-install_package_group "essential" "Essential Packages"
-
-# Step: Configure Power Management (power-profiles-daemon / cpupower / tuned)
-step "Configuring Power Management"
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would configure power management (power-profiles-daemon / cpupower / tuned)"
-else
-    if declare -f configure_power_management >/dev/null 2>&1; then
-        configure_power_management || log_warn "configure_power_management reported issues"
-    else
-        log_warn "configure_power_management not defined"
-    fi
-fi
-
-# Step: Configure shell & user configs (zsh, starship, fastfetch)
-step "Configuring Zsh and user-level configs"
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would configure Zsh and user config files (copy .zshrc, starship.toml, fastfetch config)"
-else
-    if declare -f configure_user_shell_and_configs >/dev/null 2>&1; then
-        configure_user_shell_and_configs || log_warn "configure_user_shell_and_configs reported issues"
-    else
-        log_warn "configure_user_shell_and_configs not defined"
-    fi
-fi
-
 # Step: Install Packages based on Mode
 step "Installing Packages ($INSTALL_MODE)"
 
-# Install the main group (standard/minimal/server)
-install_package_group "$INSTALL_MODE" "Base System"
+# Install Base packages (native only) - Standard/Minimal/Server
+install_package_group "$INSTALL_MODE" "Base System" "native"
 
-# Install Desktop Environment Specific Packages
+# Install distro-provided 'essential' group (native only)
+install_package_group "essential" "Essential Packages" "native"
+
+# Install Desktop Environment Specific Packages (native only)
 if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
     DE_KEY=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
     if [[ "$DE_KEY" == *"kde"* ]]; then DE_KEY="kde"; fi
     if [[ "$DE_KEY" == *"gnome"* ]]; then DE_KEY="gnome"; fi
 
     step "Installing Desktop Environment Packages ($DE_KEY)"
-    install_package_group "$DE_KEY" "$XDG_CURRENT_DESKTOP Environment"
+    install_package_group "$DE_KEY" "$XDG_CURRENT_DESKTOP Environment" "native"
+fi
+
+# Install AUR packages for Arch Linux
+if [ "$DISTRO_ID" == "arch" ]; then
+    install_package_group "$INSTALL_MODE" "AUR Packages" "aur"
+fi
+
+# Install COPR/eza package for Fedora
+if [ "$DISTRO_ID" == "fedora" ]; then
+    step "Installing COPR/eza Package"
+    if [ "$DRY_RUN" = false ]; then
+        if command -v dnf >/dev/null; then
+            # Install eza from COPR
+            if sudo dnf copr enable -y eza-community/eza >/dev/null 2>&1; then
+                install_pkg eza
+                log_success "Enabled eza COPR repository and installed eza"
+            else
+                log_warn "Failed to enable eza COPR repository"
+            fi
+        else
+            log_warn "dnf not found, skipping eza installation"
+        fi
+    fi
+fi
+
+# Install Flatpak packages for all sections (Base, Desktop, Gaming)
+install_package_group "$INSTALL_MODE" "Flatpak Packages" "flatpak"
+
+if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
+    install_package_group "$DE_KEY" "Flatpak Packages" "flatpak"
 fi
 
 # Handle Custom Addons if any (rudimentary handling)
 if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
-    install_package_group "gaming" "Gaming Suite"
+    install_package_group "gaming" "Gaming Suite" "native"
+    install_package_group "gaming" "Gaming Suite" "flatpak"
 fi
 
-# Use the gaming decision made at menu time (if applicable)
+# Use to gaming decision made at menu time (if applicable)
 if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
     if [ "${INSTALL_GAMING:-false}" = "true" ]; then
-        install_package_group "gaming" "Gaming Suite"
+        # Gaming packages already installed above (native and flatpak)
+        log_info "Gaming packages already installed in previous steps"
     fi
 fi
 
 # ------------------------------------------------------------------
 # Wake-on-LAN auto-configuration step
 #
-# If the wakeonlan integration module was sourced above (wakeonlan_main_config),
+# If wakeonlan integration module was sourced above (wakeonlan_main_config),
 # run it now (unless we're in DRY_RUN). In DRY_RUN show status instead.
 # This keeps the step idempotent and consistent with the installer flow.
 # ------------------------------------------------------------------
@@ -773,16 +777,11 @@ if declare -f wakeonlan_main_config >/dev/null 2>&1; then
     fi
 fi
 
-# Step: Run Distro System Preparation (install essentials, etc.)
-# (system preparation logic moved earlier in the flow)
-
 # Step: Run Distribution-Specific Configuration
 # This replaces the numbered scripts with unified distribution-specific modules
-step "Running Distribution-Specific Configuration"
+if [ "$DRY_RUN" = false ]; then
+    step "Running Distribution-Specific Configuration"
 
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would run distribution-specific configuration for $DISTRO_ID"
-else
     case "$DISTRO_ID" in
         "arch")
             if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
