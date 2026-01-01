@@ -214,7 +214,7 @@ linuxinstaller/
 ### Hardware Detection & Configuration
 ```bash
 # GPU Detection Examples
-AMD GPU (0x1002)     → Mesa, Vulkan, AMDVLK drivers
+AMD GPU (0x1002)     → Mesa, Vulkan drivers
 Intel GPU (0x8086)   → Mesa, Vulkan, Intel Media Driver
 NVIDIA GPU (0x10de)  → Manual installation required (licensing)
 ```
