@@ -836,13 +836,6 @@ arch_setup_solaar() {
 
 # Configure UFW as the default firewall for Arch (adds a distro-local override)
 # Arch firewall configuration is handled by security_configure_firewall() in security_config.sh
-
-# Export functions for use by main installer
-export -f arch_main_config
-export -f arch_system_preparation
-export -f arch_setup_aur_helper
-export -f arch_install_aur_helper
-export -f arch_configure_bootloader
 # arch firewall is configured via security_configure_firewall() in security_config.sh
 # Configure Plymouth boot splash screen for Arch Linux
 arch_configure_plymouth() {
