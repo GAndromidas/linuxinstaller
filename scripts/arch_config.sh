@@ -1054,12 +1054,20 @@ configure_systemd_boot_arch() {
                 fi
             fi
         fi
-    done
 
-    if [ "$updated" = true ]; then
-        log_success "systemd-boot entries updated"
-    else
-        log_info "systemd-boot entries already configured"
+        if [ -n "$yay_user" ]; then
+            log_info "Installing rate-mirrors-bin from AUR with yay (as user: $yay_user)..."
+            if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin; then
+                log_success "rate-mirrors-bin installed successfully"
+            else
+                local exit_code=$?
+                log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
+                log_info "This is a required tool for Arch installation"
+                log_info "Please check your internet connection and try again"
+                log_info "You can manually install as non-root user with: yay -S rate-mirrors-bin"
+                return 1
+            fi
+        fi
     fi
 }
 
