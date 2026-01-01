@@ -1070,3 +1070,4 @@ export -f arch_setup_aur_helper
 export -f arch_configure_bootloader
 export -f arch_install_aur_helper
 export -f arch_configure_locale
+export -f arch_main_config
