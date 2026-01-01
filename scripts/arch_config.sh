@@ -487,7 +487,8 @@ arch_install_aur_helper() {
     fi
 
     local temp_dir=$(mktemp -d)
-    chmod 777 "$temp_dir"
+    # Set secure permissions for temporary directory (owner read/write/execute only)
+    chmod 700 "$temp_dir"
 
     # Determine which user to run AUR build as (never as root)
     local build_user=""
@@ -503,7 +504,9 @@ arch_install_aur_helper() {
             rm -rf "$temp_dir"
             return 1
         fi
+        # Change ownership to build user while maintaining secure permissions
         chown "$build_user:$build_user" "$temp_dir"
+        chmod 755 "$temp_dir"  # Allow build user to read/execute, owner full access
     else
         build_user="$USER"
     fi

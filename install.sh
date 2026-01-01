@@ -8,21 +8,58 @@ fi
 
 # =============================================================================
 # LinuxInstaller - Unified Post-Installation Script
-# Supports: Arch Linux, Fedora, Debian, Ubuntu
+# =============================================================================
+#
+# DESCRIPTION:
+#   A comprehensive, cross-distribution Linux post-installation script that
+#   automates system configuration, package installation, and optimization.
+#
+# SUPPORTED DISTRIBUTIONS:
+#   • Arch Linux (with AUR support)
+#   • Fedora (with COPR support)
+#   • Debian & Ubuntu (with Snap support)
+#
+# INSTALLATION MODES:
+#   • Standard: Complete setup with all recommended packages
+#   • Minimal: Essential tools only for lightweight installations
+#   • Server: Headless server configuration
+#
+# FEATURES:
+#   • Distribution-specific optimizations
+#   • Desktop environment configuration (KDE, GNOME)
+#   • Security hardening (firewall, fail2ban)
+#   • Performance tuning (CPU governor, filesystem optimization)
+#   • Gaming suite (optional - Steam, Wine, GPU drivers)
+#   • Development tools and shell customization (zsh, starship)
+#
+# USAGE:
+#   ./install.sh [OPTIONS]
+#   ./install.sh --dry-run     # Preview changes without applying
+#   ./install.sh --verbose     # Show detailed output
+#   ./install.sh --help        # Show help information
+#
+# REQUIREMENTS:
+#   • Root privileges (sudo)
+#   • Active internet connection
+#   • Supported Linux distribution
+#
+# AUTHOR: LinuxInstaller Team
+# LICENSE: See LICENSE file
 # =============================================================================
 
-# Show LinuxInstaller ASCII art banner
+# Show LinuxInstaller ASCII art banner (beautiful cyan theme)
 show_linuxinstaller_ascii() {
     clear
     echo -e "${CYAN}"
     cat << "EOF"
-     _     _                  ___           _        _ _
-    | |   (_)_ __  _   ___  _|_ _|_ __  ___| |_ __ _| | | ___ _ __
-    | |   | | '_ \| | | \ \/ /| || '_ \/ __| __/ _` | | |/ _ \ '__|
-    | |___| | | | | |_| |>  < | || | | \__ \ || (_| | | |  __/ |
-    |_____|_|_| |_|\__,_/_/\_\___|_| |_|___/\__\__,_|_|_|\___|_|
+      _     _                  ___           _        _ _
+     | |   (_)_ __  _   ___  _|_ _|_ __  ___| |_ __ _| | | ___ _ __
+     | |   | | '_ \| | | \ \/ /| || '_ \/ __| __/ _` | | |/ _ \ '__|
+     | |___| | | | | |_| |>  < | || | | \__ \ || (_| | | |  __/ |
+     |_____|_|_| |_|\__,_/_/\_\___|_| |_|___/\__\__,_|_|_|\___|_|
 EOF
-    echo -e "${RESET}"
+    echo -e "${LIGHT_CYAN}    Cross-Distribution Linux Post-Installation Script${RESET}"
+    echo ""
 }
 
 # Enhanced Menu Function
@@ -30,7 +67,7 @@ show_menu() {
     show_linuxinstaller_ascii
 
     if ! supports_gum; then
-        echo "Note: gum not detected, using text menu"
+        echo -e "${LIGHT_CYAN}Note: gum not detected, using enhanced text menu${RESET}"
     fi
 
     echo ""
@@ -54,18 +91,29 @@ show_menu() {
             "Server - Headless server configuration")
                 export INSTALL_MODE="server" ;;
             "Exit")
-                echo "Exiting..." ; exit 0 ;;
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Goodbye! 👋"
+                exit 0 ;;
         esac
 
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold "✓ Selected: $choice"
         echo ""
 
         if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
+            echo ""
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
+                     "🎮 Would you like to install the Gaming Package Suite?" 2>/dev/null || true
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
+                     "This includes Steam, Wine, and gaming optimizations." 2>/dev/null || true
+            echo ""
             if gum confirm "Install Gaming Package Suite?" --default=true; then
                 export INSTALL_GAMING=true
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" \
+                         "✓ Gaming packages will be installed" 2>/dev/null || true
             else
                 export INSTALL_GAMING=false
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
+                         "→ Skipping gaming packages" 2>/dev/null || true
             fi
         else
             export INSTALL_GAMING=false
@@ -87,13 +135,13 @@ show_menu() {
             break
         }
 
-        case "$text_choice" in
-            1) export INSTALL_MODE="standard" ; break ;;
-            2) export INSTALL_MODE="minimal" ; break ;;
-            3) export INSTALL_MODE="server" ; break ;;
-            4) echo "Exiting..."; exit 0 ;;
-            *) echo "Invalid choice, please try again." ;;
-        esac
+         case "$text_choice" in
+             1) export INSTALL_MODE="standard" ; break ;;
+             2) export INSTALL_MODE="minimal" ; break ;;
+             3) export INSTALL_MODE="server" ; break ;;
+             4) echo -e "${LIGHT_CYAN}Goodbye! 👋${RESET}"; exit 0 ;;
+             *) echo -e "${YELLOW}Invalid choice, please try again.${RESET}" ;;
+         esac
     done
 
     echo ""
@@ -106,7 +154,7 @@ show_menu() {
         *)        friendly="$INSTALL_MODE" ;;
     esac
 
-    echo "You selected: $friendly"
+    echo -e "${CYAN}✓ You selected: ${LIGHT_CYAN}$friendly${RESET}"
 
     if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
         if [ -t 0 ]; then
@@ -128,31 +176,38 @@ show_menu() {
     echo ""
 }
 
-# Color variables
+# Color variables (cyan theme)
 CYAN='\033[0;36m'
+LIGHT_CYAN='\033[1;36m'
 BLUE='\033[0;34m'
 RESET='\033[0m'
 
 # --- Configuration & Paths ---
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-CONFIGS_DIR="$SCRIPT_DIR/configs"
-SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+# Determine script location and derive important directories
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"  # Absolute path to this script
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"  # Directory containing this script
+CONFIGS_DIR="$SCRIPT_DIR/configs"    # Distribution-specific configuration files
+SCRIPTS_DIR="$SCRIPT_DIR/scripts"    # Modular script components
 
 # --- Source Helpers ---
 # We need distro detection and common utilities immediately
+# Source required helper scripts with better error handling
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then
-  source "$SCRIPTS_DIR/common.sh"
+    source "$SCRIPTS_DIR/common.sh"
 else
-  echo "FATAL: common.sh not found in $SCRIPTS_DIR. Cannot continue."
-  exit 1
+    echo "FATAL ERROR: Required file 'common.sh' not found in $SCRIPTS_DIR"
+    echo "This indicates a corrupted or incomplete installation."
+    echo "Please re-download LinuxInstaller from the official repository."
+    exit 1
 fi
 
 if [ -f "$SCRIPTS_DIR/distro_check.sh" ]; then
-  source "$SCRIPTS_DIR/distro_check.sh"
+    source "$SCRIPTS_DIR/distro_check.sh"
 else
-  echo "FATAL: distro_check.sh not found in $SCRIPTS_DIR. Cannot continue."
-  exit 1
+    echo "FATAL ERROR: Required file 'distro_check.sh' not found in $SCRIPTS_DIR"
+    echo "This indicates a corrupted or incomplete installation."
+    echo "Please re-download LinuxInstaller from the official repository."
+    exit 1
 fi
 
 # Optional Wake-on-LAN integration (sourced if present).
@@ -170,19 +225,21 @@ if [ -f "$SCRIPTS_DIR/power_config.sh" ]; then
 fi
 
 # --- Global Variables ---
-# Flags
-VERBOSE=false
-DRY_RUN=false
-TOTAL_STEPS=0
-CURRENT_STEP=0
-INSTALL_MODE="standard"
+# Runtime flags and configuration
+VERBOSE=false           # Enable detailed logging output
+DRY_RUN=false          # Preview mode - show what would be done without changes
+TOTAL_STEPS=0          # Total number of installation steps
+CURRENT_STEP=0         # Current step counter for progress tracking
+INSTALL_MODE="standard" # Installation mode: standard, minimal, or server
 
-# Track installed helper (gum) to clean up later
-GUM_INSTALLED_BY_SCRIPT=false
+# Helper tracking
+GUM_INSTALLED_BY_SCRIPT=false  # Track if we installed gum to clean it up later
 
 # --- Helper Functions ---
+# Utility functions for script operation and user interaction
 
 # Display help message and usage information
+# Shows command-line options, installation modes, and examples
 show_help() {
   cat << EOF
 LinuxInstaller - Unified Post-Install Script
@@ -214,13 +271,51 @@ EOF
   exit 0
 }
 
-# Bootstrap essential tools (gum UI helper) for the installer
+# Bootstrap essential tools required for the installer
+# Installs gum UI helper if not present, ensuring beautiful terminal output
 bootstrap_tools() {
     log_info "Bootstrapping installer tools..."
 
-    # Try to proceed even when network is flaky, but warn if no internet
-    if ! ping -c 1 -W 5 google.com >/dev/null 2>&1; then
-        log_warn "No internet connection detected. Some helper installs may fail or be skipped."
+    # Verify internet connectivity before attempting installations
+    if ! ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
+        log_error "No internet connection detected!"
+        log_error "Internet access is required for package installation."
+        log_error "Please connect to the internet and try again."
+        if [ "$DRY_RUN" = false ]; then
+            exit 1
+        fi
+    fi
+
+    # Install gum UI helper for enhanced terminal interface
+    # Gum provides beautiful menus, progress bars, and styled output
+    if ! supports_gum; then
+        if [ "$DRY_RUN" = true ]; then
+            log_info "DRY RUN: Would install gum UI helper"
+            return
+        fi
+
+        log_info "Installing gum UI helper for enhanced terminal interface..."
+
+        # Try package manager first (different for Arch vs others)
+        if [ "$DISTRO_ID" == "arch" ]; then
+            if pacman -S --noconfirm gum >/dev/null 2>&1; then
+                GUM_INSTALLED_BY_SCRIPT=true
+                supports_gum >/dev/null 2>&1 || true
+                log_success "Gum UI helper installed successfully"
+            else
+                log_warn "Failed to install gum via pacman"
+            fi
+        else
+            if install_pkg gum >/dev/null 2>&1; then
+                GUM_INSTALLED_BY_SCRIPT=true
+                supports_gum >/dev/null 2>&1 || true
+                log_success "Gum UI helper installed successfully"
+            else
+                log_warn "Failed to install gum via package manager"
+                log_info "Continuing with text-based interface"
+            fi
+        fi
+    fi
     fi
 
     # 1. GUM (UI) - try package manager, then fallback to binary download
@@ -247,6 +342,62 @@ bootstrap_tools() {
 
 
 
+# =============================================================================
+# PACKAGE INSTALLATION SYSTEM - Refactored for better maintainability
+# =============================================================================
+
+# Determine available package types for current distribution
+determine_package_types() {
+    local requested_type="${1:-}"
+
+    # If specific package type requested, only return that type
+    if [ -n "$requested_type" ]; then
+        echo "$requested_type"
+        return
+    fi
+
+    # Determine package types available for this distro
+    case "$DISTRO_ID" in
+        arch)   echo "native aur flatpak" ;;
+        ubuntu) echo "native snap flatpak" ;;
+        *)      echo "native flatpak" ;; # fedora, debian
+    esac
+}
+
+# Get packages for a specific section and package type from distro module
+get_packages_for_type() {
+    local section_path="$1"
+    local pkg_type="$2"
+
+    # Try distro-provided package function first (preferred)
+    if declare -f distro_get_packages >/dev/null 2>&1; then
+        # distro_get_packages should print one package per line; capture and normalize
+        mapfile -t tmp < <(distro_get_packages "$section_path" "$pkg_type" 2>/dev/null || true)
+        mapfile -t packages < <(printf "%s\n" "${tmp[@]}" | sed '/^[[:space:]]*null[[:space:]]*$/d' | sed '/^[[:space:]]*$/d')
+        printf "%s\n" "${packages[@]}"
+    fi
+}
+
+# Remove duplicate packages while preserving order
+deduplicate_packages() {
+    local -a packages=("$@")
+    if [ ${#packages[@]} -gt 1 ]; then
+        declare -A _seen_pkgs
+        local _deduped=()
+        for pkg in "${packages[@]}"; do
+            if [ -n "$pkg" ] && [ -z "${_seen_pkgs[$pkg]:-}" ]; then
+                _deduped+=("$pkg")
+                _seen_pkgs[$pkg]=1
+            fi
+        done
+        # Replace packages with deduplicated list
+        printf "%s\n" "${_deduped[@]}"
+        unset _seen_pkgs
+    else
+        printf "%s\n" "${packages[@]}"
+    fi
+}
+
 # Install a group of packages based on mode and package type (native, aur, flatpak, snap)
 install_package_group() {
     local section_path="$1"
@@ -255,330 +406,363 @@ install_package_group() {
 
     log_info "Processing package group: $title ($section_path)"
 
-    # If specific package type requested, only process that type
+    # Get available package types for this distribution
     local pkg_types
-    if [ -n "$pkg_type" ]; then
-        pkg_types="$pkg_type"
-    else
-        # Determine package types available for this distro
-        case "$DISTRO_ID" in
-            arch)   pkg_types="native aur flatpak" ;;
-            ubuntu) pkg_types="native snap flatpak" ;;
-            *)      pkg_types="native flatpak" ;; # fedora, debian
-        esac
-    fi
+    pkg_types=$(determine_package_types "$pkg_type")
 
     for type in $pkg_types; do
-        # Try distro-provided package function first (preferred)
-        local packages=()
-        if declare -f distro_get_packages >/dev/null 2>&1; then
-            # distro_get_packages should print one package per line; capture and normalize
-            mapfile -t tmp < <(distro_get_packages "$section_path" "$type" 2>/dev/null || true)
-            mapfile -t packages < <(printf "%s\n" "${tmp[@]}" | sed '/^[[:space:]]*null[[:space:]]*$/d' | sed '/^[[:space:]]*$/d')
-        else
-            # YAML-driven discovery has been removed.
-            # Package lists must be provided by the distro module via 'distro_get_packages()'.
-            continue
-        fi
+        # Get packages for this type using the refactored function
+        local packages_str
+        packages_str=$(get_packages_for_type "$section_path" "$type")
+        mapfile -t packages <<< "$packages_str"
 
         if [ ${#packages[@]} -eq 0 ]; then
             continue
         fi
 
-        # Deduplicate package list while preserving order to avoid redundant installs
-        if [ ${#packages[@]} -gt 1 ]; then
-            declare -A _li_seen_pkgs
-            local _li_deduped=()
-            for pkg in "${packages[@]}"; do
-                if [ -n "$pkg" ] && [ -z "${_li_seen_pkgs[$pkg]:-}" ]; then
-                    _li_deduped+=("$pkg")
-                    _li_seen_pkgs[$pkg]=1
-                fi
-            done
-            # Replace packages with deduplicated list
-            packages=("${_li_deduped[@]}")
-            unset _li_seen_pkgs
-        fi
+        # Deduplicate package list while preserving order
+        packages_str=$(deduplicate_packages "${packages[@]}")
+        mapfile -t packages <<< "$packages_str"
 
         if [ "$DRY_RUN" = true ]; then
             continue
         fi
 
-        # Installation command selection
-        local install_cmd=""
-        case "$type" in
-            native)
+        # Get installation command for this package type
+        local install_cmd
+        install_cmd=$(get_install_command "$type")
+        if [ -z "$install_cmd" ]; then
+            continue
+        fi
+
+# Get installation command for specific package type
+get_install_command() {
+    local type="$1"
+    local install_cmd=""
+
+    case "$type" in
+        native)
+            if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+                install_cmd="DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM"
+            else
+                install_cmd="$PKG_INSTALL $PKG_NOCONFIRM"
+            fi
+            ;;
+        aur)
+            if command -v yay >/dev/null 2>&1; then
+                install_cmd="yay -S --noconfirm --removemake --nocleanafter"
+            else
+                log_error "yay not found. Please install yay first."
+                return 1
+            fi
+            ;;
+        flatpak)
+            if ! command -v flatpak >/dev/null 2>&1; then
                 if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-                    install_cmd="DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM"
+                    DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
                 else
-                    install_cmd="$PKG_INSTALL $PKG_NOCONFIRM"
+                    $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
                 fi
-                ;;
-            aur)
-                if command -v yay >/dev/null 2>&1; then
-                    install_cmd="yay -S --noconfirm --removemake --nocleanafter"
-                else
-                    log_error "yay not found. Please install yay first."
-                    continue
-                fi
-                ;;
-            flatpak)
-                if ! command -v flatpak >/dev/null 2>&1; then
-                    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-                        DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
+            fi
+            # Add Flathub remote if not exists
+            if command -v flatpak >/dev/null 2>&1; then
+                flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+            fi
+            install_cmd="flatpak install flathub -y"
+            ;;
+        snap)
+            install_cmd="snap install"
+            ;;
+    esac
+
+    echo "$install_cmd"
+}
+
+# Enable password asterisks for sudo prompts (visible feedback when typing)
+enable_password_feedback() {
+    local sudoers_file="/etc/sudoers"
+
+    if [ -f "$sudoers_file" ]; then
+        if ! grep -q "Defaults pwfeedback" "$sudoers_file"; then
+            log_info "Enabling password asterisks for sudo prompts..."
+            case "$DISTRO_ID" in
+                arch)
+                    visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                    if [ $? -eq 0 ]; then
+                        log_success "Password asterisks enabled via visudo (Arch)"
                     else
-                        $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
+                        log_warn "Failed to enable password asterisks via visudo"
                     fi
-                fi
-                # Add Flathub remote if not exists
-                if command -v flatpak >/dev/null 2>&1; then
-                    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
-                fi
-                install_cmd="flatpak install flathub -y"
-                ;;
-            snap)
-                install_cmd="snap install"
-                ;;
-        esac
-
-    # Enable password asterisks for sudo prompts (visible feedback when typing)
-    enable_password_feedback() {
-        local sudoers_file="/etc/sudoers"
-
-        if [ -f "$sudoers_file" ]; then
-            if ! grep -q "Defaults pwfeedback" "$sudoers_file"; then
-                log_info "Enabling password asterisks for sudo prompts..."
-                case "$DISTRO_ID" in
-                    arch)
+                    ;;
+                debian|ubuntu)
+                    if command -v visudo >/dev/null 2>&1; then
                         visudo -c "Defaults pwfeedback" >/dev/null 2>&1
                         if [ $? -eq 0 ]; then
-                            log_success "Password asterisks enabled via visudo (Arch)"
+                            log_success "Password asterisks enabled via visudo ($DISTRO_ID)"
                         else
                             log_warn "Failed to enable password asterisks via visudo"
                         fi
-                        ;;
-                    debian|ubuntu)
-                        if command -v visudo >/dev/null 2>&1; then
-                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                            if [ $? -eq 0 ]; then
-                                log_success "Password asterisks enabled via visudo ($DISTRO_ID)"
-                            else
-                                log_warn "Failed to enable password asterisks via visudo"
-                            fi
+                    else
+                        echo "Defaults pwfeedback" >> "$sudoers_file"
+                        log_success "Password asterisks enabled via direct echo ($DISTRO_ID)"
+                    fi
+                    ;;
+                fedora)
+                    if command -v visudo >/dev/null 2>&1; then
+                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                        if [ $? -eq 0 ]; then
+                            log_success "Password asterisks enabled via visudo (Fedora)"
                         else
-                            echo "Defaults pwfeedback" >> "$sudoers_file"
-                            log_success "Password asterisks enabled via direct echo ($DISTRO_ID)"
+                            log_warn "Failed to enable password asterisks via visudo"
                         fi
-                        ;;
-                    fedora)
-                        if command -v visudo >/dev/null 2>&1; then
-                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                            if [ $? -eq 0 ]; then
-                                log_success "Password asterisks enabled via visudo (Fedora)"
-                            else
-                                log_warn "Failed to enable password asterisks via visudo"
-                            fi
+                    else
+                        echo "Defaults pwfeedback" >> "$sudoers_file"
+                        log_success "Password asterisks enabled via direct echo (Fedora)"
+                    fi
+                    ;;
+                *)
+                    if command -v visudo >/dev/null 2>&1; then
+                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                        if [ $? -eq 0 ]; then
+                            log_success "Password asterisks enabled via visudo"
                         else
-                            echo "Defaults pwfeedback" >> "$sudoers_file"
-                            log_success "Password asterisks enabled via direct echo (Fedora)"
+                            log_warn "Failed to enable password asterisks via visudo"
                         fi
-                        ;;
-                    *)
-                        if command -v visudo >/dev/null 2>&1; then
-                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
-                            if [ $? -eq 0 ]; then
-                                log_success "Password asterisks enabled via visudo"
-                            else
-                                log_warn "Failed to enable password asterisks via visudo"
-                            fi
-                        else
-                            echo "Defaults pwfeedback" >> "$sudoers_file"
-                            log_success "Password asterisks enabled via direct echo"
-                            log_warn "Please run 'visudo' to validate sudoers file"
-                        fi
-                        ;;
-                esac
-            else
-                log_info "Password feedback already enabled"
-            fi
+                    else
+                        echo "Defaults pwfeedback" >> "$sudoers_file"
+                        log_success "Password asterisks enabled via direct echo"
+                        log_warn "Please run 'visudo' to validate sudoers file"
+                    fi
+                    ;;
+            esac
         else
-            log_warn "sudoers file not found, skipping password feedback configuration"
+            log_info "Password feedback already enabled"
         fi
-    }
+    else
+        log_warn "sudoers file not found, skipping password feedback configuration"
+    fi
+}
 
-        # Track installed packages
-        local installed=()
-        local skipped=()
-        local failed=()
+        # Install packages based on type and track results
+        local installed=() skipped=() failed=()
+        case "$type" in
+            flatpak)
+                install_flatpak_packages "$install_cmd" packages installed skipped failed
+                ;;
+            native)
+                install_native_packages "$install_cmd" packages installed skipped failed
+                ;;
+            *)
+                install_other_packages "$install_cmd" packages installed failed
+                ;;
+        esac
 
-        # Execute installation with gum spin
-        if [ "$type" = "flatpak" ]; then
-            for pkg in "${packages[@]}"; do
-                pkg="$(echo "$pkg" | xargs)"
-                
-                # Check if flatpak is already installed
-                if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
-                    skipped+=("$pkg")
-                    continue
-                fi
+        # Show installation summary for this package type
+        show_package_summary "$title ($type)" installed failed
+    done
+}
 
-                # Check if package exists (remote check)
-                # Use flatpak search instead of info to check if package is available
-                # Note: This check is optional, flatpak install will fail if package doesn't exist
-                # Commented out to be less strict and let installation proceed
-                # if ! flatpak search "$pkg" 2>/dev/null | grep -q "$pkg"; then
-                #     log_warn "Flatpak package '$pkg' might not exist, attempting installation"
-                # fi
+# Install Flatpak packages with individual tracking
+install_flatpak_packages() {
+    local install_cmd="$1"
+    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
 
-                if supports_gum; then
-                    if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
-                        installed+=("$pkg")
-                    else
-                        failed+=("$pkg")
-                    fi
-                else
-                    if $install_cmd "$pkg" >/dev/null 2>&1; then
-                        installed+=("$pkg")
-                    else
-                        failed+=("$pkg")
-                    fi
-                fi
-            done
-        else
-            if [ "$type" = "native" ]; then
-                # Collect all packages to install for native packages (batch installation)
-                local packages_to_install=()
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
 
-                for pkg in "${packages[@]}"; do
-                    pkg="$(echo "$pkg" | xargs)"
-
-                    # Resolve package name for current distro
-                    local resolved_pkg
-                    resolved_pkg="$(resolve_package_name "$pkg")"
-
-                    # If resolved_pkg is empty, skip this package (removed for this distro)
-                    if [ -z "$resolved_pkg" ]; then
-                        continue
-                    fi
-
-                    # Check if all resolved packages are installed
-                    local all_installed=true
-                    local check_pkg
-                    for check_pkg in $resolved_pkg; do
-                        if ! is_package_installed "$check_pkg"; then
-                            all_installed=false
-                            break
-                        fi
-                    done
-
-                    if [ "$all_installed" = true ]; then
-                        skipped+=("$pkg")
-                        continue
-                    fi
-
-                    # Add to batch installation list
-                    packages_to_install+=("$resolved_pkg")
-                done
-
-                # Check if any packages need to be installed
-                if [ ${#packages_to_install[@]} -eq 0 ]; then
-                    continue
-                fi
-
-                # Install all packages in one batch (better for dependencies like adb/fastboot)
-                local install_status=0
-                if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-                    if supports_gum; then
-                        if ! gum spin --spinner dot --title "Installing ${#packages_to_install[@]} package(s)" -- DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
-                            install_status=1
-                        fi
-                    else
-                        if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
-                            install_status=1
-                        fi
-                    fi
-                else
-                    if supports_gum; then
-                        if ! gum spin --spinner dot --title "Installing ${#packages_to_install[@]} package(s)" -- $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
-                            install_status=1
-                        fi
-                    else
-                        if ! $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
-                            install_status=1
-                        fi
-                    fi
-                fi
-
-                # Track which packages succeeded/failed
-                for pkg in "${packages[@]}"; do
-                    pkg="$(echo "$pkg" | xargs)"
-                    local resolved_pkg
-                    resolved_pkg="$(resolve_package_name "$pkg")"
-                    if [ -n "$resolved_pkg" ]; then
-                        if [ $install_status -eq 0 ]; then
-                            installed+=("$pkg")
-                        else
-                            failed+=("$pkg")
-                        fi
-                    fi
-                done
-            else
-                # For non-native packages (flatpak, aur, snap), install one-by-one
-                for pkg in "${packages[@]}"; do
-                    pkg="$(echo "$pkg" | xargs)"
-
-                    if supports_gum; then
-                        if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
-                            installed+=("$pkg")
-                        else
-                            failed+=("$pkg")
-                        fi
-                    else
-                        if $install_cmd "$pkg" >/dev/null 2>&1; then
-                            installed+=("$pkg")
-                        else
-                            failed+=("$pkg")
-                        fi
-                    fi
-                done
-            fi
+        # Check if flatpak is already installed
+        if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
+            skipped_ref+=("$pkg")
+            continue
         fi
 
-        # Show summary only
-        if [ ${#installed[@]} -gt 0 ] || [ ${#failed[@]} -gt 0 ]; then
-            if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "$title ($type)"
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
             else
-                echo -e "\n${WHITE}$title ($type)${RESET}"
+                failed_ref+=("$pkg")
             fi
-            
-            if [ ${#installed[@]} -gt 0 ]; then
-                if supports_gum; then
-                    gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ ${installed[*]}"
-                else
-                    echo -e "${GREEN}✓ ${installed[*]}${RESET}"
-                fi
-            fi
-            
-            if [ ${#failed[@]} -gt 0 ]; then
-                if supports_gum; then
-                    gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ Failed: ${failed[*]}"
-                else
-                    echo -e "${RED}✗ Failed: ${failed[*]}${RESET}"
-                fi
+        else
+            if $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
             fi
         fi
     done
 }
 
+# Install native packages in batch for better dependency handling
+install_native_packages() {
+    local install_cmd="$1"
+    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
+
+    # Collect all packages to install (batch installation)
+    local packages_to_install=()
+
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
+
+        # Resolve package name for current distro
+        local resolved_pkg
+        resolved_pkg="$(resolve_package_name "$pkg")"
+
+        # If resolved_pkg is empty, skip this package (removed for this distro)
+        if [ -z "$resolved_pkg" ]; then
+            continue
+        fi
+
+        # Check if all resolved packages are installed
+        local all_installed=true
+        local check_pkg
+        for check_pkg in $resolved_pkg; do
+            if ! is_package_installed "$check_pkg"; then
+                all_installed=false
+                break
+            fi
+        done
+
+        if [ "$all_installed" = true ]; then
+            skipped_ref+=("$pkg")
+            continue
+        fi
+
+        # Add to batch installation list
+        packages_to_install+=("$resolved_pkg")
+    done
+
+    # Check if any packages need to be installed
+    if [ ${#packages_to_install[@]} -eq 0 ]; then
+        return
+    fi
+
+    # Install all packages in one batch (better for dependencies like adb/fastboot)
+    local install_status=0
+    local batch_title="Installing ${#packages_to_install[@]} package(s)"
+
+    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+        if supports_gum; then
+            if ! gum spin --spinner dot --title "$batch_title" -- \
+                 DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
+                install_status=1
+            fi
+        else
+            if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
+                install_status=1
+            fi
+        fi
+    else
+        if supports_gum; then
+            if ! gum spin --spinner dot --title "$batch_title" -- $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
+                install_status=1
+            fi
+        else
+            if ! $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
+                install_status=1
+            fi
+        fi
+    fi
+
+    # Track which packages succeeded/failed
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
+        local resolved_pkg
+        resolved_pkg="$(resolve_package_name "$pkg")"
+        if [ -n "$resolved_pkg" ]; then
+            if [ $install_status -eq 0 ]; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        fi
+    done
+}
+
+# Install non-native packages (AUR, Snap) individually
+install_other_packages() {
+    local install_cmd="$1"
+    local -n packages_ref="$2" installed_ref="$3" failed_ref="$4"
+
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
+
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        else
+            if $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        fi
+    done
+}
+
+# Show package installation summary
+show_package_summary() {
+    local title="$1"
+    local -n installed_ref="$2" failed_ref="$3"
+
+    if [ ${#installed_ref[@]} -gt 0 ] || [ ${#failed_ref[@]} -gt 0 ]; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "$title"
+        else
+            echo -e "\n${WHITE}$title${RESET}"
+        fi
+
+        if [ ${#installed_ref[@]} -gt 0 ]; then
+            if supports_gum; then
+                gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ ${installed_ref[*]}"
+            else
+                echo -e "${GREEN}✓ ${installed_ref[*]}${RESET}"
+            fi
+        fi
+
+        if [ ${#failed_ref[@]} -gt 0 ]; then
+            if supports_gum; then
+                gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ Failed: ${failed_ref[*]}"
+            else
+                echo -e "${RED}✗ Failed: ${failed_ref[*]}${RESET}"
+            fi
+        fi
+    fi
+}
+
 # --- User Shell & Config Setup ---
+# Configure user's shell environment and dotfiles
 
 # Configure zsh shell and user config files (zshrc, starship, fastfetch)
+# This function sets up a modern, productive shell environment with:
+# - Zsh as the default shell with autosuggestions and syntax highlighting
+# - Starship prompt for beautiful, informative command prompts
+# - Fastfetch for system information display
 configure_user_shell_and_configs() {
     step "Configuring Zsh and user-level configs (zsh, starship, fastfetch)"
+
+    # Determine target user and their home directory
     local target_user="${SUDO_USER:-$USER}"
     local home_dir
-    home_dir="$(eval echo ~${target_user})"
+
+    # Safely get user's home directory without using eval
+    if [ "$target_user" = "root" ]; then
+        home_dir="/root"
+    else
+        # Use getent to safely get user information
+        home_dir=$(getent passwd "$target_user" 2>/dev/null | cut -d: -f6)
+        if [ -z "$home_dir" ] || [ ! -d "$home_dir" ]; then
+            # Fallback: try to get home from environment
+            home_dir="${HOME:-/home/$target_user}"
+            if [ ! -d "$home_dir" ]; then
+                log_warn "Could not determine home directory for user $target_user"
+                log_warn "Shell configuration will be skipped"
+                return 1
+            fi
+        fi
+    fi
     local cfg_dir="$CONFIGS_DIR/$DISTRO_ID"
 
     local zsh_packages=(zsh zsh-autosuggestions zsh-syntax-highlighting starship fastfetch)
@@ -612,26 +796,49 @@ configure_user_shell_and_configs() {
         fi
     done
 
-    # Deploy .zshrc
+    # Deploy configuration files with proper ownership
+    # .zshrc - Zsh shell configuration with aliases, functions, and settings
     if [ -f "$cfg_dir/.zshrc" ]; then
-        cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || true
-        chown "$target_user:$target_user" "$home_dir/.zshrc" || true
+        log_info "Installing .zshrc configuration..."
+        cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || {
+            log_warn "Failed to copy .zshrc"
+            return 1
+        }
+        chown "$target_user:$target_user" "$home_dir/.zshrc" || {
+            log_warn "Failed to set ownership on .zshrc"
+        }
+        log_success "Zsh configuration deployed"
     fi
 
-    # Deploy starship config
+    # starship.toml - Modern, fast, and customizable prompt
     if [ -f "$cfg_dir/starship.toml" ]; then
+        log_info "Installing Starship prompt configuration..."
         mkdir -p "$home_dir/.config"
-        cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || true
-        chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || true
+        cp -a "$cfg_dir/starship.toml" "$home_dir/.config/starship.toml" || {
+            log_warn "Failed to copy starship.toml"
+            return 1
+        }
+        chown "$target_user:$target_user" "$home_dir/.config/starship.toml" || {
+            log_warn "Failed to set ownership on starship.toml"
+        }
+        log_success "Starship prompt configuration deployed"
     fi
 
-    # Deploy fastfetch config
+    # config.jsonc - Fastfetch system information display configuration
     if [ -f "$cfg_dir/config.jsonc" ]; then
+        log_info "Installing Fastfetch configuration..."
         mkdir -p "$home_dir/.config/fastfetch"
-        cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || true
-        chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || true
+        cp -a "$cfg_dir/config.jsonc" "$home_dir/.config/fastfetch/config.jsonc" || {
+            log_warn "Failed to copy fastfetch config"
+            return 1
+        }
+        chown -R "$target_user:$target_user" "$home_dir/.config/fastfetch" || {
+            log_warn "Failed to set ownership on fastfetch config"
+        }
+        log_success "Fastfetch configuration deployed"
     fi
 
+    log_success "Shell configuration completed successfully"
     return 0
 }
 
@@ -695,8 +902,9 @@ final_cleanup() {
     fi
 }
 # --- Main Execution Flow ---
+# The main installation workflow with clear phases
 
-# 1. Parse Arguments
+# Phase 1: Parse command-line arguments and validate environment
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     -h|--help) show_help ;;
@@ -709,25 +917,54 @@ done
 
 # 2. Environment Setup
 # We must detect distro first to know how to install prerequisites
-detect_distro # Sets DISTRO_ID, PKG_INSTALL, etc.
-detect_de # Sets XDG_CURRENT_DESKTOP (e.g., KDE, GNOME)
+# Detect distribution and desktop environment with error handling
+if ! detect_distro; then
+    log_error "Failed to detect your Linux distribution!"
+    log_error "LinuxInstaller supports: Arch Linux, Fedora, Debian, and Ubuntu."
+    log_error "Please check that you're running a supported distribution."
+    log_error "You can check your distribution with: cat /etc/os-release"
+    exit 1
+fi
+
+if ! detect_de; then
+    log_warn "Could not detect desktop environment - some features may not work optimally."
+    log_info "You can continue, but desktop-specific configurations may be skipped."
+fi
 
 # Source distro module early so it can provide package lists via `distro_get_packages()`
+# Source distro-specific configuration with error handling
 case "$DISTRO_ID" in
     "arch")
         if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
             source "$SCRIPTS_DIR/arch_config.sh"
+        else
+            log_error "Arch Linux configuration module not found!"
+            log_error "Please ensure all files are present in the scripts/ directory."
+            exit 1
         fi
         ;;
     "fedora")
         if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
             source "$SCRIPTS_DIR/fedora_config.sh"
+        else
+            log_error "Fedora configuration module not found!"
+            log_error "Please ensure all files are present in the scripts/ directory."
+            exit 1
         fi
         ;;
     "debian"|"ubuntu")
         if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
             source "$SCRIPTS_DIR/debian_config.sh"
+        else
+            log_error "Debian/Ubuntu configuration module not found!"
+            log_error "Please ensure all files are present in the scripts/ directory."
+            exit 1
         fi
+        ;;
+    *)
+        log_error "Unsupported distribution: $DISTRO_ID"
+        log_error "LinuxInstaller currently supports: Arch Linux, Fedora, Debian, Ubuntu."
+        exit 1
         ;;
 esac
 
@@ -736,27 +973,29 @@ esac
 # Bootstrap UI tools
 bootstrap_tools
 
-# 3. Mode Selection
-# Ensure that user is always prompted in interactive runs (so that menu appears on ./install.sh).
-# For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
+# Phase 3: Installation Mode Selection
+# Determine installation mode based on user interaction or defaults
 clear
 if [ -t 0 ]; then
-    # Interactive terminal - show menu
+    # Interactive terminal - show beautiful menu
     if [ "$DRY_RUN" = false ]; then
         show_menu
     else
         log_warn "Dry-Run Mode Active: No changes will be applied."
+        log_info "Showing menu for preview purposes only."
+        show_menu
     fi
 else
-    # Non-interactive: only set a default mode if none exists to avoid prompting
+    # Non-interactive mode (CI, scripts, pipes)
+    # Only set a default mode if none exists to avoid overriding explicit settings
     if [ -z "${INSTALL_MODE:-}" ]; then
         export INSTALL_MODE="${INSTALL_MODE:-standard}"
         log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
     fi
 fi
 
-# 4. Core Execution Loop
-# We define a list of logical steps.
+# Phase 4: Core Installation Execution
+# Execute the main installation workflow in logical steps
 
 # Step: System Update
 step "Updating System Repositories"
@@ -993,10 +1232,11 @@ if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; t
     fi
 fi
 
-# 5. Finalization
+# Phase 5: Installation Finalization and Cleanup
 step "Finalizing Installation"
 
 if [ "$DRY_RUN" = false ]; then
+    # Clean up temporary files and helpers
     final_cleanup
 fi
 
@@ -1008,6 +1248,7 @@ fi
 # Source and show installation summary with reboot prompt
 if [ -f "$SCRIPTS_DIR/installation_summary.sh" ]; then
     source "$SCRIPTS_DIR/installation_summary.sh"
+    # Show comprehensive installation summary
     show_installation_summary
 else
     prompt_reboot
