@@ -99,6 +99,44 @@ ARCH_NATIVE_STANDARD_ESSENTIALS=(
     "zed"
 )
 
+# =============================================================================
+# SMART KEYCHRON KEYBOARD DETECTION
+# =============================================================================
+
+# Detect Keychron keyboard connection type (USB vs Bluetooth)
+# Returns: "via-bin" for USB or Bluetooth, "" if no Keychron
+detect_keychron_connection() {
+    # Method 1: Check lsusb for Logitech USB receivers (often Keychron compatible)
+    if lsusb 2>/dev/null | grep -qi "logitech.*usb.*receiver"; then
+        echo "via-bin"
+        return 0
+    fi
+
+    # Method 2: Check bluetoothctl for Keychron devices
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        if bluetoothctl devices 2>/dev/null | grep -qi "Keychron"; then
+            echo "via-bin"
+            return 0
+        fi
+    fi
+
+    # Method 3: Check bluetoothctl for any bluetooth keyboard (fallback)
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        if bluetoothctl devices 2>/dev/null | grep -qi "keyboard"; then
+            echo "via-bin"
+            return 0
+        fi
+    fi
+
+    # No Keychron detected, return empty string
+    echo ""
+    return 0
+}
+
+# =============================================================================
+# AUR PACKAGES FOR STANDARD MODE
+# =============================================================================
+
 # AUR packages for Standard
 ARCH_AUR_STANDARD=(
     "dropbox"
@@ -108,7 +146,6 @@ ARCH_AUR_STANDARD=(
     "ventoy-bin"
     "via-bin"
 )
-
 # Flatpaks for Standard (Flathub IDs)
 ARCH_FLATPAK_STANDARD=(
     "it.mijorus.gearlever"
@@ -221,6 +258,12 @@ distro_get_packages() {
     local section="$1"
     local type="$2"
 
+    # Get Keychron VIA package name (smart detection)
+    local keychron_pkg="via"
+    if command -v detect_keychron_connection >/dev/null 2>&1; then
+        keychron_pkg=$(detect_keychron_connection)
+    fi
+
     case "$section" in
             essential)
                 case "$type" in
@@ -231,12 +274,21 @@ distro_get_packages() {
             standard)
                 case "$type" in
                 native)
-                    # Standard native should include the main standard list plus
-                    # the additional standard-specific essentials.
+                    # Standard native should include# main standard list plus
+                    # additional standard-specific essentials.
                     printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
-                    printf "%s\n" "${ARCH_NATIVE_STANDARD_ESSENTIALS[@]:-}"
+                    printf "%s\n" "${ARCH_NATIVE_STANDARD_ESSENTIALS[@]}"
                     ;;
-                aur)    printf "%s\n" "${ARCH_AUR_STANDARD[@]}" ;;
+                aur)
+                    # Replace "via" with detected Keychron package
+                    for pkg in "${ARCH_AUR_STANDARD[@]}"; do
+                        if [ "$pkg" = "via" ] && [ -n "$keychron_pkg" ]; then
+                            printf "%s\n" "$keychron_pkg"
+                        else
+                            printf "%s\n" "$pkg"
+                        fi
+                    done
+                    ;;
                 flatpak) printf "%s\n" "${ARCH_FLATPAK_STANDARD[@]}" ;;
                 *) return 0 ;;
             esac
@@ -244,40 +296,40 @@ distro_get_packages() {
         minimal)
             case "$type" in
                 native)
-                    # Minimal should still install the broader standard native set
-                    # plus the minimal-specific additions to ensure base tooling is present.
+                    # Minimal should still install# broader standard native set
+                    # plus# minimal-specific additions to ensure base tooling is present.
                     printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
-                    printf "%s\n" "${ARCH_NATIVE_MINIMAL[@]:-}"
+                    printf "%s\n" "${ARCH_NATIVE_MINIMAL[@]}"
                     ;;
-                aur)    printf "%s\n" "${ARCH_AUR_MINIMAL[@]:-}" ;;
-                flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]:-}" ;;
+                aur)    printf "%s\n" "${ARCH_AUR_MINIMAL[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]}" ;;
                 *) return 0 ;;
             esac
             ;;
         server)
             case "$type" in
                 native)
-                    # Server should include the standard native base set in addition
+                    # Server should include# standard native base set in addition
                     # to server-specific packages for a reliable headless setup.
                     printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
-                    printf "%s\n" "${ARCH_NATIVE_SERVER[@]:-}"
+                    printf "%s\n" "${ARCH_NATIVE_SERVER[@]}"
                     ;;
-                aur)    printf "%s\n" "${ARCH_AUR_SERVER[@]:-}" ;;
-                flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]:-}" ;;
+                aur)    printf "%s\n" "${ARCH_AUR_SERVER[@]}" ;;
+                flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]}" ;;
                 *) return 0 ;;
             esac
             ;;
         kde)
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_KDE_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_DE_KDE_FLATPAK[@]:-}" ;;
+                flatpak) printf "%s\n" "${ARCH_DE_KDE_FLATPAK[@]}" ;;
                 *) return 0 ;;
             esac
             ;;
         gnome)
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_GNOME_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_DE_GNOME_FLATPAK[@]:-}" ;;
+                flatpak) printf "%s\n" "${ARCH_DE_GNOME_FLATPAK[@]}" ;;
                 *) return 0 ;;
             esac
             ;;
@@ -285,7 +337,7 @@ distro_get_packages() {
             case "$type" in
                 native) printf "%s\n" "${ARCH_GAMING_NATIVE[@]}" ;;
                 aur)    printf "%s\n" "${ARCH_GAMING_AUR[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_GAMING_FLATPAK[@]:-}" ;;
+                flatpak) printf "%s\n" "${ARCH_GAMING_FLATPAK[@]}" ;;
                 *) return 0 ;;
             esac
             ;;
@@ -295,6 +347,7 @@ distro_get_packages() {
             ;;
     esac
 }
+export -f detect_keychron_connection
 export -f distro_get_packages
 
 # =============================================================================
@@ -326,8 +379,46 @@ arch_system_preparation() {
         :
     fi
 
-    # Optimize mirrorlist using rate-mirrors (installed via AUR helper if necessary)
-    optimize_mirrors_arch
+    # Install rate-mirrors AUR package for mirror optimization
+    if command -v yay >/dev/null 2>&1 && ! command -v rate-mirrors >/dev/null 2>&1; then
+        step "Installing rate-mirrors for mirror optimization"
+        if yay -S --noconfirm --needed rate-mirrors >/dev/null 2>&1; then
+            log_success "rate-mirrors installed"
+        else
+            log_warn "Failed to install rate-mirrors (optional tool)"
+        fi
+    fi
+
+    # Optimize mirrorlist using rate-mirrors
+    if command -v rate-mirrors >/dev/null 2>&1; then
+        log_info "Updating mirrorlist with optimized mirrors..."
+        if rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch >/dev/null 2>&1; then
+            log_success "Mirrorlist updated successfully"
+            # Sync pacman DB to make sure we use the updated mirrors
+            if pacman -Syy >/dev/null 2>&1; then
+                log_success "Refreshed pacman package database (pacman -Syy)"
+            else
+                log_warn "Failed to refresh pacman package database after updating mirrors"
+            fi
+        else
+            log_warn "Failed to update mirrorlist automatically"
+        fi
+    fi
+
+    # Detect and install correct Keychron VIA package (USB vs Bluetooth)
+    local keychron_pkg=""
+    keychron_pkg=$(detect_keychron_connection)
+
+    if [ -n "$keychron_pkg" ]; then
+        step "Installing Keychron VIA configurator ($keychron_pkg)"
+        if command -v yay >/dev/null 2>&1; then
+            if yay -S --noconfirm --needed "$keychron_pkg" >/dev/null 2>&1; then
+                log_success "Keychron VIA configurator installed: $keychron_pkg"
+            else
+                log_warn "Failed to install Keychron VIA configurator (optional)"
+            fi
+        fi
+    fi
 
     # Update system
     if supports_gum; then
@@ -488,31 +579,6 @@ arch_install_aur_helper() {
     rm -rf "$temp_dir"
 }
 
-# Optimize Arch Linux mirror list for faster package downloads
-optimize_mirrors_arch() {
-    step "Optimizing Arch Linux mirrors"
-
-    # Ensure rate-mirrors is installed - prefer any available AUR helper (yay/paru) since it is typically an AUR package
-    if ! command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "Rate-mirrors not available, skipping mirror optimization (optional tool)"
-        return 0
-    fi
-
-    # Update mirrorlist using rate-mirrors and refresh pacman DB
-    log_info "Updating mirrorlist with optimized mirrors..."
-    if rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch >/dev/null 2>&1; then
-        log_success "Mirrorlist updated successfully"
-        # Refresh pacman DB to make sure we use the updated mirrors
-        if pacman -Syy >/dev/null 2>&1; then
-            log_success "Refreshed pacman package database (pacman -Syy)"
-        else
-            log_warn "Failed to refresh pacman package database after updating mirrors"
-        fi
-    else
-        log_warn "Failed to update mirrorlist automatically"
-    fi
-}
-
 # Wrapper function to install AUR helper
 arch_setup_aur_helper() {
     # Simple wrapper that calls the new function
@@ -645,10 +711,8 @@ arch_main_config() {
 
     arch_system_preparation
 
-    # AUR helper is already installed in system preparation
-    log_success "AUR helper (yay) is ready"
-
-    arch_configure_mirrors
+    # AUR helper and rate-mirrors are already installed/configured in system preparation
+    log_success "AUR helper (yay) and mirrors are ready"
 
     arch_configure_bootloader
 
@@ -974,27 +1038,19 @@ arch_configure_mirrors() {
         return 0
     fi
 
-    # Backup original mirrorlist
-    if [ -f "$ARCH_MIRRORLIST" ]; then
-        cp "$ARCH_MIRRORLIST" "$ARCH_MIRRORLIST.backup"
-        log_info "Backed up original mirrorlist to ${ARCH_MIRRORLIST}.backup"
-    fi
-
-    # Update mirrors using rate-mirrors
+    # Update mirrors using rate-mirrors and sync pacman DB (exact command as requested)
     log_info "Updating mirror list with rate-mirrors..."
-    if rate-mirrors --allow-root --save "$ARCH_MIRRORLIST" arch; then
+    if rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch >/dev/null 2>&1; then
         log_success "Mirror list updated successfully"
+        # Sync pacman DB
+        if pacman -Syy >/dev/null 2>&1; then
+            log_success "Package databases synchronized (pacman -Syy)"
+        else
+            log_warn "Failed to synchronize package databases"
+            return 0
+        fi
     else
         log_warn "Failed to update mirror list"
-        return 0
-    fi
-
-    # Sync package databases
-    log_info "Synchronizing package databases..."
-    if pacman -Syy; then
-        log_success "Package databases synchronized"
-    else
-        log_warn "Failed to synchronize package databases"
         return 0
     fi
 }
@@ -1094,5 +1150,4 @@ export -f arch_system_preparation
 export -f arch_setup_aur_helper
 export -f arch_configure_bootloader
 export -f arch_install_aur_helper
-export -f arch_configure_mirrors
 export -f arch_configure_locale

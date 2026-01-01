@@ -11,11 +11,12 @@ show_installation_summary() {
 
     # Show distro info
     if supports_gum; then
-        gum format --type "double" --border rounded --border-foreground "$GUM_BORDER_FG" \
-            --align left --foreground "$GUM_BODY_FG" \
-            "System Information" \
-            "--------------------------------" \
-            "${PRETTY_NAME:-Unknown System}" "|" "${XDG_CURRENT_DESKTOP:-None}" "|" "${DETECTED_CPU:-Unknown}" "|" "${DETECTED_GPU:-Unknown}" "|" "${DETECTED_RAM:-Unknown}"
+        gum style --margin "1 0" --foreground "$GUM_PRIMARY_FG" --bold "System Information"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "  OS: ${PRETTY_NAME:-Unknown}"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "  Desktop: ${XDG_CURRENT_DESKTOP:-None}"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "  CPU: ${DETECTED_CPU:-Unknown}"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "  GPU: ${DETECTED_GPU:-Unknown}"
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "  RAM: ${DETECTED_RAM:-Unknown}"
         echo ""
     else
         echo "======================================"
@@ -81,11 +82,11 @@ show_installation_summary() {
     # Offer reboot (only once!)
     if supports_gum; then
         if gum confirm "Reboot your system now to apply all changes?" --default=false; then
-            log_info "User chose to reboot later"
-        else
             log_info "Rebooting system in 10 seconds..."
             sleep 10
             reboot
+        else
+            log_info "Reboot deferred. Please reboot manually when ready."
         fi
     else
         echo ""

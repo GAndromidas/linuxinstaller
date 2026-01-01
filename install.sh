@@ -859,6 +859,11 @@ if [ "$DRY_RUN" = false ]; then
     final_cleanup
 fi
 
+# Detect system info for installation summary (if power_config available)
+if declare -f detect_system_info >/dev/null 2>&1; then
+    detect_system_info
+fi
+
 # Source and show installation summary with reboot prompt
 if [ -f "$SCRIPTS_DIR/installation_summary.sh" ]; then
     source "$SCRIPTS_DIR/installation_summary.sh"
