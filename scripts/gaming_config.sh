@@ -154,10 +154,10 @@ gaming_install_faugus() {
         return 0
     fi
 
-    if flatpak install flathub -y io.github.Faugus.faugus-launcher >> "$INSTALL_LOG" 2>&1; then
+    if flatpak install flathub -y io.github.Faugus.faugus-launcher; then
         log_success "Faugus (flatpak) installed"
     else
-        log_warn "Failed to install Faugus (flatpak). Check $INSTALL_LOG for details"
+        log_warn "Failed to install Faugus (flatpak)"
     fi
 }
 
@@ -177,41 +177,22 @@ gaming_main_config() {
     fi
 
     # Install gaming packages
-    if ! is_step_complete "gaming_install_packages"; then
-        gaming_install_packages
-        mark_step_complete "gaming_install_packages"
-    fi
+    gaming_install_packages
 
     # Configure performance
-    if ! is_step_complete "gaming_configure_performance"; then
-        gaming_configure_performance
-        mark_step_complete "gaming_configure_performance"
-    fi
+    gaming_configure_performance
 
     # Configure MangoHud
-    if ! is_step_complete "gaming_configure_mangohud"; then
-        gaming_configure_mangohud
-        mark_step_complete "gaming_configure_mangohud"
-    fi
+    gaming_configure_mangohud
 
     # Configure GameMode
-    if ! is_step_complete "gaming_configure_gamemode"; then
-        gaming_configure_gamemode
-        mark_step_complete "gaming_configure_gamemode"
-    fi
+    gaming_configure_gamemode
 
     # Configure Steam
-    if ! is_step_complete "gaming_configure_steam"; then
-        gaming_configure_steam
-        mark_step_complete "gaming_configure_steam"
-    fi
+    gaming_configure_steam
 
     # Install Faugus (Flatpak)
-    if ! is_step_complete "gaming_install_faugus"; then
-        gaming_install_faugus
-        mark_step_complete "gaming_install_faugus"
-    fi
-
+    gaming_install_faugus
 
 
 

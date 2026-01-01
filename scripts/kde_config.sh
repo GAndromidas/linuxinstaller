@@ -264,47 +264,19 @@ kde_install_kdeconnect() {
 kde_main_config() {
     log_info "Starting KDE configuration..."
 
-    # Install KDE packages
-    if ! is_step_complete "kde_install_packages"; then
-        kde_install_packages
-        mark_step_complete "kde_install_packages"
-    fi
+    kde_install_packages
 
-    # Configure shortcuts
-    if ! is_step_complete "kde_configure_shortcuts"; then
-        kde_configure_shortcuts
-        mark_step_complete "kde_configure_shortcuts"
-    fi
+    kde_configure_shortcuts
 
-    # Configure wallpaper
-    if ! is_step_complete "kde_configure_wallpaper"; then
-        kde_configure_wallpaper
-        mark_step_complete "kde_configure_wallpaper"
-    fi
+    kde_configure_wallpaper
 
-    # Configure theme
-    if ! is_step_complete "kde_configure_theme"; then
-        kde_configure_theme
-        mark_step_complete "kde_configure_theme"
-    fi
+    kde_configure_theme
 
-    # Configure network
-    if ! is_step_complete "kde_configure_network"; then
-        kde_configure_network
-        mark_step_complete "kde_configure_network"
-    fi
+    kde_configure_network
 
-    # Setup Plasma
-    if ! is_step_complete "kde_setup_plasma"; then
-        kde_setup_plasma
-        mark_step_complete "kde_setup_plasma"
-    fi
+    kde_setup_plasma
 
-    # Install KDE Connect
-    if ! is_step_complete "kde_install_kdeconnect"; then
-        kde_install_kdeconnect
-        mark_step_complete "kde_install_kdeconnect"
-    fi
+    kde_install_kdeconnect
 
     log_success "KDE configuration completed"
     # Cleanup redundant Arch-specific config files (now configured via scripts)

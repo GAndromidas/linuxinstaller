@@ -24,7 +24,6 @@ A comprehensive automation script that transforms a fresh Linux installation int
 - **🔒 Security Hardening** - Firewall, Fail2ban, SSH hardening
 - **⚡ Performance Tuning** - ZRAM, CPU governor, filesystem optimization
 - **🎨 Desktop Integration** - KDE Plasma & GNOME configuration
-- **🔄 Resume Capability** - Interrupted installations can be resumed
 - **📊 Beautiful UI** - Modern gum-based interface with fallback to text mode
 
 ---
@@ -190,10 +189,7 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-### View Installation Log
-```bash
-cat ~/.linuxinstaller.log
-```
+
 
 ---
 

@@ -24,61 +24,47 @@ EOF
 show_menu() {
     show_linuxinstaller_ascii
 
-    # Try to ensure gum is available; bootstrap_tools should have run already
-    # but this is a last-resort attempt (quiet failures are acceptable)
     if ! supports_gum; then
-        log_info "gum not detected; UI may fall back to text mode"
+        echo "Note: gum not detected, using text menu"
     fi
 
     echo ""
 
-    # If gum is available and we have an interactive TTY, try to gum-based UI.
-    # If gum fails or we don't have a TTY, gracefully fall back to a simple text menu.
+    # If gum is available and we have an interactive TTY, try gum-based UI
     if supports_gum && [ -t 0 ]; then
-        # Try interactive gum menu; if it fails or returns no selection, fall back
         local choice
-        choice=$(gum choose --height 10 --header "Please select an installation mode:" \
-            "1. Standard - Complete setup with all recommended packages" \
-            "2. Minimal - Essential tools only for lightweight installations" \
-            "3. Server - Headless server configuration" \
-            "4. Exit" \
-            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" --header.foreground "$GUM_PRIMARY_FG" 2>/dev/null) || true
+        choice=$(gum choose \
+            "Standard - Complete setup with all recommended packages" \
+            "Minimal - Essential tools only for lightweight installations" \
+            "Server - Headless server configuration" \
+            "Exit" \
+            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→")
 
-        # If gum failed or returned nothing, warn and fall through to text menu
-        if [ -n "$choice" ]; then
-            case "$choice" in
-                "1. Standard - Complete setup with all recommended packages")
-                    export INSTALL_MODE="standard" ;;
-                "2. Minimal - Essential tools only for lightweight installations")
-                    export INSTALL_MODE="minimal" ;;
-                "3. Server - Headless server configuration")
-                    export INSTALL_MODE="server" ;;
-                "4. Exit")
-                    echo "Exiting..." ; exit 0 ;;
-                *)
-                    log_warn "Gum returned an unexpected choice: '$choice' - falling back to text menu." ;;
-            esac
+        case "$choice" in
+            "Standard - Complete setup with all recommended packages")
+                export INSTALL_MODE="standard" ;;
+            "Minimal - Essential tools only for lightweight installations")
+                export INSTALL_MODE="minimal" ;;
+            "Server - Headless server configuration")
+                export INSTALL_MODE="server" ;;
+            "Exit")
+                echo "Exiting..." ; exit 0 ;;
+        esac
 
-            # If gum returned a valid choice, print a friendly confirmation, ask about gaming, and return
-            if [ -n "${INSTALL_MODE:-}" ]; then
-                echo ""
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice" 2>/dev/null || true
-                echo ""
-                # Prompt for Gaming immediately after selection (default Yes in gum)
-                if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
-                    if gum confirm "Install Gaming Package Suite?" --default=true; then
-                        export INSTALL_GAMING=true
-                    else
-                        export INSTALL_GAMING=false
-                    fi
-                else
-                    export INSTALL_GAMING=false
-                fi
-                return
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $choice"
+        echo ""
+
+        if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
+            if gum confirm "Install Gaming Package Suite?" --default=true; then
+                export INSTALL_GAMING=true
+            else
+                export INSTALL_GAMING=false
             fi
         else
-            log_warn "Gum UI not available or failed; falling back to text menu."
+            export INSTALL_GAMING=false
         fi
+        return
     fi
 
     # Fallback plain-text menu
@@ -106,7 +92,6 @@ show_menu() {
 
     echo ""
 
-    # Friendly selection message
     local friendly
     case "$INSTALL_MODE" in
         standard) friendly="Standard - Complete setup with all recommended packages" ;;
@@ -115,21 +100,10 @@ show_menu() {
         *)        friendly="$INSTALL_MODE" ;;
     esac
 
-    if supports_gum && [ -t 0 ]; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "You selected: $friendly" 2>/dev/null || true
-    else
-        echo "You selected: $friendly"
-    fi
+    echo "You selected: $friendly"
 
-    # Prompt for Gaming immediately after selection when applicable (Standard/Minimal)
     if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
-        if supports_gum && [ -t 0 ]; then
-            if gum confirm "Install Gaming Package Suite?" --default=true; then
-                export INSTALL_GAMING=true
-            else
-                export INSTALL_GAMING=false
-            fi
-        elif [ -t 0 ]; then
+        if [ -t 0 ]; then
             read -r -p "Install Gaming Package Suite? [Y/n]: " response
             if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
                 export INSTALL_GAMING=true
@@ -137,12 +111,9 @@ show_menu() {
                 export INSTALL_GAMING=false
             fi
         else
-            # Non-interactive: default to not installing gaming packages to avoid surprises
             export INSTALL_GAMING=false
-            log_info "Non-interactive mode; defaulting to not installing gaming packages"
         fi
     else
-        # If custom groups include gaming, honor it uniformly
         if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
             export INSTALL_GAMING=true
         fi
@@ -160,10 +131,6 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
-INSTALL_LOG="$HOME/.linuxinstaller.log"
-
-# Ensure log file exists and start fresh for this run
-touch "$INSTALL_LOG"
 
 # --- Source Helpers ---
 # We need distro detection and common utilities immediately
@@ -206,10 +173,6 @@ INSTALL_MODE="standard"
 # Track installed helper (gum) to clean up later
 GUM_INSTALLED_BY_SCRIPT=false
 
-# Installation state
-STATE_FILE="$HOME/.linuxinstaller.state"
-mkdir -p "$(dirname "$STATE_FILE")"
-
 # --- Helper Functions ---
 
 # Display help message and usage information
@@ -225,23 +188,20 @@ OPTIONS:
     -v, --verbose   Show detailed output
     -d, --dry-run   Simulate installation (no changes made)
 
-DESCRIPTION:
-    A smart, cross-distribution installer that configures your system,
-    installs packages, and applies tweaks.
-    Supports Arch, Fedora, Debian, and Ubuntu.
+ DESCRIPTION:
+     A smart, cross-distribution installer that configures your system,
+     installs packages, and applies tweaks.
+     Supports Arch, Fedora, Debian, and Ubuntu.
 
-INSTALLATION MODES:
-    Standard        Complete setup with all recommended packages
-    Minimal         Essential tools only for lightweight installations
-    Server          Headless server configuration
+ INSTALLATION MODES:
+     Standard        Complete setup with all recommended packages
+     Minimal         Essential tools only for lightweight installations
+     Server          Headless server configuration
 
-EXAMPLES:
-    ./install.sh                Run with interactive prompts
-    ./install.sh --verbose      Run with detailed output
-    ./install.sh --dry-run      Preview changes without applying them
-
-LOG FILE:
-    Installation log saved to: ~/.linuxinstaller.log
+ EXAMPLES:
+     ./install.sh                Run with interactive prompts
+     ./install.sh --verbose      Run with detailed output
+     ./install.sh --dry-run      Preview changes without applying them
 
 EOF
   exit 0
@@ -392,7 +352,7 @@ install_package_group() {
             flatpak)
                 if ! command -v flatpak >/dev/null 2>&1; then
                     log_warn "Flatpak not installed. Attempting to install it..."
-                    $PKG_INSTALL $PKG_NOCONFIRM flatpak >> "$INSTALL_LOG" 2>&1 || true
+                    $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
                 fi
                 install_cmd="flatpak install flathub -y"
                 ;;
@@ -423,16 +383,16 @@ install_package_group() {
                 pkg="$(echo "$pkg" | xargs)"  # trim whitespace
                 if supports_gum; then
                     # Use gum spinner while running the install; flatpak output is redirected to the log
-                    if gum spin --spinner dot --title "Flatpak: $pkg" -- bash -lc "$install_cmd $(printf '%q' "$pkg")" >> "$INSTALL_LOG" 2>&1; then
+                    if gum spin --spinner dot --title "Flatpak: $pkg" -- bash -lc "$install_cmd $(printf '%q' "$pkg")"; then
                         gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✔ $pkg Installed" 2>/dev/null || true
                     else
-                        gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ $pkg Failed (see $INSTALL_LOG)" 2>/dev/null || true
+                        gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ $pkg Failed" 2>/dev/null || true
                         failed_packages+=("$pkg")
                     fi
                 else
-                    # Non-gum terminals: print a concise one-line status per package and keep detailed output in the log
+                    # Non-gum terminals: print a concise one-line status per package
                     printf "%-60s" "Installing Flatpak: $pkg"
-                    if bash -lc "$install_cmd $(printf '%q' "$pkg")" >> "$INSTALL_LOG" 2>&1; then
+                    if bash -lc "$install_cmd $(printf '%q' "$pkg")"; then
                         printf "${GREEN} ✔ Installed${RESET}\n"
                     else
                         printf "${RED} ✗ Failed${RESET}\n"
@@ -444,20 +404,20 @@ install_package_group() {
             if [ ${#failed_packages[@]} -eq 0 ]; then
                 log_success "Installed (flatpak): ${packages[*]}"
             else
-                log_error "Failed to install (flatpak): ${failed_packages[*]}. Check log: $INSTALL_LOG"
+                log_error "Failed to install (flatpak): ${failed_packages[*]}"
             fi
         else
             if supports_gum; then
-                gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+                gum spin --spinner dot --title "Installing $type packages ($title)..." -- bash -lc "$install_cmd $pkg_args"
             else
                 log_info "Running: $install_cmd $pkg_args"
-                bash -lc "$install_cmd $pkg_args" >> "$INSTALL_LOG" 2>&1
+                bash -lc "$install_cmd $pkg_args"
             fi
 
             if [ $? -eq 0 ]; then
                 log_success "Installed ($type): ${packages[*]}"
             else
-                log_error "Failed to install some ($type) packages. Check log: $INSTALL_LOG"
+                log_error "Failed to install some ($type) packages"
             fi
         fi
     done
@@ -547,7 +507,7 @@ final_cleanup() {
         if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg" >> "$INSTALL_LOG" 2>&1; then
+                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     # Fallback: try removing binary placed under /usr/local/bin
@@ -567,7 +527,7 @@ final_cleanup() {
         if [[ "$resp" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
-                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg" >> "$INSTALL_LOG" 2>&1; then
+                if sudo $PKG_REMOVE $PKG_NOCONFIRM "$pkg"; then
                     log_success "Removed $pkg via package manager"
                 else
                     if [ -f "/usr/local/bin/$pkg" ]; then
@@ -625,17 +585,6 @@ bootstrap_tools
 # 3. Welcome & Resume Check
 clear
 
-# Check for previous state (Resume capability)
-if [ "$DRY_RUN" = false ]; then
-    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
-        show_resume_menu
-    else
-        log_info "No previous installation state found. Starting fresh."
-    fi
-else
-    log_warn "Dry-Run Mode Active: No changes will be applied."
-fi
-
 # 4. Mode Selection
 # Ensure that user is always prompted in interactive runs (so that menu appears on ./install.sh).
 # For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
@@ -643,16 +592,14 @@ if [ -t 0 ]; then
     # Interactive terminal - show menu
     if [ "$DRY_RUN" = false ]; then
         show_menu
-        mark_step_complete "setup_mode"
     else
         log_warn "Dry-Run Mode Active: No changes will be applied."
     fi
 else
     # Non-interactive: only set a default mode if none exists to avoid prompting
-    if ! is_step_complete "setup_mode"; then
+    if [ -z "${INSTALL_MODE:-}" ]; then
         export INSTALL_MODE="${INSTALL_MODE:-standard}"
         log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
-        mark_step_complete "setup_mode"
     fi
 fi
 
@@ -661,13 +608,11 @@ fi
 # For non-interactive runs (CI, scripts), preserve existing behavior by selecting a sensible default.
 if [ -t 0 ]; then
     show_menu
-    mark_step_complete "setup_mode"
 else
     # Non-interactive: only set a default mode if none exists to avoid prompting
-    if ! is_step_complete "setup_mode"; then
+    if [ -z "${INSTALL_MODE:-}" ]; then
         export INSTALL_MODE="${INSTALL_MODE:-standard}"
         log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
-        mark_step_complete "setup_mode"
     fi
 fi
 
@@ -675,22 +620,19 @@ fi
 # We define a list of logical steps.
 
 # Step: System Update
-if ! is_step_complete "system_update"; then
-    step "Updating System Repositories"
-    if [ "$DRY_RUN" = false ]; then
-        if supports_gum; then
-            # Use gum spinner when available; if it fails fall back to the direct update command
-            gum spin --title "Updating system..." -- bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1 || { log_warn "gum spinner failed; falling back to direct update"; bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1; }
-        else
-            # No gum available; run the update directly
-            bash -c "$PKG_UPDATE $PKG_NOCONFIRM" >> "$INSTALL_LOG" 2>&1
-        fi
+step "Updating System Repositories"
+if [ "$DRY_RUN" = false ]; then
+    if supports_gum; then
+        # Use gum spinner when available; if it fails fall back to the direct update command
+        gum spin --title "Updating system..." -- bash -c "$PKG_UPDATE $PKG_NOCONFIRM" || { log_warn "gum spinner failed; falling back to direct update"; bash -c "$PKG_UPDATE $PKG_NOCONFIRM"; }
+    else
+        # No gum available; run the update directly
+        bash -c "$PKG_UPDATE $PKG_NOCONFIRM"
     fi
-    mark_step_complete "system_update"
 fi
 
 # Step: Pacman Configuration (Arch Linux only)
-if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
+if [ "$DISTRO_ID" == "arch" ]; then
     step "Configuring Pacman Optimizations"
 
     if [ "$DRY_RUN" = true ]; then
@@ -755,8 +697,6 @@ if [ "$DISTRO_ID" == "arch" ] && ! is_step_complete "pacman_config"; then
         # Execute pacman configuration
         configure_pacman
     fi
-
-    mark_step_complete "pacman_config"
 fi
 
 # Step: Run Distro System Preparation (install essentials, etc.)
@@ -764,85 +704,71 @@ fi
 # before package installation and mark the step complete to avoid duplication.
 DSTR_PREP_FUNC="${DISTRO_ID}_system_preparation"
 DSTR_PREP_STEP="${DSTR_PREP_FUNC}"
-if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1 && ! is_step_complete "$DSTR_PREP_STEP"; then
+if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
     step "Running system preparation for $DISTRO_ID"
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would run $DSTR_PREP_FUNC"
     else
         if ! "$DSTR_PREP_FUNC"; then
-            log_warn "$DSTR_PREP_FUNC reported issues (see $INSTALL_LOG)"
+            log_warn "$DSTR_PREP_FUNC reported issues"
         fi
     fi
-    mark_step_complete "$DSTR_PREP_STEP"
 fi
 
 # Install distro-provided 'essential' group first (if present)
 # Ensures essentials get installed before the main package groups.
-if ! is_step_complete "install_essentials"; then
-    install_package_group "essential" "Essential Packages"
-    mark_step_complete "install_essentials"
-fi
+install_package_group "essential" "Essential Packages"
 
 # Step: Configure Power Management (power-profiles-daemon / cpupower / tuned)
-if ! is_step_complete "configure_power"; then
-    step "Configuring Power Management"
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would configure power management (power-profiles-daemon / cpupower / tuned)"
+step "Configuring Power Management"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would configure power management (power-profiles-daemon / cpupower / tuned)"
+else
+    if declare -f configure_power_management >/dev/null 2>&1; then
+        configure_power_management || log_warn "configure_power_management reported issues"
     else
-        if declare -f configure_power_management >/dev/null 2>&1; then
-            configure_power_management || log_warn "configure_power_management reported issues (see $INSTALL_LOG)"
-        else
-            log_warn "configure_power_management not defined"
-        fi
+        log_warn "configure_power_management not defined"
     fi
-    mark_step_complete "configure_power"
 fi
 
 # Step: Configure shell & user configs (zsh, starship, fastfetch)
-if ! is_step_complete "configure_shell"; then
-    step "Configuring Zsh and user-level configs"
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would configure Zsh and user config files (copy .zshrc, starship.toml, fastfetch config)"
+step "Configuring Zsh and user-level configs"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would configure Zsh and user config files (copy .zshrc, starship.toml, fastfetch config)"
+else
+    if declare -f configure_user_shell_and_configs >/dev/null 2>&1; then
+        configure_user_shell_and_configs || log_warn "configure_user_shell_and_configs reported issues"
     else
-        if declare -f configure_user_shell_and_configs >/dev/null 2>&1; then
-            configure_user_shell_and_configs || log_warn "configure_user_shell_and_configs reported issues (see $INSTALL_LOG)"
-        else
-            log_warn "configure_user_shell_and_configs not defined"
-        fi
+        log_warn "configure_user_shell_and_configs not defined"
     fi
-    mark_step_complete "configure_shell"
 fi
 
 # Step: Install Packages based on Mode
-if ! is_step_complete "install_packages"; then
-    step "Installing Packages ($INSTALL_MODE)"
+step "Installing Packages ($INSTALL_MODE)"
 
-    # Install the main group (standard/minimal/server)
-    install_package_group "$INSTALL_MODE" "Base System"
+# Install the main group (standard/minimal/server)
+install_package_group "$INSTALL_MODE" "Base System"
 
-    # Install Desktop Environment Specific Packages
-    if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
-        DE_KEY=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
-        if [[ "$DE_KEY" == *"kde"* ]]; then DE_KEY="kde"; fi
-        if [[ "$DE_KEY" == *"gnome"* ]]; then DE_KEY="gnome"; fi
+# Install Desktop Environment Specific Packages
+if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
+    DE_KEY=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
+    if [[ "$DE_KEY" == *"kde"* ]]; then DE_KEY="kde"; fi
+    if [[ "$DE_KEY" == *"gnome"* ]]; then DE_KEY="gnome"; fi
 
-        step "Installing Desktop Environment Packages ($DE_KEY)"
-        install_package_group "$DE_KEY" "$XDG_CURRENT_DESKTOP Environment"
-    fi
+    step "Installing Desktop Environment Packages ($DE_KEY)"
+    install_package_group "$DE_KEY" "$XDG_CURRENT_DESKTOP Environment"
+fi
 
-    # Handle Custom Addons if any (rudimentary handling)
-    if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
+# Handle Custom Addons if any (rudimentary handling)
+if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
+    install_package_group "gaming" "Gaming Suite"
+fi
+
+# Use the gaming decision made at menu time (if applicable)
+if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
+    if [ "${INSTALL_GAMING:-false}" = "true" ]; then
         install_package_group "gaming" "Gaming Suite"
     fi
-
-    # Use the gaming decision made at menu time (if applicable)
-    if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
-        if [ "${INSTALL_GAMING:-false}" = "true" ]; then
-            install_package_group "gaming" "Gaming Suite"
-        fi
-    fi
-
-    mark_step_complete "install_packages"
 fi
 
 # ------------------------------------------------------------------
@@ -853,25 +779,21 @@ fi
 # This keeps the step idempotent and consistent with the installer flow.
 # ------------------------------------------------------------------
 if declare -f wakeonlan_main_config >/dev/null 2>&1; then
-    if ! is_step_complete "wakeonlan_setup"; then
-        step "Configuring Wake-on-LAN (Ethernet)"
+    step "Configuring Wake-on-LAN (Ethernet)"
 
-        if [ "${DRY_RUN:-false}" = "true" ]; then
-            log_info "[DRY-RUN] Would auto-configure Wake-on-LAN for wired interfaces"
+    if [ "${DRY_RUN:-false}" = "true" ]; then
+        log_info "[DRY-RUN] Would auto-configure Wake-on-LAN for wired interfaces"
 
-            # Try to show what would be done by printing helper status output (if present)
-            WOL_HELPER="$(cd "$SCRIPT_DIR/.." && pwd)/Scripts/wakeonlan.sh"
-            if [ -x "$WOL_HELPER" ]; then
-                bash "$WOL_HELPER" --status 2>&1 | sed 's/^/  /'
-            else
-                log_warn "Wake-on-LAN helper not found at $WOL_HELPER"
-            fi
-
-            mark_step_complete "wakeonlan_setup"
+        # Try to show what would be done by printing helper status output (if present)
+        WOL_HELPER="$(cd "$SCRIPT_DIR/.." && pwd)/Scripts/wakeonlan.sh"
+        if [ -x "$WOL_HELPER" ]; then
+            bash "$WOL_HELPER" --status 2>&1 | sed 's/^/  /'
         else
-            # Non-dry run: call the integration entrypoint which handles enabling and marking
-            wakeonlan_main_config || log_warn "wakeonlan_main_config reported issues (see $INSTALL_LOG)"
+            log_warn "Wake-on-LAN helper not found at $WOL_HELPER"
         fi
+    else
+        # Non-dry run: call the integration entrypoint which handles enabling
+        wakeonlan_main_config || log_warn "wakeonlan_main_config reported issues"
     fi
 fi
 
@@ -880,47 +802,44 @@ fi
 
 # Step: Run Distribution-Specific Configuration
 # This replaces the numbered scripts with unified distribution-specific modules
-if ! is_step_complete "distro_config"; then
-    step "Running Distribution-Specific Configuration"
+step "Running Distribution-Specific Configuration"
 
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would run distribution-specific configuration for $DISTRO_ID"
-    else
-        case "$DISTRO_ID" in
-            "arch")
-                if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
-                    source "$SCRIPTS_DIR/arch_config.sh"
-                    arch_main_config
-                else
-                    log_warn "Arch configuration module not found"
-                fi
-                ;;
-            "fedora")
-                if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
-                    source "$SCRIPTS_DIR/fedora_config.sh"
-                    fedora_main_config
-                else
-                    log_warn "Fedora configuration module not found"
-                fi
-                ;;
-            "debian"|"ubuntu")
-                if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
-                    source "$SCRIPTS_DIR/debian_config.sh"
-                    debian_main_config
-                else
-                    log_warn "Debian/Ubuntu configuration module not found"
-                fi
-                ;;
-            *)
-                log_warn "No specific configuration module for $DISTRO_ID"
-                ;;
-        esac
-    fi
-    mark_step_complete "distro_config"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would run distribution-specific configuration for $DISTRO_ID"
+else
+    case "$DISTRO_ID" in
+        "arch")
+            if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
+                source "$SCRIPTS_DIR/arch_config.sh"
+                arch_main_config
+            else
+                log_warn "Arch configuration module not found"
+            fi
+            ;;
+        "fedora")
+            if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
+                source "$SCRIPTS_DIR/fedora_config.sh"
+                fedora_main_config
+            else
+                log_warn "Fedora configuration module not found"
+            fi
+            ;;
+        "debian"|"ubuntu")
+            if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
+                source "$SCRIPTS_DIR/debian_config.sh"
+                debian_main_config
+            else
+                log_warn "Debian/Ubuntu configuration module not found"
+            fi
+            ;;
+        *)
+            log_warn "No specific configuration module for $DISTRO_ID"
+            ;;
+    esac
 fi
 
 # Step: Run Desktop Environment Configuration
-if ! is_step_complete "de_config" && [ "$INSTALL_MODE" != "server" ]; then
+if [ "$INSTALL_MODE" != "server" ]; then
     step "Configuring Desktop Environment"
 
     if [ "$DRY_RUN" = true ]; then
@@ -948,62 +867,52 @@ if ! is_step_complete "de_config" && [ "$INSTALL_MODE" != "server" ]; then
                 ;;
         esac
     fi
-    mark_step_complete "de_config"
 fi
 
 # Step: Run Security Configuration
-if ! is_step_complete "security_config"; then
-    step "Configuring Security Features"
+step "Configuring Security Features"
 
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would configure security features"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would configure security features"
+else
+    if [ -f "$SCRIPTS_DIR/security_config.sh" ]; then
+        source "$SCRIPTS_DIR/security_config.sh"
+        security_main_config
     else
-        if [ -f "$SCRIPTS_DIR/security_config.sh" ]; then
-            source "$SCRIPTS_DIR/security_config.sh"
-            security_main_config
-        else
-            log_warn "Security configuration module not found"
-        fi
+        log_warn "Security configuration module not found"
     fi
-    mark_step_complete "security_config"
 fi
 
 # Step: Run Performance Optimization
-if ! is_step_complete "performance_config"; then
-    step "Applying Performance Optimizations"
+step "Applying Performance Optimizations"
 
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would apply performance optimizations"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would apply performance optimizations"
+else
+    if [ -f "$SCRIPTS_DIR/performance_config.sh" ]; then
+        source "$SCRIPTS_DIR/performance_config.sh"
+        performance_main_config
     else
-        if [ -f "$SCRIPTS_DIR/performance_config.sh" ]; then
-            source "$SCRIPTS_DIR/performance_config.sh"
-            performance_main_config
-        else
-            log_warn "Performance configuration module not found"
-        fi
+        log_warn "Performance configuration module not found"
     fi
-    mark_step_complete "performance_config"
 fi
 
 # Step: Run Maintenance Setup
-if ! is_step_complete "maintenance_config"; then
-    step "Setting up Maintenance Tools"
+step "Setting up Maintenance Tools"
 
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would set up maintenance tools"
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would set up maintenance tools"
+else
+    if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
+        source "$SCRIPTS_DIR/maintenance_config.sh"
+        maintenance_main_config
     else
-        if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
-            source "$SCRIPTS_DIR/maintenance_config.sh"
-            maintenance_main_config
-        else
-            log_warn "Maintenance configuration module not found"
-        fi
+        log_warn "Maintenance configuration module not found"
     fi
-    mark_step_complete "maintenance_config"
 fi
 
 # Step: Run Gaming Configuration (if applicable)
-if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
+if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
     step "Configuring Gaming Environment"
 
     if [ "$DRY_RUN" = true ]; then
@@ -1016,7 +925,6 @@ if ! is_step_complete "gaming_config" && [ "$INSTALL_MODE" != "server" ] && [ "$
             log_warn "Gaming configuration module not found"
         fi
     fi
-    mark_step_complete "gaming_config"
 fi
 
 # 6. Finalization

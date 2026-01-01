@@ -725,59 +725,23 @@ debian_configure_locale() {
 debian_main_config() {
     log_info "Starting Debian/Ubuntu configuration..."
 
-    # System Preparation
-    if ! is_step_complete "debian_system_preparation"; then
-        debian_system_preparation
-        mark_step_complete "debian_system_preparation"
-    fi
+    debian_system_preparation
 
-    # Install Essentials
-    if ! is_step_complete "debian_install_essentials"; then
-        debian_install_essentials
-        mark_step_complete "debian_install_essentials"
-    fi
+    debian_install_essentials
 
-    # Bootloader Configuration
-    if ! is_step_complete "debian_bootloader"; then
-        debian_configure_bootloader
-        mark_step_complete "debian_bootloader"
-    fi
+    debian_configure_bootloader
 
-    # System Services
-    if ! is_step_complete "debian_system_services"; then
-        debian_enable_system_services
-        mark_step_complete "debian_system_services"
-    fi
+    debian_enable_system_services
 
-    # Flatpak Setup
-    if ! is_step_complete "debian_flatpak"; then
-        debian_setup_flatpak
-        mark_step_complete "debian_flatpak"
-    fi
+    debian_setup_flatpak
 
-    # Snap Setup (Ubuntu only)
-    if ! is_step_complete "debian_snap"; then
-        debian_setup_snap
-        mark_step_complete "debian_snap"
-    fi
+    debian_setup_snap
 
-    # Shell Setup
-    if ! is_step_complete "debian_shell_setup"; then
-        debian_setup_shell
-        mark_step_complete "debian_shell_setup"
-    fi
+    debian_setup_shell
 
-    # Logitech Hardware Support
-    if ! is_step_complete "debian_solaar_setup"; then
-        debian_setup_solaar
-        mark_step_complete "debian_solaar_setup"
-    fi
+    debian_setup_solaar
 
-    # Locale Configuration
-    if ! is_step_complete "debian_locale"; then
-        debian_configure_locale
-        mark_step_complete "debian_locale"
-    fi
+    debian_configure_locale
 
     log_success "Debian/Ubuntu configuration completed"
 }

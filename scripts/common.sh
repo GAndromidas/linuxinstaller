@@ -128,14 +128,11 @@ step() {
         # Prepend a newline so steps are spaced out in non-gum terminals too
         echo -e "\n${BLUE}❯ ${WHITE}$message${RESET}"
     fi
-    echo "STEP: $message" >> "$INSTALL_LOG"
 }
 
 # Log informational message (only shows in verbose mode)
 log_info() {
     local message="$1"
-    # Always write informational messages to the install log
-    echo "[INFO] $message" >> "$INSTALL_LOG"
     # Quiet by default: only print info to console when verbose mode is enabled
     if [ "${VERBOSE:-false}" = "true" ]; then
         if supports_gum; then
@@ -159,7 +156,6 @@ log_success() {
         echo -e "${GREEN}[SUCCESS] $message${RESET}"
         echo ""
     fi
-    echo "[SUCCESS] $message" >> "$INSTALL_LOG"
 }
 
 # Log warning message
@@ -173,7 +169,6 @@ log_warn() {
         echo -e "${YELLOW}[WARNING] $message${RESET}"
         echo ""
     fi
-    echo "[WARNING] $message" >> "$INSTALL_LOG"
 }
 
 # Log error message
@@ -187,7 +182,6 @@ log_error() {
         echo -e "${RED}[ERROR] $message${RESET}"
         echo ""
     fi
-    echo "[ERROR] $message" >> "$INSTALL_LOG"
 }
 
 # --- Compatibility Aliases ---
@@ -197,88 +191,35 @@ ui_success() { log_success "$@"; }
 ui_warn() { log_warn "$@"; }
 ui_error() { log_error "$@"; }
 log_warning() { log_warn "$@"; }
-log_to_file() { echo "$@" >> "$INSTALL_LOG"; }
+log_to_file() { :; }
 
 
 # --- State Management ---
 
-STATE_FILE="$HOME/.linuxinstaller.state"
-
-# Initialize state file directory if needed
-mkdir -p "$(dirname "$STATE_FILE")"
-
-# Mark a step as completed in the state file
+# Mark a step as completed (no-op - state tracking removed)
 mark_step_complete() {
     local step_name="$1"
     local friendly="${CURRENT_STEP_MESSAGE:-$step_name}"
-    if ! grep -q "^$step_name$" "$STATE_FILE" 2>/dev/null; then
-        echo "$step_name" >> "$STATE_FILE"
-    fi
     # Show a concise, friendly success message for the completed step
     log_success "$friendly"
     # Clear the saved friendly message
     CURRENT_STEP_MESSAGE=""
 }
 
-# Check if a step has been completed
+# Check if a step has been completed (always returns false - state tracking removed)
 is_step_complete() {
     local step_name="$1"
-    [ -f "$STATE_FILE" ] && grep -q "^$step_name$" "$STATE_FILE"
+    false
 }
 
-# Clear all completed steps from state file
+# Clear all completed steps from state file (no-op - state tracking removed)
 clear_state() {
-    rm -f "$STATE_FILE"
+    :
 }
 
-# Display menu to resume or start fresh installation
+# Display menu to resume or start fresh installation (no-op - resume menu removed)
 show_resume_menu() {
-    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
-        log_info "Previous installation detected. The following steps were completed:"
-
-        if supports_gum; then
-            echo ""
-            gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Completed steps:"
-            while IFS= read -r step; do
-                 gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ $step"
-            done < "$STATE_FILE"
-            echo ""
-
-            if gum confirm --default=true "Resume installation from where you left off?"; then
-                log_success "Resuming installation..."
-                return 0
-            else
-                if gum confirm --default=false "Start fresh installation (this will clear previous progress)?"; then
-                    clear_state
-                    log_info "Starting fresh installation..."
-                    return 0
-                else
-                    log_info "Installation cancelled by user."
-                    exit 0
-                fi
-            fi
-        else
-            while IFS= read -r step; do
-                 echo -e "  ${GREEN}✓${RESET} ${WHITE}$step${RESET}"
-            done < "$STATE_FILE"
-
-            read -r -p "Resume installation? [Y/n]: " response
-            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
-                log_success "Resuming installation..."
-                return 0
-            else
-                read -r -p "Start fresh installation? [y/N]: " response
-                if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-                    clear_state
-                    log_info "Starting fresh installation..."
-                    return 0
-                else
-                    log_info "Installation cancelled by user."
-                    exit 0
-                fi
-            fi
-        fi
-    fi
+    :
 }
 
 
@@ -291,8 +232,8 @@ install_pkg() {
         return
     fi
     log_info "Installing package(s): $*"
-    if ! sudo $PKG_INSTALL $PKG_NOCONFIRM "$@" >> "$INSTALL_LOG" 2>&1; then
-        log_error "Failed to install package(s): $*. Check log for details."
+    if ! sudo $PKG_INSTALL $PKG_NOCONFIRM "$@"; then
+        log_error "Failed to install package(s): $*."
         # Optionally, exit on failure: exit 1
     else
         log_success "Successfully installed: $*"
@@ -306,7 +247,7 @@ remove_pkg() {
         return
     fi
     log_info "Removing package(s): $*"
-    if ! sudo $PKG_REMOVE $PKG_NOCONFIRM "$@" >> "$INSTALL_LOG" 2>&1; then
+    if ! sudo $PKG_REMOVE $PKG_NOCONFIRM "$@"; then
         log_error "Failed to remove package(s): $*."
     else
         log_success "Successfully removed: $*"
@@ -318,8 +259,8 @@ update_system() {
     log_info "Updating system packages..."
     # The update command can be complex, so we handle it carefully
     # The PKG_UPDATE variable from distro_check.sh should already be sudo'd
-    if ! $PKG_UPDATE $PKG_NOCONFIRM >> "$INSTALL_LOG" 2>&1; then
-        log_error "System update failed. Check log for details."
+    if ! $PKG_UPDATE $PKG_NOCONFIRM; then
+        log_error "System update failed."
     else
         log_success "System updated successfully."
     fi

@@ -625,71 +625,27 @@ fedora_configure_locale() {
 fedora_main_config() {
     log_info "Starting Fedora configuration..."
 
-    # System Preparation
-    if ! is_step_complete "fedora_system_preparation"; then
-        fedora_system_preparation
-        mark_step_complete "fedora_system_preparation"
-    fi
+    fedora_system_preparation
 
-    # DNF Configuration
-    if ! is_step_complete "fedora_dnf_config"; then
-        fedora_configure_dnf
-        mark_step_complete "fedora_dnf_config"
-    fi
+    fedora_configure_dnf
 
-    # Enable RPM Fusion
-    if ! is_step_complete "fedora_rpmfusion"; then
-        fedora_enable_rpmfusion
-        mark_step_complete "fedora_rpmfusion"
-    fi
+    fedora_enable_rpmfusion
 
-    # Setup COPR repositories
-    if ! is_step_complete "fedora_copr"; then
-        fedora_setup_copr
-        mark_step_complete "fedora_copr"
-    fi
+    fedora_setup_copr
 
-    # Install Essentials
-    if ! is_step_complete "fedora_install_essentials"; then
-        fedora_install_essentials
-        mark_step_complete "fedora_install_essentials"
-    fi
+    fedora_install_essentials
 
-    # Bootloader Configuration
-    if ! is_step_complete "fedora_bootloader"; then
-        fedora_configure_bootloader
-        mark_step_complete "fedora_bootloader"
-    fi
+    fedora_configure_bootloader
 
-    # System Services
-    if ! is_step_complete "fedora_system_services"; then
-        fedora_enable_system_services
-        mark_step_complete "fedora_system_services"
-    fi
+    fedora_enable_system_services
 
-    # Flatpak Setup
-    if ! is_step_complete "fedora_flatpak"; then
-        fedora_setup_flatpak
-        mark_step_complete "fedora_flatpak"
-    fi
+    fedora_setup_flatpak
 
-    # Shell Setup
-    if ! is_step_complete "fedora_shell_setup"; then
-        fedora_setup_shell
-        mark_step_complete "fedora_shell_setup"
-    fi
+    fedora_setup_shell
 
-    # Logitech Hardware Support
-    if ! is_step_complete "fedora_solaar_setup"; then
-        fedora_setup_solaar
-        mark_step_complete "fedora_solaar_setup"
-    fi
+    fedora_setup_solaar
 
-    # Locale Configuration
-    if ! is_step_complete "fedora_locale"; then
-        fedora_configure_locale
-        mark_step_complete "fedora_locale"
-    fi
+    fedora_configure_locale
 
     log_success "Fedora configuration completed"
 }

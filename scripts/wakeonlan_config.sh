@@ -91,12 +91,12 @@ wakeonlan_install_ethtool() {
     else
         # Fallback: try common package managers
         if command_exists pacman; then
-            sudo pacman -S --noconfirm --needed ethtool >> "$INSTALL_LOG" 2>&1 || true
+            sudo pacman -S --noconfirm --needed ethtool || true
         elif command_exists apt-get; then
-            sudo apt-get update -y >> "$INSTALL_LOG" 2>&1 || true
-            sudo apt-get install -y ethtool >> "$INSTALL_LOG" 2>&1 || true
+            sudo apt-get update -y || true
+            sudo apt-get install -y ethtool || true
         elif command_exists dnf; then
-            sudo dnf install -y ethtool >> "$INSTALL_LOG" 2>&1 || true
+            sudo dnf install -y ethtool || true
         else
             log_warn "No known package manager wrapper available and 'install_pkg' not present. Please install 'ethtool' manually."
             return 1
@@ -165,8 +165,8 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-    sudo systemctl daemon-reload >> "$INSTALL_LOG" 2>&1 || true
-    sudo systemctl enable --now "wol-${safe_iface}.service" >> "$INSTALL_LOG" 2>&1 || sudo systemctl start "wol-${safe_iface}.service" >> "$INSTALL_LOG" 2>&1 || true
+    sudo systemctl daemon-reload || true
+    sudo systemctl enable --now "wol-${safe_iface}.service" || sudo systemctl start "wol-${safe_iface}.service" || true
     log_success "Created and enabled systemd service for $iface"
 }
 
@@ -197,14 +197,14 @@ wakeonlan_persist_via_nm() {
         return 0
     fi
 
-    if sudo nmcli connection modify "$conn" 802-3-ethernet.wake-on-lan magic >> "$INSTALL_LOG" 2>&1; then
+    if sudo nmcli connection modify "$conn" 802-3-ethernet.wake-on-lan magic; then
         log_success "Set NetworkManager connection '$conn' wake-on-lan=magic"
         # try to reapply to ensure immediate effect
-        sudo nmcli connection down "$conn" >> "$INSTALL_LOG" 2>&1 || true
-        sudo nmcli connection up "$conn" >> "$INSTALL_LOG" 2>&1 || true
+        sudo nmcli connection down "$conn" || true
+        sudo nmcli connection up "$conn" || true
         return 0
     else
-        log_warn "Failed to set wake-on-lan for NM connection '$conn' (see $INSTALL_LOG)"
+        log_warn "Failed to set wake-on-lan for NM connection '$conn'"
         return 1
     fi
 }
@@ -223,7 +223,7 @@ wakeonlan_enable_iface() {
     if [ "${DRY_RUN:-false}" = "true" ]; then
         log_info "[DRY-RUN] Would run: ethtool -s $iface wol g"
     else
-        if sudo ethtool -s "$iface" wol g >> "$INSTALL_LOG" 2>&1; then
+        if sudo ethtool -s "$iface" wol g; then
             log_success "Enabled Wake-on-LAN (runtime) on $iface"
         else
             log_warn "Failed to enable Wake-on-LAN (runtime) on $iface. This may be normal for some virtual/wireless interfaces."
@@ -248,7 +248,7 @@ wakeonlan_disable_iface() {
     if [ "${DRY_RUN:-false}" = "true" ]; then
         log_info "[DRY-RUN] Would run: ethtool -s $iface wol d"
     else
-        sudo ethtool -s "$iface" wol d >> "$INSTALL_LOG" 2>&1 || true
+        sudo ethtool -s "$iface" wol d || true
         log_info "Attempted to disable WoL runtime setting on $iface"
     fi
 
@@ -260,7 +260,7 @@ wakeonlan_disable_iface() {
                 if [ "${DRY_RUN:-false}" = "true" ]; then
                     log_info "[DRY-RUN] Would reset wake-on-lan for NM connection '$name'"
                 else
-                    sudo nmcli connection modify "$name" 802-3-ethernet.wake-on-lan default >> "$INSTALL_LOG" 2>&1 || sudo nmcli connection modify "$name" 802-3-ethernet.wake-on-lan "" >> "$INSTALL_LOG" 2>&1 || true
+                    sudo nmcli connection modify "$name" 802-3-ethernet.wake-on-lan default || sudo nmcli connection modify "$name" 802-3-ethernet.wake-on-lan "" || true
                     log_info "Reset NetworkManager wake-on-lan for '$name'"
                 fi
             fi
@@ -272,9 +272,9 @@ wakeonlan_disable_iface() {
         if [ "${DRY_RUN:-false}" = "true" ]; then
             log_info "[DRY-RUN] Would remove $svc_file and disable service"
         else
-            sudo systemctl disable --now "wol-${safe_iface}.service" >> "$INSTALL_LOG" 2>&1 || true
+            sudo systemctl disable --now "wol-${safe_iface}.service" || true
             sudo rm -f "$svc_file"
-            sudo systemctl daemon-reload >> "$INSTALL_LOG" 2>&1 || true
+            sudo systemctl daemon-reload || true
             log_success "Removed systemd service for $iface"
         fi
     fi
@@ -329,7 +329,6 @@ wakeonlan_status() {
 # Enable WoL on all detected wired interfaces (idempotent)
 wakeonlan_enable_all() {
     step "Configuring Wake-on-LAN for wired interfaces"
-    CURRENT_STEP_MESSAGE="Configuring Wake-on-LAN for wired interfaces"
 
     # Try to ensure we can run runtime commands
     wakeonlan_install_ethtool || log_warn "ethtool installation/check failed; continuing but operations may fail."
@@ -339,7 +338,6 @@ wakeonlan_enable_all() {
 
     if [ ${#devs[@]} -eq 0 ]; then
         log_warn "No wired Ethernet interfaces detected; skipping Wake-on-LAN configuration"
-        mark_step_complete "wakeonlan_setup"
         return 0
     fi
 
@@ -356,25 +354,21 @@ wakeonlan_enable_all() {
 
     if [ $success_count -gt 0 ]; then
         log_success "Configured Wake-on-LAN on $success_count interface(s) out of $cnt attempted"
-        mark_step_complete "wakeonlan_setup"
     else
         log_warn "No suitable interfaces found for Wake-on-LAN configuration"
         log_info "Wake-on-LAN may not be supported on virtual/wireless interfaces"
-        mark_step_complete "wakeonlan_setup"
     fi
 }
 
 # Disable WoL on all detected wired interfaces and remove persistence
 wakeonlan_disable_all() {
     step "Disabling Wake-on-LAN for wired interfaces"
-    CURRENT_STEP_MESSAGE="Disabling Wake-on-LAN for wired interfaces"
 
     local devs
     mapfile -t devs < <(detect_wired_interfaces)
 
     if [ ${#devs[@]} -eq 0 ]; then
         log_warn "No wired interfaces detected; nothing to disable"
-        mark_step_complete "wakeonlan_disable"
         return 0
     fi
 
@@ -383,26 +377,17 @@ wakeonlan_disable_all() {
     done
 
     log_success "Disabled Wake-on-LAN for detected wired interfaces"
-    mark_step_complete "wakeonlan_disable"
 }
 
 # Show WoL status (non-invasive)
 wakeonlan_show_status() {
     step "Wake-on-LAN status"
-    CURRENT_STEP_MESSAGE="Checked Wake-on-LAN status"
     wakeonlan_status
-    mark_step_complete "wakeonlan_status"
 }
 
 # Public entrypoint for linuxinstaller
 # Call this function (e.g. from install flow) to enable WoL automatically
 wakeonlan_main_config() {
-    # Avoid re-running if already completed
-    if is_step_complete "wakeonlan_setup"; then
-        log_info "Wake-on-LAN already configured; skipping"
-        return 0
-    fi
-
     wakeonlan_enable_all
 }
 

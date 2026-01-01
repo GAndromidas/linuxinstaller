@@ -324,65 +324,25 @@ performance_configure_gaming() {
 performance_main_config() {
     log_info "Starting performance optimization..."
 
-    # Install performance packages
-    if ! is_step_complete "performance_install_packages"; then
-        performance_install_performance_packages
-        mark_step_complete "performance_install_packages"
-    fi
+    performance_install_performance_packages
 
-    # Configure ZRAM
-    if ! is_step_complete "performance_configure_zram"; then
-        performance_configure_zram
-        mark_step_complete "performance_configure_zram"
-    fi
+    performance_configure_zram
 
-    # Configure swappiness
-    if ! is_step_complete "performance_configure_swappiness"; then
-        performance_configure_swappiness
-        mark_step_complete "performance_configure_swappiness"
-    fi
+    performance_configure_swappiness
 
-    # Configure CPU governor
-    if ! is_step_complete "performance_configure_cpu_governor"; then
-        performance_configure_cpu_governor
-        mark_step_complete "performance_configure_cpu_governor"
-    fi
+    performance_configure_cpu_governor
 
-    # Configure filesystem
-    if ! is_step_complete "performance_configure_filesystem"; then
-        performance_configure_filesystem
-        mark_step_complete "performance_configure_filesystem"
-    fi
+    performance_configure_filesystem
 
-    # Configure network
-    if ! is_step_complete "performance_configure_network"; then
-        performance_configure_network
-        mark_step_complete "performance_configure_network"
-    fi
+    performance_configure_network
 
-    # Configure kernel
-    if ! is_step_complete "performance_configure_kernel"; then
-        performance_configure_kernel
-        mark_step_complete "performance_configure_kernel"
-    fi
+    performance_configure_kernel
 
-    # Configure services
-    if ! is_step_complete "performance_configure_services"; then
-        performance_configure_services
-        mark_step_complete "performance_configure_services"
-    fi
+    performance_configure_services
 
-    # Configure Btrfs
-    if ! is_step_complete "performance_configure_btrfs"; then
-        performance_configure_btrfs
-        mark_step_complete "performance_configure_btrfs"
-    fi
+    performance_configure_btrfs
 
-    # Configure gaming performance
-    if ! is_step_complete "performance_configure_gaming"; then
-        performance_configure_gaming
-        mark_step_complete "performance_configure_gaming"
-    fi
+    performance_configure_gaming
 
     log_success "Performance optimization completed"
 }

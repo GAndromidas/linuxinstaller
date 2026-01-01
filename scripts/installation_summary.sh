@@ -40,28 +40,12 @@ show_installation_summary() {
     fi
 
     # Show configuration summary
-    if [ -f "$STATE_FILE" ] && [ -s "$STATE_FILE" ]; then
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" "Configuration Completed:"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "The following steps were configured:"
-            while IFS= read -r step; do
-                gum style --margin "0 8" --foreground "$GUM_SUCCESS_FG" "✓ $step"
-            done < "$STATE_FILE"
-            echo ""
-        else
-            echo "Configuration Completed:"
-            echo "The following steps were configured:"
-            while IFS= read -r step; do
-                echo "  ✓ $step"
-            done < "$STATE_FILE"
-            echo ""
-        fi
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" "Installation completed"
+        echo ""
     else
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" "Fresh installation completed"
-        else
-            echo "Fresh installation completed"
-        fi
+        echo "Installation completed"
+        echo ""
     fi
 
     # Show gaming status

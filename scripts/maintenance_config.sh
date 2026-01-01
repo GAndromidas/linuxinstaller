@@ -463,29 +463,13 @@ maintenance_configure_automatic_updates() {
 maintenance_main_config() {
     log_info "Starting maintenance configuration..."
 
-    # Install maintenance packages
-    if ! is_step_complete "maintenance_install_packages"; then
-        maintenance_install_packages
-        mark_step_complete "maintenance_install_packages"
-    fi
+    maintenance_install_packages
 
-    # Configure Btrfs snapshots
-    if ! is_step_complete "maintenance_configure_btrfs_snapshots"; then
-        maintenance_configure_btrfs_snapshots
-        mark_step_complete "maintenance_configure_btrfs_snapshots"
-    fi
+    maintenance_configure_btrfs_snapshots
 
-    # Configure pre-update snapshot function
-    if ! is_step_complete "maintenance_setup_pre_update_snapshots"; then
-        maintenance_setup_pre_update_snapshots
-        mark_step_complete "maintenance_setup_pre_update_snapshots"
-    fi
+    maintenance_setup_pre_update_snapshots
 
-    # Configure automatic updates (Fedora/Debian/Ubuntu)
-    if ! is_step_complete "maintenance_configure_automatic_updates"; then
-        maintenance_configure_automatic_updates
-        mark_step_complete "maintenance_configure_automatic_updates"
-    fi
+    maintenance_configure_automatic_updates
 
     log_success "Maintenance configuration completed"
 }

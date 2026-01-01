@@ -304,49 +304,19 @@ security_configure_user_groups() {
 security_main_config() {
     log_info "Starting security configuration..."
 
-    # Install security packages
-    if ! is_step_complete "security_install_packages"; then
-        security_install_packages
-        mark_step_complete "security_install_packages"
-    fi
+    security_install_packages
 
-    # Configure fail2ban
-    if ! is_step_complete "security_configure_fail2ban"; then
-        security_configure_fail2ban
-        mark_step_complete "security_configure_fail2ban"
-    fi
+    security_configure_fail2ban
 
-    # Configure firewall
-    if ! is_step_complete "security_configure_firewall"; then
-        security_configure_firewall
-        mark_step_complete "security_configure_firewall"
-    fi
+    security_configure_firewall
 
-    # Configure AppArmor
-    if ! is_step_complete "security_configure_apparmor"; then
-        security_configure_apparmor
-        mark_step_complete "security_configure_apparmor"
-    fi
+    security_configure_apparmor
 
-    # Configure SELinux
-    if ! is_step_complete "security_configure_selinux"; then
-        security_configure_selinux
-        mark_step_complete "security_configure_selinux"
-    fi
+    security_configure_selinux
 
-    # Configure SSH
-    if ! is_step_complete "security_configure_ssh"; then
-        security_configure_ssh
-        mark_step_complete "security_configure_ssh"
-    fi
+    security_configure_ssh
 
-    # Configure user groups
-    if ! is_step_complete "security_configure_user_groups"; then
-        security_configure_user_groups
-        mark_step_complete "security_configure_user_groups"
-    fi
-
-
+    security_configure_user_groups
 
     log_success "Security configuration completed"
 }

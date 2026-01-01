@@ -608,66 +608,26 @@ arch_configure_locale() {
 arch_main_config() {
     log_info "Starting Arch Linux configuration..."
 
-    # System Preparation
-    if ! is_step_complete "arch_system_preparation"; then
-        arch_system_preparation
-        mark_step_complete "arch_system_preparation"
-    fi
+    arch_system_preparation
 
-    # AUR Helper Setup (already done in system preparation)
-    if ! is_step_complete "arch_aur_helper"; then
-        # AUR helper is already installed in system preparation
-        log_success "AUR helper (yay) is ready"
-        mark_step_complete "arch_aur_helper"
-    fi
+    # AUR helper is already installed in system preparation
+    log_success "AUR helper (yay) is ready"
 
-    # Mirror Configuration (after AUR helper is installed)
-    if ! is_step_complete "arch_mirrors"; then
-        arch_configure_mirrors
-        mark_step_complete "arch_mirrors"
-    fi
+    arch_configure_mirrors
 
-    # Bootloader Configuration
-    if ! is_step_complete "arch_bootloader"; then
-        arch_configure_bootloader
-        mark_step_complete "arch_bootloader"
-    fi
+    arch_configure_bootloader
 
-    # Plymouth Configuration (Arch Linux only)
-    if ! is_step_complete "arch_plymouth"; then
-        arch_configure_plymouth
-        mark_step_complete "arch_plymouth"
-    fi
+    arch_configure_plymouth
 
-    # Shell Setup
-    if ! is_step_complete "arch_shell_setup"; then
-        arch_setup_shell
-        mark_step_complete "arch_shell_setup"
-    fi
+    arch_setup_shell
 
-    # KDE Shortcuts (Arch Linux only)
-    if ! is_step_complete "arch_kde_shortcuts"; then
-        arch_setup_kde_shortcuts
-        mark_step_complete "arch_kde_shortcuts"
-    fi
+    arch_setup_kde_shortcuts
 
-    # Logitech Hardware Support
-    if ! is_step_complete "arch_solaar_setup"; then
-        arch_setup_solaar
-        mark_step_complete "arch_solaar_setup"
-    fi
+    arch_setup_solaar
 
-    # System Services
-    if ! is_step_complete "arch_system_services"; then
-        arch_enable_system_services
-        mark_step_complete "arch_system_services"
-    fi
+    arch_enable_system_services
 
-    # Locale Configuration
-    if ! is_step_complete "arch_locale"; then
-        arch_configure_locale
-        mark_step_complete "arch_locale"
-    fi
+    arch_configure_locale
 
     log_success "Arch Linux configuration completed"
 }

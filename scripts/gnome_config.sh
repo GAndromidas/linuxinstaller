@@ -263,47 +263,19 @@ gnome_install_gnome_software() {
 gnome_main_config() {
     log_info "Starting GNOME configuration..."
 
-    # Install GNOME packages
-    if ! is_step_complete "gnome_install_packages"; then
-        gnome_install_packages
-        mark_step_complete "gnome_install_packages"
-    fi
+    gnome_install_packages
 
-    # Configure extensions
-    if ! is_step_complete "gnome_configure_extensions"; then
-        gnome_configure_extensions
-        mark_step_complete "gnome_configure_extensions"
-    fi
+    gnome_configure_extensions
 
-    # Configure theme
-    if ! is_step_complete "gnome_configure_theme"; then
-        gnome_configure_theme
-        mark_step_complete "gnome_configure_theme"
-    fi
+    gnome_configure_theme
 
-    # Configure shortcuts
-    if ! is_step_complete "gnome_configure_shortcuts"; then
-        gnome_configure_shortcuts
-        mark_step_complete "gnome_configure_shortcuts"
-    fi
+    gnome_configure_shortcuts
 
-    # Configure desktop
-    if ! is_step_complete "gnome_configure_desktop"; then
-        gnome_configure_desktop
-        mark_step_complete "gnome_configure_desktop"
-    fi
+    gnome_configure_desktop
 
-    # Configure network
-    if ! is_step_complete "gnome_configure_network"; then
-        gnome_configure_network
-        mark_step_complete "gnome_configure_network"
-    fi
+    gnome_configure_network
 
-    # Install GNOME Software
-    if ! is_step_complete "gnome_install_gnome_software"; then
-        gnome_install_gnome_software
-        mark_step_complete "gnome_install_gnome_software"
-    fi
+    gnome_install_gnome_software
 
     log_success "GNOME configuration completed"
 }
