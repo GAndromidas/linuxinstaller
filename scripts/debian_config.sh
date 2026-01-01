@@ -27,25 +27,25 @@ UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 # These packages are installed in ALL modes (standard, minimal, server)
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 DEBIAN_ESSENTIALS=(
-    "build-essential"
-    "bc"
-    "bluez"
-    "cron"
-    "curl"
-    "eza"
-    "fastfetch"
-    "flatpak"
-    "fzf"
-    "git"
-    "openssh-server"
-    "rsync"
-    "starship"
-    "ufw"
-    "wget"
-    "zsh"
-    "zsh-autosuggestions"
-    "zsh-syntax-highlighting"
-    "zoxide"
+    bc
+    bluez
+    build-essential
+    cron
+    curl
+    eza
+    fastfetch
+    flatpak
+    fzf
+    git
+    openssh-server
+    rsync
+    starship
+    ufw
+    wget
+    zsh
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    zoxide
 )
 
 # Debian/Ubuntu-specific package lists (centralized in this module)
@@ -54,12 +54,14 @@ DEBIAN_ESSENTIALS=(
 # to use native Debian/Ubuntu package names
 DEBIAN_NATIVE_STANDARD=(
     adb
-    fastboot
+    apt-transport-https
     bat
     bleachbit
     btop
+    ca-certificates
     cmatrix
     dosfstools
+    fastboot
     firefox
     fonts-liberation
     fwupd
@@ -76,15 +78,13 @@ DEBIAN_NATIVE_STANDARD=(
     unrar
     wakeonlan
     xdg-desktop-portal-gtk
-    apt-transport-https
-    ca-certificates
 )
 
 DEBIAN_FLATPAK_STANDARD=(
-    com.spotify.Client
     com.dropbox.Client
-    org.kde.kdenlive
     com.rustdesk.RustDesk
+    com.spotify.Client
+    org.kde.kdenlive
 )
 
 # Minimal mode (lightweight desktop setup with core utilities)
@@ -112,14 +112,14 @@ DEBIAN_NATIVE_SERVER=(
     cmatrix
     docker.io
     dosfstools
+    fail2ban
     htop
+    nano
     ncdu
     net-tools
-    nmap
-    nano
-    speedtest-cli
-    fail2ban
     nethogs
+    nmap
+    speedtest-cli
     tmux
 )
 
@@ -133,8 +133,8 @@ DEBIAN_DE_KDE_NATIVE=(
     python-pyqt5
     python-pyqt6
     qbittorrent
-    spectacle
     smplayer
+    spectacle
 )
 
 DEBIAN_DE_GNOME_NATIVE=(
@@ -147,16 +147,16 @@ DEBIAN_DE_GNOME_NATIVE=(
 )
 
 DEBIAN_GAMING_NATIVE=(
+    gamemode
+    mangohud
     steam
     wine
-    mangohud
-    gamemode
 )
 
 DEBIAN_GAMING_FLATPAK=(
-    io.github.Faugus.faugus-launcher
     com.heroicgameslauncher.hgl
     com.vysp3r.ProtonPlus
+    io.github.Faugus.faugus-launcher
 )
 
 # distro_get_packages function used by the main installer

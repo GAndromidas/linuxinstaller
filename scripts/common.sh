@@ -364,13 +364,8 @@ install_pkg() {
                 yay_user="$USER"
             fi
 
-            # Validate user exists before using sudo
-            if [ -n "$yay_user" ] && getent passwd "$yay_user" >/dev/null 2>&1; then
-                sudo -u "$yay_user" yay -S --noconfirm --needed --removemake "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
-            else
-                log_error "Cannot determine valid user for AUR installation"
-                install_status=1
-            fi
+            # Install AUR packages directly as root (since script runs as root)
+            yay -S --noconfirm --needed --removemake --sudoflags "--non-interactive" "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
         fi
     else
         $PKG_INSTALL $PKG_NOCONFIRM "${valid_packages[@]}"

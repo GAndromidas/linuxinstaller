@@ -27,114 +27,127 @@ FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 FEDORA_ESSENTIALS=(
     "@development-tools"
-    "bc"
-    "cronie"
-    "curl"
-    "eza"
-    "fastfetch"
-    "flatpak"
-    "fzf"
-    "git"
-    "openssh-server"
-    "rsync"
-    "starship"
-    "wget"
-    "zsh"
-    "zsh-autosuggestions"
-    "zsh-syntax-highlighting"
-    "zoxide"
+    bc
+    cronie
+    curl
+    eza
+    fastfetch
+    flatpak
+    fzf
+    git
+    openssh-server
+    rsync
+    starship
+    wget
+    zsh
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    zoxide
 )
 
 # Fedora-specific package lists (centralized in this module)
 # Mode-specific native packages
 FEDORA_NATIVE_STANDARD=(
-    "android-tools"
-    "bat"
-    "bleachbit"
-    "btop"
-    "cmatrix"
-    "filezilla"
-    "hwinfo"
-    "inxi"
-    "python3-speedtest-cli"
-    "sl"
-    "unrar"
-    "unzip"
+    adb
+    bat
+    bleachbit
+    btop
+    cmatrix
+    fastboot
+    filezilla
+    hwinfo
+    inxi
+    python3-speedtest-cli
+    sl
+    unrar
+    unzip
 )
 
 # Flatpak entries (Flathub IDs)
 FEDORA_FLATPAK_STANDARD=(
-    "it.mijorus.gearlever"
-    "com.rustdesk.RustDesk"
+    com.rustdesk.RustDesk
+    it.mijorus.gearlever
 )
 
-# Minimal mode: smaller, essential-centric set
-# Note: FEDORA_ESSENTIALS packages are already installed
+# Minimal mode: lightweight desktop with essential tools only
 FEDORA_NATIVE_MINIMAL=(
-    "bat"
-    "bleachbit"
-    "btop"
-    "cmatrix"
-    "filezilla"
-    "hwinfo"
-    "inxi"
-    "python3-speedtest-cli"
-    "sl"
-    "unrar"
-    "unzip"
+    bat
+    btop
+    cmatrix
+    mpv
+    ncdu
+    sl
 )
 
 FEDORA_FLATPAK_MINIMAL=(
-    "it.mijorus.gearlever"
-    "com.rustdesk.RustDesk"
+    com.rustdesk.RustDesk
+    it.mijorus.gearlever
 )
 
-# Server mode (lean, headless)
-# Note: FEDORA_ESSENTIALS packages are already installed
+# Server mode: headless server with monitoring and security tools
 FEDORA_NATIVE_SERVER=(
-    "fail2ban"
-    "btop"
-    "duf"
+    bat
+    btop
+    cmatrix
+    cpupower
+    docker
+    docker-compose
+    dosfstools
+    duf
+    fail2ban
+    htop
+    hwinfo
+    inxi
+    nano
+    ncdu
+    net-tools
+    nmap
+    samba
+    speedtest-cli
+    sshfs
+    tmux
+    unrar
+    wakeonlan
 )
 
 # Desktop environment specific packages (native + flatpak)
 FEDORA_DE_GNOME_NATIVE=(
-    "celluloid"
-    "dconf-editor"
-    "gnome-tweaks"
-    "seahorse"
-    "transmission-gtk"
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    seahorse
+    transmission-gtk
 )
 FEDORA_DE_GNOME_FLATPAK=(
-    "com.mattjakeman.ExtensionManager"
+    com.mattjakeman.ExtensionManager
 )
 
 FEDORA_DE_KDE_NATIVE=(
-    "kvantum"
-    "qbittorrent"
-    "smplayer"
+    kvantum
+    qbittorrent
+    smplayer
 )
 FEDORA_DE_KDE_FLATPAK=(
-    "it.mijorus.gearlever"
+    it.mijorus.gearlever
 )
 
 # Gaming packages
 FEDORA_GAMING_NATIVE=(
-    "steam"
-    "wine"
-    "mesa-vulkan-drivers"
-    "vulkan-loader"
-    "mangohud"
-    "gamemode"
+    gamemode
+    mangohud
+    mesa-vulkan-drivers
+    steam
+    vulkan-loader
+    wine
 )
 FEDORA_GAMING_FLATPAK=(
-    "com.heroicgameslauncher.hgl"
-    "com.vysp3r.ProtonPlus"
-    "io.github.Faugus.faugus-launcher"
+    com.heroicgameslauncher.hgl
+    com.vysp3r.ProtonPlus
+    io.github.Faugus.faugus-launcher
 )
 # COPR repositories
 FEDORA_COPR_REPOS=(
-    "alternateved/eza"
+    alternateved/eza
 )
 
 # ---------------------------------------------------------------------------

@@ -151,38 +151,76 @@ EOF
 performance_configure_services() {
     step "Configuring Service Performance"
 
-    # Disable unnecessary services for performance
-    local services_to_disable=(
-        "bluetooth"
-        "cups"
-        "avahi-daemon"
-        "ModemManager"
-    )
+    # Add any service-specific performance optimizations here
+    log_info "Service performance optimizations completed"
+}
 
-    for service in "${services_to_disable[@]}"; do
-        if systemctl list-unit-files | grep -q "^$service"; then
-            if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
-                systemctl disable "$service" >/dev/null 2>&1
-                log_info "Disabled service: $service"
+# Configure CPU microcode updates for security and stability
+performance_configure_microcode() {
+    step "Configuring CPU Microcode Updates"
+
+    # Detect CPU vendor
+    local cpu_vendor=""
+    if grep -qi "amd" /proc/cpuinfo; then
+        cpu_vendor="amd"
+        log_info "AMD CPU detected"
+    elif grep -qi "intel" /proc/cpuinfo; then
+        cpu_vendor="intel"
+        log_info "Intel CPU detected"
+    else
+        log_warn "Unknown CPU vendor - skipping microcode installation"
+        return 0
+    fi
+
+    # Determine correct package name based on distro and CPU vendor
+    local microcode_package=""
+    case "$DISTRO_ID" in
+        "arch")
+            case "$cpu_vendor" in
+                "amd") microcode_package="amd-ucode" ;;
+                "intel") microcode_package="intel-ucode" ;;
+            esac
+            ;;
+        "fedora")
+            case "$cpu_vendor" in
+                "amd") microcode_package="amd-ucode" ;;
+                "intel") microcode_package="intel-ucode" ;;
+            esac
+            ;;
+        "debian"|"ubuntu")
+            case "$cpu_vendor" in
+                "amd") microcode_package="amd64-microcode" ;;
+                "intel") microcode_package="intel-microcode" ;;
+            esac
+            ;;
+        *)
+            log_warn "Microcode installation not supported for $DISTRO_ID"
+            return 0
+            ;;
+    esac
+
+    if [ -n "$microcode_package" ]; then
+        log_info "Installing $cpu_vendor microcode package: $microcode_package"
+
+        # Check if already installed
+        if is_package_installed "$microcode_package" 2>/dev/null; then
+            log_info "$microcode_package is already installed"
+        else
+            # Install the microcode package
+            if install_pkg "$microcode_package"; then
+                log_success "$cpu_vendor microcode updates installed"
+                log_info "Microcode updates will be applied on next boot"
+                log_info "For immediate application: sudo update-initramfs -u (Debian/Ubuntu)"
+                log_info "For immediate application: sudo mkinitcpio -P (Arch)"
+            else
+                log_warn "Failed to install $microcode_package"
+                log_info "Microcode updates provide important CPU security fixes"
+                log_info "Consider installing manually: $microcode_package"
             fi
         fi
-    done
-
-    # Enable essential services
-    local services_to_enable=(
-        "cronie"
-        "sshd"
-        "fstrim.timer"
-    )
-
-    for service in "${services_to_enable[@]}"; do
-        if systemctl list-unit-files | grep -q "^$service"; then
-            if ! systemctl is-enabled "$service" >/dev/null 2>&1; then
-                systemctl enable --now "$service" >/dev/null 2>&1
-                log_success "Enabled service: $service"
-            fi
-        fi
-    done
+    else
+        log_warn "Could not determine microcode package for $cpu_vendor on $DISTRO_ID"
+    fi
 }
 
 # Install performance optimization packages for all distributions
@@ -287,9 +325,7 @@ performance_configure_gaming() {
 # =============================================================================
 
 performance_main_config() {
-    log_info "Starting performance optimization..."
-
-    performance_install_performance_packages
+    performance_configure_microcode
 
     performance_configure_swappiness
 
@@ -306,18 +342,17 @@ performance_main_config() {
     performance_configure_btrfs
 
     performance_configure_gaming
-
-    log_success "Performance optimization completed"
 }
 
 # Export functions for use by main installer
 export -f performance_main_config
+export -f performance_configure_microcode
 export -f performance_configure_swappiness
 export -f performance_configure_cpu_governor
 export -f performance_configure_filesystem
 export -f performance_configure_network
 export -f performance_configure_kernel
 export -f performance_configure_services
-export -f performance_install_performance_packages
+
 export -f performance_configure_btrfs
 export -f performance_configure_gaming

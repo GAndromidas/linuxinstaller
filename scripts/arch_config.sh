@@ -28,36 +28,38 @@ AUR_HELPER="yay"
 PARALLEL_DOWNLOADS=10
 
 # Arch-specific package lists (base/common)
+# These packages are installed in ALL modes (standard, minimal, server)
+# Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 ARCH_ESSENTIALS=(
-    "base-devel"
-    "bc"
-    "bluez-utils"
-    "cronie"
-    "curl"
-    "eza"
-    "expac"
-    "fastfetch"
-    "flatpak"
-    "fzf"
-    "git"
-    "openssh"
-    "pacman-contrib"
-    "plymouth"
-    "rsync"
-    "starship"
-    "ufw"
-    "wget"
-    "zsh"
-    "zsh-autosuggestions"
-    "zsh-syntax-highlighting"
-    "zoxide"
+    base-devel
+    bc
+    bluez-utils
+    cronie
+    curl
+    eza
+    expac
+    fastfetch
+    flatpak
+    fzf
+    git
+    openssh
+    pacman-contrib
+    plymouth
+    rsync
+    starship
+    ufw
+    wget
+    zsh
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    zoxide
 )
 
 ARCH_OPTIMIZATION=(
-    "linux-lts"
-    "linux-lts-headers"
-    "btrfs-assistant"
-    "btrfsmaintenance"
+    btrfs-assistant
+    btrfsmaintenance
+    linux-lts
+    linux-lts-headers
 )
 
 # ---------------------------------------------------------------------------
@@ -69,40 +71,40 @@ ARCH_OPTIMIZATION=(
 
 # Standard mode (native / pacman packages)
 ARCH_NATIVE_STANDARD=(
-    "android-tools"
-    "bat"
-    "bleachbit"
-    "btop"
-    "chromium"
-    "cmatrix"
-    "cpupower"
-    "dosfstools"
-    "duf"
-    "firefox"
-    "fwupd"
-    "gnome-disk-utility"
-    "hwinfo"
-    "inxi"
-    "mpv"
-    "ncdu"
-    "net-tools"
-    "nmap"
-    "noto-fonts-extra"
-    "samba"
-    "sl"
-    "speedtest-cli"
-    "sshfs"
-    "ttf-hack-nerd"
-    "ttf-liberation"
-    "unrar"
-    "wakeonlan"
-    "xdg-desktop-portal-gtk"
+    android-tools
+    bat
+    bleachbit
+    btop
+    chromium
+    cmatrix
+    cpupower
+    dosfstools
+    duf
+    firefox
+    fwupd
+    gnome-disk-utility
+    hwinfo
+    inxi
+    mpv
+    ncdu
+    net-tools
+    nmap
+    noto-fonts-extra
+    samba
+    sl
+    speedtest-cli
+    sshfs
+    ttf-hack-nerd
+    ttf-liberation
+    unrar
+    wakeonlan
+    xdg-desktop-portal-gtk
 )
 
 # Standard mode (native essentials / pacman packages)
 ARCH_NATIVE_STANDARD_ESSENTIALS=(
-    "filezilla"
-    "zed"
+    filezilla
+    zed
 )
 
 # =============================================================================
@@ -111,115 +113,120 @@ ARCH_NATIVE_STANDARD_ESSENTIALS=(
 
 # AUR packages for Standard
 ARCH_AUR_STANDARD=(
-    "dropbox"
-    "onlyoffice-bin"
-    "rustdesk-bin"
-    "spotify"
-    "ventoy-bin"
-    "via-bin"  # VIA keyboard configurator (USB or Bluetooth)
+    dropbox
+    onlyoffice-bin
+    rustdesk-bin
+    spotify
+    ventoy-bin
+    via-bin
 )
 # Flatpaks for Standard (Flathub IDs)
 ARCH_FLATPAK_STANDARD=(
-    "it.mijorus.gearlever"
-    "io.github.shiftey.Desktop"
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
 )
 
-# Minimal mode (intentionally small)
+# Minimal mode: lightweight desktop with essential tools only
 ARCH_NATIVE_MINIMAL=(
-    "mpv"
+    bat
+    btop
+    cmatrix
+    mpv
+    ncdu
+    sl
 )
 
 ARCH_AUR_MINIMAL=(
-    "onlyoffice-bin"
-    "rustdesk-bin"
+    onlyoffice-bin
+    rustdesk-bin
 )
 
 ARCH_FLATPAK_MINIMAL=(
-    "it.mijorus.gearlever"
+    it.mijorus.gearlever
 )
 
-# Server mode (headless / server-lean)
+# Server mode: headless server with monitoring and security tools
 ARCH_NATIVE_SERVER=(
-    "bat"
-    "btop"
-    "cmatrix"
-    "cpupower"
-    "docker"
-    "docker-compose"
-    "dosfstools"
-    "duf"
-    "expac"
-    "fwupd"
-    "hwinfo"
-    "inxi"
-    "nano"
-    "ncdu"
-    "net-tools"
-    "nmap"
-    "noto-fonts-extra"
-    "samba"
-    "sl"
-    "speedtest-cli"
-    "sshfs"
-    "ttf-hack-nerd"
-    "ttf-liberation"
-    "unrar"
-    "wakeonlan"
+    bat
+    btop
+    cmatrix
+    cpupower
+    docker
+    docker-compose
+    dosfstools
+    duf
+    expac
+    fail2ban
+    fwupd
+    htop
+    hwinfo
+    inxi
+    nano
+    ncdu
+    net-tools
+    nmap
+    samba
+    sl
+    speedtest-cli
+    sshfs
+    tmux
+    unrar
+    wakeonlan
 )
 
 # Desktop environment specific packages
 ARCH_DE_KDE_NATIVE=(
-    "gwenview"
-    "kdeconnect"
-    "kdenlive"
-    "kwalletmanager"
-    "kvantum"
-    "okular"
-    "python-pyqt5"
-    "python-pyqt6"
-    "qbittorrent"
-    "spectacle"
-    "smplayer"
+    gwenview
+    kdeconnect
+    kdenlive
+    kwalletmanager
+    kvantum
+    okular
+    python-pyqt5
+    python-pyqt6
+    qbittorrent
+    smplayer
+    spectacle
 )
 
 ARCH_DE_GNOME_NATIVE=(
-    "adw-gtk-theme"
-    "celluloid"
-    "dconf-editor"
-    "gnome-tweaks"
-    "gufw"
-    "seahorse"
-    "transmission-gtk"
+    adw-gtk-theme
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    gufw
+    seahorse
+    transmission-gtk
 )
 
 ARCH_DE_KDE_FLATPAK=(
-    "it.mijorus.gearlever"
+    it.mijorus.gearlever
 )
 ARCH_DE_GNOME_FLATPAK=(
-    "com.mattjakeman.ExtensionManager"
-    "it.mijorus.gearlever"
+    com.mattjakeman.ExtensionManager
+    it.mijorus.gearlever
 )
 
 # Gaming packages
 ARCH_GAMING_NATIVE=(
-    "steam"
-    "wine"
-    "vulkan-icd-loader"
-    "mesa"
-    "lib32-vulkan-icd-loader"
-    "lib32-mesa"
-    "lib32-glibc"
-    "mangohud"
-    "lib32-mangohud"
-    "gamemode"
-    "lib32-gamemode"
-    "goverlay"
+    gamemode
+    goverlay
+    lib32-gamemode
+    lib32-glibc
+    lib32-mangohud
+    lib32-mesa
+    lib32-vulkan-icd-loader
+    mangohud
+    mesa
+    steam
+    vulkan-icd-loader
+    wine
 )
 
 ARCH_GAMING_FLATPAK=(
-    "com.heroicgameslauncher.hgl"
-    "com.vysp3r.ProtonPlus"
-    "io.github.Faugus.faugus-launcher"
+    com.heroicgameslauncher.hgl
+    com.vysp3r.ProtonPlus
+    io.github.Faugus.faugus-launcher
 )
 
 # ---------------------------------------------------------------------------
@@ -252,30 +259,26 @@ distro_get_packages() {
             ;;
         minimal)
             case "$type" in
-                native)
-                    # Minimal should still install# broader standard native set
-                    # plus# minimal-specific additions to ensure base tooling is present.
-                    printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
-                    printf "%s\n" "${ARCH_NATIVE_MINIMAL[@]}"
-                    ;;
-                aur)    printf "%s\n" "${ARCH_AUR_MINIMAL[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]}" ;;
-                *) return 0 ;;
+                 native)
+                     # Minimal mode: lightweight desktop with essential tools only
+                     printf "%s\n" "${ARCH_NATIVE_MINIMAL[@]}"
+                     ;;
+                 aur)    printf "%s\n" "${ARCH_AUR_MINIMAL[@]}" ;;
+                 flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]}" ;;
+                 *) return 0 ;;
             esac
-            ;;
+            ;; 
         server)
             case "$type" in
-                native)
-                    # Server should include# standard native base set in addition
-                    # to server-specific packages for a reliable headless setup.
-                    printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
-                    printf "%s\n" "${ARCH_NATIVE_SERVER[@]}"
-                    ;;
-                aur)    printf "%s\n" "${ARCH_AUR_SERVER[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]}" ;;
-                *) return 0 ;;
+                 native)
+                     # Server mode: headless server with monitoring and security tools
+                     printf "%s\n" "${ARCH_NATIVE_SERVER[@]}"
+                     ;;
+                 aur)    printf "%s\n" "${ARCH_AUR_SERVER[@]}" ;;
+                 flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]}" ;;
+                 *) return 0 ;;
             esac
-            ;;
+            ;; 
         kde)
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_KDE_NATIVE[@]}" ;;
@@ -388,13 +391,9 @@ arch_system_preparation() {
         local exit_code=0
 
         # Install ONLY rate-mirrors-bin from AUR
-        if install_output=$(sudo -u "$yay_user" yay -S --noconfirm --needed --removemake rate-mirrors-bin 2>&1); then
+        # Since we're running as root, configure yay to use sudo non-interactively
+        if install_output=$(yay -S --noconfirm --needed --removemake --sudoflags "--non-interactive" rate-mirrors-bin 2>&1); then
             log_success "rate-mirrors-bin installed successfully"
-
-            # Clean up any temp files from the installation
-            if [ "$EUID" -eq 0 ] && [ -n "${yay_user:-}" ]; then
-                sudo -u "$yay_user" rm -rf "/tmp/yay"* "/tmp/makepkg"* 2>/dev/null || true
-            fi
         else
             exit_code=$?
             log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
@@ -407,6 +406,9 @@ arch_system_preparation() {
             log_info "  4. Check yay is working: yay --version"
             return 1
         fi
+
+        # Clean up any temp files from the installation
+        rm -rf "/tmp/yay"* "/tmp/makepkg"* 2>/dev/null || true
     else
         log_info "rate-mirrors is already available"
     fi

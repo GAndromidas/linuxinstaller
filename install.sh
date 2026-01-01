@@ -231,12 +231,30 @@ DRY_RUN=false          # Preview mode - show what would be done without changes
 TOTAL_STEPS=0          # Total number of installation steps
 CURRENT_STEP=0         # Current step counter for progress tracking
 INSTALL_MODE="standard" # Installation mode: standard, minimal, or server
+IS_VIRTUAL_MACHINE=false # Whether we're running in a virtual machine
 
 # Helper tracking
 GUM_INSTALLED_BY_SCRIPT=false  # Track if we installed gum to clean it up later
 
 # --- Helper Functions ---
 # Utility functions for script operation and user interaction
+
+# Detect if running in a virtual machine
+detect_virtual_machine() {
+    if [ -f /proc/cpuinfo ]; then
+        grep -qi "hypervisor\|vmware\|virtualbox\|kvm\|qemu\|xen" /proc/cpuinfo && return 0
+    fi
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        grep -qi "virtual\|vmware\|virtualbox\|kvm\|qemu\|xen" /sys/class/dmi/id/product_name && return 0
+    fi
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        grep -qi "vmware\|virtualbox\|kvm\|qemu\|xen\|innotek" /sys/class/dmi/id/sys_vendor && return 0
+    fi
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        systemd-detect-virt --quiet && return 0
+    fi
+    return 1
+}
 
 # Display help message and usage information
 # Shows command-line options, installation modes, and examples
@@ -562,6 +580,118 @@ enable_password_feedback() {
         log_info "You can manually enable it by adding 'Defaults pwfeedback' to /etc/sudoers"
         return 1
     fi
+}
+
+# Smart service enabling for installed packages
+enable_installed_services() {
+    step "Enabling Services for Installed Packages"
+
+    local services_enabled=0
+    local services_skipped=0
+
+    # Bluetooth service
+    if is_package_installed "bluez" 2>/dev/null || is_package_installed "bluez-utils" 2>/dev/null; then
+        if systemctl enable --now bluetooth >/dev/null 2>&1; then
+            log_success "Bluetooth service enabled"
+            ((services_enabled++))
+        else
+            log_warn "Failed to enable bluetooth service"
+        fi
+    else
+        ((services_skipped++))
+    fi
+
+    # SSH service
+    if is_package_installed "openssh" 2>/dev/null; then
+        if systemctl enable --now sshd >/dev/null 2>&1; then
+            log_success "SSH service enabled"
+            ((services_enabled++))
+        elif systemctl enable --now ssh >/dev/null 2>&1; then
+            log_success "SSH service enabled"
+            ((services_enabled++))
+        else
+            log_warn "Failed to enable SSH service"
+        fi
+    else
+        ((services_skipped++))
+    fi
+
+    # KDE Connect service
+    if is_package_installed "kdeconnect" 2>/dev/null; then
+        if systemctl enable --now kdeconnectd >/dev/null 2>&1; then
+            log_success "KDE Connect service enabled"
+            ((services_enabled++))
+        else
+            log_warn "Failed to enable KDE Connect service"
+        fi
+    else
+        ((services_skipped++))
+    fi
+
+    # RustDesk service (if installed)
+    if is_package_installed "rustdesk" 2>/dev/null; then
+        # RustDesk might not have a systemd service, check for it
+        if systemctl list-unit-files | grep -q rustdesk; then
+            if systemctl enable --now rustdesk >/dev/null 2>&1; then
+                log_success "RustDesk service enabled"
+                ((services_enabled++))
+            else
+                log_warn "Failed to enable RustDesk service"
+            fi
+        else
+            log_info "RustDesk installed but no systemd service found"
+            ((services_skipped++))
+        fi
+    else
+        ((services_skipped++))
+    fi
+
+    # NetworkManager (if installed and not already enabled)
+    if is_package_installed "networkmanager" 2>/dev/null || is_package_installed "network-manager" 2>/dev/null; then
+        if ! systemctl is-enabled NetworkManager >/dev/null 2>&1; then
+            if systemctl enable NetworkManager >/dev/null 2>&1; then
+                log_success "NetworkManager service enabled"
+                ((services_enabled++))
+            else
+                log_warn "Failed to enable NetworkManager service"
+            fi
+        else
+            log_info "NetworkManager already enabled"
+        fi
+    fi
+
+    # Snap service (for Ubuntu/Snap packages)
+    if is_package_installed "snapd" 2>/dev/null; then
+        if systemctl enable --now snapd >/dev/null 2>&1; then
+            log_success "Snap service enabled"
+            ((services_enabled++))
+        fi
+        if systemctl enable --now snapd.socket >/dev/null 2>&1; then
+            log_success "Snap socket enabled"
+        fi
+    fi
+
+    # Flatpak service (if available)
+    if command -v flatpak >/dev/null 2>&1; then
+        # Flatpak doesn't typically need systemd services, but check for any
+        if systemctl list-unit-files | grep -q flatpak; then
+            if systemctl enable --now flatpak >/dev/null 2>&1; then
+                log_success "Flatpak service enabled"
+                ((services_enabled++))
+            fi
+        fi
+    fi
+
+    # Report results
+    if [ $services_enabled -gt 0 ]; then
+        log_success "Enabled $services_enabled services for installed packages"
+    fi
+
+    if [ $services_skipped -gt 0 ]; then
+        log_info "Skipped $services_skipped services (packages not installed)"
+    fi
+
+    return 0
 }
 
 # Install native packages in batch for better dependency handling
@@ -904,6 +1034,15 @@ if ! detect_de; then
     log_info "You can continue, but desktop-specific configurations may be skipped."
 fi
 
+# Detect if running in a virtual machine
+if detect_virtual_machine; then
+    IS_VIRTUAL_MACHINE=true
+    log_info "Virtual machine detected - optimizing configuration for VM environment"
+else
+    IS_VIRTUAL_MACHINE=false
+    log_info "Physical hardware detected - full configuration available"
+fi
+
 # Source distro module early so it can provide package lists via `distro_get_packages()`
 # Source distro-specific configuration with error handling
 case "$DISTRO_ID" in
@@ -1221,6 +1360,9 @@ fi
 step "Finalizing Installation"
 
 if [ "$DRY_RUN" = false ]; then
+    # Enable services for installed packages
+    enable_installed_services
+
     # Clean up temporary files and helpers
     final_cleanup
 fi

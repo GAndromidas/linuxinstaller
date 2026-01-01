@@ -68,16 +68,77 @@ has_nvidia_gpu() {
     lspci -nn | grep -qi "vga.*10de\|3d.*10de\|display.*10de"
 }
 
+has_virtual_gpu() {
+    # Detect virtual GPUs (Virtio, VMware, VirtualBox, etc.)
+    lspci -nn | grep -qi "vga.*1af4\|3d.*1af4\|display.*1af4" ||  # Virtio
+    lspci -nn | grep -qi "vga.*15ad\|3d.*15ad\|display.*15ad" ||  # VMware
+    lspci -nn | grep -qi "vga.*80ee\|3d.*80ee\|display.*80ee" ||  # VirtualBox
+    lspci -nn | grep -qi "vga.*1234\|3d.*1234\|display.*1234"     # Bochs/QEMU standard VGA
+}
+
+is_virtual_machine() {
+    # Detect if running in a virtual machine
+    if [ -f /proc/cpuinfo ]; then
+        grep -qi "hypervisor\|vmware\|virtualbox\|kvm\|qemu\|xen" /proc/cpuinfo && return 0
+    fi
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        grep -qi "virtual\|vmware\|virtualbox\|kvm\|qemu\|xen" /sys/class/dmi/id/product_name && return 0
+    fi
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        systemd-detect-virt --quiet && return 0
+    fi
+    return 1
+}
+
+# Robust Flatpak package installation function (same as main installer)
+install_flatpak_packages() {
+    local install_cmd="$1"
+    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
+
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
+
+        # Check if flatpak is already installed
+        if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
+            skipped_ref+=("$pkg")
+            continue
+        fi
+
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        else
+            if $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        fi
+    done
+}
+
 install_gpu_drivers() {
     step "Installing GPU Drivers"
 
     local amd_detected=false
     local intel_detected=false
     local nvidia_detected=false
+    local virtual_detected=false
 
     has_amd_gpu && amd_detected=true
     has_intel_gpu && intel_detected=true
     has_nvidia_gpu && nvidia_detected=true
+    has_virtual_gpu && virtual_detected=true
+
+    # Skip GPU driver installation in virtual machines
+    if is_virtual_machine; then
+        log_info "Virtual machine detected - skipping physical GPU driver installation"
+        log_info "Virtual GPU drivers are handled by the hypervisor"
+        return 0
+    fi
 
     if [ "$amd_detected" = true ]; then
         log_info "AMD GPU detected - installing AMD drivers"
@@ -251,33 +312,87 @@ gaming_configure_steam() {
     log_success "Steam configured"
 }
 
-# Install Faugus game launcher via Flatpak
-gaming_install_faugus() {
+# Install gaming Flatpak packages (Heroic Launcher, ProtonPlus, Faugus)
+gaming_install_flatpak_packages() {
+    step "Installing Gaming Flatpak Applications"
+
+    log_info "Installing gaming Flatpak applications for $DISTRO_ID..."
+
+    if declare -f distro_get_packages >/dev/null 2>&1; then
+        mapfile -t gaming_flatpak_packages < <(distro_get_packages "gaming" "flatpak" 2>/dev/null || true)
+
+        if [ ${#gaming_flatpak_packages[@]} -eq 0 ]; then
+            log_warn "No gaming Flatpak packages found for $DISTRO_ID"
+            return
+        fi
+
+        local installed=()
+        local skipped=()
+        local failed=()
+
+        # Use the same robust installation logic as the main installer
+        install_flatpak_packages "flatpak install flathub -y" gaming_flatpak_packages installed skipped failed
+
+        # Report results
+        if [ ${#installed[@]} -gt 0 ]; then
+            log_success "Installed gaming Flatpak applications: ${installed[*]}"
+        fi
+        if [ ${#skipped[@]} -gt 0 ]; then
+            log_info "Gaming Flatpak applications already installed: ${skipped[*]}"
+        fi
+        if [ ${#failed[@]} -gt 0 ]; then
+            log_warn "Failed to install gaming Flatpak applications: ${failed[*]}"
+        fi
+    else
+        log_warn "distro_get_packages function not available. Gaming Flatpak packages cannot be installed."
+    fi
+}
+
+# Install Faugus game launcher via Flatpak (robust implementation)
+install_faugus_flatpak() {
     step "Installing Faugus (flatpak)"
 
+    # Ensure Flatpak is available
     if ! command -v flatpak >/dev/null 2>&1; then
-        log_warn "Flatpak not installed. Attempting to install flatpak..."
+        log_info "Installing Flatpak package manager..."
         if ! install_pkg flatpak; then
-            log_warn "Failed to install flatpak; skipping Faugus installation"
-            return
+            log_error "Failed to install Flatpak - cannot install Faugus"
+            return 1
         fi
     fi
 
-    # Ensure Flathub remote exists
-    if ! flatpak remote-list | grep -q flathub; then
-        flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+    # Ensure Flathub remote is configured
+    if ! flatpak remote-list 2>/dev/null | grep -q flathub; then
+        log_info "Adding Flathub remote..."
+        if ! flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1; then
+            log_error "Failed to add Flathub remote"
+            return 1
+        fi
+        log_success "Flathub remote added"
     fi
 
-    # Install Faugus from Flathub if not present
-    if flatpak list --app | grep -q "io.github.Faugus.faugus-launcher"; then
-        log_info "Faugus (flatpak) already installed"
+    # Define the Flatpak package to install
+    local faugus_packages=("io.github.Faugus.faugus-launcher")
+    local installed=()
+    local skipped=()
+    local failed=()
+
+    # Use the same robust installation logic as the main installer
+    install_flatpak_packages "flatpak install flathub -y" faugus_packages installed skipped failed
+
+    # Check results
+    if [ ${#installed[@]} -gt 0 ]; then
+        log_success "Faugus game launcher installed successfully"
         return 0
-    fi
-
-    if flatpak install flathub -y io.github.Faugus.faugus-launcher; then
-        log_success "Faugus (flatpak) installed"
+    elif [ ${#skipped[@]} -gt 0 ]; then
+        log_info "Faugus game launcher already installed"
+        return 0
     else
-        log_warn "Failed to install Faugus (flatpak)"
+        log_error "Failed to install Faugus game launcher"
+        if [ ${#failed[@]} -gt 0 ]; then
+            log_error "Failed packages: ${failed[*]}"
+        fi
+        return 1
     fi
 }
 
@@ -317,8 +432,11 @@ gaming_main_config() {
     # Configure Steam
     gaming_configure_steam
 
-    # Install Faugus (Flatpak)
-    gaming_install_faugus
+    # Install gaming Flatpak packages (Heroic Launcher, ProtonPlus, Faugus)
+    gaming_install_flatpak_packages
+
+    # Install Faugus (Flatpak) - kept for backwards compatibility
+    install_faugus_flatpak
 
     log_success "Gaming configuration completed"
 }
@@ -329,10 +447,14 @@ export -f detect_gpu
 export -f has_amd_gpu
 export -f has_intel_gpu
 export -f has_nvidia_gpu
+export -f has_virtual_gpu
+export -f is_virtual_machine
 export -f install_gpu_drivers
+export -f install_flatpak_packages
 export -f gaming_install_packages
+export -f gaming_install_flatpak_packages
 export -f gaming_configure_performance
 export -f gaming_configure_mangohud
 export -f gaming_configure_gamemode
 export -f gaming_configure_steam
-export -f gaming_install_faugus
+export -f install_faugus_flatpak

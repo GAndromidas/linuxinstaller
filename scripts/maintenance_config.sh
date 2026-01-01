@@ -36,6 +36,109 @@ MAINTENANCE_DEBIAN=(
 # MAINTENANCE CONFIGURATION FUNCTIONS
 # =============================================================================
 
+# Install only basic maintenance packages (non-Btrfs specific)
+maintenance_install_basic_packages() {
+    step "Installing Basic Maintenance Packages"
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Installing basic system maintenance tools"
+    fi
+
+    local packages=()
+    local descriptions=()
+    local installed=()
+    local skipped=()
+    local failed=()
+
+    case "$DISTRO_ID" in
+        "arch")
+            # Only install non-Btrfs packages for Arch
+            packages=("linux-lts" "linux-lts-headers")
+            descriptions=(
+                "linux-lts: Long-term support kernel for stability"
+                "linux-lts-headers: Headers for LTS kernel (required for modules)"
+            )
+            ;;
+        "fedora"|"debian"|"ubuntu")
+            # These distros don't have special Btrfs-only packages in MAINTENANCE_*
+            # So we install nothing extra for basic maintenance
+            packages=()
+            ;;
+    esac
+
+    for i in "${!packages[@]}"; do
+        local pkg="${packages[$i]}"
+        local desc="${descriptions[$i]:-Maintenance tool}"
+
+        # Check if already installed
+        if is_package_installed "$pkg"; then
+            skipped+=("$pkg")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ $pkg (already installed)"
+            fi
+            continue
+        fi
+
+        # Check if package exists
+        if ! package_exists "$pkg"; then
+            failed+=("$pkg")
+            if supports_gum; then
+                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ $pkg (not found in repositories)"
+            fi
+            continue
+        fi
+
+        # Install with gum spin and show description
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
+            if gum spin --spinner dot --title "" -- install_pkg "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
+            else
+                failed+=("$pkg")
+                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "  ✗ Failed to install $pkg"
+            fi
+        else
+            log_info "Installing $pkg: $desc"
+            if install_pkg "$pkg" >/dev/null 2>&1; then
+                installed+=("$pkg")
+                log_success "✓ $pkg installed"
+            else
+                failed+=("$pkg")
+                log_error "✗ Failed to install $pkg"
+            fi
+        fi
+    done
+
+    # Show summary with gum styling
+    if supports_gum; then
+        echo ""
+        gum style --margin "0 2" --border rounded --border-foreground "$GUM_BORDER_FG" --padding "1 2" "Installation Summary"
+        if [ ${#installed[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Installed: ${#installed[@]} package(s)"
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${installed[*]}"
+        fi
+        if [ ${#skipped[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipped (already installed): ${#skipped[@]} package(s)"
+        fi
+        if [ ${#failed[@]} -gt 0 ]; then
+            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Failed: ${#failed[@]} package(s)"
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${failed[*]}"
+        fi
+    else
+        if [ ${#installed[@]} -gt 0 ]; then
+            log_success "✓ Installed: ${#installed[@]} package(s) - ${installed[*]}"
+        fi
+        if [ ${#skipped[@]} -gt 0 ]; then
+            log_info "○ Skipped: ${#skipped[@]} package(s) already installed"
+        fi
+        if [ ${#failed[@]} -gt 0 ]; then
+            log_error "✗ Failed: ${#failed[@]} package(s) - ${failed[*]}"
+        fi
+    fi
+}
+
 # Install maintenance packages for all distributions
 maintenance_install_packages() {
     step "Installing Maintenance Packages"
@@ -52,28 +155,47 @@ maintenance_install_packages() {
 
     case "$DISTRO_ID" in
         "arch")
-            packages=("${MAINTENANCE_ARCH[@]}")
+            # Always install these for Arch
+            packages=("linux-lts" "linux-lts-headers")
             descriptions=(
-                "snap-pac: Automatic snapshots before/after package updates"
-                "snapper: Btrfs snapshot management tool"
-                "grub-btrfs: GRUB integration for booting from snapshots"
                 "linux-lts: Long-term support kernel for stability"
                 "linux-lts-headers: Headers for LTS kernel (required for modules)"
             )
+
+            # Only add Btrfs/snapshot tools if on Btrfs filesystem and user agreed
+            if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
+                packages+=("snap-pac" "snapper")
+                descriptions+=(
+                    "snap-pac: Automatic snapshots before/after package updates"
+                    "snapper: Btrfs snapshot management tool"
+                )
+
+                # Only add grub-btrfs if using GRUB bootloader
+                if [ "$(detect_bootloader)" = "grub" ]; then
+                    packages+=("grub-btrfs")
+                    descriptions+=("grub-btrfs: GRUB integration for booting from snapshots")
+                fi
+            fi
             ;;
         "fedora")
-            packages=("${MAINTENANCE_FEDORA[@]}")
-            descriptions=(
-                "timeshift: System backup and restore tool"
-                "btrfs-progs: Btrfs filesystem utilities (already installed)"
-            )
+            # Only add Btrfs tools if on Btrfs filesystem and user agreed
+            if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
+                packages=("${MAINTENANCE_FEDORA[@]}")
+                descriptions=(
+                    "timeshift: System backup and restore tool"
+                    "btrfs-progs: Btrfs filesystem utilities (already installed)"
+                )
+            fi
             ;;
         "debian"|"ubuntu")
-            packages=("${MAINTENANCE_DEBIAN[@]}")
-            descriptions=(
-                "timeshift: System backup and restore tool"
-                "btrfs-progs: Btrfs filesystem utilities (already installed)"
-            )
+            # Only add Btrfs tools if on Btrfs filesystem and user agreed
+            if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
+                packages=("${MAINTENANCE_DEBIAN[@]}")
+                descriptions=(
+                    "timeshift: System backup and restore tool"
+                    "btrfs-progs: Btrfs filesystem utilities (already installed)"
+                )
+            fi
             ;;
     esac
 
@@ -234,39 +356,47 @@ maintenance_configure_snapper_settings() {
         return
     fi
 
-    # Configure Snapper with best practice settings
-    # Enable timeline snapshots for automatic protection
-    sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="yes"/' /etc/snapper/configs/root
+    # Configure Snapper with user-requested settings
+    # Disable timeline snapshots (user preference)
+    sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="no"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="no"/' /etc/snapper/configs/root
     sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
     sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' /etc/snapper/configs/root
 
-    # Set reasonable limits for timeline snapshots
-    sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="10"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="4"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="12"/' /etc/snapper/configs/root
+    # Disable all timeline snapshot limits (since timeline is disabled)
+    sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="0"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
+    sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
     sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
 
-    # Set number of snapshots to keep to 10
-    sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' /etc/snapper/configs/root
-    sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' /etc/snapper/configs/root
+    # Set number of snapshots to keep to 5 (user preference)
+    sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="5"/' /etc/snapper/configs/root
+    sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
 
-    # Enable timeline and cleanup timers for automatic snapshots
+    # Only enable cleanup and boot timers (no timeline timer since timeline is disabled)
     if supports_gum; then
-        gum spin --spinner dot --title "Enabling snapshot timers..." -- systemctl enable --now snapper-timeline.timer snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline: Hourly (10), Daily (7), Weekly (4), Monthly (12)"
+        gum spin --spinner dot --title "Enabling snapshot timers..." -- systemctl enable --now snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled (timeline disabled)"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Number Save: 5 snapshots"
     else
-        systemctl enable --now snapper-timeline.timer >/dev/null 2>&1
         systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1
         systemctl enable --now snapper-boot.timer >/dev/null 2>&1
-        log_success "✓ Snapper timers enabled"
+        log_success "✓ Snapper timers enabled (timeline snapshots disabled, Number Save: 5)"
     fi
 }
 
 # Setup pre-update snapshots (TimeShift for non-Arch, Snapper for Arch)
 maintenance_setup_pre_update_snapshots() {
+    # Only setup if user enabled Btrfs snapshots
+    if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" != "true" ]; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs snapshots not enabled, skipping pre-update hooks"
+        fi
+        return
+    fi
+
     step "Setting Up Pre-Update Snapshot Function"
 
     if supports_gum; then
@@ -347,6 +477,14 @@ EOF
 maintenance_configure_grub_snapshots() {
     step "Configuring GRUB for Snapshot Boot Menu"
 
+    # Only configure if user enabled Btrfs snapshots
+    if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" != "true" ]; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs snapshots not enabled, skipping GRUB configuration"
+        fi
+        return
+    fi
+
     if supports_gum; then
         gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Adding snapshots to boot menu"
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Allows booting from previous snapshots if updates fail"
@@ -355,14 +493,14 @@ maintenance_configure_grub_snapshots() {
     local bootloader
     bootloader=$(detect_bootloader)
 
+    local grub_update_command=""
+
     if [ "$bootloader" != "grub" ]; then
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Only GRUB bootloader is supported for snapshot menu"
         fi
         return
     fi
-
-    local grub_update_command=""
 
     if [ "$DISTRO_ID" = "arch" ]; then
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
@@ -403,6 +541,53 @@ maintenance_configure_grub_snapshots() {
     fi
 }
 
+# Configure Btrfs Assistant settings
+maintenance_configure_btrfs_assistant() {
+    step "Configuring Btrfs Assistant"
+
+    if ! command -v btrfs-assistant >/dev/null 2>&1; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs Assistant not installed, skipping configuration"
+        fi
+        return
+    fi
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring Btrfs Assistant snapshot settings"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Disabling timeline snapshots, setting Number Save to 5"
+    fi
+
+    # Btrfs Assistant stores config in ~/.config/btrfs-assistant.conf
+    local config_dir="$HOME/.config"
+    local config_file="$config_dir/btrfs-assistant.conf"
+
+    mkdir -p "$config_dir"
+
+    # Create Btrfs Assistant configuration with disabled timeline snapshots
+    cat << 'EOF' | tee "$config_file" >/dev/null
+[General]
+Number Save=5
+
+[Timeline]
+Hourly=false
+Daily=false
+Weekly=false
+Monthly=false
+Yearly=false
+EOF
+
+    # Set proper ownership
+    chown "$USER:$USER" "$config_file" 2>/dev/null || true
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs Assistant configured"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Number Save: 5 snapshots"
+    else
+        log_success "Btrfs Assistant configured with timeline snapshots disabled and Number Save set to 5"
+    fi
+}
+
 # Configure Btrfs snapshot management
 maintenance_configure_btrfs_snapshots() {
     step "Configuring Btrfs Snapshots"
@@ -419,6 +604,9 @@ maintenance_configure_btrfs_snapshots() {
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Snapshots allow you to restore your system if updates break it"
     fi
 
+    # Configure Btrfs Assistant first (if available)
+    maintenance_configure_btrfs_assistant
+
     # Choose snapshot tool based on distro
     # Arch: Snapper (better GRUB integration with grub-btrfs)
     # Fedora/Debian/Ubuntu: TimeShift (simpler, better for cross-distro)
@@ -434,40 +622,8 @@ maintenance_configure_btrfs_snapshots() {
     # Configure GRUB for snapshots (only if GRUB bootloader)
     maintenance_configure_grub_snapshots
 
-    # Configure Btrfs maintenance timers with best practice settings
-    if [ -f /etc/systemd/system/btrfs-scrub@.timer ] || command -v btrfs-scrub >/dev/null 2>&1; then
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Weekly scrub ( Sundays at 2:00 AM )"
-        fi
-        # Weekly scrub on Sunday at 2:00 AM
-        mkdir -p /etc/systemd/system/btrfs-scrub@.timer.d
-        cat << 'EOF' | tee /etc/systemd/system/btrfs-scrub@root.timer.d/override.conf >/dev/null
-[Timer]
-OnCalendar=Sun *-*-* 02:00:00
-Persistent=true
-EOF
-        systemctl enable --now btrfs-scrub@root.timer >/dev/null 2>&1
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs scrub scheduled"
-        fi
-    fi
-
-    if [ -f /etc/systemd/system/btrfs-balance@.timer ] || command -v btrfs-balance >/dev/null 2>&1; then
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Setting up Btrfs maintenance: Monthly balance ( 1st Sunday at 3:00 AM )"
-        fi
-        # Monthly balance on first Sunday at 3:00 AM
-        mkdir -p /etc/systemd/system/btrfs-balance@.timer.d
-        cat << 'EOF' | tee /etc/systemd/system/btrfs-balance@root.timer.d/override.conf >/dev/null
-[Timer]
-OnCalendar=Sun *-*-01 03:00:00
-Persistent=true
-EOF
-        systemctl enable --now btrfs-balance@root.timer >/dev/null 2>&1
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ Btrfs balance scheduled"
-        fi
-    fi
+    # Configure comprehensive Btrfs maintenance timers
+    maintenance_configure_btrfs_maintenance
 
     # Create initial snapshot
     if [ "$DISTRO_ID" = "arch" ]; then
@@ -560,14 +716,72 @@ maintenance_configure_automatic_updates() {
 # MAIN MAINTENANCE CONFIGURATION FUNCTION
 # =============================================================================
 
+# Interactive prompt for Btrfs snapshot tools
+maintenance_prompt_btrfs_snapshots() {
+    # Only prompt if we're on a Btrfs system
+    if ! is_btrfs_system; then
+        log_info "Not a Btrfs system - skipping snapshot configuration"
+        return 1
+    fi
+
+    if supports_gum; then
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "🗂️  Btrfs Snapshot Tools"
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system uses Btrfs filesystem, which supports advanced snapshot features."
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Snapshots can protect your system from updates that break things."
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "⚠️  Note: Snapshots use disk space and add complexity"
+        echo ""
+
+        if gum confirm "Install and configure Btrfs snapshot tools (Btrfs Assistant/Snapper/TimeShift)?" --default=false; then
+            export INSTALL_BTRFS_SNAPSHOTS=true
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs snapshot tools will be installed and configured"
+            echo ""
+            return 0
+        else
+            export INSTALL_BTRFS_SNAPSHOTS=false
+            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipping Btrfs snapshot tools"
+            echo ""
+            return 1
+        fi
+    else
+        echo ""
+        echo "🗂️  Btrfs Snapshot Tools"
+        echo ""
+        echo "Your system uses Btrfs filesystem, which supports advanced snapshot features."
+        echo "Snapshots can protect your system from updates that break things."
+        echo ""
+        echo "⚠️  Note: Snapshots use disk space and add complexity"
+        echo ""
+        read -r -p "Install and configure Btrfs snapshot tools (Btrfs Assistant/Snapper/TimeShift)? [y/N]: " response
+        if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+            export INSTALL_BTRFS_SNAPSHOTS=true
+            echo "✓ Btrfs snapshot tools will be installed and configured"
+            echo ""
+            return 0
+        else
+            export INSTALL_BTRFS_SNAPSHOTS=false
+            echo "○ Skipping Btrfs snapshot tools"
+            echo ""
+            return 1
+        fi
+    fi
+}
+
 maintenance_main_config() {
     log_info "Starting maintenance configuration..."
 
-    maintenance_install_packages
-
-    maintenance_configure_btrfs_snapshots
-
-    maintenance_setup_pre_update_snapshots
+    # Interactive prompt for Btrfs snapshot tools (only on Btrfs systems)
+    if maintenance_prompt_btrfs_snapshots; then
+        maintenance_install_packages
+        maintenance_configure_btrfs_snapshots
+        maintenance_setup_pre_update_snapshots
+    else
+        # Install only non-Btrfs maintenance packages
+        maintenance_install_basic_packages
+        log_info "Skipping Btrfs-specific snapshot configuration"
+    fi
 
     maintenance_configure_automatic_updates
 
@@ -576,14 +790,19 @@ maintenance_main_config() {
         echo ""
         gum style --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2" "Maintenance Configuration Complete"
         gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is now configured for safety and maintenance:"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshots: Protect against broken updates"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs maintenance: Scheduled scrub and balance"
-        if [ "$DISTRO_ID" = "arch" ]; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: snapper list"
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: Select from boot menu"
+
+        if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshots: Protect against broken updates"
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs maintenance: Scheduled scrub and balance"
+            if [ "$DISTRO_ID" = "arch" ]; then
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: snapper list"
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: Select from boot menu"
+            else
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: timeshift --list"
+                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: timeshift --restore"
+            fi
         else
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: timeshift --list"
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: timeshift --restore"
+            gum style --margin "0 2" --foreground "$GUM_INFO_FG" "○ Btrfs snapshots: Not configured (user choice)"
         fi
         echo ""
     fi
@@ -591,10 +810,115 @@ maintenance_main_config() {
     log_success "Maintenance configuration completed"
 }
 
+# Configure comprehensive Btrfs maintenance schedules
+maintenance_configure_btrfs_maintenance() {
+    step "Configuring Btrfs Maintenance Schedules"
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Setting up comprehensive Btrfs maintenance schedules"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Weekly balance: /, /home, /var/log"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Monthly scrub: /, /home, /var/log"
+        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Weekly defrag: /, /home"
+    fi
+
+    # Weekly balance for /, /home, and /var/log (Sundays at 1:00 AM)
+    if [ -f /etc/systemd/system/btrfs-balance@.timer ] || command -v btrfs-balance >/dev/null 2>&1; then
+        local mounts=("/" "/home" "/var/log")
+        for mount in "${mounts[@]}"; do
+            if mountpoint -q "$mount" 2>/dev/null; then
+                local mount_name
+                mount_name=$(echo "$mount" | sed 's|^/||; s|/|-|g; s|^$|root|')
+                mkdir -p "/etc/systemd/system/btrfs-balance@${mount_name}.timer.d"
+
+                cat << EOF | tee "/etc/systemd/system/btrfs-balance@${mount_name}.timer.d/override.conf" >/dev/null
+[Timer]
+OnCalendar=Sun *-*-* 01:00:00
+Persistent=true
+EOF
+                systemctl enable --now "btrfs-balance@${mount_name}.timer" >/dev/null 2>&1
+            fi
+        done
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Weekly balance scheduled for /, /home, /var/log (Sundays 1:00 AM)"
+        fi
+    fi
+
+    # Monthly scrub for /, /home, and /var/log (1st of month at 2:00 AM)
+    if [ -f /etc/systemd/system/btrfs-scrub@.timer ] || command -v btrfs-scrub >/dev/null 2>&1; then
+        local mounts=("/" "/home" "/var/log")
+        for mount in "${mounts[@]}"; do
+            if mountpoint -q "$mount" 2>/dev/null; then
+                local mount_name
+                mount_name=$(echo "$mount" | sed 's|^/||; s|/|-|g; s|^$|root|')
+                mkdir -p "/etc/systemd/system/btrfs-scrub@${mount_name}.timer.d"
+
+                cat << EOF | tee "/etc/systemd/system/btrfs-scrub@${mount_name}.timer.d/override.conf" >/dev/null
+[Timer]
+OnCalendar=*-*-01 02:00:00
+Persistent=true
+EOF
+                systemctl enable --now "btrfs-scrub@${mount_name}.timer" >/dev/null 2>&1
+            fi
+        done
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Monthly scrub scheduled for /, /home, /var/log (1st of month 2:00 AM)"
+        fi
+    fi
+
+    # Weekly defrag for / and /home (Saturdays at 3:00 AM)
+    # Note: Btrfs defrag is typically done via a custom service since systemd doesn't have a built-in defrag timer
+    if command -v btrfs >/dev/null 2>&1; then
+        # Create custom defrag service
+        cat << 'EOF' | tee /etc/systemd/system/btrfs-defrag.service >/dev/null
+[Unit]
+Description=Btrfs defragmentation
+ConditionPathIsMountPoint=/
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -c 'for mount in / /home; do if mountpoint -q "$mount"; then echo "Defragmenting $mount..."; btrfs filesystem defrag -r "$mount"; fi; done'
+EOF
+
+        cat << 'EOF' | tee /etc/systemd/system/btrfs-defrag.timer >/dev/null
+[Unit]
+Description=Weekly Btrfs defragmentation
+Requires=btrfs-defrag.service
+
+[Timer]
+OnCalendar=Sat *-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+        systemctl daemon-reload >/dev/null 2>&1
+        systemctl enable --now btrfs-defrag.timer >/dev/null 2>&1
+
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Weekly defrag scheduled for /, /home (Saturdays 3:00 AM)"
+        fi
+    fi
+
+    if supports_gum; then
+        echo ""
+        gum style --margin "0 2" --foreground "$GUM_INFO_FG" "Btrfs maintenance schedules configured:"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Balance: Weekly (Sun 1:00) - / /home /var/log"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Scrub: Monthly (1st 2:00) - / /home /var/log"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Defrag: Weekly (Sat 3:00) - / /home"
+        echo ""
+    fi
+}
+
 # Export functions for use by main installer
 export -f maintenance_main_config
+export -f maintenance_prompt_btrfs_snapshots
 export -f maintenance_install_packages
+export -f maintenance_install_basic_packages
 export -f maintenance_configure_btrfs_snapshots
+export -f maintenance_configure_btrfs_assistant
+export -f maintenance_configure_btrfs_maintenance
 export -f maintenance_configure_automatic_updates
 export -f maintenance_configure_timeshift
 export -f maintenance_configure_snapper_settings
