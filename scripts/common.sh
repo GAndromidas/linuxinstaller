@@ -317,10 +317,14 @@ remove_pkg() {
 # Update system packages silently
 update_system() {
     log_info "Updating system packages..."
-    local update_status
+    local update_status=0
+
     if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-        DEBIAN_FRONTEND=noninteractive $PKG_UPDATE
-        update_status=$?
+        # Run apt-get update and apt-get upgrade separately
+        DEBIAN_FRONTEND=noninteractive apt-get update -qq || update_status=$?
+        if [ $update_status -eq 0 ]; then
+            DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq || update_status=$?
+        fi
     else
         $PKG_UPDATE $PKG_NOCONFIRM
         update_status=$?

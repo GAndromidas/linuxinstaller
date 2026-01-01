@@ -331,6 +331,10 @@ install_package_group() {
                         $PKG_INSTALL $PKG_NOCONFIRM flatpak >/dev/null 2>&1 || true
                     fi
                 fi
+                # Add Flathub remote if not exists
+                if command -v flatpak >/dev/null 2>&1; then
+                    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+                fi
                 install_cmd="flatpak install flathub -y"
                 ;;
             snap)

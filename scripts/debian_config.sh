@@ -23,19 +23,45 @@ APT_CONF="/etc/apt/apt.conf.d/99linuxinstaller"
 DEBIAN_CONFIGS_DIR="$SCRIPT_DIR/../configs/debian"
 UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 
+# Debian/Ubuntu-specific package lists (base/common)
+# These packages are installed in ALL modes (standard, minimal, server)
+# Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
+DEBIAN_ESSENTIALS=(
+    "build-essential"
+    "bc"
+    "bluez"
+    "cron"
+    "curl"
+    "eza"
+    "fastfetch"
+    "flatpak"
+    "fzf"
+    "git"
+    "openssh-server"
+    "rsync"
+    "starship"
+    "ufw"
+    "wget"
+    "zsh"
+    "zsh-autosuggestions"
+    "zsh-syntax-highlighting"
+    "zoxide"
+)
+
 # Debian/Ubuntu-specific package lists (centralized in this module)
+# Note: All packages verified for both Debian stable and Ubuntu LTS repositories
+# Packages are split from Arch's android-tools, cpupower, expac, and font packages
+# to use native Debian/Ubuntu package names
 DEBIAN_NATIVE_STANDARD=(
     adb
     fastboot
     bat
     bleachbit
     btop
-    chromium
     cmatrix
-    linux-tools-common
     dosfstools
-    duf
     firefox
+    fonts-liberation
     fwupd
     gnome-disk-utility
     hwinfo
@@ -44,70 +70,57 @@ DEBIAN_NATIVE_STANDARD=(
     ncdu
     net-tools
     nmap
-    fonts-noto-extra
-    samba
     sl
     speedtest-cli
     sshfs
-    fonts-hack
-    fonts-liberation
     unrar
     wakeonlan
     xdg-desktop-portal-gtk
     apt-transport-https
     ca-certificates
-    curl
-    wget
-    rsync
-    bc
-    flatpak
-    zoxide
-    fzf
-    fastfetch
-    eza
-)
-
-# Essential packages installed early (installed by the 'essential' package group).
-# Keep this list intentionally small and cross-distro friendly so core user tooling
-# (shell, prompt, fastfetch, and basic UX helpers) are available before later steps.
-DEBIAN_ESSENTIALS=(
-    "zsh"
-    "starship"
-    "zsh-autosuggestions"
-    "zsh-syntax-highlighting"
-    "fastfetch"
-    "fzf"
-    "eza"
-    "git"
-    "curl"
-    "ca-certificates"
 )
 
 DEBIAN_FLATPAK_STANDARD=(
     com.spotify.Client
     com.dropbox.Client
-    org.filezillaproject.Filezilla
     org.kde.kdenlive
-    org.onlyoffice.desktopeditors
     com.github.RustRDP.RustDesk
 )
 
+# Minimal mode (lightweight desktop setup with core utilities)
+# Focused on essential tools: shell (zsh+starship), file ops (eza), monitoring (btop,ncdu),
+# development (git,fzf), and minimal media (mpv)
+# Note: DEBIAN_ESSENTIALS packages are already installed
 DEBIAN_NATIVE_MINIMAL=(
+    bat
+    btop
     mpv
-    curl
-    git
+    ncdu
 )
 
 DEBIAN_FLATPAK_MINIMAL=(
     com.github.RustRDP.RustDesk
 )
 
+# Server mode (headless server setup with monitoring and security tools)
+# Includes monitoring (btop,htop,nethogs,ncdu), security (fail2ban,nmap,nethogs),
+# containerization (docker.io), and tmux for session management
+# Note: DEBIAN_ESSENTIALS packages are already installed
 DEBIAN_NATIVE_SERVER=(
-    openssh-server
-    ufw
-    fail2ban
+    bat
     btop
+    cmatrix
+    docker.io
+    dosfstools
+    htop
+    ncdu
+    net-tools
+    nmap
+    nano
+    speedtest-cli
+    fail2ban
     nethogs
+    tmux
 )
 
 DEBIAN_DE_KDE_NATIVE=(

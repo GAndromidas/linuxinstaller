@@ -22,6 +22,29 @@ FEDORA_MODULAR="/etc/yum.repos.d/fedora-modular.repo"
 # Fedora-specific configuration files
 FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 
+# Fedora-specific package lists (base/common)
+# These packages are installed in ALL modes (standard, minimal, server)
+# Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
+FEDORA_ESSENTIALS=(
+    "@development-tools"
+    "bc"
+    "cronie"
+    "curl"
+    "eza"
+    "fastfetch"
+    "flatpak"
+    "fzf"
+    "git"
+    "openssh-server"
+    "rsync"
+    "starship"
+    "wget"
+    "zsh"
+    "zsh-autosuggestions"
+    "zsh-syntax-highlighting"
+    "zoxide"
+)
+
 # Fedora-specific package lists (centralized in this module)
 # Mode-specific native packages
 FEDORA_NATIVE_STANDARD=(
@@ -30,29 +53,13 @@ FEDORA_NATIVE_STANDARD=(
     "bleachbit"
     "btop"
     "cmatrix"
-    "fastfetch"
     "filezilla"
-    "fzf"
     "hwinfo"
     "inxi"
     "python3-speedtest-cli"
     "sl"
     "unrar"
-    "zoxide"
     "unzip"
-)
-
-# Essential packages installed early (kept small and cross-distro compatible)
-FEDORA_ESSENTIALS=(
-    "zsh"
-    "starship"
-    "zsh-autosuggestions"
-    "zsh-syntax-highlighting"
-    "fastfetch"
-    "fzf"
-    "git"
-    "curl"
-    "ca-certificates"
 )
 
 # Flatpak entries (Flathub IDs)
@@ -62,20 +69,18 @@ FEDORA_FLATPAK_STANDARD=(
 )
 
 # Minimal mode: smaller, essential-centric set
+# Note: FEDORA_ESSENTIALS packages are already installed
 FEDORA_NATIVE_MINIMAL=(
     "bat"
     "bleachbit"
     "btop"
     "cmatrix"
-    "fastfetch"
     "filezilla"
-    "fzf"
     "hwinfo"
     "inxi"
     "python3-speedtest-cli"
     "sl"
     "unrar"
-    "zoxide"
     "unzip"
 )
 
@@ -85,8 +90,8 @@ FEDORA_FLATPAK_MINIMAL=(
 )
 
 # Server mode (lean, headless)
+# Note: FEDORA_ESSENTIALS packages are already installed
 FEDORA_NATIVE_SERVER=(
-    "openssh-server"
     "fail2ban"
     "btop"
     "duf"
