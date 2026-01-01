@@ -219,7 +219,7 @@ fedora_system_preparation() {
     # Update system
     if supports_gum; then
         if gum spin --spinner dot --title "Updating system" -- dnf update -y >/dev/null 2>&1; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
+            gum style "✓ System updated" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         fi
     else
         dnf update -y >/dev/null 2>&1 || true
@@ -237,7 +237,7 @@ fedora_enable_rpmfusion() {
             if gum spin --spinner dot --title "Enabling RPM Fusion" -- dnf install -y \
                 https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
                 https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1; then
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ RPM Fusion enabled"
+                gum style "✓ RPM Fusion enabled" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
             fi
         else
             dnf install -y \

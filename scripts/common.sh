@@ -149,9 +149,9 @@ step() {
     local message="$1"
     if supports_gum; then
         # Add a top margin so each step is separated visually
-        # Use cyan theme: cyan primary for arrow, light cyan for message
-        gum style --margin "1 2" --foreground "$GUM_PRIMARY_FG" --bold "❯" \
-                 --foreground "$GUM_BODY_FG" "$message"
+        # Use cyan theme: cyan primary for the entire header
+        # Note: gum style expects text first, then flags
+        gum style "❯ $message" --margin "1 2" --foreground "$GUM_PRIMARY_FG" --bold
     else
         # Make's arrow/title cyan and actual message light cyan for readability
         # Prepend a newline so steps are spaced out in non-gum terminals too
@@ -166,7 +166,7 @@ log_info() {
     if [ "${VERBOSE:-false}" = "true" ]; then
         if supports_gum; then
             # Use light cyan for info text in cyan theme
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "ℹ $message"
+            gum style "ℹ $message" --margin "0 2" --foreground "$GUM_BODY_FG"
         else
             echo -e "${LIGHT_CYAN}[INFO] $message${RESET}"
         fi
@@ -178,7 +178,7 @@ log_success() {
     local message="$1"
     if supports_gum; then
         # Use bright cyan-green for success in cyan theme
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold "✔ $message"
+        gum style "✔ $message" --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold
         # Add a trailing blank line for readability between steps
         echo ""
     else
@@ -192,7 +192,7 @@ log_warn() {
     local message="$1"
     if supports_gum; then
         # Use bright yellow for warnings in cyan theme
-        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "⚠ $message"
+        gum style "⚠ $message" --margin "0 2" --foreground "$GUM_WARNING_FG" --bold
         echo ""
     else
         echo -e "${YELLOW}⚠ $message${RESET}"
@@ -205,7 +205,7 @@ log_error() {
     local message="$1"
     if supports_gum; then
         # Use red for errors (maintains accessibility)
-        gum style --margin "0 2" --foreground "$GUM_ERROR_FG" --bold "✗ $message"
+        gum style "✗ $message" --margin "0 2" --foreground "$GUM_ERROR_FG" --bold
         echo ""
     else
         echo -e "${RED}✗ $message${RESET}"
@@ -512,21 +512,22 @@ prompt_reboot() {
     if supports_gum; then
         # Use beautiful cyan-themed gum styling
         echo ""
-        gum style --border double --margin "1 2" --padding "1 2" \
+        gum style "🔄 System Reboot Required" \
+                 --border double --margin "1 2" --padding "1 2" \
                  --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" \
-                 --bold "🔄 System Reboot Required" 2>/dev/null || true
+                 --bold 2>/dev/null || true
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
-                 "All changes have been applied successfully!" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
-                 "A system reboot is recommended to ensure everything works properly." 2>/dev/null || true
+        gum style "All changes have been applied successfully!" \
+                 --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
+        gum style "A system reboot is recommended to ensure everything works properly." \
+                 --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
         echo ""
         if gum confirm --default=true "Reboot now to apply all changes?"; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "🔄 Rebooting system..." 2>/dev/null || true
-            reboot
+            gum style "🔄 Rebooting system..." \
+                     --margin "0 2" --foreground "$GUM_WARNING_FG" --bold 2>/dev/null || true
         else
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" \
-                     "✓ Please reboot your system later to apply all changes." 2>/dev/null || true
+            gum style "✓ Please reboot your system later to apply all changes." \
+                     --margin "0 2" --foreground "$GUM_SUCCESS_FG" 2>/dev/null || true
         fi
     else
         echo ""

@@ -380,7 +380,7 @@ arch_system_preparation() {
     # Update system
     if supports_gum; then
         if gum spin --spinner dot --title "Updating system" -- pacman -Syu --noconfirm >/dev/null 2>&1; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ System updated"
+            gum style "✓ System updated" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         fi
     else
         pacman -Syu --noconfirm >/dev/null 2>&1 || true
@@ -428,7 +428,7 @@ configure_pacman_arch() {
 
         if supports_gum; then
             gum spin --spinner dot --title "Cleaning old package cache..." -- paccache -r -k 3 >/dev/null 2>&1
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Old packages cleaned (keeping last 3 versions)"
+            gum style "✓ Old packages cleaned (keeping last 3 versions)" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         else
             paccache -r -k 3 >/dev/null 2>&1
             log_success "Old packages cleaned (keeping last 3 versions)"
@@ -437,7 +437,7 @@ configure_pacman_arch() {
         # Clean uninstalled packages cache
         if supports_gum; then
             gum spin --spinner dot --title "Removing cache for uninstalled packages..." -- paccache -r -u -k 0 >/dev/null 2>&1
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Cache for uninstalled packages removed"
+            gum style "✓ Cache for uninstalled packages removed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         else
             paccache -r -u -k 0 >/dev/null 2>&1
             log_success "Cache for uninstalled packages removed"
@@ -451,7 +451,7 @@ configure_pacman_arch() {
         # Show cache size reduction
         if [ "$cache_before" != "$cache_after" ]; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Cache size: $cache_before → $cache_after"
+                gum style "Cache size: $cache_before → $cache_after" --margin "0 2" --foreground "$GUM_BODY_FG"
             else
                 log_info "Cache size reduced from $cache_before to $cache_after"
             fi
@@ -516,7 +516,7 @@ arch_install_aur_helper() {
     if sudo -u "$build_user" git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
         if sudo -u "$build_user" makepkg -si --noconfirm --needed >/dev/null 2>&1; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ yay installed"
+                gum style "✓ yay installed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
             fi
         else
             cd - >/dev/null
@@ -653,14 +653,22 @@ arch_main_config() {
     # Show final summary
     if supports_gum; then
         echo ""
-        gum style --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2" "Arch Linux Configuration Complete"
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your Arch Linux system has been optimized:"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ pacman: Optimized with parallel downloads and ILoveCandy"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ cache: Cleaned old packages (keeping last 3 versions)"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ mirrors: Optimized for faster downloads"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ shell: ZSH configured with starship prompt"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ locales: Greek (el_GR.UTF-8) and US English enabled"
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Log out and back in to apply shell changes"
+        gum style "Arch Linux Configuration Complete" \
+                 --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2"
+        gum style "Your Arch Linux system has been optimized:" \
+                 --margin "0 2" --foreground "$GUM_BODY_FG"
+        gum style "✓ pacman: Optimized with parallel downloads and ILoveCandy" \
+                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        gum style "✓ cache: Cleaned old packages (keeping last 3 versions)" \
+                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        gum style "✓ mirrors: Optimized for faster downloads" \
+                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        gum style "✓ shell: ZSH configured with starship prompt" \
+                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        gum style "✓ locales: Greek (el_GR.UTF-8) and US English enabled" \
+                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        gum style "• Log out and back in to apply shell changes" \
+                 --margin "0 2" --foreground "$GUM_BODY_FG"
         echo ""
     fi
 

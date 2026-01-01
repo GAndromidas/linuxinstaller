@@ -91,29 +91,29 @@ show_menu() {
             "Server - Headless server configuration")
                 export INSTALL_MODE="server" ;;
             "Exit")
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Goodbye! 👋"
+                gum style "Goodbye! 👋" --margin "0 2" --foreground "$GUM_BODY_FG"
                 exit 0 ;;
         esac
 
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold "✓ Selected: $choice"
+        gum style "✓ Selected: $choice" --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold
         echo ""
 
         if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
             echo ""
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
-                     "🎮 Would you like to install the Gaming Package Suite?" 2>/dev/null || true
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
-                     "This includes Steam, Wine, and gaming optimizations." 2>/dev/null || true
+            gum style "🎮 Would you like to install the Gaming Package Suite?" \
+                     --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
+            gum style "This includes Steam, Wine, and gaming optimizations." \
+                     --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
             echo ""
             if gum confirm "Install Gaming Package Suite?" --default=true; then
                 export INSTALL_GAMING=true
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" \
-                         "✓ Gaming packages will be installed" 2>/dev/null || true
+                gum style "✓ Gaming packages will be installed" \
+                         --margin "0 2" --foreground "$GUM_SUCCESS_FG" 2>/dev/null || true
             else
                 export INSTALL_GAMING=false
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" \
-                         "→ Skipping gaming packages" 2>/dev/null || true
+                gum style "→ Skipping gaming packages" \
+                         --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
             fi
         else
             export INSTALL_GAMING=false
@@ -688,24 +688,24 @@ show_package_summary() {
 
     if [ ${#installed_ref[@]} -gt 0 ] || [ ${#failed_ref[@]} -gt 0 ]; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "$title"
+            gum style "$title" --margin "0 2" --foreground "$GUM_BODY_FG" --bold
         else
             echo -e "\n${WHITE}$title${RESET}"
         fi
 
         if [ ${#installed_ref[@]} -gt 0 ]; then
             if supports_gum; then
-                gum style --margin "0 4" --foreground "$GUM_SUCCESS_FG" "✓ ${installed_ref[*]}"
+                gum style "✓ ${installed_ref[*]}" --margin "0 4" --foreground "$GUM_SUCCESS_FG"
             else
-                echo -e "${GREEN}✓ ${installed_ref[*]}${RESET}"
+                echo -e "${GREEN}✓ ${installed[*]}${RESET}"
             fi
-        fi
 
-        if [ ${#failed_ref[@]} -gt 0 ]; then
-            if supports_gum; then
-                gum style --margin "0 4" --foreground "$GUM_ERROR_FG" "✗ Failed: ${failed_ref[*]}"
-            else
-                echo -e "${RED}✗ Failed: ${failed_ref[*]}${RESET}"
+            if [ ${#failed_ref[@]} -gt 0 ]; then
+                if supports_gum; then
+                    gum style "✗ Failed: ${failed_ref[*]}" --margin "0 4" --foreground "$GUM_ERROR_FG"
+                else
+                    echo -e "${RED}✗ Failed: ${failed_ref[*]}${RESET}"
+                fi
             fi
         fi
     fi
@@ -842,8 +842,9 @@ final_cleanup() {
 
     # Prompt the user whether to remove them (interactive)
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Temporary helper packages detected:"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${remove_list[*]}"
+        gum style "Temporary helper packages detected:" \
+                 --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold
+        gum style "${remove_list[*]}" --margin "0 4" --foreground "$GUM_BODY_FG"
             if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
