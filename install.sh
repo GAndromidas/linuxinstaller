@@ -489,18 +489,33 @@ install_package_group() {
                 fi
 
                 # Install all resolved packages
-                if supports_gum; then
-                    if gum spin --spinner dot --title "" -- $install_cmd $resolved_pkg >/dev/null 2>&1; then
-                        installed+=("$pkg")
+                local install_status=0
+                if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+                    if supports_gum; then
+                        if ! gum spin --spinner dot --title "" -- DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM $resolved_pkg >/dev/null 2>&1; then
+                            install_status=1
+                        fi
                     else
-                        failed+=("$pkg")
+                        if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM $resolved_pkg >/dev/null 2>&1; then
+                            install_status=1
+                        fi
                     fi
                 else
-                    if $install_cmd $resolved_pkg >/dev/null 2>&1; then
-                        installed+=("$pkg")
+                    if supports_gum; then
+                        if ! gum spin --spinner dot --title "" -- $install_cmd $resolved_pkg >/dev/null 2>&1; then
+                            install_status=1
+                        fi
                     else
-                        failed+=("$pkg")
+                        if ! $install_cmd $resolved_pkg >/dev/null 2>&1; then
+                            install_status=1
+                        fi
                     fi
+                fi
+
+                if [ $install_status -eq 0 ]; then
+                    installed+=("$pkg")
+                else
+                    failed+=("$pkg")
                 fi
             done
         fi

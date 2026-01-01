@@ -53,8 +53,7 @@ DEBIAN_ESSENTIALS=(
 # Packages are split from Arch's android-tools, cpupower, expac, and font packages
 # to use native Debian/Ubuntu package names
 DEBIAN_NATIVE_STANDARD=(
-    adb
-    fastboot
+    android-tools-platform-tools
     bat
     bleachbit
     btop
@@ -84,7 +83,7 @@ DEBIAN_FLATPAK_STANDARD=(
     com.spotify.Client
     com.dropbox.Client
     org.kde.kdenlive
-    com.github.RustRDP.RustDesk
+    com.rustdesk.RustDesk
 )
 
 # Minimal mode (lightweight desktop setup with core utilities)
@@ -99,7 +98,7 @@ DEBIAN_NATIVE_MINIMAL=(
 )
 
 DEBIAN_FLATPAK_MINIMAL=(
-    com.github.RustRDP.RustDesk
+    com.rustdesk.RustDesk
 )
 
 # Server mode (headless server setup with monitoring and security tools)
