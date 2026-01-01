@@ -58,7 +58,7 @@ show_linuxinstaller_ascii() {
      | |___| | | | | |_| |>  < | || | | \__ \ || (_| | | |  __/ |
      |_____|_|_| |_|\__,_/_/\_\___|_| |_|___/\__\__,_|_|_|\___|_|
 EOF
-    echo -e "${LIGHT_CYAN}    Cross-Distribution Linux Post-Installation Script${RESET}"
+    echo -e "${LIGHT_CYAN}           Cross-Distribution Linux Post-Installation Script${RESET}"
     echo ""
 }
 

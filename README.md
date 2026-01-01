@@ -66,7 +66,7 @@ sudo ./install.sh --verbose
 ```
 ╔══════════════════════════════════════════════════════════╗
 ║              LinuxInstaller v1.0                         ║
-║     Cross-Distribution Linux Post-Installation Script    ║
+║      Cross-Distribution Linux Post-Installation Script     ║
 ╚══════════════════════════════════════════════════════════╝
 
 Please select an installation mode:
