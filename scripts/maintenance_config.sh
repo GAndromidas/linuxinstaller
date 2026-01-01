@@ -170,10 +170,6 @@ maintenance_configure_timeshift() {
 
     local TS_CONFIG="/etc/timeshift/timeshift.json"
 
-    if [ -f "$TS_CONFIG" ]; then
-        cp "$TS_CONFIG" "${TS_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-    fi
-
     tee "$TS_CONFIG" >/dev/null << 'EOF'
 {
     "snapshot_device_uuid": null,
@@ -238,11 +234,6 @@ maintenance_configure_snapper_settings() {
         return
     fi
 
-    # Backup existing config
-    if [ -f /etc/snapper/configs/root ]; then
-        cp /etc/snapper/configs/root "/etc/snapper/configs/root.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-    fi
-
     # Configure Snapper with best practice settings
     # Enable timeline snapshots for automatic protection
     sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="yes"/' /etc/snapper/configs/root
@@ -296,10 +287,6 @@ maintenance_setup_pre_update_snapshots() {
         local HOOK_SCRIPT="snapper-notify.hook"
 
         mkdir -p "$HOOK_DIR"
-
-        if [ -f "$HOOK_DIR/$HOOK_SCRIPT" ]; then
-            cp "$HOOK_DIR/$HOOK_SCRIPT" "$HOOK_DIR/${HOOK_SCRIPT}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
-        fi
 
         cat << 'EOF' | tee "$HOOK_DIR/$HOOK_SCRIPT" >/dev/null
 [Trigger]

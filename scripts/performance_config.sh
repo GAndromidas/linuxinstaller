@@ -301,13 +301,6 @@ performance_configure_gaming() {
             log_success "Set CPU governor to performance for gaming"
         fi
 
-        # Optimize GPU settings
-        if command -v nvidia-settings >/dev/null 2>&1; then
-            log_info "Configuring NVIDIA settings for gaming..."
-            nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
-            log_success "NVIDIA performance mode enabled"
-        fi
-
         # Configure audio latency
         if [ -f /etc/pulse/daemon.conf ]; then
             sed -i 's/^;default-fragments = 4/default-fragments = 2/' /etc/pulse/daemon.conf 2>/dev/null || true

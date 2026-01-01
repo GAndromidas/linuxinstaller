@@ -19,12 +19,13 @@ A comprehensive automation script that transforms a fresh Linux installation int
 ## ✨ Features
 
 - **🎯 Cross-Distribution Support** - Arch Linux, Fedora, Debian, Ubuntu
-- **🤖 Smart Hardware Detection** - Automatic GPU, bootloader, and device detection
-- **🎮 Gaming Environment** - Steam, Wine, Vulkan drivers, performance optimizations
+- **🤖 Smart Hardware Detection** - Automatic GPU detection with intelligent driver management
+- **🎮 Gaming Environment** - Steam, Wine, auto-detected GPU drivers, performance optimizations
 - **🔒 Security Hardening** - Firewall, Fail2ban, SSH hardening
 - **⚡ Performance Tuning** - ZRAM, CPU governor, filesystem optimization
 - **🎨 Desktop Integration** - KDE Plasma & GNOME configuration
 - **📊 Beautiful UI** - Modern gum-based interface with fallback to text mode
+- **🛡️ Safe Installation** - No backup file creation, clean modifications
 
 ---
 
@@ -77,7 +78,34 @@ When choosing **Standard** or **Minimal** mode, you'll be prompted to install ga
 - 🍷 Wine setup
 - 📊 MangoHud performance monitoring
 - ⚡ GameMode system optimization
-- 🎯 Vulkan driver installation
+- 🎯 **Smart GPU Detection & Driver Installation**
+
+### GPU Detection & Drivers
+
+The installer automatically detects your GPU using `lspci` and installs appropriate drivers:
+
+| GPU Vendor | Detection ID | Action |
+|------------|-------------|--------|
+| **AMD** | 0x1002 | Auto-installs Mesa, Vulkan, and AMDVLK drivers |
+| **Intel** | 0x8086 | Auto-installs Mesa, Vulkan, and Intel Media Driver |
+| **NVIDIA** | 0x10de | ⚠️ **NOT** auto-installed - manual installation required |
+
+#### NVIDIA Driver Installation
+
+**Important:** NVIDIA drivers require manual installation due to licensing and complexity:
+
+```bash
+# Arch/Manjaro
+sudo pacman -S nvidia nvidia-utils
+
+# Fedora
+sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda
+
+# Debian/Ubuntu
+sudo apt install nvidia-driver
+```
+
+After installing NVIDIA drivers, **restart your system**.
 
 ---
 
@@ -126,10 +154,17 @@ When choosing **Standard** or **Minimal** mode, you'll be prompted to install ga
 
 | Hardware | Detection | Action |
 |----------|------------|--------|
-| **GPU** | lspci/udev | Installs NVIDIA, AMD, or Intel drivers |
+| **GPU** | lspci (vendor IDs) | Auto-installs AMD/Intel drivers; warns for NVIDIA |
 | **Bootloader** | /boot analysis | Configures GRUB or systemd-boot |
 | **Logitech** | USB/Bluetooth/HID | Installs solaar for device management |
 | **Filesystem** | /proc/mounts | Sets up Btrfs snapshots |
+
+### GPU Detection Details
+
+The installer uses `lspci` to identify GPU hardware by vendor ID:
+- **AMD (0x1002)**: Mesa, Vulkan, AMDVLK
+- **Intel (0x8086)**: Mesa, Vulkan, Intel Media Driver
+- **NVIDIA (0x10de)**: Warning displayed for manual installation
 
 ---
 
@@ -189,7 +224,21 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
+### NVIDIA Drivers Not Working
+After gaming mode installation, if you have an NVIDIA GPU:
 
+1. Install NVIDIA drivers manually (see Gaming Suite section above)
+2. Restart your system
+3. Verify with: `nvidia-smi`
+
+### Gaming Performance Issues
+```bash
+# Check if GPU drivers are loaded
+lspci -k | grep -A 2 -i vga
+
+# Verify Vulkan support
+vulkaninfo | grep "GPU"
+```
 
 ---
 

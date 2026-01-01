@@ -246,11 +246,6 @@ fedora_enable_rpmfusion() {
 fedora_configure_dnf() {
     log_info "Configuring DNF for optimal performance..."
 
-    # Backup original config
-    if [ -f "$FEDORA_REPOS_FILE" ] && [ ! -f "${FEDORA_REPOS_FILE}.backup" ]; then
-        cp "$FEDORA_REPOS_FILE" "${FEDORA_REPOS_FILE}.backup"
-    fi
-
     # Optimize DNF configuration
     local optimizations=(
         "max_parallel_downloads=10"

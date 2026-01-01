@@ -330,6 +330,71 @@ install_package_group() {
                 ;;
         esac
 
+    # Enable password asterisks for sudo prompts (visible feedback when typing)
+    enable_password_feedback() {
+        local sudoers_file="/etc/sudoers"
+
+        if [ -f "$sudoers_file" ]; then
+            if ! grep -q "Defaults pwfeedback" "$sudoers_file"; then
+                log_info "Enabling password asterisks for sudo prompts..."
+                case "$DISTRO_ID" in
+                    arch)
+                        visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                        if [ $? -eq 0 ]; then
+                            log_success "Password asterisks enabled via visudo (Arch)"
+                        else
+                            log_warn "Failed to enable password asterisks via visudo"
+                        fi
+                        ;;
+                    debian|ubuntu)
+                        if command -v visudo >/dev/null 2>&1; then
+                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                            if [ $? -eq 0 ]; then
+                                log_success "Password asterisks enabled via visudo ($DISTRO_ID)"
+                            else
+                                log_warn "Failed to enable password asterisks via visudo"
+                            fi
+                        else
+                            echo "Defaults pwfeedback" >> "$sudoers_file"
+                            log_success "Password asterisks enabled via direct echo ($DISTRO_ID)"
+                        fi
+                        ;;
+                    fedora)
+                        if command -v visudo >/dev/null 2>&1; then
+                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                            if [ $? -eq 0 ]; then
+                                log_success "Password asterisks enabled via visudo (Fedora)"
+                            else
+                                log_warn "Failed to enable password asterisks via visudo"
+                            fi
+                        else
+                            echo "Defaults pwfeedback" >> "$sudoers_file"
+                            log_success "Password asterisks enabled via direct echo (Fedora)"
+                        fi
+                        ;;
+                    *)
+                        if command -v visudo >/dev/null 2>&1; then
+                            visudo -c "Defaults pwfeedback" >/dev/null 2>&1
+                            if [ $? -eq 0 ]; then
+                                log_success "Password asterisks enabled via visudo"
+                            else
+                                log_warn "Failed to enable password asterisks via visudo"
+                            fi
+                        else
+                            echo "Defaults pwfeedback" >> "$sudoers_file"
+                            log_success "Password asterisks enabled via direct echo"
+                            log_warn "Please run 'visudo' to validate sudoers file"
+                        fi
+                        ;;
+                esac
+            else
+                log_info "Password feedback already enabled"
+            fi
+        else
+            log_warn "sudoers file not found, skipping password feedback configuration"
+        fi
+    }
+
         # Track installed packages
         local installed=()
         local skipped=()
@@ -467,12 +532,8 @@ configure_user_shell_and_configs() {
         fi
     done
 
-    # Deploy .zshrc (backup if present)
+    # Deploy .zshrc
     if [ -f "$cfg_dir/.zshrc" ]; then
-        if [ -f "$home_dir/.zshrc" ]; then
-            local backup_file="$home_dir/.zshrc.backup.$(date +%s)"
-            cp -a "$home_dir/.zshrc" "$backup_file" || true
-        fi
         cp -a "$cfg_dir/.zshrc" "$home_dir/.zshrc" || true
         chown "$target_user:$target_user" "$home_dir/.zshrc" || true
     fi

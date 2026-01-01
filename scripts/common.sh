@@ -124,7 +124,7 @@ step() {
         # Add a top margin so each step is separated visually
         gum style --margin "1 2" --foreground "$GUM_BODY_FG" --bold "❯ $message"
     else
-        # Make the arrow/title blue and the actual message bright white for readability
+        # Make's arrow/title blue and actual message bright white for readability
         # Prepend a newline so steps are spaced out in non-gum terminals too
         echo -e "\n${BLUE}❯ ${WHITE}$message${RESET}"
     fi

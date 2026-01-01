@@ -241,11 +241,6 @@ security_configure_ssh() {
     if [ -f /etc/ssh/sshd_config ]; then
         log_info "Configuring SSH security settings..."
 
-        # Backup original config
-        if [ ! -f /etc/ssh/sshd_config.backup ]; then
-            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
-        fi
-
         # Apply security settings
         sed -i 's/^#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
         sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true

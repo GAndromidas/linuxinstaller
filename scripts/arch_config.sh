@@ -100,40 +100,6 @@ ARCH_NATIVE_STANDARD_ESSENTIALS=(
 )
 
 # =============================================================================
-# SMART KEYCHRON KEYBOARD DETECTION
-# =============================================================================
-
-# Detect Keychron keyboard connection type (USB vs Bluetooth)
-# Returns: "via-bin" for USB or Bluetooth, "" if no Keychron
-detect_keychron_connection() {
-    # Method 1: Check lsusb for Logitech USB receivers (often Keychron compatible)
-    if lsusb 2>/dev/null | grep -qi "logitech.*usb.*receiver"; then
-        echo "via-bin"
-        return 0
-    fi
-
-    # Method 2: Check bluetoothctl for Keychron devices
-    if command -v bluetoothctl >/dev/null 2>&1; then
-        if bluetoothctl devices 2>/dev/null | grep -qi "Keychron"; then
-            echo "via-bin"
-            return 0
-        fi
-    fi
-
-    # Method 3: Check bluetoothctl for any bluetooth keyboard (fallback)
-    if command -v bluetoothctl >/dev/null 2>&1; then
-        if bluetoothctl devices 2>/dev/null | grep -qi "keyboard"; then
-            echo "via-bin"
-            return 0
-        fi
-    fi
-
-    # No Keychron detected, return empty string
-    echo ""
-    return 0
-}
-
-# =============================================================================
 # AUR PACKAGES FOR STANDARD MODE
 # =============================================================================
 
@@ -144,7 +110,7 @@ ARCH_AUR_STANDARD=(
     "rustdesk-bin"
     "spotify"
     "ventoy-bin"
-    "via-bin"
+    "via-bin"  # VIA keyboard configurator (USB or Bluetooth)
 )
 # Flatpaks for Standard (Flathub IDs)
 ARCH_FLATPAK_STANDARD=(
@@ -258,12 +224,6 @@ distro_get_packages() {
     local section="$1"
     local type="$2"
 
-    # Get Keychron VIA package name (smart detection)
-    local keychron_pkg="via"
-    if command -v detect_keychron_connection >/dev/null 2>&1; then
-        keychron_pkg=$(detect_keychron_connection)
-    fi
-
     case "$section" in
             essential)
                 case "$type" in
@@ -279,16 +239,7 @@ distro_get_packages() {
                     printf "%s\n" "${ARCH_NATIVE_STANDARD[@]}"
                     printf "%s\n" "${ARCH_NATIVE_STANDARD_ESSENTIALS[@]}"
                     ;;
-                aur)
-                    # Replace "via" with detected Keychron package
-                    for pkg in "${ARCH_AUR_STANDARD[@]}"; do
-                        if [ "$pkg" = "via" ] && [ -n "$keychron_pkg" ]; then
-                            printf "%s\n" "$keychron_pkg"
-                        else
-                            printf "%s\n" "$pkg"
-                        fi
-                    done
-                    ;;
+                aur)    printf "%s\n" "${ARCH_AUR_STANDARD[@]}" ;;
                 flatpak) printf "%s\n" "${ARCH_FLATPAK_STANDARD[@]}" ;;
                 *) return 0 ;;
             esac
@@ -347,7 +298,6 @@ distro_get_packages() {
             ;;
     esac
 }
-export -f detect_keychron_connection
 export -f distro_get_packages
 
 # =============================================================================
@@ -405,21 +355,6 @@ arch_system_preparation() {
         fi
     fi
 
-    # Detect and install correct Keychron VIA package (USB vs Bluetooth)
-    local keychron_pkg=""
-    keychron_pkg=$(detect_keychron_connection)
-
-    if [ -n "$keychron_pkg" ]; then
-        step "Installing Keychron VIA configurator ($keychron_pkg)"
-        if command -v yay >/dev/null 2>&1; then
-            if yay -S --noconfirm --needed "$keychron_pkg" >/dev/null 2>&1; then
-                log_success "Keychron VIA configurator installed: $keychron_pkg"
-            else
-                log_warn "Failed to install Keychron VIA configurator (optional)"
-            fi
-        fi
-    fi
-
     # Update system
     if supports_gum; then
         if gum spin --spinner dot --title "Updating system" -- pacman -Syu --noconfirm >/dev/null 2>&1; then
@@ -433,11 +368,6 @@ arch_system_preparation() {
 # Configure pacman package manager settings for Arch Linux
 configure_pacman_arch() {
     log_info "Configuring pacman for optimal performance..."
-
-    # Backup original config
-    if [ -f "$ARCH_REPOS_FILE" ] && [ ! -f "${ARCH_REPOS_FILE}.backup" ]; then
-        cp "$ARCH_REPOS_FILE" "${ARCH_REPOS_FILE}.backup"
-    fi
 
     # Enable Color output
     if grep -q "^#Color" "$ARCH_REPOS_FILE"; then
@@ -647,9 +577,6 @@ arch_configure_locale() {
         log_error "locale.gen file not found"
         return 1
     fi
-
-    # Backup original file
-    cp "$locale_file" "${locale_file}.backup"
 
     # Uncomment Greek locale (el_GR.UTF-8)
     if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then

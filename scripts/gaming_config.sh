@@ -8,7 +8,127 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 source "$SCRIPT_DIR/distro_check.sh"
 
+# GPU Vendor IDs
+GPU_AMD="0x1002"
+GPU_INTEL="0x8086"
+GPU_NVIDIA="0x10de"
 
+# =============================================================================
+# GPU DETECTION FUNCTIONS
+# =============================================================================
+
+detect_gpu() {
+    step "Detecting GPU Hardware"
+
+    local detected_gpus=()
+    local gpu_info
+
+    # Use lspci to detect GPUs
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            local vendor_id=$(echo "$line" | grep -oP '\[\K[0-9a-fA-F]{4}(?=:)' | head -1)
+            local device_name=$(echo "$line" | grep -oP '(?<=\]: ).*(?= \[\d{4}:)' | sed 's/^ *//')
+            
+            case "$vendor_id" in
+                1002)
+                    detected_gpus+=("AMD: $device_name")
+                    ;;
+                8086)
+                    detected_gpus+=("Intel: $device_name")
+                    ;;
+                10de)
+                    detected_gpus+=("NVIDIA: $device_name")
+                    ;;
+            esac
+        fi
+    done < <(lspci -nn | grep -iE "vga|3d|display")
+
+    if [ ${#detected_gpus[@]} -eq 0 ]; then
+        log_warn "No GPU detected"
+        return 1
+    fi
+
+    log_success "Detected ${#detected_gpus[@]} GPU(s):"
+    for gpu in "${detected_gpus[@]}"; do
+        log_info "  - $gpu"
+    done
+
+    return 0
+}
+
+has_amd_gpu() {
+    lspci -nn | grep -qi "vga.*1002\|3d.*1002\|display.*1002"
+}
+
+has_intel_gpu() {
+    lspci -nn | grep -qi "vga.*8086\|3d.*8086\|display.*8086"
+}
+
+has_nvidia_gpu() {
+    lspci -nn | grep -qi "vga.*10de\|3d.*10de\|display.*10de"
+}
+
+install_gpu_drivers() {
+    step "Installing GPU Drivers"
+
+    local amd_detected=false
+    local intel_detected=false
+    local nvidia_detected=false
+
+    has_amd_gpu && amd_detected=true
+    has_intel_gpu && intel_detected=true
+    has_nvidia_gpu && nvidia_detected=true
+
+    if [ "$amd_detected" = true ]; then
+        log_info "AMD GPU detected - installing AMD drivers"
+        case "$DISTRO_ID" in
+            arch|manjaro)
+                install_pkg mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon 2>/dev/null || true
+                log_success "AMD drivers installed (Mesa + Vulkan)"
+                ;;
+            fedora)
+                install_pkg mesa-vulkan-drivers mesa-vulkan-drivers.i686 2>/dev/null || true
+                log_success "AMD drivers installed (Mesa + Vulkan)"
+                ;;
+            debian|ubuntu)
+                install_pkg mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386 2>/dev/null || true
+                log_success "AMD drivers installed (Mesa + Vulkan)"
+                ;;
+        esac
+    fi
+
+    if [ "$intel_detected" = true ]; then
+        log_info "Intel GPU detected - installing Intel drivers"
+        case "$DISTRO_ID" in
+            arch|manjaro)
+                install_pkg mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-driver 2>/dev/null || true
+                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                ;;
+            fedora)
+                install_pkg mesa-vulkan-drivers intel-media-driver 2>/dev/null || true
+                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                ;;
+            debian|ubuntu)
+                install_pkg mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386 intel-media-va-driver:i386 2>/dev/null || true
+                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                ;;
+        esac
+    fi
+
+    if [ "$nvidia_detected" = true ]; then
+        log_warn "NVIDIA GPU detected"
+        log_warn "================================"
+        log_warn "NVIDIA proprietary drivers are NOT installed automatically by this script."
+        log_warn ""
+        log_warn "Please install NVIDIA drivers manually:"
+        log_warn "  Arch/Manjaro: sudo pacman -S nvidia nvidia-utils"
+        log_warn "  Fedora: sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda"
+        log_warn "  Debian/Ubuntu: sudo apt install nvidia-driver"
+        log_warn ""
+        log_warn "After installing NVIDIA drivers, restart your system."
+        log_warn "================================"
+    fi
+}
 
 # =============================================================================
 # GAMING CONFIGURATION FUNCTIONS
@@ -56,13 +176,6 @@ gaming_configure_performance() {
     if [ -f /proc/sys/vm/swappiness ]; then
         echo 10 | tee /proc/sys/vm/swappiness >/dev/null 2>&1
         log_success "Optimized swappiness for gaming (set to 10)"
-    fi
-
-    # Configure graphics settings
-    if command -v nvidia-settings >/dev/null 2>&1; then
-        log_info "Configuring NVIDIA settings for gaming..."
-        nvidia-settings -a GPUPowerMizerMode=1 >/dev/null 2>&1 || true
-        log_success "NVIDIA performance mode enabled"
     fi
 
     # Enable TRIM for SSDs
@@ -183,6 +296,12 @@ gaming_main_config() {
         return 0
     fi
 
+    # Detect GPU hardware
+    detect_gpu
+
+    # Install GPU drivers based on detected hardware
+    install_gpu_drivers
+
     # Install gaming packages
     gaming_install_packages
 
@@ -201,13 +320,16 @@ gaming_main_config() {
     # Install Faugus (Flatpak)
     gaming_install_faugus
 
-
-
     log_success "Gaming configuration completed"
 }
 
 # Export functions for use by main installer
 export -f gaming_main_config
+export -f detect_gpu
+export -f has_amd_gpu
+export -f has_intel_gpu
+export -f has_nvidia_gpu
+export -f install_gpu_drivers
 export -f gaming_install_packages
 export -f gaming_configure_performance
 export -f gaming_configure_mangohud

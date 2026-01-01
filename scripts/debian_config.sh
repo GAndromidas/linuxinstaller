@@ -675,8 +675,6 @@ debian_configure_locale() {
     local locale_file="/etc/locale.gen"
 
     if [ -f "$locale_file" ]; then
-        cp "$locale_file" "${locale_file}.backup"
-
         # Uncomment Greek locale
         if grep -q "^#el_GR.UTF-8 UTF-8" "$locale_file"; then
             log_info "Enabling Greek locale (el_GR.UTF-8)..."
