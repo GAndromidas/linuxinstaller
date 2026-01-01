@@ -515,22 +515,22 @@ enable_password_feedback() {
     fi
 }
 
-        # Install packages based on type and track results
-        local installed=() skipped=() failed=()
-        case "$type" in
-            flatpak)
-                install_flatpak_packages "$install_cmd" packages installed skipped failed
-                ;;
-            native)
-                install_native_packages "$install_cmd" packages installed skipped failed
-                ;;
-            *)
-                install_other_packages "$install_cmd" packages installed failed
-                ;;
-        esac
+# Install packages based on type and track results
+local installed=() skipped=() failed=()
+case "$type" in
+    flatpak)
+        install_flatpak_packages "$install_cmd" packages installed skipped failed
+        ;;
+    native)
+        install_native_packages "$install_cmd" packages installed skipped failed
+        ;;
+    *)
+        install_other_packages "$install_cmd" packages installed failed
+        ;;
+esac
 
-        # Show installation summary for this package type
-        show_package_summary "$title ($type)" installed failed
+# Show installation summary for this package type
+show_package_summary "$title ($type)" installed failed
     done
 }
 
