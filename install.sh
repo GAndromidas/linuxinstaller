@@ -446,20 +446,23 @@ install_package_group() {
                 fi
             done
         else
-            for pkg in "${packages[@]}"; do
-                pkg="$(echo "$pkg" | xargs)"
+            if [ "$type" = "native" ]; then
+                # Collect all packages to install for native packages (batch installation)
+                local packages_to_install=()
 
-                # Resolve package name for current distro
-                local resolved_pkg
-                resolved_pkg="$(resolve_package_name "$pkg")"
+                for pkg in "${packages[@]}"; do
+                    pkg="$(echo "$pkg" | xargs)"
 
-                # If resolved_pkg is empty, skip this package (removed for this distro)
-                if [ -z "$resolved_pkg" ]; then
-                    continue
-                fi
+                    # Resolve package name for current distro
+                    local resolved_pkg
+                    resolved_pkg="$(resolve_package_name "$pkg")"
 
-                # For native packages, check if all resolved packages are installed
-                if [ "$type" = "native" ]; then
+                    # If resolved_pkg is empty, skip this package (removed for this distro)
+                    if [ -z "$resolved_pkg" ]; then
+                        continue
+                    fi
+
+                    # Check if all resolved packages are installed
                     local all_installed=true
                     local check_pkg
                     for check_pkg in $resolved_pkg; do
@@ -474,50 +477,72 @@ install_package_group() {
                         continue
                     fi
 
-                    # Check if packages exist in repositories
-                    local missing_in_repo=false
-                    for check_pkg in $resolved_pkg; do
-                        if ! package_exists "$check_pkg"; then
-                            missing_in_repo=true
-                            break
-                        fi
-                    done
+                    # Add to batch installation list
+                    packages_to_install+=("$resolved_pkg")
+                done
 
-                    if [ "$missing_in_repo" = true ]; then
-                        log_warn "Package '$pkg' (resolved to: $resolved_pkg) not found in repositories, attempting installation anyway"
-                    fi
+                # Check if any packages need to be installed
+                if [ ${#packages_to_install[@]} -eq 0 ]; then
+                    continue
                 fi
 
-                # Install all resolved packages
+                # Install all packages in one batch (better for dependencies like adb/fastboot)
                 local install_status=0
                 if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
                     if supports_gum; then
-                        if ! gum spin --spinner dot --title "" -- DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM $resolved_pkg >/dev/null 2>&1; then
+                        if ! gum spin --spinner dot --title "Installing ${#packages_to_install[@]} package(s)" -- DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
                             install_status=1
                         fi
                     else
-                        if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM $resolved_pkg >/dev/null 2>&1; then
+                        if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
                             install_status=1
                         fi
                     fi
                 else
                     if supports_gum; then
-                        if ! gum spin --spinner dot --title "" -- $install_cmd $resolved_pkg >/dev/null 2>&1; then
+                        if ! gum spin --spinner dot --title "Installing ${#packages_to_install[@]} package(s)" -- $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
                             install_status=1
                         fi
                     else
-                        if ! $install_cmd $resolved_pkg >/dev/null 2>&1; then
+                        if ! $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
                             install_status=1
                         fi
                     fi
                 fi
 
-                if [ $install_status -eq 0 ]; then
-                    installed+=("$pkg")
-                else
-                    failed+=("$pkg")
-                fi
-            done
+                # Track which packages succeeded/failed
+                for pkg in "${packages[@]}"; do
+                    pkg="$(echo "$pkg" | xargs)"
+                    local resolved_pkg
+                    resolved_pkg="$(resolve_package_name "$pkg")"
+                    if [ -n "$resolved_pkg" ]; then
+                        if [ $install_status -eq 0 ]; then
+                            installed+=("$pkg")
+                        else
+                            failed+=("$pkg")
+                        fi
+                    fi
+                done
+            else
+                # For non-native packages (flatpak, aur, snap), install one-by-one
+                for pkg in "${packages[@]}"; do
+                    pkg="$(echo "$pkg" | xargs)"
+
+                    if supports_gum; then
+                        if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                            installed+=("$pkg")
+                        else
+                            failed+=("$pkg")
+                        fi
+                    else
+                        if $install_cmd "$pkg" >/dev/null 2>&1; then
+                            installed+=("$pkg")
+                        else
+                            failed+=("$pkg")
+                        fi
+                    fi
+                done
+            fi
         fi
 
         # Show summary only

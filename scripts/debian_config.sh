@@ -53,7 +53,8 @@ DEBIAN_ESSENTIALS=(
 # Packages are split from Arch's android-tools, cpupower, expac, and font packages
 # to use native Debian/Ubuntu package names
 DEBIAN_NATIVE_STANDARD=(
-    android-tools-platform-tools
+    adb
+    fastboot
     bat
     bleachbit
     btop
