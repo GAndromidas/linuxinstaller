@@ -316,27 +316,6 @@ bootstrap_tools() {
             fi
         fi
     fi
-    fi
-
-    # 1. GUM (UI) - try package manager, then fallback to binary download
-    if ! supports_gum; then
-        if [ "$DRY_RUN" = true ]; then
-            return
-        fi
-
-        # Try package manager first
-        if [ "$DISTRO_ID" == "arch" ]; then
-            if pacman -S --noconfirm gum >/dev/null 2>&1; then
-                GUM_INSTALLED_BY_SCRIPT=true
-                supports_gum >/dev/null 2>&1 || true
-            fi
-        else
-            if install_pkg gum >/dev/null 2>&1; then
-                GUM_INSTALLED_BY_SCRIPT=true
-                supports_gum >/dev/null 2>&1 || true
-            fi
-        fi
-    fi
 }
 
 
