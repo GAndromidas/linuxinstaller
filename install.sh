@@ -407,6 +407,62 @@ install_package_group() {
             continue
         fi
 
+        # Get installation command for this package type
+        local install_cmd
+        install_cmd=$(get_install_command "$type")
+        if [ -z "$install_cmd" ]; then
+            continue
+        fi
+
+        # Install packages based on type and track results
+        local installed=() skipped=() failed=()
+        case "$type" in
+            flatpak)
+                install_flatpak_packages "$install_cmd" packages installed skipped failed
+                ;;
+            native)
+                install_native_packages "$install_cmd" packages installed skipped failed
+                ;;
+            *)
+                install_other_packages "$install_cmd" packages installed failed
+                ;;
+        esac
+
+        # Show installation summary for this package type
+        show_package_summary "$title ($type)" installed failed
+    done
+}
+
+# Install Flatpak packages with individual tracking
+install_flatpak_packages() {
+    local install_cmd="$1"
+    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
+
+    for pkg in "${packages_ref[@]}"; do
+        pkg="$(echo "$pkg" | xargs)"
+
+        # Check if flatpak is already installed
+        if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
+            skipped_ref+=("$pkg")
+            continue
+        fi
+
+        if supports_gum; then
+            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        else
+            if $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        fi
+    done
+}
+
 # Get installation command for specific package type
 get_install_command() {
     local type="$1"
@@ -449,13 +505,6 @@ get_install_command() {
 
     echo "$install_cmd"
 }
-
-# Get installation command for this package type
-local install_cmd
-install_cmd=$(get_install_command "$type")
-if [ -z "$install_cmd" ]; then
-    continue
-fi
 
 # Enable password asterisks for sudo prompts (visible feedback when typing)
 enable_password_feedback() {
@@ -513,55 +562,6 @@ enable_password_feedback() {
         log_info "You can manually enable it by adding 'Defaults pwfeedback' to /etc/sudoers"
         return 1
     fi
-}
-
-# Install packages based on type and track results
-local installed=() skipped=() failed=()
-case "$type" in
-    flatpak)
-        install_flatpak_packages "$install_cmd" packages installed skipped failed
-        ;;
-    native)
-        install_native_packages "$install_cmd" packages installed skipped failed
-        ;;
-    *)
-        install_other_packages "$install_cmd" packages installed failed
-        ;;
-esac
-
-# Show installation summary for this package type
-show_package_summary "$title ($type)" installed failed
-    done
-}
-
-# Install Flatpak packages with individual tracking
-install_flatpak_packages() {
-    local install_cmd="$1"
-    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
-
-    for pkg in "${packages_ref[@]}"; do
-        pkg="$(echo "$pkg" | xargs)"
-
-        # Check if flatpak is already installed
-        if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
-            skipped_ref+=("$pkg")
-            continue
-        fi
-
-        if supports_gum; then
-            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
-        else
-            if $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
-        fi
-    done
 }
 
 # Install native packages in batch for better dependency handling
