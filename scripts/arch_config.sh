@@ -367,6 +367,11 @@ configure_pacman_arch() {
         sed -i 's/^#ILoveCandy/ILoveCandy/' "$ARCH_REPOS_FILE"
     fi
 
+    # Enable VerbosePkgLists
+    if grep -q "^#VerbosePkgLists" "$ARCH_REPOS_FILE"; then
+        sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' "$ARCH_REPOS_FILE"
+    fi
+
     # Clean old package cache to free up disk space
     if [ -d "/var/cache/pacman/pkg" ]; then
         local cache_dir="/var/cache/pacman/pkg"
@@ -1080,10 +1085,6 @@ configure_systemd_boot_arch() {
 export -f arch_system_preparation
 export -f arch_setup_aur_helper
 export -f arch_configure_bootloader
-export -f arch_enable_system_services
-export -f arch_configure_zram
 export -f arch_install_aur_helper
 export -f arch_configure_mirrors
 export -f arch_configure_locale
-
-export -f arch_configure_plymouth

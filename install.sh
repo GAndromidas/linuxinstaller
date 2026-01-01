@@ -14,7 +14,7 @@ fi
 # Show LinuxInstaller ASCII art banner
 show_linuxinstaller_ascii() {
     clear
-    echo -e "${BLUE}"
+    echo -e "${CYAN}"
     cat << "EOF"
      _     _                  ___           _        _ _
     | |   (_)_ __  _   ___  _|_ _|_ __  ___| |_ __ _| | | ___ _ __
@@ -43,7 +43,8 @@ show_menu() {
             "Minimal - Essential tools only for lightweight installations" \
             "Server - Headless server configuration" \
             "Exit" \
-            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→")
+            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" \
+            --selected.foreground "$GUM_PRIMARY_FG")
 
         case "$choice" in
             "Standard - Complete setup with all recommended packages")
@@ -128,6 +129,7 @@ show_menu() {
 }
 
 # Color variables
+CYAN='\033[0;36m'
 BLUE='\033[0;34m'
 RESET='\033[0m'
 
@@ -344,11 +346,13 @@ install_package_group() {
                     continue
                 fi
 
-                # Check if package exists
-                if ! flatpak info "$pkg" >/dev/null 2>&1; then
-                    failed+=("$pkg")
-                    continue
-                fi
+                # Check if package exists (remote check)
+                # Use flatpak search instead of info to check if package is available
+                # Note: This check is optional, flatpak install will fail if package doesn't exist
+                # Commented out to be less strict and let installation proceed
+                # if ! flatpak search "$pkg" 2>/dev/null | grep -q "$pkg"; then
+                #     log_warn "Flatpak package '$pkg' might not exist, attempting installation"
+                # fi
 
                 if supports_gum; then
                     if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
@@ -376,8 +380,7 @@ install_package_group() {
 
                 # Check if package exists (for native packages only)
                 if [ "$type" = "native" ] && ! package_exists "$pkg"; then
-                    failed+=("$pkg")
-                    continue
+                    log_warn "Package '$pkg' not found in repositories, attempting installation anyway"
                 fi
 
                 if supports_gum; then
@@ -620,67 +623,10 @@ if [ "$DRY_RUN" = false ]; then
     update_system
 fi
 
-# Step: Pacman Configuration (Arch Linux only)
-if [ "$DISTRO_ID" == "arch" ]; then
-    step "Configuring Pacman Optimizations"
-
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would configure pacman optimizations (parallel downloads, color, ILoveCandy)"
-    else
-        # Automatic speedtest installation removed — parallel downloads will be fixed to 10.
-        # (Removing the speedtest dependency and dynamic adjustments per user request.)
-
-        # Dynamic network speed detection removed — parallel downloads will remain fixed (10).
-        # Per configuration decision, we will not change parallel downloads dynamically.
-
-        configure_pacman() {
-            step "Configuring pacman optimizations"
-
-            # Use a fixed number of parallel downloads (10) — no speed-based adjustments
-            local parallel_downloads=10
-
-            # Handle ParallelDownloads - works whether commented or uncommented
-            if grep -q "^#ParallelDownloads" /etc/pacman.conf; then
-                sed -i "s/^#ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-            elif grep -q "^ParallelDownloads" /etc/pacman.conf; then
-                sed -i "s/^ParallelDownloads.*/ParallelDownloads = $parallel_downloads/" /etc/pacman.conf
-            else
-                sed -i "/^\[options\]/a ParallelDownloads = $parallel_downloads" /etc/pacman.conf
-            fi
-
-            # Handle Color setting
-            if grep -q "^#Color" /etc/pacman.conf; then
-                sed -i 's/^#Color/Color/' /etc/pacman.conf
-            fi
-
-            # Handle VerbosePkgLists setting
-            if grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
-                sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
-            fi
-
-            # Add ILoveCandy if not already present
-            if ! grep -q "^ILoveCandy" /etc/pacman.conf; then
-                sed -i '/^Color/a ILoveCandy' /etc/pacman.conf
-            fi
-
-            # Enable multilib if not already enabled
-            if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
-                echo -e "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist" | tee -a /etc/pacman.conf >/dev/null
-            fi
-        }
-
-        # Execute pacman configuration
-        configure_pacman
-
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Pacman optimizations configured"
-        fi
-    fi
-fi
-
 # Step: Run Distro System Preparation (install essentials, etc.)
 # Run distro-specific system preparation early so essential helpers are present
 # before package installation and mark the step complete to avoid duplication.
+# Note: For Arch, this includes pacman configuration via configure_pacman_arch
 DSTR_PREP_FUNC="${DISTRO_ID}_system_preparation"
 DSTR_PREP_STEP="${DSTR_PREP_FUNC}"
 if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
@@ -785,29 +731,27 @@ fi
 
 # Step: Run Distribution-Specific Configuration
 # This replaces the numbered scripts with unified distribution-specific modules
+# Note: Distro configs were already sourced earlier for package lists
 if [ "$DRY_RUN" = false ]; then
     step "Running Distribution-Specific Configuration"
 
     case "$DISTRO_ID" in
         "arch")
-            if [ -f "$SCRIPTS_DIR/arch_config.sh" ]; then
-                source "$SCRIPTS_DIR/arch_config.sh"
+            if declare -f arch_main_config >/dev/null 2>&1; then
                 arch_main_config
             else
                 log_warn "Arch configuration module not found"
             fi
             ;;
         "fedora")
-            if [ -f "$SCRIPTS_DIR/fedora_config.sh" ]; then
-                source "$SCRIPTS_DIR/fedora_config.sh"
+            if declare -f fedora_main_config >/dev/null 2>&1; then
                 fedora_main_config
             else
                 log_warn "Fedora configuration module not found"
             fi
             ;;
         "debian"|"ubuntu")
-            if [ -f "$SCRIPTS_DIR/debian_config.sh" ]; then
-                source "$SCRIPTS_DIR/debian_config.sh"
+            if declare -f debian_main_config >/dev/null 2>&1; then
                 debian_main_config
             else
                 log_warn "Debian/Ubuntu configuration module not found"
