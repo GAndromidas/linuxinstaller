@@ -57,6 +57,7 @@ FEDORA_ESSENTIALS=(
 
 # Flatpak entries (Flathub IDs)
 FEDORA_FLATPAK_STANDARD=(
+    "it.mijorus.gearlever"
     "com.rustdesk.RustDesk"
 )
 
@@ -79,14 +80,13 @@ FEDORA_NATIVE_MINIMAL=(
 )
 
 FEDORA_FLATPAK_MINIMAL=(
-    "com.rustdesk.RustDesk"
     "it.mijorus.gearlever"
+    "com.rustdesk.RustDesk"
 )
 
 # Server mode (lean, headless)
 FEDORA_NATIVE_SERVER=(
     "openssh-server"
-    "ufw"
     "fail2ban"
     "btop"
     "duf"
@@ -101,7 +101,6 @@ FEDORA_DE_GNOME_NATIVE=(
     "transmission-gtk"
 )
 FEDORA_DE_GNOME_FLATPAK=(
-    "it.mijorus.gearlever"
     "com.mattjakeman.ExtensionManager"
 )
 
