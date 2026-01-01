@@ -275,9 +275,47 @@ install_pkg() {
     fi
     log_info "Installing package(s): $*"
     local install_status
+
     if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
         DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM "$@"
         install_status=$?
+    elif [ "$DISTRO_ID" = "arch" ]; then
+        # For Arch, try pacman first, then yay for AUR packages
+        local aur_packages=()
+        local native_packages=()
+
+        for pkg in "$@"; do
+            if ! pacman -Si "$pkg" >/dev/null 2>&1; then
+                # Package not in official repos, try AUR
+                aur_packages+=("$pkg")
+            else
+                native_packages+=("$pkg")
+            fi
+        done
+
+        # Install native packages first
+        if [ ${#native_packages[@]} -gt 0 ]; then
+            pacman -S --needed --noconfirm "${native_packages[@]}" >/dev/null 2>&1 || install_status=$?
+        fi
+
+        # Install AUR packages with yay
+        if [ ${#aur_packages[@]} -gt 0 ]; then
+            # Determine user for yay
+            local yay_user=""
+            if [ "$EUID" -eq 0 ]; then
+                if [ -n "${SUDO_USER:-}" ]; then
+                    yay_user="$SUDO_USER"
+                else
+                    yay_user=$(getent passwd 1000 | cut -d: -f1)
+                fi
+            else
+                yay_user="$USER"
+            fi
+
+            if [ -n "$yay_user" ]; then
+                sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter "${aur_packages[@]}" >/dev/null 2>&1 || install_status=$?
+            fi
+        fi
     else
         $PKG_INSTALL $PKG_NOCONFIRM "$@"
         install_status=$?
@@ -326,7 +364,7 @@ update_system() {
             DEBIAN_FRONTEND=noninteractive apt-get upgrade -yq || update_status=$?
         fi
     else
-        $PKG_UPDATE $PKG_NOCONFIRM
+        $PKG_UPDATE $PKG_NOCONFIRM >/dev/null 2>&1
         update_status=$?
     fi
 

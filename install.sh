@@ -316,10 +316,9 @@ install_package_group() {
                 ;;
             aur)
                 if command -v yay >/dev/null 2>&1; then
-                    install_cmd="yay -S --noconfirm"
-                elif command -v paru >/dev/null 2>&1; then
-                    install_cmd="paru -S --noconfirm"
+                    install_cmd="yay -S --noconfirm --removemake --nocleanafter"
                 else
+                    log_error "yay not found. Please install yay first."
                     continue
                 fi
                 ;;

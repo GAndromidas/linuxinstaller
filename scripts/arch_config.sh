@@ -350,8 +350,7 @@ arch_system_preparation() {
             yay_user="$USER"
         fi
 
-        log_info "Installing rate-mirrors-bin from AUR..."
-        if sudo -u "$yay_user" yay -S --noconfirm --needed rate-mirrors-bin; then
+        if sudo -u "$yay_user" yay -S --noconfirm --needed --removemake --nocleanafter rate-mirrors-bin >/dev/null 2>&1; then
             log_success "rate-mirrors-bin installed successfully"
         else
             log_error "Failed to install rate-mirrors-bin"
