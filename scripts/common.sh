@@ -274,7 +274,7 @@ install_pkg() {
         return
     fi
     log_info "Installing package(s): $*"
-    local install_status
+    local install_status=0
 
     if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
         DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM "$@"

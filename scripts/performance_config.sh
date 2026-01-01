@@ -10,7 +10,6 @@ source "$SCRIPT_DIR/distro_check.sh"
 
 # Performance-specific package lists
 PERFORMANCE_ESSENTIALS=(
-    "zram-generator"
     "btrfs-assistant"
     "btrfsmaintenance"
 )
@@ -38,33 +37,6 @@ PERFORMANCE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 # =============================================================================
 # PERFORMANCE CONFIGURATION FUNCTIONS
 # =============================================================================
-
-# Configure ZRAM compressed swap for performance
-performance_configure_zram() {
-    step "Configuring ZRAM for Performance"
-
-    if ! command -v zramctl >/dev/null; then
-        log_warn "zramctl not found, skipping ZRAM configuration"
-        return
-    fi
-
-    if [ ! -f /etc/systemd/zram-generator.conf ]; then
-        log_info "Creating ZRAM configuration..."
-        tee /etc/systemd/zram-generator.conf > /dev/null << EOF
-[zram0]
-zram-size = min(ram, 8192)
-compression-algorithm = zstd
-EOF
-        systemctl daemon-reload
-        if systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
-            log_success "ZRAM configured and started"
-        else
-            log_warn "Failed to start ZRAM service"
-        fi
-    else
-        log_info "ZRAM configuration already exists"
-    fi
-}
 
 # Configure system swappiness for optimal performance
 performance_configure_swappiness() {
@@ -319,8 +291,6 @@ performance_main_config() {
 
     performance_install_performance_packages
 
-    performance_configure_zram
-
     performance_configure_swappiness
 
     performance_configure_cpu_governor
@@ -342,7 +312,6 @@ performance_main_config() {
 
 # Export functions for use by main installer
 export -f performance_main_config
-export -f performance_configure_zram
 export -f performance_configure_swappiness
 export -f performance_configure_cpu_governor
 export -f performance_configure_filesystem

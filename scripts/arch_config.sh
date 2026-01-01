@@ -557,36 +557,6 @@ arch_enable_system_services() {
             fi
         fi
     done
-
-    # ZRAM configuration for Arch
-    arch_configure_zram
-}
-
-# Configure ZRAM compressed swap for Arch Linux
-arch_configure_zram() {
-    step "Configuring ZRAM for Arch Linux"
-
-    if ! command -v zramctl >/dev/null; then
-        log_warn "zramctl not found, skipping ZRAM configuration"
-        return
-    fi
-
-    if [ ! -f /etc/systemd/zram-generator.conf ]; then
-        log_info "Creating ZRAM configuration..."
-        tee /etc/systemd/zram-generator.conf > /dev/null << EOF
-[zram0]
-zram-size = min(ram, 8192)
-compression-algorithm = zstd
-EOF
-        systemctl daemon-reload
-        if systemctl start systemd-zram-setup@zram0.service >/dev/null 2>&1; then
-            log_success "ZRAM configured and started"
-        else
-            log_warn "Failed to start ZRAM service"
-        fi
-    else
-        log_info "ZRAM configuration already exists"
-    fi
 }
 
 # Configure system locales for Greek and US English on Arch Linux
@@ -948,9 +918,8 @@ arch_configure_plymouth() {
     log_success "Plymouth configuration completed"
 }
 
-export -f arch_enable_system_services
-export -f arch_configure_zram
-export -f arch_configure_plymouth
+ export -f arch_enable_system_services
+ export -f arch_configure_plymouth
 
 # Configure bootloader (GRUB or systemd-boot) for Arch Linux
 arch_configure_bootloader() {
