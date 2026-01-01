@@ -4,7 +4,7 @@
 
 <img width="600" height="135" alt="LinuxInstaller Banner" src="https://github.com/user-attachments/assets/adb433bd-ebab-4c51-a72d-6208164e1026" />
 
-![LinuxInstaller Banner](https://img.shields.io/badge/LinuxInstaller-v4.5-cyan?style=for-the-badge&logo=linux&logoColor=white)
+![LinuxInstaller Banner](https://img.shields.io/badge/LinuxInstaller-v1.0-cyan?style=for-the-badge&logo=linux&logoColor=white)
 [![Beautiful UI](https://img.shields.io/badge/UI-Gum--Powered-00ADD8?style=flat-square)](https://github.com/charmbracelet/gum)
 [![Cross-Platform](https://img.shields.io/badge/Distributions-4_Supported-FF6B35?style=flat-square)](https://github.com/your-repo/linuxinstaller)
 [![Security First](https://img.shields.io/badge/Security-Hardened-4CAF50?style=flat-square)](https://github.com/your-repo/linuxinstaller)
@@ -65,7 +65,7 @@ sudo ./install.sh --verbose
 ### Enhanced Menus with Cyan Theme
 ```
 ╔══════════════════════════════════════════════════════════╗
-║              LinuxInstaller v4.5                         ║
+║              LinuxInstaller v1.0                         ║
 ║     Cross-Distribution Linux Post-Installation Script    ║
 ╚══════════════════════════════════════════════════════════╝
 

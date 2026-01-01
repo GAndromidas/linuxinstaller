@@ -7,7 +7,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # =============================================================================
-# LinuxInstaller - Unified Post-Installation Script
+# LinuxInstaller v1.0 - Unified Post-Installation Script
 # =============================================================================
 #
 # DESCRIPTION:
