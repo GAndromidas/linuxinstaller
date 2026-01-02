@@ -86,14 +86,7 @@ kde_install_packages() {
 
     # Remove unnecessary KDE packages
     log_info "Removing unnecessary KDE packages..."
-    # Remove unnecessary KDE packages
-    log_info "Removing unnecessary KDE packages..."
     for package in "${KDE_REMOVALS[@]}"; do
-        if ! is_package_installed "$package"; then
-            log_info "Package '$package' not installed, skipping removal"
-            continue
-        fi
-        
         if remove_pkg "$package"; then
             log_success "Removed KDE package: $package"
         else

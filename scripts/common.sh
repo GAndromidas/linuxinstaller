@@ -351,18 +351,16 @@ install_pkg() {
         return 1
     fi
 
-    # Check if packages are already tracked as installed
+    # Check if packages are already installed
     local packages_to_install=()
     for pkg in "$@"; do
-        if state_check "pkg_$pkg"; then
-            log_info "Package $pkg already tracked as installed, skipping"
+        if is_package_installed "$pkg"; then
             continue
         fi
         packages_to_install+=("$pkg")
     done
 
     if [ ${#packages_to_install[@]} -eq 0 ]; then
-        log_info "All packages already installed"
         return 0
     fi
 
@@ -464,15 +462,22 @@ remove_pkg() {
         return 1
     fi
 
-    # Validate package names
+    # Check if packages are installed and validate names
     local valid_packages=()
     for pkg in "$@"; do
         if [[ "$pkg" =~ [^a-zA-Z0-9._+-] ]]; then
             log_error "Invalid package name contains special characters: $pkg"
             return 1
         fi
+        if ! is_package_installed "$pkg"; then
+            continue
+        fi
         valid_packages+=("$pkg")
     done
+
+    if [ ${#valid_packages[@]} -eq 0 ]; then
+        return 0
+    fi
 
     log_info "Removing package(s): ${valid_packages[*]}"
     local remove_status
@@ -810,7 +815,9 @@ prompt_reboot() {
 
     if supports_gum; then
         echo ""
-        display_warning "🔄 System Reboot Required" "$message\n⚠️  Important: Save your work before rebooting"
+        local full_message="$message
+⚠️  Important: Save your work before rebooting"
+        display_warning "🔄 System Reboot Required" "$full_message"
         echo ""
 
         if gum confirm --default=true "Reboot now?"; then
