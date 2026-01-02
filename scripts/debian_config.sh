@@ -33,13 +33,11 @@ DEBIAN_ESSENTIALS=(
     curl
     eza
     fastfetch
-    flatpak
     fzf
     git
     openssh-server
     rsync
     starship
-    ufw
     wget
     zoxide
     zsh
@@ -114,6 +112,7 @@ DEBIAN_NATIVE_STANDARD=(
     dosfstools
     fastboot
     firefox
+    flatpak
     fonts-liberation
     fwupd
     gnome-disk-utility
@@ -126,16 +125,16 @@ DEBIAN_NATIVE_STANDARD=(
     sl
     speedtest-cli
     sshfs
+    ufw
     unrar
     wakeonlan
     xdg-desktop-portal-gtk
 )
 
 DEBIAN_FLATPAK_STANDARD=(
-    com.dropbox.Client
     com.rustdesk.RustDesk
     com.spotify.Client
-    org.kde.kdenlive
+    it.mijorus.gearlever
 )
 
 # Minimal mode (lightweight desktop setup with core utilities)
@@ -151,6 +150,7 @@ DEBIAN_NATIVE_MINIMAL=(
     cmatrix
     dosfstools
     firefox
+    flatpak
     fonts-liberation
     fwupd
     gnome-disk-utility
@@ -163,6 +163,7 @@ DEBIAN_NATIVE_MINIMAL=(
     sl
     speedtest-cli
     sshfs
+    ufw
     unrar
     wakeonlan
     xdg-desktop-portal-gtk
@@ -170,6 +171,7 @@ DEBIAN_NATIVE_MINIMAL=(
 
 DEBIAN_FLATPAK_MINIMAL=(
     com.rustdesk.RustDesk
+    it.mijorus.gearlever
 )
 
 # Server mode (headless server setup with monitoring and security tools)
