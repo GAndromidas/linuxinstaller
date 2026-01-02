@@ -421,23 +421,38 @@ arch_system_preparation() {
         local install_output=""
         local exit_code=0
 
-        # Install rate-mirrors-bin as regular user (not root) to avoid makepkg security restrictions
-        log_info "Switching to user $yay_user to install AUR package..."
-        if install_output=$(su - "$yay_user" -c "yay -S --noconfirm --needed --removemake rate-mirrors-bin" 2>&1); then
-            log_success "rate-mirrors-bin installed successfully"
+        # Build rate-mirrors-bin as regular user (not root) to avoid makepkg security restrictions
+        log_info "Building rate-mirrors-bin as user $yay_user..."
+        local pkg_dir="/tmp/rate-mirrors-build-$yay_user"
+        rm -rf "$pkg_dir"
+        mkdir -p "$pkg_dir"
+        chown "$yay_user:$yay_user" "$pkg_dir"
+
+        if install_output=$(su - "$yay_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/rate-mirrors-bin.git . && makepkg --noconfirm --syncdeps --needed" 2>&1); then
+            # Install the built package as root
+            if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
+                log_success "rate-mirrors-bin installed successfully"
+            else
+                log_error "Failed to install built rate-mirrors-bin package"
+                log_info "Built packages: $(ls "$pkg_dir"/*.pkg.tar.zst 2>/dev/null || echo 'none')"
+                return 1
+            fi
         else
             exit_code=$?
-            log_error "Failed to install rate-mirrors-bin (exit code: $exit_code)"
-            log_error "Installation output: $install_output"
+            log_error "Failed to build rate-mirrors-bin (exit code: $exit_code)"
+            log_error "Build output: $install_output"
             log_info "rate-mirrors-bin is required for Arch mirror optimization"
             log_info "Troubleshooting steps:"
             log_info "  1. Check internet connection: ping -c 3 google.com"
             log_info "  2. Update package databases: sudo pacman -Syy"
-            log_info "  2. Switch to regular user and try: yay -S rate-mirrors-bin"
-            log_info "  3. Or install manually as $yay_user: su - $yay_user -c 'yay -S rate-mirrors-bin'"
+            log_info "  3. Switch to regular user and try: yay -S rate-mirrors-bin"
+            log_info "  4. Or install manually as $yay_user: su - $yay_user -c 'git clone https://aur.archlinux.org/rate-mirrors-bin.git && cd rate-mirrors-bin && makepkg -si'"
             log_info "  4. Check yay is working: yay --version"
             return 1
         fi
+
+        # Clean up build directory
+        rm -rf "$pkg_dir"
 
         # Clean up any temp files from the installation
         rm -rf "/tmp/yay"* "/tmp/makepkg"* 2>/dev/null || true
