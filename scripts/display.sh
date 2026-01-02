@@ -4,6 +4,8 @@
 # Centralized terminal UI functions with theming support
 # =============================================================================
 
+# Note: This module assumes common.sh is already sourced
+
 # -----------------------------------------------------------------------------
 # THEME CONFIGURATION
 # -----------------------------------------------------------------------------
@@ -23,6 +25,7 @@ update_distro_theme() {
             "arch")
                 # Arch Linux: Blue theme
                 THEME_PRIMARY="blue"
+                THEME_PRIMARY_ANSI='\033[0;34m'  # Blue
                 GUM_PRIMARY_FG=39      # Blue
                 GUM_SUCCESS_FG=48      # Bright green-cyan
                 GUM_ERROR_FG=196       # Red
@@ -33,12 +36,13 @@ update_distro_theme() {
                 GREEN='\033[0;32m'
                 YELLOW='\033[0;33m'
                 BLUE='\033[0;34m'
-                CYAN='\033[0;36m'
-                LIGHT_CYAN='\033[1;36m'
+                CYAN='\033[0;34m'      # Blue for accents
+                LIGHT_CYAN='\033[1;34m' # Light blue
                 ;;
             "fedora")
                 # Fedora: Blue theme
                 THEME_PRIMARY="blue"
+                THEME_PRIMARY_ANSI='\033[0;34m'  # Blue
                 GUM_PRIMARY_FG=39      # Blue
                 GUM_SUCCESS_FG=48      # Bright green-cyan
                 GUM_ERROR_FG=196       # Red
@@ -49,12 +53,13 @@ update_distro_theme() {
                 GREEN='\033[0;32m'
                 YELLOW='\033[0;33m'
                 BLUE='\033[0;34m'
-                CYAN='\033[0;36m'
-                LIGHT_CYAN='\033[1;36m'
+                CYAN='\033[0;34m'      # Blue for accents
+                LIGHT_CYAN='\033[1;34m' # Light blue
                 ;;
             "debian")
                 # Debian: Red theme
                 THEME_PRIMARY="red"
+                THEME_PRIMARY_ANSI='\033[0;31m'  # Red
                 GUM_PRIMARY_FG=196     # Red
                 GUM_SUCCESS_FG=48      # Bright green-cyan
                 GUM_ERROR_FG=196       # Red
@@ -71,6 +76,7 @@ update_distro_theme() {
             "ubuntu")
                 # Ubuntu: Orange theme
                 THEME_PRIMARY="yellow"  # Closest to orange
+                THEME_PRIMARY_ANSI='\033[0;33m'  # Yellow/Orange
                 GUM_PRIMARY_FG=214     # Orange
                 GUM_SUCCESS_FG=48      # Bright green-cyan
                 GUM_ERROR_FG=196       # Red
@@ -88,6 +94,7 @@ update_distro_theme() {
             *)
                 # Default: Cyan theme (original)
                 THEME_PRIMARY="cyan"
+                THEME_PRIMARY_ANSI='\033[0;36m'  # Cyan
                 GUM_PRIMARY_FG="cyan"
                 GUM_SUCCESS_FG=48
                 GUM_ERROR_FG=196
@@ -119,7 +126,7 @@ display_step() {
         gum style "$icon $title" --foreground "$THEME_PRIMARY" --bold --margin "1 0"
         [ -n "$subtitle" ] && gum style "$subtitle" --foreground "$THEME_BODY" --margin "0 2"
     else
-        echo -e "\n[${THEME_PRIMARY}$icon${RESET}] $title"
+        echo -e "\n[${THEME_PRIMARY_ANSI}$icon${RESET}] $title"
         [ -n "$subtitle" ] && echo "  $subtitle"
     fi
 }
@@ -156,7 +163,7 @@ display_success() {
         gum style "$message" --foreground "$THEME_SUCCESS" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
     else
-        echo -e "${THEME_SUCCESS}✓ $message${RESET}"
+        echo -e "${GREEN}✓ $message${RESET}"
         [ -n "$details" ] && echo "  $details"
     fi
 }
@@ -170,7 +177,7 @@ display_error() {
         gum style "$message" --foreground "$THEME_ERROR" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
     else
-        echo -e "${THEME_ERROR}✗ $message${RESET}"
+        echo -e "${RED}✗ $message${RESET}"
         [ -n "$details" ] && echo "  $details"
     fi
 }
@@ -184,7 +191,7 @@ display_warning() {
         gum style "$message" --foreground "$THEME_WARNING" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
     else
-        echo -e "${THEME_WARNING}⚠ $message${RESET}"
+        echo -e "${YELLOW}⚠ $message${RESET}"
         [ -n "$details" ] && echo "  $details"
     fi
 }
@@ -198,7 +205,7 @@ display_info() {
         gum style "$message" --foreground "$THEME_INFO" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
     else
-        echo -e "${THEME_INFO}ℹ $message${RESET}"
+        echo -e "${CYAN}ℹ $message${RESET}"
         [ -n "$details" ] && echo "  $details"
     fi
 }
@@ -213,7 +220,7 @@ display_box() {
         gum style "$title" --bold --foreground "$border_color" --border rounded --border-foreground "$border_color" --padding "1 2" --margin "1 0"
         [ -n "$content" ] && echo "$content"
     else
-        echo -e "\n=== $title ==="
+        echo -e "\n[${CYAN}$title${RESET}]"
         [ -n "$content" ] && echo "$content"
         echo
     fi

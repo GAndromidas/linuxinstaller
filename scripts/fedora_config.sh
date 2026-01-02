@@ -600,10 +600,10 @@ fedora_configure_locale() {
 
     # Install language packs for Greek and US English
     log_info "Installing language packs..."
-    install_packages_with_progress glibc-langpack-el glibc-langpack-en
-        log_warn "Failed to install language packs"
-    else
+    if install_packages_with_progress glibc-langpack-el glibc-langpack-en; then
         log_success "Language packs installed"
+    else
+        log_warn "Failed to install language packs"
     fi
 
     local locale_conf="/etc/locale.conf"
