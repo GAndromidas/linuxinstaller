@@ -36,6 +36,7 @@ ARCH_ESSENTIALS=(
     bluez-utils
     cronie
     curl
+    ethtool
     eza
     expac
     fastfetch
@@ -708,7 +709,7 @@ arch_setup_shell() {
 
         if [ -n "$zsh_path" ] && [ "$current_shell" != "$zsh_path" ]; then
             log_info "Changing default shell to ZSH for user $target_user..."
-            if chsh -s "$zsh_path" "$target_user" 2>/dev/null; then
+            if chsh -s "$zsh_path" "$target_user" >/dev/null 2>&1; then
                 log_success "Default shell changed to ZSH for $target_user"
                 log_info "Shell change will take effect after logout/login"
             else

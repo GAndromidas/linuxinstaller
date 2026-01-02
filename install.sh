@@ -1492,11 +1492,5 @@ if declare -f detect_system_info >/dev/null 2>&1; then
     detect_system_info
 fi
 
-# Source and show installation summary with reboot prompt
-if [ -f "$SCRIPTS_DIR/installation_summary.sh" ]; then
-    source "$SCRIPTS_DIR/installation_summary.sh"
-    # Show comprehensive installation summary
-    show_installation_summary
-else
-    prompt_reboot
-fi
+# Installation completed
+prompt_reboot

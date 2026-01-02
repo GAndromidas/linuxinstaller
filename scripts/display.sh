@@ -278,15 +278,14 @@ log_error() {
     display_error "$1"
 }
 
-# Enhanced package installation with better progress display
+# Package installation with clean final summary (no intermediate progress)
 install_packages_with_progress() {
     local packages=("$@")
     local installed_packages=()
     local failed_packages=()
-    
+
     for package in "${packages[@]}"; do
         if [ -n "$package" ]; then
-            echo "  • Installing $package"
             if install_pkg "$package" >/dev/null 2>&1; then
                 installed_packages+=("$package")
             else
@@ -294,22 +293,12 @@ install_packages_with_progress() {
             fi
         fi
     done
-    
+
     if [ ${#installed_packages[@]} -gt 0 ]; then
-        echo
-        if supports_gum; then
-            gum style "  ✔ Successfully installed packages: ${installed_packages[*]}" --foreground "$THEME_SUCCESS"
-        else
-            echo "  ✔ Successfully installed packages: ${installed_packages[*]}"
-        fi
+        display_success "Successfully installed packages: ${installed_packages[*]}"
     fi
     if [ ${#failed_packages[@]} -gt 0 ]; then
-        echo
-        if supports_gum; then
-            gum style "  ✗ Failed packages: ${failed_packages[*]}" --foreground "$THEME_ERROR"
-        else
-            echo "  ✗ Failed packages: ${failed_packages[*]}"
-        fi
+        display_error "Failed packages: ${failed_packages[*]}"
     fi
 }
 
