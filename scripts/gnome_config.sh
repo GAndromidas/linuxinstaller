@@ -251,10 +251,7 @@ gnome_install_gnome_software() {
 
     # Install GNOME Software if not present
     if ! command -v gnome-software >/dev/null 2>&1; then
-        if ! install_pkg gnome-software; then
-            log_warn "Failed to install GNOME Software"
-            return
-        fi
+        install_packages_with_progress "gnome-software" || log_warn "Failed to install GNOME Software"
     fi
 
     # Configure GNOME Software

@@ -144,16 +144,13 @@ install_gpu_drivers() {
         log_info "AMD GPU detected - installing AMD drivers"
         case "$DISTRO_ID" in
             arch|manjaro)
-                install_pkg mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon 2>/dev/null || true
-                log_success "AMD drivers installed (Mesa + Vulkan)"
+                install_packages_with_progress mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon
                 ;;
             fedora)
-                install_pkg mesa-vulkan-drivers mesa-vulkan-drivers.i686 2>/dev/null || true
-                log_success "AMD drivers installed (Mesa + Vulkan)"
+                install_packages_with_progress mesa-vulkan-drivers mesa-vulkan-drivers.i686
                 ;;
             debian|ubuntu)
-                install_pkg mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386 2>/dev/null || true
-                log_success "AMD drivers installed (Mesa + Vulkan)"
+                install_packages_with_progress mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386
                 ;;
         esac
     fi
@@ -162,16 +159,13 @@ install_gpu_drivers() {
         log_info "Intel GPU detected - installing Intel drivers"
         case "$DISTRO_ID" in
             arch|manjaro)
-                install_pkg mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-driver 2>/dev/null || true
-                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                install_packages_with_progress mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-driver
                 ;;
             fedora)
-                install_pkg mesa-vulkan-drivers intel-media-driver 2>/dev/null || true
-                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                install_packages_with_progress mesa-vulkan-drivers intel-media-driver
                 ;;
             debian|ubuntu)
-                install_pkg mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386 intel-media-va-driver:i386 2>/dev/null || true
-                log_success "Intel drivers installed (Mesa + Vulkan + Media Driver)"
+                install_packages_with_progress mesa-vulkan-drivers:amd64 mesa-vulkan-drivers:i386 intel-media-va-driver:i386
                 ;;
         esac
     fi
@@ -327,10 +321,10 @@ gaming_configure_steam() {
 
     # Install Steam if not present
     if ! command -v steam >/dev/null 2>&1; then
-        if ! install_pkg steam; then
+        install_packages_with_progress "steam" || {
             log_warn "Failed to install Steam"
             return
-        fi
+        }
     fi
 
     # Configure Steam settings

@@ -222,16 +222,11 @@ performance_configure_microcode() {
             log_info "$microcode_package is already installed"
         else
             # Install the microcode package
-            if install_pkg "$microcode_package"; then
-                log_success "$cpu_vendor microcode updates installed"
-                log_info "Microcode updates will be applied on next boot"
-                log_info "For immediate application: sudo update-initramfs -u (Debian/Ubuntu)"
-                log_info "For immediate application: sudo mkinitcpio -P (Arch)"
-            else
-                log_warn "Failed to install $microcode_package"
-                log_info "Microcode updates provide important CPU security fixes"
-                log_info "Consider installing manually: $microcode_package"
-            fi
+            install_packages_with_progress "$microcode_package"
+            log_success "$cpu_vendor microcode updates installed"
+            log_info "Microcode updates will be applied on next boot"
+            log_info "For immediate application: sudo update-initramfs -u (Debian/Ubuntu)"
+            log_info "For immediate application: sudo mkinitcpio -P (Arch)"
         fi
     else
         log_warn "Could not determine microcode package for $cpu_vendor on $DISTRO_ID"

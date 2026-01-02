@@ -1283,7 +1283,7 @@ if [ "$DISTRO_ID" == "fedora" ]; then
         if command -v dnf >/dev/null; then
             # Install eza from COPR
             if dnf copr enable -y eza-community/eza >/dev/null 2>&1; then
-                install_pkg eza
+                install_packages_with_progress "eza"
                 log_success "Enabled eza COPR repository and installed eza"
             else
                 log_warn "Failed to enable eza COPR repository"

@@ -86,7 +86,7 @@ maintenance_install_basic_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if spin "Installing package" install_pkg "$pkg"; then
+            if spin "Installing package" install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -95,7 +95,7 @@ maintenance_install_basic_packages() {
             fi
         else
             log_info "Installing $pkg: $desc"
-            if install_pkg "$pkg"; then
+            if install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
                 log_success "✓ $pkg installed"
             else
@@ -562,14 +562,7 @@ maintenance_configure_grub_snapshots() {
     else
         if [ "$bootloader" = "grub" ]; then
             if ! is_package_installed "grub-btrfs"; then
-                if supports_gum; then
-                    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
-                    if spin "Installing grub-btrfs" install_pkg "grub-btrfs"; then
-                        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
-                    fi
-                else
-                    install_pkg "grub-btrfs" >/dev/null 2>&1 || true
-                fi
+            install_packages_with_progress "grub-btrfs"
             fi
         fi
 

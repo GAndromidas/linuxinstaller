@@ -104,8 +104,8 @@ wakeonlan_install_ethtool() {
 
     # Use the install_pkg wrapper (defined in common.sh) to install in a distro-agnostic way
     if command_exists install_pkg; then
-        install_pkg ethtool || {
-            log_warn "install_pkg failed to install 'ethtool'. WoL actions may fail."
+        install_packages_with_progress "ethtool" || {
+            log_warn "Failed to install 'ethtool'. WoL actions may fail."
             return 1
         }
     else

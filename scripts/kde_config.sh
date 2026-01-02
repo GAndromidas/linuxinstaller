@@ -352,10 +352,7 @@ kde_install_kdeconnect() {
     step "Installing and Configuring KDE Connect"
 
     # Install KDE Connect
-    if ! install_pkg kdeconnect; then
-        log_warn "Failed to install KDE Connect"
-        return
-    fi
+    install_packages_with_progress "kdeconnect" || log_warn "Failed to install KDE Connect"
 
     # Configure KDE Connect
     local kwrite="kwriteconfig5"

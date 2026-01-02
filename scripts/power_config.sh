@@ -109,7 +109,7 @@ _try_install() {
             continue
         fi
         if command -v install_pkg >/dev/null 2>&1; then
-            if install_pkg "$pkg"; then
+            if install_packages_with_progress "$pkg"; then
                 return 0
             fi
         else
