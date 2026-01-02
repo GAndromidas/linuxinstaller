@@ -23,7 +23,7 @@ run_pre_install_checks() {
 
     # Test 2: Internet connectivity
     ((total_checks++))
-    if check_internet_connection; then
+    if check_internet; then
         log_success "✓ Internet connection confirmed"
         ((checks_passed++))
     else
