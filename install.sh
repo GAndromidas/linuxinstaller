@@ -229,10 +229,80 @@ RESET='\033[0m'
 
 # --- Configuration & Paths ---
 # Determine script location and derive important directories
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"  # Absolute path to this script
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"  # Absolute path to this script
+
+# Detect if we're running as a one-liner (script content piped to bash)
+if [[ "$SCRIPT_PATH" != /* ]] || [[ "$SCRIPT_PATH" == /dev/* ]] || [[ "$SCRIPT_PATH" == /proc/* ]]; then
+    echo "🔄 Detected one-liner installation. Downloading full LinuxInstaller repository..."
+
+    # Create temporary directory for download
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+
+    # Try git first
+    if command -v git >/dev/null 2>&1; then
+        if git clone --depth 1 https://github.com/GAndromidas/linuxinstaller.git . >/dev/null 2>&1; then
+            echo "✓ Repository downloaded successfully"
+            exec bash "$TEMP_DIR/install.sh" "$@"
+        fi
+    fi
+
+    # Fallback: download as tarball
+    echo "⚠️  Git not available or failed, trying tarball download..."
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsSL https://github.com/GAndromidas/linuxinstaller/archive/main.tar.gz | tar -xz --strip-components=1 2>/dev/null; then
+            echo "✓ Repository downloaded successfully"
+            exec bash "$TEMP_DIR/install.sh" "$@"
+        fi
+    fi
+
+    echo "❌ Failed to download LinuxInstaller repository"
+    echo "Please try: git clone https://github.com/GAndromidas/linuxinstaller.git"
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"  # Directory containing this script
 CONFIGS_DIR="$SCRIPT_DIR/configs"    # Distribution-specific configuration files
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"    # Modular script components
+
+# Verify we have the required directory structure
+if [ ! -d "$SCRIPTS_DIR" ]; then
+    echo "FATAL ERROR: Scripts directory not found in $SCRIPT_DIR"
+    echo "This indicates a corrupted or incomplete installation."
+    echo "Please re-download LinuxInstaller from the official repository:"
+    echo "  git clone https://github.com/GAndromidas/linuxinstaller.git"
+    exit 1
+fi
+    echo "🔄 Detected one-liner installation. Downloading full LinuxInstaller repository..."
+
+    # Create temporary directory for download
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+
+    # Download the repository
+    if command -v git >/dev/null 2>&1; then
+        git clone --depth 1 https://github.com/GAndromidas/linuxinstaller.git . >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "✓ Repository downloaded successfully"
+            # Re-execute the local install.sh
+            exec bash "$TEMP_DIR/install.sh" "$@"
+        fi
+    fi
+
+    # Fallback: download as tarball
+    echo "⚠️  Git not available, trying alternative download method..."
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL https://github.com/GAndromidas/linuxinstaller/archive/main.tar.gz | tar -xz --strip-components=1
+        if [ $? -eq 0 ]; then
+            echo "✓ Repository downloaded successfully"
+            exec bash "$TEMP_DIR/install.sh" "$@"
+        fi
+    fi
+
+    echo "❌ Failed to download LinuxInstaller repository"
+    echo "Please clone manually: git clone https://github.com/GAndromidas/linuxinstaller.git"
+    exit 1
+fi
 
 # --- Source Helpers ---
 # We need distro detection and common utilities immediately
@@ -242,7 +312,8 @@ if [ -f "$SCRIPTS_DIR/common.sh" ]; then
 else
     echo "FATAL ERROR: Required file 'common.sh' not found in $SCRIPTS_DIR"
     echo "This indicates a corrupted or incomplete installation."
-    echo "Please re-download LinuxInstaller from the official repository."
+    echo "Please re-download LinuxInstaller from the official repository:"
+    echo "  git clone https://github.com/GAndromidas/linuxinstaller.git"
     exit 1
 fi
 

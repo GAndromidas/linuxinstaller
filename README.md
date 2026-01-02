@@ -35,7 +35,7 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 
 ### Basic Installation
 ```bash
-# Download and run (one-liner)
+# Download and run (one-liner - downloads full repository automatically)
 curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 
 # Or clone and run locally
@@ -404,6 +404,7 @@ Special thanks to all beta testers, bug reporters, and feature contributors who 
 ### 🚀 Ready to transform your Linux installation?
 
 **Run the command below and choose your adventure!**
+*(Automatically downloads the full repository for you)*
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
