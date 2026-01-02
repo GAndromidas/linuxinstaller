@@ -123,7 +123,7 @@ show_menu() {
     echo ""
 
     # Always show menu when interactive, preferring gum if available
-    if [ -t 0 ]; then
+    if [ -t 1 ]; then
         if supports_gum; then
             local choice
             choice=$(gum choose \
@@ -209,7 +209,7 @@ show_menu() {
     echo -e "${CYAN}✓ You selected: ${LIGHT_CYAN}$friendly${RESET}"
 
     if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
-        if [ -t 0 ]; then
+        if [ -t 1 ]; then
             read -r -p "Install Gaming Package Suite? [Y/n]: " response
             if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
                 export INSTALL_GAMING=true
@@ -1195,10 +1195,10 @@ fi
 # Phase 3: Installation Mode Selection
 # Determine installation mode based on user interaction or defaults
 clear
-if [ -t 0 ] && [ "$DRY_RUN" = false ]; then
+if [ -t 1 ] && [ "$DRY_RUN" = false ]; then
     # Interactive terminal - always show menu for user selection
     show_menu
-elif [ -t 0 ] && [ "$DRY_RUN" = true ]; then
+elif [ -t 1 ] && [ "$DRY_RUN" = true ]; then
     log_warn "Dry-Run Mode Active: No changes will be applied."
     log_info "Showing menu for preview purposes only."
     show_menu
