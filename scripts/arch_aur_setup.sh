@@ -84,6 +84,20 @@ arch_install_aur_helper() {
     rm -rf "$temp_dir"
 }
 
+# Uninstall yay and yay-debug after setup is complete
+uninstall_yay() {
+    log_info "Cleaning up: removing yay AUR helper..."
+    if pacman -Q yay >/dev/null 2>&1; then
+        if pacman -Rns --noconfirm yay yay-debug >/dev/null 2>&1; then
+            log_success "Successfully removed yay and yay-debug"
+        else
+            log_warn "Failed to remove yay, it may still be needed for future AUR access"
+        fi
+    else
+        log_info "yay not installed, skipping cleanup"
+    fi
+}
+
 # Install rate-mirrors-bin and update mirrors
 install_rate_mirrors_and_update() {
     step "Installing rate-mirrors-bin for mirror optimization"
@@ -220,6 +234,9 @@ main() {
         log_error "Failed to install rate-mirrors-bin and update mirrors"
         exit 1
     fi
+
+    # Clean up yay after successful setup
+    uninstall_yay
 
     log_success "AUR setup completed successfully"
 }
