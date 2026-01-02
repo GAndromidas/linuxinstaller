@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # Arch Linux AUR Setup Script
-# Handles installation of yay AUR helper and rate-mirrors-bin for mirror optimization
+# Handles installation of yay AUR helper and mirror optimization with reflector
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -98,125 +98,46 @@ uninstall_yay() {
     fi
 }
 
-# Install rate-mirrors-bin and update mirrors
-install_rate_mirrors_and_update() {
-    step "Installing rate-mirrors-bin for mirror optimization"
+# Update mirrors using reflector
+update_mirrors_with_reflector() {
+    step "Updating mirrors with reflector"
 
-    if command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "rate-mirrors is already available"
-        return 0
-    fi
-
-    if ! command -v yay >/dev/null 2>&1; then
-        log_error "yay not found. Cannot install rate-mirrors-bin."
-        log_info "Please install yay first"
+    if ! command -v reflector >/dev/null 2>&1; then
+        log_error "reflector not found. Cannot update mirrors."
+        log_info "reflector should be installed as part of ARCH_ESSENTIALS"
         return 1
     fi
 
-    # Determine which user to run yay as
-    local yay_user=""
-    if [ "$EUID" -eq 0 ]; then
-        if [ -n "${SUDO_USER:-}" ]; then
-            yay_user="$SUDO_USER"
+    log_info "Finding fastest Arch Linux mirrors based on your location..."
+
+    # Use reflector to find the best mirrors
+    # --latest 10: get 10 most recently updated mirrors
+    # --sort rate: sort by download rate
+    # --save: save to mirrorlist
+    # --protocol https: prefer HTTPS
+    local reflector_output
+    log_info "Fetching mirror list from Arch Linux servers..."
+    if reflector_output=$(reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https 2>&1); then
+        log_success "Mirrorlist updated with fastest mirrors"
+        # Sync pacman DB to make sure we use the updated mirrors
+        log_info "Updating pacman package database..."
+        if pacman -Syy >/dev/null 2>&1; then
+            log_success "Refreshed pacman package database (pacman -Syy)"
         else
-            # Try to find the user who invoked sudo
-            yay_user=$(logname 2>/dev/null || who am i | awk '{print $1}' | head -1)
-            if [ -z "${yay_user:-}" ] || [ "${yay_user:-}" = "root" ]; then
-                # Fallback to first real user
-                yay_user=$(getent passwd 1000 | cut -d: -f1 2>/dev/null)
-            fi
-        fi
-        if [ -z "${yay_user:-}" ] || [ "${yay_user:-}" = "root" ]; then
-            log_error "Cannot determine non-root user to run yay as"
-            log_error "Please run this script as a regular user, not root"
-            return 1
-        fi
-        # Verify the user exists and can run yay
-        if ! getent passwd "$yay_user" >/dev/null 2>&1; then
-            log_error "User '$yay_user' does not exist"
+            log_error "Failed to refresh pacman package database after updating mirrors"
             return 1
         fi
     else
-        yay_user="${USER:-$(whoami)}"
-    fi
-
-    # Final safety check for yay_user
-    if [ -z "${yay_user:-}" ]; then
-        log_error "Failed to determine user for yay installation"
-        return 1
-    fi
-
-    log_info "Installing rate-mirrors-bin as user: $yay_user"
-
-    # Validate yay_user exists and is not root
-    if [ -z "$yay_user" ] || [ "$yay_user" = "root" ]; then
-        log_error "Cannot install rate-mirrors-bin: no suitable user found"
-        log_info "Please install rate-mirrors-bin manually: yay -S rate-mirrors-bin"
-        return 1
-    fi
-
-    # Try to install rate-mirrors-bin with better error handling
-    local install_output=""
-    local exit_code=0
-
-    # Build rate-mirrors-bin as regular user (not root) to avoid makepkg security restrictions
-    log_info "Building rate-mirrors-bin as user $yay_user..."
-    local pkg_dir="/tmp/rate-mirrors-build-$yay_user"
-    rm -rf "$pkg_dir"
-    mkdir -p "$pkg_dir"
-    chown "$yay_user:$yay_user" "$pkg_dir"
-
-    if install_output=$(su - "$yay_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/rate-mirrors-bin.git . && makepkg --noconfirm --syncdeps --needed" 2>&1); then
-        # Install the built package as root
-        if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
-            log_success "rate-mirrors-bin installed successfully"
+        log_error "Failed to update mirrorlist with reflector"
+        log_error "reflector output: $reflector_output"
+        log_warn "Falling back to default mirrorlist"
+        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https"
+        # Even if reflector fails, try to update the database with existing mirrors
+        if pacman -Syy >/dev/null 2>&1; then
+            log_info "Updated pacman database with existing mirrors"
         else
-            log_error "Failed to install built rate-mirrors-bin package"
-            log_info "Built packages: $(ls "$pkg_dir"/*.pkg.tar.zst 2>/dev/null || echo 'none')"
+            log_error "Failed to update pacman database"
             return 1
-        fi
-    else
-        exit_code=$?
-        log_error "Failed to build rate-mirrors-bin (exit code: $exit_code)"
-        log_error "Build output: $install_output"
-        log_info "rate-mirrors-bin is required for Arch mirror optimization"
-        log_info "Troubleshooting steps:"
-        log_info "  1. Check internet connection: ping -c 3 google.com"
-        log_info "  2. Update package databases: sudo pacman -Syy"
-        log_info "  3. Switch to regular user and try: yay -S rate-mirrors-bin"
-        log_info "  4. Or install manually as $yay_user: su - $yay_user -c 'git clone https://aur.archlinux.org/rate-mirrors-bin.git && cd rate-mirrors-bin && makepkg -si'"
-        log_info "  5. Check yay is working: yay --version"
-        return 1
-    fi
-
-    # Clean up build directory
-    rm -rf "$pkg_dir"
-
-    # Clean up any temp files from the installation
-    rm -rf "/tmp/yay"* "/tmp/makepkg"* 2>/dev/null || true
-
-    # Optimize mirrorlist using rate-mirrors
-    if command -v rate-mirrors >/dev/null 2>&1; then
-        log_info "Updating mirrorlist with optimized mirrors..."
-
-        local rate_mirrors_output
-        if rate_mirrors_output=$(rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch 2>&1); then
-            log_success "Mirrorlist updated successfully"
-            # Sync pacman DB to make sure we use the updated mirrors
-            if pacman -Syy >/dev/null 2>&1; then
-                log_success "Refreshed pacman package database (pacman -Syy)"
-            else
-                log_warn "Failed to refresh pacman package database after updating mirrors"
-            fi
-        else
-            log_error "Failed to update mirrorlist automatically"
-            log_error "rate-mirrors output: $rate_mirrors_output"
-            log_info "You can manually update mirrors later with: rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch"
-            log_info "Common issues:"
-            log_info "  - No internet connection"
-            log_info "  - DNS resolution problems"
-            log_info "  - Firewall blocking connections"
-            log_info "  - Insufficient permissions to write to /etc/pacman.d/mirrorlist"
         fi
     fi
 }
@@ -229,9 +150,9 @@ main() {
         exit 1
     fi
 
-    # Install rate-mirrors-bin and update mirrors
-    if ! install_rate_mirrors_and_update; then
-        log_error "Failed to install rate-mirrors-bin and update mirrors"
+    # Update mirrors using reflector
+    if ! update_mirrors_with_reflector; then
+        log_error "Failed to update mirrors with reflector"
         exit 1
     fi
 

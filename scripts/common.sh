@@ -427,7 +427,13 @@ install_pkg() {
 
         # Install native packages first
         if [ ${#native_packages[@]} -gt 0 ]; then
-            pacman -S --needed --noconfirm "${native_packages[@]}" >/dev/null 2>&1 || install_status=$?
+            log_info "Installing native Arch packages: ${native_packages[*]}"
+            if ! pacman -S --needed --noconfirm "${native_packages[@]}"; then
+                log_error "Failed to install native packages: ${native_packages[*]}"
+                install_status=1
+            else
+                log_success "Successfully installed native packages: ${native_packages[*]}"
+            fi
         fi
 
         # Install AUR packages with improved method (build and install as root)

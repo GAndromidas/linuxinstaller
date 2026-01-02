@@ -179,7 +179,7 @@ fi
 # -----------------------------------------------------------------------------
 alias sync='sudo pacman -Syy'
 alias update='yay -Syyu && sudo flatpak update'
-alias mirror='sudo rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch && sudo pacman -Syy'
+alias mirror='sudo reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https && sudo pacman -Syy'
 alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo flatpak uninstall --unused && sudo pacman -Rns --noconfirm $(pacman -Qtdq) 2>/dev/null'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'

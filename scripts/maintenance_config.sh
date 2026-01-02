@@ -92,7 +92,7 @@ maintenance_install_basic_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if gum spin --spinner dot --title "" -- install_pkg "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- install_pkg "$pkg"; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -101,7 +101,7 @@ maintenance_install_basic_packages() {
             fi
         else
             log_info "Installing $pkg: $desc"
-            if install_pkg "$pkg" >/dev/null 2>&1; then
+            if install_pkg "$pkg"; then
                 installed+=("$pkg")
                 log_success "✓ $pkg installed"
             else
@@ -227,7 +227,7 @@ maintenance_install_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if gum spin --spinner dot --title "" -- install_pkg "$pkg" >/dev/null 2>&1; then
+            if gum spin --spinner dot --title "" -- install_pkg "$pkg"; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -236,7 +236,7 @@ maintenance_install_packages() {
             fi
         else
             log_info "Installing $pkg: $desc"
-            if install_pkg "$pkg" >/dev/null 2>&1; then
+            if install_pkg "$pkg"; then
                 installed+=("$pkg")
                 log_success "✓ $pkg installed"
             else

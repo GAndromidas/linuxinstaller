@@ -45,6 +45,7 @@ ARCH_ESSENTIALS=(
     openssh
     pacman-contrib
     plymouth
+    reflector
     rsync
     starship
     ufw
@@ -927,27 +928,27 @@ arch_configure_bootloader() {
 arch_configure_mirrors() {
     step "Configuring Arch Linux Mirrors"
 
-    # Check if rate-mirrors is available (REQUIRED)
-    if ! command -v rate-mirrors >/dev/null 2>&1; then
-        log_error "rate-mirrors is not installed. This is required for Arch installation."
-        log_info "Please install rate-mirrors-bin from AUR: yay -S rate-mirrors-bin"
+    # Check if reflector is available
+    if ! command -v reflector >/dev/null 2>&1; then
+        log_error "reflector is not installed. This is required for Arch mirror configuration."
+        log_info "reflector should be in ARCH_ESSENTIALS - please check installation"
         return 1
     fi
 
-    # Update mirrors using rate-mirrors and sync pacman DB (exact command as requested)
-    log_info "Updating mirror list with rate-mirrors..."
-    if rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch >/dev/null 2>&1; then
-        log_success "Mirror list updated successfully"
+    # Update mirrors using reflector
+    log_info "Finding fastest Arch Linux mirrors with reflector..."
+    if reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https; then
+        log_success "Mirror list updated with fastest mirrors"
         # Sync pacman DB
-        if pacman -Syy >/dev/null 2>&1; then
+        if pacman -Syy; then
             log_success "Package databases synchronized (pacman -Syy)"
         else
             log_warn "Failed to synchronize package databases"
             return 0
         fi
     else
-        log_warn "Failed to update mirror list"
-        return 0
+        log_warn "Failed to update mirror list with reflector"
+        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https"
     fi
 }
 
