@@ -944,6 +944,14 @@ configure_systemd_boot_arch() {
             fi
         fi
     done
+
+    # Fix systemd-boot random seed permissions for security (ArchWiki)
+    if [ -f /boot/loader/random-seed ]; then
+        log_info "Securing systemd-boot random seed file permissions"
+        chmod 700 /boot/loader 2>/dev/null || true
+        chmod 600 /boot/loader/random-seed 2>/dev/null || true
+        log_success "systemd-boot random seed permissions secured"
+    fi
 }
 
 # Configure bootloader (GRUB or systemd-boot) for Arch Linux
@@ -1016,6 +1024,14 @@ configure_grub_arch() {
     fi
 
     log_success "GRUB configured successfully"
+
+    # Fix systemd-boot random seed permissions for security (ArchWiki)
+    if [ -f /boot/loader/random-seed ]; then
+        log_info "Securing systemd-boot random seed file permissions"
+        chmod 700 /boot/loader 2>/dev/null || true
+        chmod 600 /boot/loader/random-seed 2>/dev/null || true
+        log_success "systemd-boot random seed permissions secured"
+    fi
 }
 
 export -f arch_system_preparation
