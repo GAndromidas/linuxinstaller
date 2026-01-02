@@ -223,6 +223,44 @@ log_to_file() { :; }
 # Declare INSTALL_STATE as associative array
 declare -A INSTALL_STATE
 
+# Initialize installation state tracking
+state_init() {
+    # Create state file with metadata
+    cat > "$INSTALL_STATE_FILE" << EOF
+# LinuxInstaller State File
+# Generated: $(date)
+# PID: $$
+# User: $(whoami)
+# Distribution: ${DISTRO_ID:-unknown}
+# Mode: ${INSTALL_MODE:-unknown}
+EOF
+
+    # Initialize state variables
+    INSTALL_STATE["stage"]="initialized"
+    INSTALL_STATE["start_time"]="$(date +%s)"
+    INSTALL_STATE["packages_installed"]=""
+    INSTALL_STATE["services_enabled"]=""
+    INSTALL_STATE["configs_modified"]=""
+}
+
+# Update installation state
+state_update() {
+    local key="$1"
+    local value="$2"
+
+    INSTALL_STATE["$key"]="$value"
+    echo "$key=$value" >> "$INSTALL_STATE_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [STATE] $key=$value" >> "$LOG_FILE"
+}
+
+# Check if a component was already installed
+state_check() {
+    local key="$1"
+    # Use parameter expansion with default to avoid unbound variable error
+    local value="${INSTALL_STATE[$key]:-}"
+    [[ -n "$value" ]]
+}
+
 # Mark a step as completed (no-op - state tracking removed)
 mark_step_complete() {
     local step_name="$1"
