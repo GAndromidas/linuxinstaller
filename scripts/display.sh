@@ -16,12 +16,17 @@ THEME_WARNING="${THEME_WARNING:-yellow}"
 THEME_INFO="${THEME_INFO:-blue}"
 THEME_BODY="${THEME_BODY:-white}"
 
-# Distro-specific themes (optional override)
-case "$DISTRO_ID" in
-    "arch") THEME_PRIMARY="blue" ;;
-    "fedora") THEME_PRIMARY="blue" ;;
-    "debian"|"ubuntu") THEME_PRIMARY="red" ;;
-esac
+# Distro-specific themes (set later when DISTRO_ID is available)
+update_distro_theme() {
+    if [ -n "${DISTRO_ID:-}" ]; then
+        case "$DISTRO_ID" in
+            "arch") THEME_PRIMARY="blue" ;;
+            "fedora") THEME_PRIMARY="blue" ;;
+            "debian") THEME_PRIMARY="red" ;;
+            "ubuntu") THEME_PRIMARY="orange" ;;
+        esac
+    fi
+}
 
 # -----------------------------------------------------------------------------
 # CORE DISPLAY FUNCTIONS

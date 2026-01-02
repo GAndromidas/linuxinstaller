@@ -25,9 +25,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Default log file location (can be overridden by calling script)
 LOG_FILE="${LOG_FILE:-/var/log/linuxinstaller.log}"
 
-# Import display module for consistent UI
-source "$SCRIPT_DIR/display.sh"
-
 # Find gum binary in PATH and common locations, avoiding shell function false positives
 find_gum_bin() {
     # Scan PATH entries for an executable 'gum' and print its path if found.
@@ -152,7 +149,11 @@ gum() {
     "$gum_bin" "${new_args[@]}"
 }
 
-# Step function moved to display.sh
+# Import display module for consistent UI
+source "$SCRIPT_DIR/display.sh"
+
+# Update distro theme after DISTRO_ID is available
+update_distro_theme 2>/dev/null || true
 
 # Execute command with spinner for user feedback during long operations
 # Usage: spin "Description of operation" command args...

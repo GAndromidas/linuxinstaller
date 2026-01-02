@@ -1157,6 +1157,9 @@ esac
 
 # programs.yaml fallback removed; package lists are provided by distro modules (via distro_get_packages())
 
+# Update display theme based on detected distro
+update_distro_theme
+
 # Initialize state management
 state_init
 
