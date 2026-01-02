@@ -282,16 +282,6 @@ if [ ! -d "$SCRIPTS_DIR" ]; then
 fi
 
 # --- Source Helpers ---
-    echo "⚠️  Git not available, trying alternative download method..."
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL https://github.com/GAndromidas/linuxinstaller/archive/main.tar.gz | tar -xz --strip-components=1
-        if [ $? -eq 0 ]; then
-            echo "✓ Repository downloaded successfully"
-            exec bash "$TEMP_DIR/install.sh" "$@"
-        fi
-    fi
-
-# --- Source Helpers ---
 # We need distro detection and common utilities immediately
 # Source required helper scripts with better error handling
 if [ -f "$SCRIPTS_DIR/common.sh" ]; then
