@@ -26,7 +26,6 @@ FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 # These packages are installed in ALL modes (standard, minimal, server)
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 FEDORA_ESSENTIALS=(
-    @development-tools
     bc
     cronie
     curl
