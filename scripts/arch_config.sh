@@ -375,6 +375,31 @@ arch_system_preparation() {
         return 1
     fi
 
+    # Configure reflector for automatic mirror updates
+    if command -v reflector >/dev/null 2>&1; then
+        log_info "Configuring reflector for automatic mirror updates..."
+        mkdir -p /etc/xdg/reflector
+        cat << EOF > /etc/xdg/reflector/reflector.conf
+--save /etc/pacman.d/mirrorlist
+--protocol https,http
+--latest 20
+--sort rate
+--age 24
+--delay 1
+EOF
+        # Try to detect country for faster mirrors
+        country=$(curl -s --max-time 5 https://ipinfo.io/country 2>/dev/null | tr -d '"\n\r')
+        if [ -n "$country" ] && [ "$country" != "null" ]; then
+            echo "--country $country" >> /etc/xdg/reflector/reflector.conf
+            log_info "Configured reflector with country: $country"
+        fi
+        if systemctl enable --now reflector.timer >/dev/null 2>&1; then
+            log_success "Reflector timer enabled for automatic weekly mirror updates"
+        else
+            log_warn "Failed to enable reflector timer"
+        fi
+    fi
+
     # Update system
     if supports_gum; then
         if spin "Updating system"  pacman -Syu --noconfirm >/dev/null 2>&1; then
@@ -618,6 +643,35 @@ arch_main_config() {
     arch_configure_plymouth
 
     arch_setup_shell
+
+    # Ensure AUR packages are installed
+    log_info "Ensuring AUR packages are installed..."
+    case "$INSTALL_MODE" in
+        standard)
+            for pkg in "${ARCH_AUR_STANDARD[@]}"; do
+                if ! is_package_installed "$pkg"; then
+                    log_info "Installing missing AUR package: $pkg"
+                    if yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
+                        log_success "Installed $pkg"
+                    else
+                        log_error "Failed to install $pkg"
+                    fi
+                fi
+            done
+            ;;
+        minimal)
+            for pkg in "${ARCH_AUR_MINIMAL[@]}"; do
+                if ! is_package_installed "$pkg"; then
+                    log_info "Installing missing AUR package: $pkg"
+                    if yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
+                        log_success "Installed $pkg"
+                    else
+                        log_error "Failed to install $pkg"
+                    fi
+                fi
+            done
+            ;;
+    esac
 
     arch_setup_kde_shortcuts
 
