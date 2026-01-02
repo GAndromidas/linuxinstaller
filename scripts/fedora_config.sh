@@ -479,9 +479,10 @@ fedora_setup_copr() {
 fedora_setup_shell() {
     display_step "🐚" "Setting up ZSH shell environment"
 
+    local target_user="${SUDO_USER:-$USER}"
     if [ "$SHELL" != "$(command -v zsh)" ]; then
-        log_info "Changing default shell to ZSH..."
-        if chsh -s "$(command -v zsh)" "$USER" 2>/dev/null; then
+        log_info "Changing default shell to ZSH for $target_user..."
+        if chsh -s "$(command -v zsh)" "$target_user" 2>/dev/null; then
             log_success "Default shell changed to ZSH"
         else
             log_warning "Failed to change shell. You may need to do this manually."
