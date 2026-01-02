@@ -19,6 +19,9 @@
 
 # --- UI and Logging ---
 
+# Default log file location (can be overridden by calling script)
+LOG_FILE="${LOG_FILE:-/var/log/linuxinstaller.log}"
+
 # Find gum binary in PATH and common locations, avoiding shell function false positives
 find_gum_bin() {
     # Scan PATH entries for an executable 'gum' and print its path if found.

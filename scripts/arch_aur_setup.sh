@@ -185,13 +185,6 @@ install_rate_mirrors_and_update() {
     if command -v rate-mirrors >/dev/null 2>&1; then
         log_info "Updating mirrorlist with optimized mirrors..."
 
-        # Check if we can write to the mirrorlist file
-        if [ ! -w /etc/pacman.d/mirrorlist ]; then
-            log_error "Cannot write to /etc/pacman.d/mirrorlist - insufficient permissions"
-            log_info "You can manually update mirrors later with: sudo rate-mirrors --save /etc/pacman.d/mirrorlist arch"
-            return 1
-        fi
-
         local rate_mirrors_output
         if rate_mirrors_output=$(rate-mirrors --allow-root --save /etc/pacman.d/mirrorlist arch 2>&1); then
             log_success "Mirrorlist updated successfully"
@@ -209,6 +202,7 @@ install_rate_mirrors_and_update() {
             log_info "  - No internet connection"
             log_info "  - DNS resolution problems"
             log_info "  - Firewall blocking connections"
+            log_info "  - Insufficient permissions to write to /etc/pacman.d/mirrorlist"
         fi
     fi
 }
