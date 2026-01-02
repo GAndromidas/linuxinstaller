@@ -32,11 +32,13 @@ run_pre_install_checks() {
 
     # Test 3: Package manager availability
     ((total_checks++))
-    if command -v "$PKG_INSTALL" >/dev/null 2>&1; then
+    # Extract just the command name from PKG_INSTALL (remove arguments)
+    pkg_command=$(echo "$PKG_INSTALL" | awk '{print $1}')
+    if command -v "$pkg_command" >/dev/null 2>&1; then
         log_success "✓ Package manager available: $PKG_INSTALL"
         ((checks_passed++))
     else
-        log_error "✗ Package manager not found: $PKG_INSTALL"
+        log_error "✗ Package manager not found: $pkg_command"
     fi
 
     # Test 4: Root privileges
