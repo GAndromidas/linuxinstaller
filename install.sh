@@ -333,7 +333,7 @@ LOG_FILE="/var/log/linuxinstaller.log"
 
 # --- Progress Tracking ---
 # Track installation progress with visual indicators
-PROGRESS_TOTAL=15
+PROGRESS_TOTAL=13
 PROGRESS_CURRENT=0
 
 # --- Helper Functions ---

@@ -117,54 +117,43 @@ update_mirrors_with_reflector() {
 
     log_info "Finding fastest Arch Linux mirrors based on your location..."
 
-    # Check internet connectivity before attempting mirror update
-    log_info "Checking internet connectivity..."
-    if ! ping -c 1 -W 5 archlinux.org >/dev/null 2>&1; then
-        log_warn "No internet connectivity detected, skipping mirror optimization"
-        log_info "Using existing mirrorlist configuration"
-        # Still try to update pacman database
-        if pacman -Syy >/dev/null 2>&1; then
-            log_info "Updated pacman database with existing mirrors"
-        else
-            log_error "Failed to update pacman database"
-            return 1
-        fi
-        return 0
-    fi
+    # Always ensure pacman database is updated, regardless of mirror status
+    log_info "Ensuring pacman package database is up to date..."
 
-    # Use reflector to find the best mirrors (Arch Wiki recommended approach)
-    # --latest 10: get 10 most recently updated mirrors
-    # --sort rate: sort by download rate
-    # --age 24: accept mirrors up to 24 hours old (for network issues)
-    # --save: save to mirrorlist
-    # --protocol https: prefer HTTPS
-    local reflector_output
-    log_info "Fetching mirror list from Arch Linux servers..."
-    if reflector_output=$(reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https 2>&1); then
-        log_success "Mirrorlist updated with fastest mirrors"
-        # Sync pacman DB to make sure we use the updated mirrors
-        log_info "Updating pacman package database..."
-        if pacman -Syy >/dev/null 2>&1; then
-            log_success "Refreshed pacman package database (pacman -Syy)"
+    # First, try to update mirrors with reflector if internet is available
+    log_info "Checking internet connectivity for mirror optimization..."
+    if ping -c 1 -W 5 archlinux.org >/dev/null 2>&1; then
+        log_info "Internet available, attempting mirror optimization..."
+        local reflector_output
+        if reflector_output=$(reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https 2>&1); then
+            log_success "Mirrorlist updated with fastest mirrors"
         else
-            log_error "Failed to refresh pacman package database after updating mirrors"
-            return 1
+            log_warn "Reflector failed, using existing mirrorlist"
+            log_info "reflector output: $reflector_output"
         fi
     else
-        log_error "Failed to update mirrorlist with reflector"
-        log_error "reflector output: $reflector_output"
-        log_warn "Network connectivity issues detected, using existing mirrorlist"
-        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https"
-
-        # Even if reflector fails, try to update the database with existing mirrors
-        log_info "Attempting to update pacman database with existing mirrors..."
-        if pacman -Syy >/dev/null 2>&1; then
-            log_info "Updated pacman database with existing mirrors"
-        else
-            log_error "Failed to update pacman database - mirror issues may persist"
-            return 1
-        fi
+        log_info "No internet connectivity, using existing mirror configuration"
     fi
+
+    # Always update pacman database, even with potentially stale mirrors
+    log_info "Updating pacman package database..."
+    local sync_attempts=0
+    local max_attempts=3
+    while [ $sync_attempts -lt $max_attempts ]; do
+        if pacman -Syy; then
+            log_success "Pacman database successfully synchronized"
+            return 0
+        else
+            sync_attempts=$((sync_attempts + 1))
+            log_warn "Pacman sync attempt $sync_attempts failed, retrying..."
+            sleep 2
+        fi
+    done
+
+    log_error "Failed to synchronize pacman database after $max_attempts attempts"
+    log_error "This may cause package installation failures"
+    log_info "You may need to manually run: pacman -Syy"
+    return 1
 }
 
 # Main execution
