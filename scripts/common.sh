@@ -236,7 +236,9 @@ state_update() {
 # Check if a component was already installed
 state_check() {
     local key="$1"
-    [[ -n "${INSTALL_STATE[$key]}" ]]
+    # Use parameter expansion with default to avoid unbound variable error
+    local value="${INSTALL_STATE[$key]:-}"
+    [[ -n "$value" ]]
 }
 
 # Save installation summary

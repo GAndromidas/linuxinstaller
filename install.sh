@@ -510,7 +510,7 @@ install_package_group() {
 
     # Get packages for this group and type
     local packages
-    mapfile -t packages < <(get_packages_for_group "$group_name" "$package_type")
+    mapfile -t packages < <(distro_get_packages "$group_name" "$package_type")
 
     if [ ${#packages[@]} -eq 0 ]; then
         log_info "No packages to install for $group_name ($package_type)"
