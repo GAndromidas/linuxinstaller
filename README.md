@@ -36,7 +36,7 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 ### Basic Installation
 ```bash
 # Download and run (one-liner)
-wget -qO- https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 
 # Or clone and run locally
 git clone https://github.com/GAndromidas/linuxinstaller.git
@@ -406,7 +406,7 @@ Special thanks to all beta testers, bug reporters, and feature contributors who 
 **Run the command below and choose your adventure!**
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 ```
 
 ---
