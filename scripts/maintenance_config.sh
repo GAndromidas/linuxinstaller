@@ -164,7 +164,6 @@ maintenance_install_packages() {
 
             # Only add Btrfs/snapshot tools if on Btrfs filesystem and user agreed
             if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
-                # Install snapper first, then snap-pac (which depends on snapper)
                 packages+=("snapper" "snap-pac" "btrfs-assistant" "btrfsmaintenance")
                 descriptions+=(
                     "snapper: Btrfs snapshot management tool"
@@ -202,50 +201,24 @@ maintenance_install_packages() {
             ;;
     esac
 
-    for i in "${!packages[@]}"; do
-        local pkg="${packages[$i]}"
-        local desc="${descriptions[$i]:-Maintenance tool}"
-
-        # Check if already installed
+    # Filter out already installed and non-existent packages
+    local packages_to_install=()
+    for pkg in "${packages[@]}"; do
         if is_package_installed "$pkg"; then
             skipped+=("$pkg")
-            if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ $pkg (already installed)"
-            fi
-            continue
-        fi
-
-        # Check if package exists
-        if ! package_exists "$pkg"; then
-            failed+=("$pkg")
-            if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ $pkg (not found in repositories)"
-            fi
-            continue
-        fi
-
-        # Install with gum spin and show description
-        if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if spin "Installing package" install_pkg "$pkg"; then
-                installed+=("$pkg")
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
-            else
-                failed+=("$pkg")
-                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "  ✗ Failed to install $pkg"
-            fi
+        elif package_exists "$pkg"; then
+            packages_to_install+=("$pkg")
         else
-            log_info "Installing $pkg: $desc"
-            if install_pkg "$pkg"; then
-                installed+=("$pkg")
-                log_success "✓ $pkg installed"
-            else
-                failed+=("$pkg")
-                log_error "✗ Failed to install $pkg"
-            fi
+            failed+=("$pkg")
         fi
     done
+
+    # Install packages using the cool progress format
+    if [ ${#packages_to_install[@]} -gt 0 ]; then
+        install_packages_with_progress "${packages_to_install[@]}"
+        # Mark as installed for summary
+        installed+=("${packages_to_install[@]}")
+    fi
 
     # Show summary with gum styling
     if supports_gum; then
