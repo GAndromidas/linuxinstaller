@@ -215,7 +215,13 @@ distro_get_packages() {
     case "$section" in
         essential)
             case "$type" in
-                native) printf "%s\n" "${DEBIAN_ESSENTIALS[@]}" ;;
+                native)
+                    printf "%s\n" "${DEBIAN_ESSENTIALS[@]}"
+                    # Add Ubuntu-specific packages
+                    if [ "$DISTRO_ID" = "ubuntu" ]; then
+                        echo "ubuntu-restricted-extras"
+                    fi
+                    ;;
                 *) return 0 ;;
             esac
             ;;
