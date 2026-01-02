@@ -1,6 +1,93 @@
 #!/bin/bash
 set -uo pipefail
 
+# =============================================================================
+# TESTING & VALIDATION FRAMEWORK
+# =============================================================================
+
+# Run comprehensive pre-installation tests
+run_pre_install_checks() {
+    log_info "Running pre-installation validation checks..."
+
+    local checks_passed=0
+    local total_checks=0
+
+    # Test 1: Distribution detection
+    ((total_checks++))
+    if [ -n "${DISTRO_ID:-}" ]; then
+        log_success "✓ Distribution detected: $DISTRO_ID"
+        ((checks_passed++))
+    else
+        log_error "✗ Failed to detect distribution"
+    fi
+
+    # Test 2: Internet connectivity
+    ((total_checks++))
+    if check_internet_connection; then
+        log_success "✓ Internet connection confirmed"
+        ((checks_passed++))
+    else
+        log_error "✗ No internet connection"
+    fi
+
+    # Test 3: Package manager availability
+    ((total_checks++))
+    if command -v "$PKG_INSTALL" >/dev/null 2>&1; then
+        log_success "✓ Package manager available: $PKG_INSTALL"
+        ((checks_passed++))
+    else
+        log_error "✗ Package manager not found: $PKG_INSTALL"
+    fi
+
+    # Test 4: Root privileges
+    ((total_checks++))
+    if [ "$EUID" -eq 0 ]; then
+        log_success "✓ Running with root privileges"
+        ((checks_passed++))
+    else
+        log_error "✗ Root privileges required"
+    fi
+
+    # Test 5: Disk space check
+    ((total_checks++))
+    local available_space
+    available_space=$(df / | tail -1 | awk '{print $4}')
+    if [ "$available_space" -gt 1048576 ]; then  # 1GB in KB
+        log_success "✓ Sufficient disk space available"
+        ((checks_passed++))
+    else
+        log_error "✗ Insufficient disk space (need at least 1GB free)"
+    fi
+
+    # Test 6: Configuration file validation
+    ((total_checks++))
+    local config_valid=true
+    for config_file in "$SCRIPTS_DIR"/*.sh; do
+        if ! validate_config "$config_file" "bash"; then
+            config_valid=false
+            break
+        fi
+    done
+
+    if [ "$config_valid" = true ]; then
+        log_success "✓ All configuration files validated"
+        ((checks_passed++))
+    else
+        log_error "✗ Configuration file validation failed"
+    fi
+
+    # Summary
+    log_info "Pre-installation checks: $checks_passed/$total_checks passed"
+
+    if [ $checks_passed -eq $total_checks ]; then
+        log_success "🎉 All pre-installation checks passed!"
+        return 0
+    else
+        log_error "❌ Some pre-installation checks failed. Please resolve issues before continuing."
+        return 1
+    fi
+}
+
 # Check if running as root, re-exec with sudo if not
 if [ "$(id -u)" -ne 0 ]; then
     exec sudo "$0" "$@"
@@ -236,6 +323,17 @@ IS_VIRTUAL_MACHINE=false # Whether we're running in a virtual machine
 # Helper tracking
 GUM_INSTALLED_BY_SCRIPT=false  # Track if we installed gum to clean it up later
 
+# --- State Management ---
+# Track installation progress and state for rollback capabilities
+declare -A INSTALL_STATE
+INSTALL_STATE_FILE="/tmp/linuxinstaller.state"
+LOG_FILE="/var/log/linuxinstaller.log"
+
+# --- Progress Tracking ---
+# Track installation progress with visual indicators
+PROGRESS_TOTAL=0
+PROGRESS_CURRENT=0
+
 # --- Helper Functions ---
 # Utility functions for script operation and user interaction
 
@@ -397,58 +495,64 @@ deduplicate_packages() {
 
 # Install a group of packages based on mode and package type (native, aur, flatpak, snap)
 install_package_group() {
-    local section_path="$1"
-    local title="$2"
-    local pkg_type="${3:-}"  # Optional: install only specific package type
+    local group_name="$1"
+    local description="$2"
+    local package_type="$3"
 
-    log_info "Processing package group: $title ($section_path)"
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would install $group_name ($package_type)"
+        return 0
+    fi
 
-    # Get available package types for this distribution
-    local pkg_types
-    pkg_types=$(determine_package_types "$pkg_type")
+    log_info "Installing $description..."
 
-    for type in $pkg_types; do
-        # Get packages for this type using the refactored function
-        local packages_str
-        packages_str=$(get_packages_for_type "$section_path" "$type")
-        mapfile -t packages <<< "$packages_str"
+    # Get packages for this group and type
+    local packages
+    mapfile -t packages < <(get_packages_for_group "$group_name" "$package_type")
 
-        if [ ${#packages[@]} -eq 0 ]; then
-            continue
+    if [ ${#packages[@]} -eq 0 ]; then
+        log_info "No packages to install for $group_name ($package_type)"
+        return 0
+    fi
+
+    # Check dependencies before installation (for native packages)
+    if [ "$package_type" = "native" ]; then
+        if ! check_dependencies "${packages[@]}"; then
+            log_warn "Dependency check failed for $group_name, but continuing..."
         fi
+    fi
 
-        # Deduplicate package list while preserving order
-        packages_str=$(deduplicate_packages "${packages[@]}")
-        mapfile -t packages <<< "$packages_str"
+    # Deduplicate package list while preserving order
+    packages_str=$(deduplicate_packages "${packages[@]}")
+    mapfile -t packages <<< "$packages_str"
 
-        if [ "$DRY_RUN" = true ]; then
-            continue
-        fi
+    if [ "$DRY_RUN" = true ]; then
+        return 0
+    fi
 
-        # Get installation command for this package type
-        local install_cmd
-        install_cmd=$(get_install_command "$type")
-        if [ -z "$install_cmd" ]; then
-            continue
-        fi
+    # Get installation command for this package type
+    local install_cmd
+    install_cmd=$(get_install_command "$package_type")
+    if [ -z "$install_cmd" ]; then
+        return 1
+    fi
 
-        # Install packages based on type and track results
-        local installed=() skipped=() failed=()
-        case "$type" in
-            flatpak)
-                install_flatpak_packages "$install_cmd" packages installed skipped failed
-                ;;
-            native)
-                install_native_packages "$install_cmd" packages installed skipped failed
-                ;;
-            *)
-                install_other_packages "$install_cmd" packages installed failed
-                ;;
-        esac
+    # Install packages based on type and track results
+    local installed=() skipped=() failed=()
+    case "$package_type" in
+        flatpak)
+            install_flatpak_packages "$install_cmd" packages installed skipped failed
+            ;;
+        native|aur|snap)
+            install_native_packages "$install_cmd" packages installed skipped failed
+            ;;
+        *)
+            install_other_packages "$install_cmd" packages installed failed
+            ;;
+    esac
 
-        # Show installation summary for this package type
-        show_package_summary "$title ($type)" installed failed
-    done
+    # Show installation summary for this package type
+    show_package_summary "$description ($package_type)" installed failed
 }
 
 # Install Flatpak packages with individual tracking
@@ -845,6 +949,16 @@ show_package_summary() {
 configure_user_shell_and_configs() {
     step "Configuring Zsh and user-level configs (zsh, starship, fastfetch)"
 
+    # Validate and backup existing configurations
+    local config_files=("$HOME/.zshrc" "$HOME/.config/starship.toml" "$HOME/.config/fastfetch/config.jsonc")
+
+    for config_file in "${config_files[@]}"; do
+        if [ -f "$config_file" ]; then
+            backup_config "$config_file"
+            state_update "configs_modified" "${INSTALL_STATE["configs_modified"]}$config_file "
+        fi
+    done
+
     # Determine target user and their home directory
     local target_user="${SUDO_USER:-$USER}"
     local home_dir
@@ -1004,7 +1118,38 @@ final_cleanup() {
         fi
     fi
 }
-# --- Main Execution Flow ---
+# =============================================================================
+# MAIN EXECUTION FLOW
+# =============================================================================
+
+# Trap function for cleanup on exit
+cleanup_on_exit() {
+    local exit_code=$?
+    state_update "stage" "exiting"
+    state_update "exit_code" "$exit_code"
+
+    # Finalize state
+    state_finalize
+
+    # Show rollback information on failure
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        log_error "Installation failed with exit code $exit_code"
+        log_info "To attempt rollback:"
+        log_info "  • Packages: Run the suggested removal commands above"
+        log_info "  • Configs: Check $INSTALL_STATE_FILE for backup locations"
+        log_info "  • Logs: Check $LOG_FILE for detailed error information"
+    fi
+
+    # Clean up state file on success
+    if [ $exit_code -eq 0 ] && [ -f "$INSTALL_STATE_FILE" ]; then
+        rm -f "$INSTALL_STATE_FILE"
+    fi
+}
+
+# Set trap for cleanup
+trap cleanup_on_exit EXIT
+
 # The main installation workflow with clear phases
 
 # Phase 1: Parse command-line arguments and validate environment
@@ -1082,8 +1227,22 @@ esac
 
 # programs.yaml fallback removed; package lists are provided by distro modules (via distro_get_packages())
 
+# Initialize state management
+state_init
+
 # Bootstrap UI tools
 bootstrap_tools
+
+# Phase 2.5: Pre-Installation Validation
+if [ "$DRY_RUN" = false ]; then
+    if ! run_pre_install_checks; then
+        if supports_gum; then
+            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "❌ Pre-installation checks failed"
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Please resolve the issues above and try again"
+        fi
+        exit 1
+    fi
+fi
 
 # Phase 3: Installation Mode Selection
 # Determine installation mode based on user interaction or defaults
@@ -1109,17 +1268,24 @@ fi
 # Phase 4: Core Installation Execution
 # Execute the main installation workflow in logical steps
 
+# Initialize progress tracking (estimate total steps)
+progress_init 15
+
 # Step: System Update
 step "Updating System Repositories"
 if [ "$DRY_RUN" = false ]; then
+    time_start "system_update"
     update_system
+    time_end "system_update"
 fi
+progress_update "System update"
 
 # Step: Enable password feedback for better UX
 step "Enabling password feedback"
 if [ "$DRY_RUN" = false ]; then
     enable_password_feedback
 fi
+progress_update "Password feedback setup"
 
 # Step: Run Distro System Preparation (install essentials, etc.)
 # Run distro-specific system preparation early so essential helpers are present
@@ -1127,16 +1293,19 @@ fi
 # Note: For Arch, this includes pacman configuration via configure_pacman_arch
 DSTR_PREP_FUNC="${DISTRO_ID}_system_preparation"
 DSTR_PREP_STEP="${DSTR_PREP_FUNC}"
-if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
     step "Running system preparation for $DISTRO_ID"
-    if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would run $DSTR_PREP_FUNC"
+if [ "$DRY_RUN" = false ]; then
+    source "$SCRIPTS_DIR/distro_check.sh"
+    if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
+        time_start "distro_prep"
+        source "$SCRIPTS_DIR/${DISTRO_ID}_config.sh"
+        "$DSTR_PREP_FUNC"
+        time_end "distro_prep"
     else
-        if ! "$DSTR_PREP_FUNC"; then
-            log_warn "$DSTR_PREP_FUNC reported issues"
-        fi
+        log_error "System preparation function not found for $DISTRO_ID"
     fi
 fi
+progress_update "System preparation"
 
 # Step: Install Packages based on Mode
 step "Installing Packages ($INSTALL_MODE)"
@@ -1200,6 +1369,9 @@ if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } &&
         log_info "Gaming packages already installed in previous steps"
     fi
 fi
+
+time_end "package_installation"
+progress_update "Package installation"
 
 # ------------------------------------------------------------------
 # Wake-on-LAN auto-configuration step
@@ -1365,6 +1537,13 @@ if [ "$DRY_RUN" = false ]; then
 
     # Clean up temporary files and helpers
     final_cleanup
+
+    # Generate performance report
+    performance_report
+
+    # Show final progress summary
+    local install_duration=$(( $(date +%s) - ${INSTALL_STATE["start_time"]:-$(date +%s)} ))
+    progress_summary "$install_duration"
 fi
 
 # Detect system info for installation summary (if power_config available)

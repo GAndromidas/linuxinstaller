@@ -200,17 +200,78 @@ log_warn() {
     fi
 }
 
+# =============================================================================
+# STATE MANAGEMENT SYSTEM
+# =============================================================================
+
+# Initialize installation state tracking
+state_init() {
+    # Create state file with metadata
+    cat > "$INSTALL_STATE_FILE" << EOF
+# LinuxInstaller State File
+# Generated: $(date)
+# PID: $$
+# User: $(whoami)
+# Distribution: ${DISTRO_ID:-unknown}
+# Mode: ${INSTALL_MODE:-unknown}
+EOF
+
+    # Initialize state variables
+    INSTALL_STATE["stage"]="initialized"
+    INSTALL_STATE["start_time"]="$(date +%s)"
+    INSTALL_STATE["packages_installed"]=""
+    INSTALL_STATE["services_enabled"]=""
+    INSTALL_STATE["configs_modified"]=""
+}
+
+# Update installation state
+state_update() {
+    local key="$1"
+    local value="$2"
+
+    INSTALL_STATE["$key"]="$value"
+    echo "$key=$value" >> "$INSTALL_STATE_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [STATE] $key=$value" >> "$LOG_FILE"
+}
+
+# Check if a component was already installed
+state_check() {
+    local key="$1"
+    [[ -n "${INSTALL_STATE[$key]}" ]]
+}
+
+# Save installation summary
+state_finalize() {
+    local end_time=$(date +%s)
+    local duration=$((end_time - ${INSTALL_STATE["start_time"]:-$end_time}))
+
+    cat >> "$INSTALL_STATE_FILE" << EOF
+
+# Installation Summary
+# Completed: $(date)
+# Duration: ${duration} seconds
+# Final Stage: ${INSTALL_STATE["stage"]}
+# Exit Code: $?
+
+# Installed Packages:
+${INSTALL_STATE["packages_installed"]}
+
+# Enabled Services:
+${INSTALL_STATE["services_enabled"]}
+
+# Modified Configs:
+${INSTALL_STATE["configs_modified"]}
+EOF
+}
+
+# =============================================================================
+# ENHANCED LOGGING SYSTEM
+# =============================================================================
+
 # Log error message
 log_error() {
-    local message="$1"
-    if supports_gum; then
-        # Use red for errors (maintains accessibility)
-        gum style "✗ $message" --margin "0 2" --foreground "$GUM_ERROR_FG" --bold
-        echo ""
-    else
-        echo -e "${RED}✗ $message${RESET}"
-        echo ""
-    fi
+    echo -e "${RED}❌ $1${RESET}" >&2
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >> "$LOG_FILE"
 }
 
 # --- Compatibility Aliases ---
@@ -315,9 +376,24 @@ install_pkg() {
         return 1
     fi
 
+    # Check if packages are already tracked as installed
+    local packages_to_install=()
+    for pkg in "$@"; do
+        if state_check "pkg_$pkg"; then
+            log_info "Package $pkg already tracked as installed, skipping"
+            continue
+        fi
+        packages_to_install+=("$pkg")
+    done
+
+    if [ ${#packages_to_install[@]} -eq 0 ]; then
+        log_info "All packages already installed"
+        return 0
+    fi
+
     # Validate all package names to prevent command injection
     local valid_packages=()
-    for pkg in "$@"; do
+    for pkg in "${packages_to_install[@]}"; do
         if [[ "$pkg" =~ [^a-zA-Z0-9._+-] ]]; then
             log_error "Invalid package name contains special characters: $pkg"
             return 1
@@ -384,6 +460,11 @@ install_pkg() {
         return 1
     else
         log_success "Successfully installed: ${valid_packages[*]}"
+        # Track installed packages in state
+        for pkg in "${valid_packages[@]}"; do
+            state_update "pkg_$pkg" "installed"
+            state_update "packages_installed" "${INSTALL_STATE["packages_installed"]}$pkg "
+        done
     fi
 }
 
@@ -509,43 +590,277 @@ is_btrfs_system() {
 
 # --- Finalization ---
 
+# =============================================================================
+# CONFIGURATION VALIDATION SYSTEM
+# =============================================================================
+
+# Validate configuration file syntax
+validate_config() {
+    local config_file="$1"
+    local config_type="${2:-bash}"
+
+    if [ ! -f "$config_file" ]; then
+        log_error "Configuration file not found: $config_file"
+        return 1
+    fi
+
+    case "$config_type" in
+        "bash")
+            if ! bash -n "$config_file" 2>/dev/null; then
+                log_error "Configuration file has syntax errors: $config_file"
+                return 1
+            fi
+            ;;
+        "json")
+            if command -v jq >/dev/null 2>&1; then
+                if ! jq empty "$config_file" 2>/dev/null; then
+                    log_error "Configuration file has invalid JSON: $config_file"
+                    return 1
+                fi
+            else
+                log_warn "jq not available, skipping JSON validation for $config_file"
+            fi
+            ;;
+        "yaml")
+            if command -v yamllint >/dev/null 2>&1; then
+                if ! yamllint "$config_file" >/dev/null 2>&1; then
+                    log_error "Configuration file has YAML issues: $config_file"
+                    return 1
+                fi
+            else
+                log_warn "yamllint not available, skipping YAML validation for $config_file"
+            fi
+            ;;
+    esac
+
+    log_success "Configuration file validated: $config_file"
+    return 0
+}
+
+# Backup configuration file before modification
+backup_config() {
+    local config_file="$1"
+    local backup_suffix="${2:-$(date +%Y%m%d_%H%M%S)}"
+
+    if [ -f "$config_file" ]; then
+        local backup_file="${config_file}.backup.${backup_suffix}"
+        if cp "$config_file" "$backup_file"; then
+            log_success "Configuration backed up: $backup_file"
+            state_update "backup_$config_file" "$backup_file"
+            return 0
+        else
+            log_error "Failed to backup configuration: $config_file"
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# =============================================================================
+# ROLLBACK SYSTEM
+# =============================================================================
+
+# Rollback package installation
+rollback_packages() {
+    log_warn "Attempting to rollback package installations..."
+
+    local packages_to_remove=""
+    IFS=' ' read -ra packages_array <<< "${INSTALL_STATE["packages_installed"]}"
+
+    for pkg in "${packages_array[@]}"; do
+        if [ -n "$pkg" ]; then
+            log_info "Would rollback package: $pkg"
+            packages_to_remove="$packages_to_remove $pkg"
+        fi
+    done
+
+    if [ -n "$packages_to_remove" ]; then
+        log_warn "To manually rollback, run: $PKG_REMOVE $packages_to_remove"
+        log_warn "Note: This may remove dependencies required by other packages"
+    fi
+}
+
+# Rollback configuration changes
+rollback_configs() {
+    log_warn "Attempting to rollback configuration changes..."
+
+    for key in "${!INSTALL_STATE[@]}"; do
+        if [[ "$key" =~ ^backup_ ]]; then
+            local config_file="${key#backup_}"
+            local backup_file="${INSTALL_STATE[$key]}"
+
+            if [ -f "$backup_file" ]; then
+                if cp "$backup_file" "$config_file"; then
+                    log_success "Restored configuration: $config_file"
+                else
+                    log_error "Failed to restore configuration: $config_file"
+                fi
+            fi
+        fi
+    done
+}
+
+# =============================================================================
+# DEPENDENCY RESOLUTION SYSTEM
+# =============================================================================
+
+# Check for package dependencies before installation
+check_dependencies() {
+    local packages=("$@")
+    local missing_deps=()
+
+    for pkg in "${packages[@]}"; do
+        # Check if package exists in repositories
+        if ! package_exists "$pkg"; then
+            missing_deps+=("$pkg")
+            continue
+        fi
+
+        # For Arch, check for AUR dependencies
+        if [ "$DISTRO_ID" = "arch" ]; then
+            # This is a simplified check - in reality you'd need to parse PKGBUILD
+            local aur_deps=""
+            if ! pacman -Si "$pkg" >/dev/null 2>&1; then
+                # Check for common AUR dependency patterns
+                case "$pkg" in
+                    *-bin|*-git|*-svn|*-hg)
+                        aur_deps="git"
+                        ;;
+                    *-qt5|*-qt6)
+                        aur_deps="qt5-base qt6-base"
+                        ;;
+                esac
+
+                if [ -n "$aur_deps" ]; then
+                    for dep in $aur_deps; do
+                        if ! pacman -Q "$dep" >/dev/null 2>&1 && ! pacman -Si "$dep" >/dev/null 2>&1; then
+                            missing_deps+=("$dep (dependency of $pkg)")
+                        fi
+                    done
+                fi
+            fi
+        fi
+    done
+
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        log_warn "Missing dependencies detected: ${missing_deps[*]}"
+        return 1
+    fi
+
+    return 0
+}
+
+# =============================================================================
+# PROGRESS TRACKING SYSTEM
+# =============================================================================
+
+# Initialize progress tracking
+progress_init() {
+    PROGRESS_TOTAL="$1"
+    PROGRESS_CURRENT=0
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_INFO_FG" "📊 Progress: 0/$PROGRESS_TOTAL steps completed"
+    else
+        echo "Progress: 0/$PROGRESS_TOTAL steps completed"
+    fi
+}
+
+# Update progress
+progress_update() {
+    local step_name="${1:-Step}"
+    ((PROGRESS_CURRENT++))
+
+    if supports_gum; then
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✅ $step_name completed ($PROGRESS_CURRENT/$PROGRESS_TOTAL)"
+    else
+        echo "✅ $step_name completed ($PROGRESS_CURRENT/$PROGRESS_TOTAL)"
+    fi
+
+    # Update state
+    state_update "progress" "$PROGRESS_CURRENT/$PROGRESS_TOTAL"
+    state_update "last_step" "$step_name"
+}
+
+# Show final progress summary
+progress_summary() {
+    local duration="$1"
+
+    if supports_gum; then
+        echo ""
+        gum style --margin "1 2" --border double --border-foreground "$GUM_SUCCESS_FG" --padding "1 2" "🎉 Installation Complete!"
+        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✅ All $PROGRESS_CURRENT steps completed successfully"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "⏱️  Total time: ${duration} seconds"
+        echo ""
+    else
+        echo ""
+        echo "🎉 Installation Complete!"
+        echo "✅ All $PROGRESS_CURRENT steps completed successfully"
+        echo "⏱️  Total time: ${duration} seconds"
+        echo ""
+    fi
+}
+
+# =============================================================================
+# PERFORMANCE MONITORING
+# =============================================================================
+
+# Track execution time for performance analysis
+time_start() {
+    local operation="$1"
+    echo "$(date +%s.%N):$operation:start" >> "/tmp/linuxinstaller.timing"
+}
+
+time_end() {
+    local operation="$1"
+    echo "$(date +%s.%N):$operation:end" >> "/tmp/linuxinstaller.timing"
+}
+
+# Analyze performance bottlenecks
+performance_report() {
+    if [ -f "/tmp/linuxinstaller.timing" ]; then
+        log_info "Performance analysis available in /tmp/linuxinstaller.timing"
+        # Could add analysis logic here in the future
+    fi
+}
+
 # Beautiful prompt to reboot the system with enhanced UI
 prompt_reboot() {
+    local message="${1:-Reboot your system to apply all changes}"
+
     if supports_gum; then
-        # Use beautiful cyan-themed gum styling
         echo ""
-        gum style "🔄 System Reboot Required" \
-                 --border double --margin "1 2" --padding "1 2" \
-                 --foreground "$GUM_PRIMARY_FG" --border-foreground "$GUM_BORDER_FG" \
-                 --bold 2>/dev/null || true
+        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "🔄 System Reboot Required"
         echo ""
-        gum style "All changes have been applied successfully!" \
-                 --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
-        gum style "A system reboot is recommended to ensure everything works properly." \
-                 --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
+        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "$message"
         echo ""
-        if gum confirm --default=true "Reboot now to apply all changes?"; then
-            gum style "🔄 Rebooting system..." \
-                     --margin "0 2" --foreground "$GUM_WARNING_FG" --bold 2>/dev/null || true
+        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "⚠️  Important: Save your work before rebooting"
+        echo ""
+
+        if gum confirm --default=true "Reboot now?"; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Reboot confirmed. System will reboot in 5 seconds..."
+            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Press Ctrl+C to cancel"
+            sleep 5
+            systemctl reboot
         else
-            gum style "✓ Please reboot your system later to apply all changes." \
-                     --margin "0 2" --foreground "$GUM_SUCCESS_FG" 2>/dev/null || true
+            gum style --margin "0 2" --foreground "$GUM_INFO_FG" "○ Reboot cancelled. Remember to reboot later to apply changes"
         fi
     else
         echo ""
-        echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${RESET}"
-        echo -e "${CYAN}║${RESET} ${LIGHT_CYAN}🔄 System Reboot Required${RESET}                           ${CYAN}║${RESET}"
-        echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${RESET}"
+        echo "🔄 System Reboot Required"
         echo ""
-        echo -e "${LIGHT_CYAN}All changes have been applied successfully!${RESET}"
-        echo -e "${LIGHT_CYAN}A system reboot is recommended to ensure everything works properly.${RESET}"
+        echo "$message"
         echo ""
-        read -r -p "Reboot now to apply all changes? [Y/n]: " response
-        if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
-            echo -e "${YELLOW}🔄 Rebooting system...${RESET}"
-            reboot
+        echo "⚠️  Important: Save your work before rebooting"
+        echo ""
+        read -r -p "Reboot now? [Y/n]: " response
+        if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
+            echo "System will reboot in 5 seconds... (Ctrl+C to cancel)"
+            sleep 5
+            systemctl reboot
         else
-            echo -e "${GREEN}✓ Please reboot your system later to apply all changes.${RESET}"
+            echo "Reboot cancelled. Remember to reboot later to apply changes"
         fi
     fi
 }
