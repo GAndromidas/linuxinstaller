@@ -143,10 +143,29 @@ DEBIAN_FLATPAK_STANDARD=(
 # development (git,fzf), and minimal media (mpv)
 # Note: DEBIAN_ESSENTIALS packages are already installed
 DEBIAN_NATIVE_MINIMAL=(
+    apt-transport-https
     bat
+    bleachbit
     btop
+    ca-certificates
+    cmatrix
+    dosfstools
+    firefox
+    fonts-liberation
+    fwupd
+    gnome-disk-utility
+    hwinfo
+    inxi
     mpv
     ncdu
+    net-tools
+    nmap
+    sl
+    speedtest-cli
+    sshfs
+    unrar
+    wakeonlan
+    xdg-desktop-portal-gtk
 )
 
 DEBIAN_FLATPAK_MINIMAL=(
@@ -158,8 +177,10 @@ DEBIAN_FLATPAK_MINIMAL=(
 # containerization (docker.io), and tmux for session management
 # Note: DEBIAN_ESSENTIALS packages are already installed
 DEBIAN_NATIVE_SERVER=(
+    apt-transport-https
     bat
     btop
+    ca-certificates
     cmatrix
     docker.io
     duf
