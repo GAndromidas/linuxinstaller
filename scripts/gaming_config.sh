@@ -105,7 +105,7 @@ install_flatpak_packages() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+            if spin "Installing gaming package" $install_cmd "$pkg" >/dev/null 2>&1; then
                 installed_ref+=("$pkg")
             else
                 failed_ref+=("$pkg")

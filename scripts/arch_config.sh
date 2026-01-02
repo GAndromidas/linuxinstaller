@@ -377,7 +377,7 @@ arch_system_preparation() {
 
     # Update system
     if supports_gum; then
-        if gum spin --spinner dot --title "Updating system" -- pacman -Syu --noconfirm >/dev/null 2>&1; then
+        if spin "Updating system"  pacman -Syu --noconfirm >/dev/null 2>&1; then
             gum style "✓ System updated" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         fi
     else
@@ -425,7 +425,7 @@ configure_pacman_arch() {
         fi
 
         if supports_gum; then
-            gum spin --spinner dot --title "Cleaning old package cache..." -- paccache -r -k 3 >/dev/null 2>&1
+            spin "Cleaning old package cache"  paccache -r -k 3 >/dev/null 2>&1
             gum style "✓ Old packages cleaned (keeping last 3 versions)" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         else
             paccache -r -k 3 >/dev/null 2>&1
@@ -434,7 +434,7 @@ configure_pacman_arch() {
 
         # Clean uninstalled packages cache
         if supports_gum; then
-            gum spin --spinner dot --title "Removing cache for uninstalled packages..." -- paccache -r -u -k 0 >/dev/null 2>&1
+            spin "Removing cache for uninstalled packages"  paccache -r -u -k 0 >/dev/null 2>&1
             gum style "✓ Cache for uninstalled packages removed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         else
             paccache -r -u -k 0 >/dev/null 2>&1

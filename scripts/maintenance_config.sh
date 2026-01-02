@@ -92,7 +92,7 @@ maintenance_install_basic_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if gum spin --spinner dot --title "" -- install_pkg "$pkg"; then
+            if spin "Installing package" install_pkg "$pkg"; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -227,7 +227,7 @@ maintenance_install_packages() {
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
             gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
-            if gum spin --spinner dot --title "" -- install_pkg "$pkg"; then
+            if spin "Installing package" install_pkg "$pkg"; then
                 installed+=("$pkg")
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
             else
@@ -378,7 +378,7 @@ maintenance_configure_snapper_settings() {
 
     # Only enable cleanup and boot timers (no timeline timer since timeline is disabled)
     if supports_gum; then
-        gum spin --spinner dot --title "Enabling snapshot timers..." -- systemctl enable --now snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
+        spin "Enabling snapshot timers"  systemctl enable --now snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
         gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled (timeline disabled)"
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Number Save: 5 snapshots"
@@ -508,7 +508,7 @@ maintenance_configure_grub_snapshots() {
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
             if supports_gum; then
                 gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
-                if gum spin --spinner dot --title "" -- pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
+                if spin "Installing grub-btrfs" pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
                     gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
                 fi
             else
@@ -532,7 +532,7 @@ maintenance_configure_grub_snapshots() {
     if [ -n "$grub_update_command" ]; then
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Updating GRUB configuration"
-            if gum spin --spinner dot --title "Regenerating boot menu..." -- $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+            if spin "Regenerating boot menu"  $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
                 gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ GRUB updated with snapshot boot menu"
                 gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Reboot and hold 'Shift' to see snapshot boot entries"
             fi

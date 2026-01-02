@@ -333,7 +333,7 @@ LOG_FILE="/var/log/linuxinstaller.log"
 
 # --- Progress Tracking ---
 # Track installation progress with visual indicators
-PROGRESS_TOTAL=0
+PROGRESS_TOTAL=15
 PROGRESS_CURRENT=0
 
 # --- Helper Functions ---
@@ -572,7 +572,7 @@ install_flatpak_packages() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+            if spin "Installing package"  $install_cmd "$pkg" >/dev/null 2>&1; then
                 installed_ref+=("$pkg")
             else
                 failed_ref+=("$pkg")
@@ -849,25 +849,12 @@ install_native_packages() {
     local batch_title="Installing ${#packages_to_install[@]} package(s)"
 
     if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-        if supports_gum; then
-            if ! gum spin --spinner dot --title "$batch_title" -- \
-                 DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
-                install_status=1
-            fi
-        else
-            if ! DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
-                install_status=1
-            fi
+        if ! spin "$batch_title" DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
+            install_status=1
         fi
     else
-        if supports_gum; then
-            if ! gum spin --spinner dot --title "$batch_title" -- $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
-                install_status=1
-            fi
-        else
-            if ! $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
-                install_status=1
-            fi
+        if ! spin "$batch_title" $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
+            install_status=1
         fi
     fi
 
@@ -895,7 +882,7 @@ install_other_packages() {
         pkg="$(echo "$pkg" | xargs)"
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- $install_cmd "$pkg" >/dev/null 2>&1; then
+            if spin "Installing package"  $install_cmd "$pkg" >/dev/null 2>&1; then
                 installed_ref+=("$pkg")
             else
                 failed_ref+=("$pkg")
@@ -1000,7 +987,7 @@ configure_user_shell_and_configs() {
         fi
 
         if supports_gum; then
-            if gum spin --spinner dot --title "" -- install_pkg "$pkg" >/dev/null 2>&1; then
+            if spin "Installing package"  install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
             else
                 failed+=("$pkg")
@@ -1374,6 +1361,15 @@ fi
 
 time_end "package_installation"
 progress_update "Package installation"
+progress_update "Wake-on-LAN configuration"
+progress_update "Distribution configuration"
+progress_update "User configuration"
+progress_update "Desktop configuration"
+progress_update "Security configuration"
+progress_update "Performance optimization"
+progress_update "Gaming configuration"
+progress_update "Maintenance setup"
+progress_update "Finalization"
 
 # ------------------------------------------------------------------
 # Wake-on-LAN auto-configuration step

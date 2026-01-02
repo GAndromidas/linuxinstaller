@@ -161,6 +161,27 @@ step() {
     fi
 }
 
+# Execute command with spinner for user feedback during long operations
+# Usage: spin "Description of operation" command args...
+spin() {
+    local title="$1"
+    shift
+
+    if supports_gum; then
+        gum spin --spinner dot --title "$title" -- "$@"
+    else
+        echo -e "${YELLOW}⏳ $title...${RESET}"
+        "$@"
+        local exit_code=$?
+        if [ $exit_code -eq 0 ]; then
+            echo -e "${GREEN}✓ $title completed${RESET}"
+        else
+            echo -e "${RED}✗ $title failed${RESET}"
+        fi
+        return $exit_code
+    fi
+}
+
 # Log informational message (only shows in verbose mode)
 log_info() {
     local message="$1"
