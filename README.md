@@ -29,16 +29,19 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 - **Developer Friendly** with modern shell, editors, and tools
 - **One-Command Setup** - just run and choose your preferences
 
+### 🚀 Get Started Now
+```bash
+# One-liner installation (downloads full repository automatically)
+curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
+```
+
 ---
 
 ## 🚀 Quick Start
 
-### Basic Installation
+### Manual Installation
 ```bash
-# Download and run (one-liner - downloads full repository automatically)
-curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
-
-# Or clone and run locally
+# Clone and run locally
 git clone https://github.com/GAndromidas/linuxinstaller.git
 cd linuxinstaller
 chmod +x install.sh
@@ -58,6 +61,8 @@ sudo ./install.sh --verbose
 ```
 
 ---
+
+## 📋 Features
 
 ## 🎨 Beautiful Terminal Interface
 
