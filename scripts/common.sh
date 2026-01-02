@@ -531,19 +531,11 @@ check_internet() {
     local test_host="8.8.8.8"  # Use Google DNS instead of hostname
     local timeout=10
 
-    log_info "Checking internet connection..."
-
     if ! ping -c 1 -W "$timeout" "$test_host" &>/dev/null; then
-        log_error "No internet connection detected!"
-        log_error "Please check your network connection and try again."
-        log_error "Common solutions:"
-        log_error "  • Check if you're connected to WiFi/Ethernet"
-        log_error "  • Run 'ip addr' to check network interfaces"
-        log_error "  • Try 'ping 8.8.8.8' to test basic connectivity"
-        exit 1
+        return 1
     fi
 
-    log_success "Internet connection confirmed"
+    return 0
 }
 
 # Detect the system bootloader (grub or systemd-boot)
