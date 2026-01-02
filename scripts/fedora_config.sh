@@ -221,7 +221,7 @@ export -f distro_get_packages
 
 # Prepare Fedora system for configuration
 fedora_system_preparation() {
-    step "Fedora System Preparation"
+    display_step "🔧" "Fedora System Preparation"
 
     # Enable RPM Fusion repositories
     fedora_enable_rpmfusion
@@ -241,7 +241,7 @@ fedora_system_preparation() {
 
 # Enable RPM Fusion repositories for Fedora
 fedora_enable_rpmfusion() {
-    step "Enabling RPM Fusion Repositories"
+    display_step "📦" "Enabling RPM Fusion Repositories"
 
     if ! dnf repolist | grep -q rpmfusion-free; then
         local fedora_version=$(rpm -E %fedora)
@@ -292,7 +292,7 @@ fedora_configure_dnf() {
 
 # Install essential packages for Fedora
 fedora_install_essentials() {
-    step "Installing Fedora Essential Packages"
+    display_step "📦" "Installing Fedora Essential Packages"
 
     log_info "Installing essential packages..."
     for package in "${FEDORA_ESSENTIALS[@]}"; do
@@ -318,7 +318,7 @@ fedora_install_essentials() {
 
 # Configure bootloader (GRUB or systemd-boot) for Fedora
 fedora_configure_bootloader() {
-    step "Configuring Fedora Bootloader"
+    display_step "🔄" "Configuring Fedora Bootloader"
 
     local bootloader
     bootloader=$(detect_bootloader)
@@ -437,7 +437,7 @@ configure_systemd_boot_fedora() {
 
 # Enable and configure essential systemd services for Fedora
 fedora_enable_system_services() {
-    step "Enabling Fedora System Services"
+    display_step "⚙️" "Enabling Fedora System Services"
 
     # Essential services
     local services=(
@@ -476,7 +476,7 @@ fedora_enable_system_services() {
 
 # Setup Flatpak and Flathub for Fedora
 fedora_setup_flatpak() {
-    step "Setting up Flatpak for Fedora"
+    display_step "📦" "Setting up Flatpak for Fedora"
 
     if ! command -v flatpak >/dev/null; then
         log_info "Installing Flatpak..."
@@ -494,7 +494,7 @@ fedora_setup_flatpak() {
 # Additional Fedora helper setup functions
 # Setup COPR repositories for Fedora
 fedora_setup_copr() {
-    step "Setting up COPR repositories"
+    display_step "📦" "Setting up COPR repositories"
     if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
         # Ensure dnf-plugins-core is available (required for 'dnf copr')
         if ! install_pkg dnf-plugins-core >/dev/null 2>&1; then
@@ -518,7 +518,7 @@ fedora_setup_copr() {
 
 # Setup ZSH shell environment and configuration files for Fedora
 fedora_setup_shell() {
-    step "Setting up ZSH shell environment"
+    display_step "🐚" "Setting up ZSH shell environment"
 
     if [ "$SHELL" != "$(command -v zsh)" ]; then
         log_info "Changing default shell to ZSH..."
@@ -556,7 +556,7 @@ fedora_setup_shell() {
 # Setup Solaar for Logitech hardware management on Fedora
 fedora_setup_solaar() {
     # Mirror existing solaar setup from other modules
-    step "Setting up Logitech Hardware Support for Fedora"
+    display_step "🖱️" "Setting up Logitech Hardware Support for Fedora"
 
     if [ "$INSTALL_MODE" == "server" ]; then
         log_info "Server mode selected, skipping solaar installation"
@@ -596,7 +596,7 @@ fedora_setup_solaar() {
 
 # Configure system locales for Greek and US English on Fedora
 fedora_configure_locale() {
-    step "Configuring Fedora Locales (Greek and US)"
+    display_step "🌍" "Configuring Fedora Locales (Greek and US)"
 
     # Install language packs for Greek and US English
     log_info "Installing language packs..."
@@ -631,7 +631,7 @@ fedora_configure_locale() {
 
 # Configure system hostname for Fedora
 fedora_configure_hostname() {
-    step "Configuring System Hostname"
+    display_step "🏠" "Configuring System Hostname"
 
     local current_hostname
     current_hostname=$(hostname)

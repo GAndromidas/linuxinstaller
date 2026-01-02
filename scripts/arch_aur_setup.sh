@@ -16,7 +16,7 @@ fi
 
 # Install yay AUR helper
 arch_install_aur_helper() {
-    step "Installing AUR Helper (yay)"
+    display_step "📦" "Installing AUR Helper (yay)"
 
     if command -v yay >/dev/null 2>&1; then
         return 0
@@ -107,7 +107,7 @@ uninstall_yay() {
 
 # Update mirrors using reflector
 update_mirrors_with_reflector() {
-    step "Updating mirrors with reflector"
+    display_step "🌐" "Updating mirrors with reflector"
 
     if ! command -v reflector >/dev/null 2>&1; then
         log_error "reflector not found. Cannot update mirrors."

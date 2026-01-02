@@ -518,7 +518,7 @@ arch_enable_system_services() {
 
 # Configure system locales for Greek and US English on Arch Linux
 arch_configure_locale() {
-    step "Configuring Arch Linux Locales (Greek and US)"
+    display_step "🌍" "Configuring Arch Linux Locales (Greek and US)"
 
     local locale_file="/etc/locale.gen"
 
@@ -580,7 +580,7 @@ arch_configure_locale() {
 
 # Install kernel headers for all installed kernels
 arch_install_kernel_headers() {
-    step "Installing kernel headers for installed kernels"
+    display_step "🔧" "Installing kernel headers for installed kernels"
 
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would detect installed kernels and install corresponding headers"
@@ -695,7 +695,7 @@ ARCH_CONFIGS_DIR="$SCRIPT_DIR/../configs/arch"
 # Setup ZSH shell environment for Arch Linux
 # Note: Configuration file deployment is handled by the main configure_user_shell_and_configs function
 arch_setup_shell() {
-    step "Setting up ZSH shell environment"
+    display_step "🐚" "Setting up ZSH shell environment"
 
     # Determine target user for shell change
     local target_user="${SUDO_USER:-$USER}"
@@ -752,7 +752,7 @@ arch_setup_solaar() {
         return 0
     fi
 
-    step "Setting up Logitech Hardware Support"
+    display_step "🖱️" "Setting up Logitech Hardware Support"
 
     # Check for Logitech hardware (use safe, non-blocking checks)
     local has_logitech=false
@@ -818,7 +818,7 @@ arch_setup_solaar() {
 # arch firewall is configured via security_configure_firewall() in security_config.sh
 # Configure Plymouth boot splash screen for Arch Linux
 arch_configure_plymouth() {
-    step "Configuring Plymouth boot splash"
+    display_step "🎨" "Configuring Plymouth boot splash"
 
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would configure Plymouth (install package, update initramfs, adjust bootloader kernel params)"
@@ -966,7 +966,7 @@ EOF
 
 # Configure bootloader (GRUB or systemd-boot) for Arch Linux
 arch_configure_bootloader() {
-    step "Configuring Arch Linux Bootloader"
+    display_step "🔄" "Configuring Arch Linux Bootloader"
 
     local bootloader
     bootloader=$(detect_bootloader)

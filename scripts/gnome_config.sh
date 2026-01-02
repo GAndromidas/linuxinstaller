@@ -71,7 +71,7 @@ gnome_install_packages() {
 
 # Configure GNOME shell extensions
 gnome_configure_extensions() {
-    step "Configuring GNOME Extensions"
+    display_step "🖥️" "Configuring GNOME Extensions"
 
     if ! command -v gnome-extensions >/dev/null 2>&1; then
         log_warn "GNOME extensions command not found"
@@ -103,7 +103,7 @@ gnome_configure_extensions() {
 
 # Configure GNOME desktop theme and appearance settings
 gnome_configure_theme() {
-    step "Configuring GNOME Theme"
+    display_step "🎨" "Configuring GNOME Theme"
 
     if ! command -v gsettings >/dev/null 2>&1; then
         log_error "gsettings command not found. Cannot configure GNOME theme."
@@ -128,7 +128,7 @@ gnome_configure_theme() {
 
 # Configure GNOME keyboard shortcuts
 gnome_configure_shortcuts() {
-    step "Configuring GNOME Shortcuts"
+    display_step "⌨️" "Configuring GNOME Shortcuts"
 
     if ! command -v gsettings >/dev/null 2>&1; then
         log_error "gsettings command not found. Cannot configure GNOME shortcuts."
@@ -194,7 +194,7 @@ gnome_configure_shortcuts() {
 
 # Configure GNOME desktop environment settings
 gnome_configure_desktop() {
-    step "Configuring GNOME Desktop"
+    display_step "🖥️" "Configuring GNOME Desktop"
 
     if ! command -v gsettings >/dev/null 2>&1; then
         log_error "gsettings command not found. Cannot configure GNOME desktop."
@@ -225,7 +225,7 @@ gnome_configure_desktop() {
 
 # Configure GNOME network settings
 gnome_configure_network() {
-    step "Configuring GNOME Network Settings"
+    display_step "🌐" "Configuring GNOME Network Settings"
 
     # Enable NetworkManager
     if systemctl list-unit-files | grep -q NetworkManager; then
@@ -247,7 +247,7 @@ gnome_configure_network() {
 
 # Install and configure GNOME Software application
 gnome_install_gnome_software() {
-    step "Installing and Configuring GNOME Software"
+    display_step "📦" "Installing and Configuring GNOME Software"
 
     # Install GNOME Software if not present
     if ! command -v gnome-software >/dev/null 2>&1; then

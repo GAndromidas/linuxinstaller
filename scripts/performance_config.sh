@@ -36,7 +36,7 @@ PERFORMANCE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 # Configure system swappiness for optimal performance
 performance_configure_swappiness() {
-    step "Configuring System Swappiness"
+    display_step "⚙️" "Configuring System Swappiness"
 
     # Optimize swappiness for performance
     if [ -f /proc/sys/vm/swappiness ]; then
@@ -71,7 +71,7 @@ performance_configure_swappiness() {
 
 # Configure CPU governor for optimal performance
 performance_configure_cpu_governor() {
-    step "Configuring CPU Governor"
+    display_step "⚡" "Configuring CPU Governor"
 
     # Enable performance governor for better performance
     if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
@@ -100,7 +100,7 @@ EOF
 
 # Configure filesystem performance optimizations
 performance_configure_filesystem() {
-    step "Configuring Filesystem Performance"
+    display_step "💾" "Configuring Filesystem Performance"
 
     # Enable TRIM for SSDs
     if ls /sys/block/*/queue/discard_max_bytes >/dev/null 2>&1; then
@@ -123,7 +123,7 @@ performance_configure_filesystem() {
 
 # Configure network performance settings
 performance_configure_network() {
-    step "Configuring Network Performance"
+    display_step "🌐" "Configuring Network Performance"
 
     # Optimize network settings
     if [ ! -f /etc/sysctl.d/99-performance.conf ]; then
@@ -143,7 +143,7 @@ EOF
 
 # Configure kernel parameters for performance
 performance_configure_kernel() {
-    step "Configuring Kernel Performance"
+    display_step "🔧" "Configuring Kernel Performance"
 
     # Optimize kernel parameters for performance
     if [ ! -f /etc/sysctl.d/99-kernel-performance.conf ]; then
@@ -164,7 +164,7 @@ EOF
 
 # Configure systemd services for performance
 performance_configure_services() {
-    step "Configuring Service Performance"
+    display_step "⚙️" "Configuring Service Performance"
 
     # Add any service-specific performance optimizations here
     log_info "Service performance optimizations completed"
@@ -172,7 +172,7 @@ performance_configure_services() {
 
 # Configure CPU microcode updates for security and stability
 performance_configure_microcode() {
-    step "Configuring CPU Microcode Updates"
+    display_step "🔧" "Configuring CPU Microcode Updates"
 
     # Detect CPU vendor
     local cpu_vendor=""
@@ -235,7 +235,7 @@ performance_configure_microcode() {
 
 # Install performance optimization packages for all distributions
 performance_install_performance_packages() {
-    step "Installing Performance Packages"
+    display_step "📦" "Installing Performance Packages"
 
     # Install performance essential packages
     if [ ${#PERFORMANCE_ESSENTIALS[@]} -gt 0 ]; then
@@ -264,7 +264,7 @@ performance_install_performance_packages() {
 
 # Configure Btrfs filesystem performance optimizations
 performance_configure_btrfs() {
-    step "Configuring Btrfs Performance"
+    display_step "💾" "Configuring Btrfs Performance"
 
     if is_btrfs_system; then
         log_info "Btrfs filesystem detected, configuring performance optimizations..."
@@ -293,7 +293,7 @@ performance_configure_btrfs() {
 
 # Configure system settings for optimal gaming performance
 performance_configure_gaming() {
-    step "Configuring Gaming Performance"
+    display_step "🎮" "Configuring Gaming Performance"
 
     if [ "$INSTALL_MODE" == "gaming" ] || [ "$INSTALL_MODE" == "standard" ]; then
         # Enable performance governor for gaming

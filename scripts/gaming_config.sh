@@ -91,37 +91,10 @@ is_virtual_machine() {
 }
 
 # Robust Flatpak package installation function (same as main installer)
-install_flatpak_packages() {
-    local install_cmd="$1"
-    local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
-
-    for pkg in "${packages_ref[@]}"; do
-        pkg="$(echo "$pkg" | xargs)"
-
-        # Check if flatpak is already installed
-        if flatpak list 2>/dev/null | grep -q "^${pkg}\s"; then
-            skipped_ref+=("$pkg")
-            continue
-        fi
-
-        if supports_gum; then
-            if spin "Installing gaming package" $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
-        else
-            if $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
-        fi
-    done
-}
+# install_flatpak_packages() function is available from install.sh
 
 install_gpu_drivers() {
-    step "Installing GPU Drivers"
+    display_step "🎮" "Installing GPU Drivers"
 
     local amd_detected=false
     local intel_detected=false
@@ -189,7 +162,7 @@ install_gpu_drivers() {
 
 # Install gaming packages for current distribution
 gaming_install_packages() {
-    step "Installing Gaming Packages"
+    display_step "🎮" "Installing Gaming Packages"
 
     if declare -f distro_get_packages >/dev/null 2>&1; then
         mapfile -t gaming_packages < <(distro_get_packages "gaming" "native" 2>/dev/null || true)
@@ -253,7 +226,7 @@ gaming_install_packages() {
 
 # Configure system settings for optimal gaming performance
 gaming_configure_performance() {
-    step "Configuring Gaming Performance"
+    display_step "⚡" "Configuring Gaming Performance"
 
     # Enable performance governor
     if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
@@ -283,7 +256,7 @@ gaming_configure_performance() {
 
 # Configure MangoHud for gaming overlay statistics
 gaming_configure_mangohud() {
-    step "Configuring MangoHud"
+    display_step "📊" "Configuring MangoHud"
 
     if ! command -v mangohud >/dev/null 2>&1; then
         log_warn "MangoHud not found. Install it via the distro's gaming packages."
@@ -297,7 +270,7 @@ gaming_configure_mangohud() {
 
 # Configure GameMode for performance optimization during gaming
 gaming_configure_gamemode() {
-    step "Configuring GameMode"
+    display_step "🎯" "Configuring GameMode"
 
     if command -v gamemoded >/dev/null 2>&1; then
         log_info "GameMode already installed"
@@ -315,7 +288,7 @@ gaming_configure_gamemode() {
 
 # Install and configure Steam gaming platform
 gaming_configure_steam() {
-    step "Configuring Steam"
+    display_step "🎮" "Configuring Steam"
 
     # Install Steam if not present
     if ! command -v steam >/dev/null 2>&1; then
@@ -342,7 +315,7 @@ gaming_configure_steam() {
 
 # Install gaming Flatpak packages (Heroic Launcher, ProtonPlus, Faugus)
 gaming_install_flatpak_packages() {
-    step "Installing Gaming Flatpak Applications"
+    display_step "📦" "Installing Gaming Flatpak Applications"
 
     log_info "Installing gaming Flatpak applications for $DISTRO_ID..."
 
@@ -378,7 +351,7 @@ gaming_install_flatpak_packages() {
 
 # Install Faugus game launcher via Flatpak (robust implementation)
 install_faugus_flatpak() {
-    step "Installing Faugus (flatpak)"
+    display_step "🎨" "Installing Faugus (flatpak)"
 
     # Ensure Flatpak is available
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -478,7 +451,7 @@ export -f has_nvidia_gpu
 export -f has_virtual_gpu
 export -f is_virtual_machine
 export -f install_gpu_drivers
-export -f install_flatpak_packages
+# install_flatpak_packages export is in install.sh
 export -f gaming_install_packages
 export -f gaming_install_flatpak_packages
 export -f gaming_configure_performance

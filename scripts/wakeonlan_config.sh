@@ -33,9 +33,7 @@ fi
 # Helpers
 # ---------------------------
 
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
+# command_exists() function is available from common.sh
 
 # Return newline-separated list of candidate wired interfaces
 # - Detect all ethernet adapters in any system (like reference wakeonlan.sh)
@@ -348,7 +346,7 @@ wakeonlan_status() {
 
 # Enable WoL on all detected wired interfaces (idempotent)
 wakeonlan_enable_all() {
-    step "Configuring Wake-on-LAN for wired interfaces"
+    display_step "🌐" "Configuring Wake-on-LAN for wired interfaces"
 
     # Try to ensure we can run runtime commands
     wakeonlan_install_ethtool || log_warn "ethtool installation/check failed; continuing but operations may fail."
@@ -382,7 +380,7 @@ wakeonlan_enable_all() {
 
 # Disable WoL on all detected wired interfaces and remove persistence
 wakeonlan_disable_all() {
-    step "Disabling Wake-on-LAN for wired interfaces"
+    display_step "🌐" "Disabling Wake-on-LAN for wired interfaces"
 
     local devs
     mapfile -t devs < <(detect_wired_interfaces)
@@ -401,7 +399,7 @@ wakeonlan_disable_all() {
 
 # Show WoL status (non-invasive)
 wakeonlan_show_status() {
-    step "Wake-on-LAN status"
+    display_step "📊" "Wake-on-LAN status"
     wakeonlan_status
 }
 

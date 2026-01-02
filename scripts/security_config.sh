@@ -36,7 +36,7 @@ SECURITY_DEBIAN=(
 
 # Install security packages for all distributions
 security_install_packages() {
-    step "Installing Security Packages"
+    display_step "🔒" "Installing Security Packages"
 
     # Install security essential packages
     if [ ${#SECURITY_ESSENTIALS[@]} -gt 0 ]; then
@@ -65,7 +65,7 @@ security_install_packages() {
 
 # Configure Fail2ban intrusion prevention system
 security_configure_fail2ban() {
-    step "Configuring Fail2ban"
+    display_step "🛡️" "Configuring Fail2ban"
 
     # Configure fail2ban for all distributions
     if [ ! -f /etc/fail2ban/jail.local ]; then
@@ -96,7 +96,7 @@ security_configure_fail2ban() {
 
 # Configure firewall (UFW for Arch/Debian/Ubuntu, firewalld for Fedora)
 security_configure_firewall() {
-    step "Configuring Firewall"
+    display_step "🔥" "Configuring Firewall"
 
     case "$DISTRO_ID" in
         "arch")
@@ -178,7 +178,7 @@ security_configure_firewall() {
 
 # Configure AppArmor security framework
 security_configure_apparmor() {
-    step "Configuring AppArmor"
+    display_step "🛡️" "Configuring AppArmor"
 
     if [ "$DISTRO_ID" == "arch" ] || [ "$DISTRO_ID" == "debian" ] || [ "$DISTRO_ID" == "ubuntu" ]; then
         if command -v apparmor_parser >/dev/null 2>&1; then
@@ -198,7 +198,7 @@ security_configure_apparmor() {
 
 # Configure SELinux security framework (Fedora only)
 security_configure_selinux() {
-    step "Configuring SELinux"
+    display_step "🛡️" "Configuring SELinux"
 
     if [ "$DISTRO_ID" == "fedora" ]; then
         if command -v sestatus >/dev/null 2>&1; then
@@ -217,7 +217,7 @@ security_configure_selinux() {
 
 # Configure SSH server security settings
 security_configure_ssh() {
-    step "Configuring SSH Security"
+    display_step "🔐" "Configuring SSH Security"
 
     if [ -f /etc/ssh/sshd_config ]; then
         log_info "Configuring SSH security settings..."
@@ -241,7 +241,7 @@ security_configure_ssh() {
 
 # Configure user group memberships for system access
 security_configure_user_groups() {
-    step "Configuring User Groups"
+    display_step "👥" "Configuring User Groups"
 
     # Add user to essential groups
     local groups=("input" "video" "storage")

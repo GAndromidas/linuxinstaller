@@ -117,7 +117,7 @@ maintenance_install_basic_packages() {
 
 # Install maintenance packages for all distributions
 maintenance_install_packages() {
-    step "Installing Maintenance Packages"
+    display_step "🛠️" "Installing Maintenance Packages"
 
     if supports_gum; then
         display_info "Maintenance packages help protect your system with snapshots and updates"
@@ -217,7 +217,7 @@ maintenance_install_packages() {
 
 # Configure TimeShift for Fedora/Debian/Ubuntu
 maintenance_configure_timeshift() {
-    step "Configuring TimeShift"
+    display_step "💾" "Configuring TimeShift"
 
     if ! command -v timeshift >/dev/null 2>&1; then
         if supports_gum; then
@@ -273,7 +273,7 @@ EOF
 
 # Configure Snapper for Arch (only)
 maintenance_configure_snapper_settings() {
-    step "Configuring Snapper (Arch Only)"
+    display_step "💾" "Configuring Snapper (Arch Only)"
 
     if [ "$DISTRO_ID" != "arch" ]; then
         return
@@ -399,7 +399,7 @@ maintenance_setup_pre_update_snapshots() {
         return
     fi
 
-    step "Setting Up Pre-Update Snapshot Function"
+    display_step "🔄" "Setting Up Pre-Update Snapshot Function"
 
     if supports_gum; then
         display_info "Creating automatic snapshots before system updates" "This protects your system from broken updates"
@@ -474,7 +474,7 @@ EOF
 
 # Configure GRUB for snapshot boot menu (TimeShift for non-Arch, Snapper for Arch)
 maintenance_configure_grub_snapshots() {
-    step "Configuring GRUB for Snapshot Boot Menu"
+    display_step "🔄" "Configuring GRUB for Snapshot Boot Menu"
 
     # Only configure if user enabled Btrfs snapshots
     if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" != "true" ]; then
@@ -544,7 +544,7 @@ maintenance_configure_grub_snapshots() {
 
 # Configure Btrfs Assistant settings
 maintenance_configure_btrfs_assistant() {
-    step "Configuring Btrfs Assistant"
+    display_step "💾" "Configuring Btrfs Assistant"
 
     if ! command -v btrfs-assistant >/dev/null 2>&1; then
         if supports_gum; then
@@ -588,7 +588,7 @@ EOF
 
 # Configure Btrfs snapshot management
 maintenance_configure_btrfs_snapshots() {
-    step "Configuring Btrfs Snapshots"
+    display_step "💾" "Configuring Btrfs Snapshots"
 
     if ! is_btrfs_system; then
         if supports_gum; then
@@ -646,7 +646,7 @@ maintenance_configure_btrfs_snapshots() {
 
 # Configure automatic system updates for Fedora/Debian/Ubuntu
 maintenance_configure_automatic_updates() {
-    step "Configuring Automatic Updates"
+    display_step "🔄" "Configuring Automatic Updates"
 
     case "$DISTRO_ID" in
         "fedora")
@@ -790,7 +790,7 @@ maintenance_main_config() {
 
 # Configure comprehensive Btrfs maintenance schedules
 maintenance_configure_btrfs_maintenance() {
-    step "Configuring Btrfs Maintenance Schedules"
+    display_step "🛠️" "Configuring Btrfs Maintenance Schedules"
 
     if supports_gum; then
         display_info "Setting up comprehensive Btrfs maintenance schedules" "Weekly balance: /, /home, /var/log\nMonthly scrub: /, /home, /var/log\nWeekly defrag: /, /home"

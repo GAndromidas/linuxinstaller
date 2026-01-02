@@ -104,7 +104,7 @@ kde_install_packages() {
 
 # Configure KDE global keyboard shortcuts (Plasma 6.5+ compatible)
 kde_configure_shortcuts() {
-    step "Configuring KDE Shortcuts"
+    display_step "⌨️" "Configuring KDE Shortcuts"
 
     # Determine target user for shortcuts
     local target_user="${SUDO_USER:-$USER}"
@@ -263,7 +263,7 @@ EOF
 
 # Configure KDE desktop wallpaper
 kde_configure_wallpaper() {
-    step "Configuring KDE Wallpaper"
+    display_step "🖼️" "Configuring KDE Wallpaper"
 
     if [ -f "$KDE_CONFIGS_DIR/kde_wallpaper.jpg" ]; then
         log_info "Setting KDE wallpaper..."
@@ -281,7 +281,7 @@ kde_configure_wallpaper() {
 
 # Configure KDE desktop theme and appearance settings
 kde_configure_theme() {
-    step "Configuring KDE Theme"
+    display_step "🎨" "Configuring KDE Theme"
 
     local kwrite="kwriteconfig5"
     if command -v kwriteconfig6 >/dev/null 2>&1; then kwrite="kwriteconfig6"; fi
@@ -304,7 +304,7 @@ kde_configure_theme() {
 
 # Configure KDE network settings and NetworkManager integration
 kde_configure_network() {
-    step "Configuring KDE Network Settings"
+    display_step "🌐" "Configuring KDE Network Settings"
 
     # Enable NetworkManager integration
     if systemctl list-unit-files | grep -q NetworkManager; then
@@ -327,7 +327,7 @@ kde_configure_network() {
 
 # Configure KDE Plasma desktop environment settings
 kde_setup_plasma() {
-    step "Setting up KDE Plasma Desktop"
+    display_step "🖥️" "Setting up KDE Plasma Desktop"
 
     # Configure Plasma desktop settings
     local kwrite="kwriteconfig5"
@@ -349,7 +349,7 @@ kde_setup_plasma() {
 
 # Install and configure KDE Connect for device integration
 kde_install_kdeconnect() {
-    step "Installing and Configuring KDE Connect"
+    display_step "📱" "Installing and Configuring KDE Connect"
 
     # Install KDE Connect
     install_packages_with_progress "kdeconnect" || log_warn "Failed to install KDE Connect"
@@ -410,31 +410,4 @@ export -f kde_configure_theme
 export -f kde_configure_network
 export -f kde_setup_plasma
 export -f kde_install_kdeconnect
-# Check if a package is installed (distro-agnostic)
-is_package_installed() {
-    local pkg="$1"
-    
-    case "$DISTRO_ID" in
-        "arch")
-            pacman -Qq "$pkg" >/dev/null 2>&1
-            ;;
-        "fedora")
-            rpm -q "$pkg" >/dev/null 2>&1
-            ;;
-        "debian"|"ubuntu")
-            dpkg -l | grep -q "^ii  $pkg"
-            ;;
-        *)
-            # Fallback: try to query package manager
-            if command -v pacman >/dev/null 2>&1; then
-                pacman -Qq "$pkg" >/dev/null 2>&1
-            elif command -v rpm >/dev/null 2>&1; then
-                rpm -q "$pkg" >/dev/null 2>&1
-            elif command -v dpkg >/dev/null 2>&1; then
-                dpkg -l | grep -q "^ii  $pkg"
-            else
-                return 1
-            fi
-            ;;
-    esac
-}
+# is_package_installed() function is available from common.sh

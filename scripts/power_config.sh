@@ -127,7 +127,7 @@ _try_install() {
 
 # Configure power management (power-profiles-daemon, cpupower, or tuned)
 configure_power_management() {
-    step "Configuring Power Management"
+    display_step "🔋" "Configuring Power Management"
 
     if [ "${DRY_RUN:-false}" = "true" ]; then
         log_info "[DRY-RUN] Would detect and configure power management utilities (power-profiles-daemon/cpupower/tuned)"

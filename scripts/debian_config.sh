@@ -277,7 +277,7 @@ export -f distro_get_packages
 
 # Prepare Debian/Ubuntu system for configuration
 debian_system_preparation() {
-    step "Debian/Ubuntu System Preparation"
+    display_step "🔧" "Debian/Ubuntu System Preparation"
 
     # Enable non-free repositories for Steam and proprietary packages
     debian_enable_nonfree_repos
@@ -332,7 +332,7 @@ EOF
 
 # Install essential packages for Debian/Ubuntu
 debian_install_essentials() {
-    step "Installing Debian/Ubuntu Essential Packages"
+    display_step "📦" "Installing Debian/Ubuntu Essential Packages"
 
     local packages=()
     local installed=()
@@ -377,7 +377,7 @@ debian_install_essentials() {
 
 # Configure bootloader (GRUB or systemd-boot) for Debian/Ubuntu
 debian_configure_bootloader() {
-    step "Configuring Debian/Ubuntu Bootloader"
+    display_step "🔄" "Configuring Debian/Ubuntu Bootloader"
 
     local bootloader
     bootloader=$(detect_bootloader)
@@ -489,7 +489,7 @@ configure_systemd_boot_debian() {
 
 # Enable and configure essential systemd services for Debian/Ubuntu
 debian_enable_system_services() {
-    step "Enabling Debian/Ubuntu System Services"
+    display_step "⚙️" "Enabling Debian/Ubuntu System Services"
 
     # Essential services
     local services=(
@@ -522,7 +522,7 @@ debian_enable_system_services() {
 
 # Setup Flatpak and Flathub for Debian/Ubuntu
 debian_setup_flatpak() {
-    step "Setting up Flatpak for Debian/Ubuntu"
+    display_step "📦" "Setting up Flatpak for Debian/Ubuntu"
 
     if ! command -v flatpak >/dev/null; then
         log_info "Installing Flatpak..."
@@ -536,7 +536,7 @@ debian_setup_flatpak() {
 
 # Setup Snap package manager for Ubuntu
 debian_setup_snap() {
-    step "Setting up Snap for Ubuntu"
+    display_step "📦" "Setting up Snap for Ubuntu"
 
     if [ "$DISTRO_ID" != "ubuntu" ]; then
         return 0
@@ -558,7 +558,7 @@ debian_setup_snap() {
 
 # Setup ZSH shell environment and configuration files for Debian/Ubuntu
 debian_setup_shell() {
-    step "Setting up ZSH shell environment"
+    display_step "🐚" "Setting up ZSH shell environment"
 
     # Set ZSH as default
     if [ "$SHELL" != "$(command -v zsh)" ]; then
@@ -645,7 +645,7 @@ debian_setup_solaar() {
         return 0
     fi
 
-    step "Setting up Logitech Hardware Support"
+    display_step "🖱️" "Setting up Logitech Hardware Support"
 
     # Check for Logitech hardware (use safe, non-blocking checks)
     local has_logitech=false
@@ -709,7 +709,7 @@ debian_setup_solaar() {
 
 # Configure system locales for Greek and US English on Debian/Ubuntu
 debian_configure_locale() {
-    step "Configuring Debian/Ubuntu Locales (Greek and US)"
+    display_step "🌍" "Configuring Debian/Ubuntu Locales (Greek and US)"
 
     # Install language packs
     log_info "Installing language packs..."
