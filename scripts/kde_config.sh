@@ -121,18 +121,15 @@ kde_configure_shortcuts() {
     local plasma_minor=""
 
     if command -v plasmashell >/dev/null 2>&1; then
-        # Try multiple methods to detect Plasma version
-        plasma_version=$(plasmashell --version 2>/dev/null | grep -oP 'Plasma \K[0-9]+\.[0-9]+' || echo "")
+        plasma_version=$(plasmashell --version 2>/dev/null | grep -oP 'plasmashell \K[0-9]+\.[0-9]+' || echo "")
         if [ -z "$plasma_version" ]; then
-            # Fallback: check package version
             plasma_version=$(pacman -Q plasma-desktop 2>/dev/null | grep -oP '\d+\.\d+' || echo "")
         fi
         if [ -z "$plasma_version" ]; then
-            # Another fallback: check kf6 or kf5 packages
             if pacman -Q kf6 2>/dev/null >/dev/null; then
-                plasma_version="6.x"
+                plasma_version="6.0"
             elif pacman -Q kf5 2>/dev/null >/dev/null; then
-                plasma_version="5.x"
+                plasma_version="5.27"
             fi
         fi
     fi
@@ -145,6 +142,7 @@ kde_configure_shortcuts() {
 
     log_info "Detected KDE Plasma version: ${plasma_version:-unknown} (major: ${plasma_major:-?}, minor: ${plasma_minor:-?})"
 
+    # Check for KDE config tools
     if ! command -v kwriteconfig5 >/dev/null 2>&1 && ! command -v kwriteconfig6 >/dev/null 2>&1; then
         log_error "kwriteconfig command not found. Cannot configure KDE shortcuts."
         log_info "Make sure KDE Plasma is properly installed."
@@ -169,89 +167,201 @@ kde_configure_shortcuts() {
         return 1
     }
 
-    # For Plasma 6.5+, use different shortcut configuration approach
-    if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]] || [[ "$plasma_version" == "unknown" && "$plasma_major" == "6" ]]; then
-        log_info "Configuring shortcuts for Plasma 6.5+..."
-
-        # Create a comprehensive shortcuts configuration
-        cat > "$config_file" << 'EOF'
-[$Version]
-update_info=kded.upd:replace-home-shortcuts
-
-[data]
-Version=2
-
-[kdeglobals]
-Version=2
-
-[kwin]
-Window Close=Alt+F4,Super+Q
-
-[org.kde.kglobalaccel]
-component=krunner
-interface=org.kde.krunner.App
-method=activate
-path=/MainApplication
-
-[services]
-Launch Konsole=Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'konsole',Launch Konsole
-EOF
-
-        log_success "Applied Plasma 6.5+ compatible shortcuts configuration"
-    else
-        # Legacy Plasma configuration for versions < 6.5
-        log_info "Configuring shortcuts for Plasma < 6.5..."
-
-        # Setup Meta+Q to Close Window
-        log_info "Setting up 'Meta+Q' to close windows..."
-        local current_close_shortcut
-        current_close_shortcut=$($kread --file "$config_file" --group kwin --key "Window Close" 2>/dev/null || echo "Alt+F4")
-        if ! [[ "$current_close_shortcut" == *",Super+Q"* ]] && ! [[ "$current_close_shortcut" == *"Super+Q"* ]]; then
-            $kwrite --file "$config_file" --group kwin --key "Window Close" "${current_close_shortcut},Super+Q" 2>/dev/null || true
-            log_success "Shortcut 'Meta+Q' added for closing windows."
-        else
-            log_info "Shortcut 'Meta+Q' for closing windows already set."
-        fi
-
-        # Setup Meta+Enter to Launch Terminal (Konsole for KDE)
-        log_info "Setting up 'Meta+Enter' to launch Konsole..."
-        $kwrite --file "$config_file" --group services --key "krunner" "Meta+Return,none,Run Command,Run Command" 2>/dev/null || true
-        $kwrite --file "$config_file" --group services --key "Launch Terminal" "Meta+Return,dbus-send,dbus-send --session --dest=org.kde.krunner --type=method_call /org/kde/krunner/SingleRunner org.kde.krunner.SingleRunner.RunCommand string:'konsole',Launch Konsole" 2>/dev/null || true
-        log_success "Shortcut 'Meta+Enter' set to launch Konsole."
+    # Backup existing config
+    if [ -f "$config_file" ]; then
+        cp "$config_file" "${config_file}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        log_info "Backed up existing shortcuts configuration"
     fi
 
-    # Set proper ownership
-    chown "$target_user:$target_user" "$config_file" 2>/dev/null || true
+    # Configure Meta+Q to close windows
+    log_info "Setting up 'Meta+Q' to close windows..."
 
-    # Reload the configuration and shortcut daemon as the target user
-    log_info "Reloading KDE shortcut configuration..."
+    # For kwin, the shortcut format in Plasma 6 is: "Shortcut,DefaultShortcut,Action"
+    if [[ "$plasma_major" -ge 6 ]]; then
+        # Plasma 6+ format
+        $kwrite --file "$config_file" --group kwin --key "Window Close" "Meta+Q\tAlt+F4,Alt+F4,Close Window" || true
+    else
+        # Plasma 5 format
+        local current_close_shortcut
+        current_close_shortcut=$($kread --file "$config_file" --group kwin --key "Window Close" 2>/dev/null || echo "Alt+F4,Alt+F4,Close Window")
+
+        # Add Meta+Q if not already present
+        if ! [[ "$current_close_shortcut" =~ Meta\+Q ]]; then
+            $kwrite --file "$config_file" --group kwin --key "Window Close" "Meta+Q\tAlt+F4,Alt+F4,Close Window" || true
+        fi
+    fi
+
+    log_success "Shortcut 'Meta+Q' configured for closing windows."
+
+    # Configure Meta+Enter to launch Konsole
+    log_info "Setting up 'Meta+Enter' to launch Konsole..."
+
+    # Create custom shortcut for launching Konsole
+    # The proper way is to use the org_kde_konsole component
+    if [[ "$plasma_major" -ge 6 ]]; then
+        # Plasma 6+ uses a different structure for custom commands
+
+        # Method 1: Use kwin's Launch Konsole action if available
+        $kwrite --file "$config_file" --group org.kde.konsole.desktop --key "_launch" "Meta+Return,none,Launch Konsole" || true
+
+        # Method 2: Configure a custom shortcut using khotkeys
+        cat >> "$config_file" << 'EOF'
+
+[org.kde.konsole.desktop]
+_launch=Meta+Return,none,Launch Konsole
+
+[plasmashell.desktop]
+_k_friendly_name=Plasma
+
+EOF
+
+        # Method 3: Create a khotkeys configuration for custom command
+        local khotkeys_file="$user_home/.config/khotkeysrc"
+
+        # Backup khotkeys if exists
+        if [ -f "$khotkeys_file" ]; then
+            cp "$khotkeys_file" "${khotkeys_file}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        fi
+
+        # Add custom shortcut group for Konsole launch
+        cat >> "$khotkeys_file" << 'EOF'
+
+[Data_1]
+Comment=Launch Konsole with Meta+Return
+DataCount=1
+Enabled=true
+Name=Launch Konsole
+SystemGroup=0
+Type=ACTION_DATA_GROUP
+
+[Data_1Conditions]
+Comment=
+ConditionsCount=0
+
+[Data_1_1]
+Comment=Launch Konsole terminal
+Enabled=true
+Name=Launch Konsole
+Type=SIMPLE_ACTION_DATA
+
+[Data_1_1Actions]
+ActionsCount=1
+
+[Data_1_1Actions0]
+CommandURL=konsole
+Type=COMMAND_URL
+
+[Data_1_1Conditions]
+Comment=
+ConditionsCount=0
+
+[Data_1_1Triggers]
+Comment=Simple_action
+TriggersCount=1
+
+[Data_1_1Triggers0]
+Key=Meta+Return
+Type=SHORTCUT
+Uuid={12345678-1234-1234-1234-123456789abc}
+
+EOF
+
+    else
+        # Plasma 5 format
+        # Use standard krunner or custom command approach
+        $kwrite --file "$config_file" --group "org.kde.konsole.desktop" --key "_launch" "Meta+Return,none,Launch Konsole" || true
+
+        # Alternative: use khotkeys for Plasma 5
+        local khotkeys_file="$user_home/.config/khotkeysrc"
+
+        if [ -f "$khotkeys_file" ]; then
+            cp "$khotkeys_file" "${khotkeys_file}.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+        fi
+
+        # Append Konsole shortcut to khotkeys
+        cat >> "$khotkeys_file" << 'EOF'
+
+[Data_1]
+Comment=Launch Konsole
+DataCount=1
+Enabled=true
+Name=Konsole Shortcut
+SystemGroup=0
+Type=ACTION_DATA_GROUP
+
+[Data_1_1]
+Comment=Launch Konsole
+Enabled=true
+Name=Launch Konsole
+Type=SIMPLE_ACTION_DATA
+
+[Data_1_1Actions]
+ActionsCount=1
+
+[Data_1_1Actions0]
+CommandURL=konsole
+Type=COMMAND_URL
+
+[Data_1_1Conditions]
+Comment=
+ConditionsCount=0
+
+[Data_1_1Triggers]
+Comment=
+TriggersCount=1
+
+[Data_1_1Triggers0]
+Key=Meta+Return
+Type=SHORTCUT
+Uuid={abcd1234-5678-90ab-cdef-1234567890ab}
+
+EOF
+    fi
+
+    log_success "Shortcut 'Meta+Return' configured to launch Konsole."
+
+    # Set proper ownership for all config files
+    chown -R "$target_user:$target_user" "$user_home/.config" 2>/dev/null || true
+
+    # Reload the configuration as the target user
+    log_info "Reloading KDE configuration..."
+
     if [ "$target_user" != "root" ]; then
-        # Run KDE commands as the target user
-        su - "$target_user" -c "$kbuild >/dev/null 2>&1" 2>/dev/null || true
+        # Rebuild system configuration cache
+        su - "$target_user" -c "$kbuild --noincremental >/dev/null 2>&1" 2>/dev/null || true
 
-        # Try different D-Bus methods for different Plasma versions
-        if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]] || [[ "$plasma_version" == "unknown" && "$plasma_major" == "6" ]]; then
-            # Plasma 6.5+ specific reload
-            su - "$target_user" -c "dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /kglobalaccel org.kde.kglobalaccel.reconfigure >/dev/null 2>&1" 2>/dev/null || \
-            su - "$target_user" -c "kquitapp6 kglobalaccel 2>/dev/null && kstart6 kglobalaccel 2>/dev/null" 2>/dev/null || \
-            su - "$target_user" -c "systemctl --user restart plasma-kglobalaccel.service" 2>/dev/null || true
+        # Restart kglobalaccel to reload shortcuts
+        if [[ "$plasma_major" -ge 6 ]]; then
+            # Plasma 6+ methods
+            su - "$target_user" -c "kquitapp6 kglobalaccel5 2>/dev/null; sleep 1" 2>/dev/null || true
+            su - "$target_user" -c "kglobalaccel6 2>/dev/null &" 2>/dev/null || true
+
+            # Reconfigure kwin
+            su - "$target_user" -c "qdbus org.kde.KWin /KWin reconfigure 2>/dev/null" 2>/dev/null || true
+
+            # Restart khotkeys if exists
+            su - "$target_user" -c "kquitapp6 khotkeys 2>/dev/null; sleep 1; kstart6 khotkeys 2>/dev/null &" 2>/dev/null || true
         else
-            # Legacy Plasma reload
-            su - "$target_user" -c "dbus-send --session --dest=org.kde.kglobalaccel --type=method_call /component/kwin org.kde.kglobalaccel.Component.reconfigure >/dev/null 2>&1" 2>/dev/null || true
+            # Plasma 5 methods
+            su - "$target_user" -c "kquitapp5 kglobalaccel 2>/dev/null; sleep 1" 2>/dev/null || true
+            su - "$target_user" -c "kglobalaccel5 2>/dev/null &" 2>/dev/null || true
+
+            # Reconfigure kwin
+            su - "$target_user" -c "qdbus org.kde.KWin /KWin reconfigure 2>/dev/null" 2>/dev/null || true
+
+            # Restart khotkeys
+            su - "$target_user" -c "kquitapp5 khotkeys 2>/dev/null; sleep 1; kstart5 khotkeys 2>/dev/null &" 2>/dev/null || true
         fi
     fi
 
     log_success "KDE shortcuts configured and reloaded."
-
-    if [[ "$plasma_major" -eq 6 && "$plasma_minor" -ge 5 ]]; then
-        log_info "Plasma 6.5+ detected - shortcuts configured using modern method."
-        log_info "May require logout/login for all shortcuts to take effect."
-    else
-        log_info "Plasma ${plasma_version:-legacy} detected - shortcuts applied using standard method."
-    fi
-
-    log_info "Test shortcuts: Meta+Q (close window), Meta+Enter (launch Konsole)"
-    log_info "If shortcuts don't work, try: System Settings → Shortcuts → Global Shortcuts"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "Configured shortcuts:"
+    log_info "  • Meta+Q       → Close active window"
+    log_info "  • Meta+Return  → Launch Konsole terminal"
+    log_info "═══════════════════════════════════════════════════════════"
+    log_info "Note: You may need to log out and log back in for shortcuts to fully activate."
+    log_info "If shortcuts don't work after logout, check: System Settings → Shortcuts"
 }
 
 # Configure KDE desktop wallpaper
