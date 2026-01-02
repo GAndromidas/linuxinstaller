@@ -427,28 +427,50 @@ install_pkg() {
             pacman -S --needed --noconfirm "${native_packages[@]}" >/dev/null 2>&1 || install_status=$?
         fi
 
-        # Install AUR packages with yay
+        # Install AUR packages with improved method (build then install)
         if [ ${#aur_packages[@]} -gt 0 ]; then
-            # Determine user for yay (secure user validation)
-            local yay_user=""
+            # Determine user for building (secure user validation)
+            local build_user=""
             if [ "$EUID" -eq 0 ]; then
                 if [ -n "${SUDO_USER:-}" ]; then
-                    yay_user="$SUDO_USER"
+                    build_user="$SUDO_USER"
                 else
-                    yay_user=$(getent passwd 1000 | cut -d: -f1 2>/dev/null)
+                    build_user=$(getent passwd 1000 | cut -d: -f1 2>/dev/null)
                 fi
             else
-                yay_user="$USER"
+                build_user="$USER"
             fi
 
-            # Validate yay_user exists and is not root
-            if [ -z "$yay_user" ] || [ "$yay_user" = "root" ]; then
+            # Validate build_user exists and is not root
+            if [ -z "$build_user" ] || [ "$build_user" = "root" ]; then
                 log_error "Cannot install AUR packages: no suitable user found"
                 install_status=1
             else
-                # Install AUR packages as regular user (not root)
-                log_info "Installing AUR packages as user: $yay_user"
-                su - "$yay_user" -c "yay -S --noconfirm --needed --removemake '${aur_packages[*]}'" >/dev/null 2>&1 || install_status=$?
+                log_info "Installing AUR packages as user: $build_user"
+                # Install each AUR package individually with improved method
+                for aur_pkg in "${aur_packages[@]}"; do
+                    local pkg_dir="/tmp/aur-build-$build_user-$aur_pkg"
+                    rm -rf "$pkg_dir"
+                    mkdir -p "$pkg_dir"
+                    chown "$build_user:$build_user" "$pkg_dir"
+
+                    # Build package as user
+                    if su - "$build_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/$aur_pkg.git . && makepkg --noconfirm --syncdeps --needed" >/dev/null 2>&1; then
+                        # Install built package as root
+                        if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
+                            log_info "Successfully installed AUR package: $aur_pkg"
+                        else
+                            log_error "Failed to install built AUR package: $aur_pkg"
+                            install_status=1
+                        fi
+                    else
+                        log_error "Failed to build AUR package: $aur_pkg"
+                        install_status=1
+                    fi
+
+                    # Clean up build directory
+                    rm -rf "$pkg_dir"
+                done
             fi
         fi
     else

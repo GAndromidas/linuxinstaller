@@ -164,8 +164,10 @@ maintenance_install_packages() {
 
             # Only add Btrfs/snapshot tools if on Btrfs filesystem and user agreed
             if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
-                packages+=("snap-pac" "snapper")
+                packages+=("btrfs-assistant" "btrfsmaintenance" "snap-pac" "snapper")
                 descriptions+=(
+                    "btrfs-assistant: Btrfs filesystem management GUI"
+                    "btrfsmaintenance: Btrfs filesystem maintenance scripts"
                     "snap-pac: Automatic snapshots before/after package updates"
                     "snapper: Btrfs snapshot management tool"
                 )

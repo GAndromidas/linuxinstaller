@@ -10,15 +10,11 @@ source "$SCRIPT_DIR/distro_check.sh"
 
 # Performance-specific package lists
 PERFORMANCE_ESSENTIALS=(
-    "btrfs-assistant"
-    "btrfsmaintenance"
+    # Btrfs maintenance moved to maintenance_config.sh
 )
 
 PERFORMANCE_ARCH=(
-    "linux-lts"
-    "linux-lts-headers"
-    "snap-pac"
-    "snapper"
+    # Performance-related packages moved to maintenance_config.sh
 )
 
 PERFORMANCE_FEDORA=(

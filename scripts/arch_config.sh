@@ -57,8 +57,6 @@ ARCH_ESSENTIALS=(
 
 ARCH_OPTIMIZATION=(
     linux-lts
-    btrfs-assistant
-    btrfsmaintenance
 )
 
 # ---------------------------------------------------------------------------
