@@ -53,14 +53,10 @@ GNOME_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 gnome_install_packages() {
     step "Installing GNOME Packages"
 
-    log_info "Installing GNOME essential packages..."
-    for package in "${GNOME_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install GNOME package: $package"
-        else
-            log_success "Installed GNOME package: $package"
-        fi
-    done
+    # Install GNOME essential packages
+    if [ ${#GNOME_ESSENTIALS[@]} -gt 0 ]; then
+        install_packages_with_progress "${GNOME_ESSENTIALS[@]}"
+    fi
 
     # Remove unnecessary GNOME packages
     log_info "Removing unnecessary GNOME packages..."

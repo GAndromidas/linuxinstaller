@@ -38,46 +38,27 @@ SECURITY_DEBIAN=(
 security_install_packages() {
     step "Installing Security Packages"
 
-    log_info "Installing security essential packages..."
-    for package in "${SECURITY_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install security package: $package"
-        else
-            log_success "Installed security package: $package"
-        fi
-    done
+    # Install security essential packages
+    if [ ${#SECURITY_ESSENTIALS[@]} -gt 0 ]; then
+        install_packages_with_progress "${SECURITY_ESSENTIALS[@]}"
+    fi
 
     # Install distribution-specific security packages
     case "$DISTRO_ID" in
         "arch")
-            log_info "Installing Arch-specific security packages..."
-            for package in "${SECURITY_ARCH[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Arch security package: $package"
-                else
-                    log_success "Installed Arch security package: $package"
-                fi
-            done
+            if [ ${#SECURITY_ARCH[@]} -gt 0 ]; then
+                install_packages_with_progress "${SECURITY_ARCH[@]}"
+            fi
             ;;
         "fedora")
-            log_info "Installing Fedora-specific security packages..."
-            for package in "${SECURITY_FEDORA[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Fedora security package: $package"
-                else
-                    log_success "Installed Fedora security package: $package"
-                fi
-            done
+            if [ ${#SECURITY_FEDORA[@]} -gt 0 ]; then
+                install_packages_with_progress "${SECURITY_FEDORA[@]}"
+            fi
             ;;
         "debian"|"ubuntu")
-            log_info "Installing Debian/Ubuntu-specific security packages..."
-            for package in "${SECURITY_DEBIAN[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Debian security package: $package"
-                else
-                    log_success "Installed Debian security package: $package"
-                fi
-            done
+            if [ ${#SECURITY_DEBIAN[@]} -gt 0 ]; then
+                install_packages_with_progress "${SECURITY_DEBIAN[@]}"
+            fi
             ;;
     esac
 }

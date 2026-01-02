@@ -182,6 +182,56 @@ spin() {
     fi
 }
 
+# Install packages with cool progress indicators (like gaming packages)
+# Usage: install_packages_with_progress package1 package2 ...
+install_packages_with_progress() {
+    local packages=("$@")
+    local installed_packages=()
+    local failed_packages=()
+
+    if supports_gum; then
+        for package in "${packages[@]}"; do
+            if [ -n "$package" ]; then
+                echo "• Installing $package"
+                if install_pkg "$package" >/dev/null 2>&1; then
+                    installed_packages+=("$package")
+                else
+                    failed_packages+=("$package")
+                fi
+            fi
+        done
+
+        # Show summary
+        if [ ${#installed_packages[@]} -gt 0 ]; then
+            echo ""
+            gum style "✓ Packages installed: ${installed_packages[*]}" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        fi
+        if [ ${#failed_packages[@]} -gt 0 ]; then
+            echo ""
+            gum style "✗ Failed packages: ${failed_packages[*]}" --margin "0 2" --foreground "$GUM_ERROR_FG"
+        fi
+    else
+        # Plain text mode - install quietly
+        for package in "${packages[@]}"; do
+            if [ -n "$package" ]; then
+                if install_pkg "$package" >/dev/null 2>&1; then
+                    installed_packages+=("$package")
+                else
+                    failed_packages+=("$package")
+                fi
+            fi
+        done
+
+        # Show summary
+        if [ ${#installed_packages[@]} -gt 0 ]; then
+            echo "✓ Packages installed: ${installed_packages[*]}"
+        fi
+        if [ ${#failed_packages[@]} -gt 0 ]; then
+            echo "✗ Failed packages: ${failed_packages[*]}"
+        fi
+    fi
+}
+
 # Log informational message (only shows in verbose mode)
 log_info() {
     local message="$1"
@@ -903,3 +953,14 @@ prompt_reboot() {
         fi
     fi
 }
+
+# Export functions that may be called from subshells
+export -f install_pkg
+export -f install_packages_with_progress
+export -f spin
+export -f supports_gum
+export -f package_exists
+export -f log_info
+export -f log_success
+export -f log_error
+export -f log_warn

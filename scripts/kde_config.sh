@@ -79,14 +79,10 @@ KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 kde_install_packages() {
     step "Installing KDE Packages"
 
-    log_info "Installing KDE essential packages..."
-    for package in "${KDE_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install KDE package: $package"
-        else
-            log_success "Installed KDE package: $package"
-        fi
-    done
+    # Install KDE essential packages
+    if [ ${#KDE_ESSENTIALS[@]} -gt 0 ]; then
+        install_packages_with_progress "${KDE_ESSENTIALS[@]}"
+    fi
 
     # Remove unnecessary KDE packages
     log_info "Removing unnecessary KDE packages..."

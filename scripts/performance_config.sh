@@ -242,46 +242,27 @@ performance_configure_microcode() {
 performance_install_performance_packages() {
     step "Installing Performance Packages"
 
-    log_info "Installing performance essential packages..."
-    for package in "${PERFORMANCE_ESSENTIALS[@]}"; do
-        if ! install_pkg "$package"; then
-            log_warn "Failed to install performance package: $package"
-        else
-            log_success "Installed performance package: $package"
-        fi
-    done
+    # Install performance essential packages
+    if [ ${#PERFORMANCE_ESSENTIALS[@]} -gt 0 ]; then
+        install_packages_with_progress "${PERFORMANCE_ESSENTIALS[@]}"
+    fi
 
     # Install distribution-specific performance packages
     case "$DISTRO_ID" in
         "arch")
-            log_info "Installing Arch-specific performance packages..."
-            for package in "${PERFORMANCE_ARCH[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Arch performance package: $package"
-                else
-                    log_success "Installed Arch performance package: $package"
-                fi
-            done
+            if [ ${#PERFORMANCE_ARCH[@]} -gt 0 ]; then
+                install_packages_with_progress "${PERFORMANCE_ARCH[@]}"
+            fi
             ;;
         "fedora")
-            log_info "Installing Fedora-specific performance packages..."
-            for package in "${PERFORMANCE_FEDORA[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Fedora performance package: $package"
-                else
-                    log_success "Installed Fedora performance package: $package"
-                fi
-            done
+            if [ ${#PERFORMANCE_FEDORA[@]} -gt 0 ]; then
+                install_packages_with_progress "${PERFORMANCE_FEDORA[@]}"
+            fi
             ;;
         "debian"|"ubuntu")
-            log_info "Installing Debian/Ubuntu-specific performance packages..."
-            for package in "${PERFORMANCE_DEBIAN[@]}"; do
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install Debian performance package: $package"
-                else
-                    log_success "Installed Debian performance package: $package"
-                fi
-            done
+            if [ ${#PERFORMANCE_DEBIAN[@]} -gt 0 ]; then
+                install_packages_with_progress "${PERFORMANCE_DEBIAN[@]}"
+            fi
             ;;
     esac
 }
