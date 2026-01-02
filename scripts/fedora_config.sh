@@ -36,7 +36,6 @@ FEDORA_ESSENTIALS=(
     git
     openssh-server
     rsync
-    starship
     wget
     zsh
     zsh-autosuggestions
@@ -111,6 +110,7 @@ FEDORA_NATIVE_SERVER=(
 # COPR repositories
 FEDORA_COPR_REPOS=(
     alternateved/eza
+    atim/starship
 )
 
 # ---------------------------------------------------------------------------
@@ -452,6 +452,23 @@ fedora_setup_copr() {
                     log_warn "Failed to enable COPR repo: $repo"
                 else
                     log_success "Enabled COPR repo: $repo"
+                    # Install packages from this COPR repo
+                    case "$repo" in
+                        "atim/starship")
+                            if ! install_pkg starship >/dev/null 2>&1; then
+                                log_warn "Failed to install starship from COPR"
+                            else
+                                log_success "Installed starship from COPR"
+                            fi
+                            ;;
+                        "alternateved/eza")
+                            if ! install_pkg eza >/dev/null 2>&1; then
+                                log_warn "Failed to install eza from COPR"
+                            else
+                                log_success "Installed eza from COPR"
+                            fi
+                            ;;
+                    esac
                 fi
             fi
         done
