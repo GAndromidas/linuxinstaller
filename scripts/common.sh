@@ -430,56 +430,37 @@ install_pkg() {
             pacman -S --needed --noconfirm "${native_packages[@]}" >/dev/null 2>&1 || install_status=$?
         fi
 
-        # Install AUR packages with improved method (build then install)
+        # Install AUR packages with improved method (build and install as root)
         if [ ${#aur_packages[@]} -gt 0 ]; then
-            # Determine user for building (secure user validation)
-            local build_user=""
-            if [ "$EUID" -eq 0 ]; then
-                if [ -n "${SUDO_USER:-}" ]; then
-                    build_user="$SUDO_USER"
-                else
-                    build_user=$(getent passwd 1000 | cut -d: -f1 2>/dev/null)
-                fi
-            else
-                build_user="$USER"
-            fi
+            log_info "Installing AUR packages..."
+            # Install each AUR package individually
+            for aur_pkg in "${aur_packages[@]}"; do
+                local pkg_dir="/tmp/aur-build-$aur_pkg"
+                rm -rf "$pkg_dir"
+                mkdir -p "$pkg_dir"
 
-            # Validate build_user exists and is not root
-            if [ -z "$build_user" ] || [ "$build_user" = "root" ]; then
-                log_error "Cannot install AUR packages: no suitable user found"
-                install_status=1
-            else
-                log_info "Installing AUR packages as user: $build_user"
-                # Install each AUR package individually with improved method
-                for aur_pkg in "${aur_packages[@]}"; do
-                    local pkg_dir="/tmp/aur-build-$build_user-$aur_pkg"
-                    rm -rf "$pkg_dir"
-                    mkdir -p "$pkg_dir"
-                    chown "$build_user:$build_user" "$pkg_dir"
-
-                    log_info "Building AUR package: $aur_pkg"
-                    # Build package as user
-                    local build_output
-                    if build_output=$(su - "$build_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/$aur_pkg.git . && makepkg --noconfirm --syncdeps --needed" 2>&1); then
-                        log_info "Build successful for $aur_pkg"
-                        # Install built package as root
-                        if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
-                            log_success "Successfully installed AUR package: $aur_pkg"
-                        else
-                            log_error "Failed to install built AUR package: $aur_pkg"
-                            log_error "pacman -U failed for built package"
-                            install_status=1
-                        fi
+                log_info "Building AUR package: $aur_pkg"
+                # Build package as root (necessary for --syncdeps to work without password prompts)
+                local build_output
+                if build_output=$(cd "$pkg_dir" && git clone https://aur.archlinux.org/"$aur_pkg".git . && makepkg --noconfirm --syncdeps --needed 2>&1); then
+                    log_info "Build successful for $aur_pkg"
+                    # Install built package as root
+                    if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
+                        log_success "Successfully installed AUR package: $aur_pkg"
                     else
-                        log_error "Failed to build AUR package: $aur_pkg"
-                        log_error "Build output: $build_output"
+                        log_error "Failed to install built AUR package: $aur_pkg"
+                        log_error "pacman -U failed for built package"
                         install_status=1
                     fi
+                else
+                    log_error "Failed to build AUR package: $aur_pkg"
+                    log_error "Build output: $build_output"
+                    install_status=1
+                fi
 
-                    # Clean up build directory
-                    rm -rf "$pkg_dir"
-                done
-            fi
+                # Clean up build directory
+                rm -rf "$pkg_dir"
+            done
         fi
     else
         $PKG_INSTALL $PKG_NOCONFIRM "${valid_packages[@]}"
