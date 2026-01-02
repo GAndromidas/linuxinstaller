@@ -45,8 +45,27 @@ performance_configure_swappiness() {
     fi
 
     # Make it persistent
-    if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
-        echo "vm.swappiness=10" | tee -a /etc/sysctl.conf >/dev/null
+    local sysctl_file="/etc/sysctl.conf"
+    local sysctl_dir="/etc/sysctl.d"
+
+    # Check if sysctl.conf exists, if not create it
+    if [ ! -f "$sysctl_file" ]; then
+        touch "$sysctl_file" 2>/dev/null || {
+            log_warn "Cannot create $sysctl_file, trying sysctl.d directory"
+            sysctl_file="$sysctl_dir/99-swappiness.conf"
+            mkdir -p "$sysctl_dir" 2>/dev/null || {
+                log_warn "Cannot create sysctl configuration, swappiness setting will not persist"
+                return 0
+            }
+        }
+    fi
+
+    # Check if setting already exists
+    if ! grep -q "vm.swappiness" "$sysctl_file" 2>/dev/null; then
+        echo "vm.swappiness=10" | tee -a "$sysctl_file" >/dev/null 2>&1
+        log_info "Made swappiness setting persistent in $sysctl_file"
+    else
+        log_info "Swappiness setting already configured in $sysctl_file"
     fi
 }
 
