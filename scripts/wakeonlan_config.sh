@@ -38,35 +38,55 @@ command_exists() {
 }
 
 # Return newline-separated list of candidate wired interfaces
-# - Prefer predictable NM device list when available
-# - Fallback to kernel interface names, filtering virtual/wireless interfaces
+# - Detect all ethernet adapters in any system (like reference wakeonlan.sh)
 detect_wired_interfaces() {
-    local dev
-    local seen=()
-    # Prefer NetworkManager device list if available
-    if command_exists nmcli; then
-        # format: DEVICE:TYPE
+    local eth_interfaces=()
+
+    # Method 1: Check for common specific interfaces first (like reference script)
+    local common_interfaces=("enp3s0" "enp5s0" "enp1s0" "enp2s0" "enp4s0" "enp6s0" "enp7s0" "enp8s0" "enp9s0" "eth0" "eth1" "eth2")
+    for iface in "${common_interfaces[@]}"; do
+        if ip link show "$iface" &>/dev/null; then
+            # Verify it's not wireless and has a physical device
+            if [ -d "/sys/class/net/$iface/device" ] && [ ! -d "/sys/class/net/$iface/wireless" ]; then
+                eth_interfaces+=("$iface")
+            fi
+        fi
+    done
+
+    # Method 2: Scan for any interface starting with 'enp' or 'eth' (comprehensive scan)
+    while IFS= read -r iface; do
+        # Skip if already found in common interfaces
+        if [[ " ${eth_interfaces[*]} " =~ " $iface " ]]; then
+            continue
+        fi
+
+        # Check if it's an ethernet interface (enp* or eth*)
+        if [[ "$iface" =~ ^(enp|eth) ]]; then
+            # Verify it's not wireless and has a physical device
+            if [ -d "/sys/class/net/$iface/device" ] && [ ! -d "/sys/class/net/$iface/wireless" ]; then
+                # Additional check: make sure it's not a virtual interface
+                case "$iface" in
+                    lo|docker*|veth*|br-*|virbr*|tun*|tap*|wg*|wl*|wlan*) continue ;;
+                esac
+                eth_interfaces+=("$iface")
+            fi
+        fi
+    done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || true)
+
+    # Method 3: Fallback to NetworkManager device list if available and we found nothing
+    if [ ${#eth_interfaces[@]} -eq 0 ] && command_exists nmcli; then
         while IFS=: read -r dev type; do
             if [ "$type" = "ethernet" ]; then
-                seen+=("$dev")
+                # Verify it's not wireless
+                if [ ! -d "/sys/class/net/$dev/wireless" ]; then
+                    eth_interfaces+=("$dev")
+                fi
             fi
         done < <(nmcli -t -f DEVICE,TYPE device status 2>/dev/null || true)
     fi
 
-    # Fallback scanning
-    if [ ${#seen[@]} -eq 0 ]; then
-        while IFS= read -r dev; do
-            case "$dev" in
-                lo|docker*|veth*|br-*|virbr*|tun*|tap*|wg*|wl*|wlan*) continue ;;
-            esac
-            # Only consider if sysfs device exists (physical/real device)
-            [ -d "/sys/class/net/$dev/device" ] || continue
-            seen+=("$dev")
-        done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || true)
-    fi
-
-    # Unique and print
-    printf "%s\n" "${seen[@]}" | awk '!x[$0]++' | sed '/^$/d'
+    # Remove duplicates and print
+    printf "%s\n" "${eth_interfaces[@]}" | awk '!x[$0]++' | sed '/^$/d'
 }
 
 # Ensure ethtool is installed; respects DRY_RUN
@@ -385,10 +405,33 @@ wakeonlan_show_status() {
     wakeonlan_status
 }
 
+# Show WoL status and MAC addresses for all configured interfaces
+wakeonlan_show_info() {
+    log_info "Wake-on-LAN configuration completed"
+    log_info "MAC addresses for ethernet interfaces:"
+
+    local devs=()
+    mapfile -t devs < <(detect_wired_interfaces)
+
+    for iface in "${devs[@]}"; do
+        local mac=""
+        if [ -r "/sys/class/net/$iface/address" ]; then
+            mac=$(cat "/sys/class/net/$iface/address")
+        else
+            mac="unknown"
+        fi
+        log_info "  $iface: $mac"
+    done
+
+    log_info "Use 'ethtool <interface>' to check Wake-on-LAN status"
+    log_info "Use 'wol <mac>' from another machine to wake this system"
+}
+
 # Public entrypoint for linuxinstaller
 # Call this function (e.g. from install flow) to enable WoL automatically
 wakeonlan_main_config() {
     wakeonlan_enable_all
+    wakeonlan_show_info
 }
 
 # Optional: helper to expose a single command interface when the module is executed directly
@@ -407,3 +450,4 @@ export -f wakeonlan_main_config
 export -f wakeonlan_enable_all
 export -f wakeonlan_disable_all
 export -f wakeonlan_show_status
+export -f wakeonlan_show_info

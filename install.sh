@@ -1500,20 +1500,6 @@ else
     fi
 fi
 
-# Step: Run Maintenance Setup
-step "Setting up Maintenance Tools"
-
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would set up maintenance tools"
-else
-    if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
-        source "$SCRIPTS_DIR/maintenance_config.sh"
-        maintenance_main_config
-    else
-        log_warn "Maintenance configuration module not found"
-    fi
-fi
-
 # Step: Run Gaming Configuration (if applicable)
 if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
     step "Configuring Gaming Environment"
@@ -1527,6 +1513,20 @@ if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; t
         else
             log_warn "Gaming configuration module not found"
         fi
+    fi
+fi
+
+# Step: Run Maintenance Setup
+step "Setting up Maintenance Tools"
+
+if [ "$DRY_RUN" = true ]; then
+    log_info "[DRY-RUN] Would set up maintenance tools"
+else
+    if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
+        source "$SCRIPTS_DIR/maintenance_config.sh"
+        maintenance_main_config
+    else
+        log_warn "Maintenance configuration module not found"
     fi
 fi
 
@@ -1544,7 +1544,7 @@ if [ "$DRY_RUN" = false ]; then
     performance_report
 
     # Show final progress summary
-    local install_duration=$(( $(date +%s) - ${INSTALL_STATE["start_time"]:-$(date +%s)} ))
+    install_duration=$(( $(date +%s) - ${INSTALL_STATE["start_time"]:-$(date +%s)} ))
     progress_summary "$install_duration"
 fi
 

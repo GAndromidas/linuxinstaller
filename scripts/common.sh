@@ -454,17 +454,22 @@ install_pkg() {
                     mkdir -p "$pkg_dir"
                     chown "$build_user:$build_user" "$pkg_dir"
 
+                    log_info "Building AUR package: $aur_pkg"
                     # Build package as user
-                    if su - "$build_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/$aur_pkg.git . && makepkg --noconfirm --syncdeps --needed" >/dev/null 2>&1; then
+                    local build_output
+                    if build_output=$(su - "$build_user" -c "cd '$pkg_dir' && git clone https://aur.archlinux.org/$aur_pkg.git . && makepkg --noconfirm --syncdeps --needed" 2>&1); then
+                        log_info "Build successful for $aur_pkg"
                         # Install built package as root
                         if pacman -U "$pkg_dir"/*.pkg.tar.zst --noconfirm >/dev/null 2>&1; then
-                            log_info "Successfully installed AUR package: $aur_pkg"
+                            log_success "Successfully installed AUR package: $aur_pkg"
                         else
                             log_error "Failed to install built AUR package: $aur_pkg"
+                            log_error "pacman -U failed for built package"
                             install_status=1
                         fi
                     else
                         log_error "Failed to build AUR package: $aur_pkg"
+                        log_error "Build output: $build_output"
                         install_status=1
                     fi
 
