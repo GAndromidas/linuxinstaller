@@ -795,6 +795,14 @@ debian_main_config() {
         debian_configure_locale
     fi
 
+    # Add user to docker group if docker is installed
+    if is_package_installed "docker.io"; then
+        local target_user="${SUDO_USER:-$USER}"
+        if [ "$target_user" != "root" ]; then
+            usermod -aG docker "$target_user" 2>/dev/null && log_info "Added $target_user to docker group"
+        fi
+    fi
+
     log_success "Debian/Ubuntu configuration completed"
 }
 

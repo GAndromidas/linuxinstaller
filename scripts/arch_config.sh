@@ -608,6 +608,14 @@ arch_main_config() {
         arch_configure_locale
     fi
 
+    # Add user to docker group if docker is installed
+    if is_package_installed "docker"; then
+        local target_user="${SUDO_USER:-$USER}"
+        if [ "$target_user" != "root" ]; then
+            usermod -aG docker "$target_user" 2>/dev/null && log_info "Added $target_user to docker group"
+        fi
+    fi
+
     # Show final summary
     if supports_gum; then
         echo ""
