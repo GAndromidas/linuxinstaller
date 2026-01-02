@@ -61,8 +61,6 @@ KDE_REMOVALS=(
     kolourpaint
     korganizer
     kpat
-    krfb
-    krdc
     krusader
     ktorrent
     ktnef
