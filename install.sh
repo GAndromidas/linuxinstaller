@@ -122,48 +122,55 @@ show_menu() {
 
     echo ""
 
-    # If gum is available and we have an interactive TTY, try gum-based UI
-    if supports_gum && [ -t 0 ]; then
-        local choice
-        choice=$(gum choose \
-            "Standard - Complete setup with all recommended packages" \
-            "Minimal - Essential tools only for lightweight installations" \
-            "Server - Headless server configuration" \
-            "Exit" \
-            --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" \
-            --selected.foreground "$GUM_PRIMARY_FG")
+    # Always show menu when interactive, preferring gum if available
+    if [ -t 0 ]; then
+        if supports_gum; then
+            local choice
+            choice=$(gum choose \
+                "Standard - Complete setup with all recommended packages" \
+                "Minimal - Essential tools only for lightweight installations" \
+                "Server - Headless server configuration" \
+                "Exit" \
+                --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" \
+                --selected.foreground "$GUM_PRIMARY_FG")
 
-        case "$choice" in
-            "Standard - Complete setup with all recommended packages")
-                export INSTALL_MODE="standard" ;;
-            "Minimal - Essential tools only for lightweight installations")
-                export INSTALL_MODE="minimal" ;;
-            "Server - Headless server configuration")
-                export INSTALL_MODE="server" ;;
-            "Exit")
-                display_info "Goodbye! 👋"
-                exit 0 ;;
-        esac
+            case "$choice" in
+                "Standard - Complete setup with all recommended packages")
+                    export INSTALL_MODE="standard" ;;
+                "Minimal - Essential tools only for lightweight installations")
+                    export INSTALL_MODE="minimal" ;;
+                "Server - Headless server configuration")
+                    export INSTALL_MODE="server" ;;
+                "Exit")
+                    display_info "Goodbye! 👋"
+                    exit 0 ;;
+                *)
+                    # If gum fails or returns empty, fall back to text menu
+                    ;;
+            esac
 
-        echo ""
-        display_success "Selected: $choice"
-        echo ""
+            if [ -n "$choice" ]; then
+                echo ""
+                display_success "Selected: $choice"
+                echo ""
 
-        if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
-            echo ""
-            display_box "🎮 Would you like to install the Gaming Package Suite?" "This includes Steam, Wine, and gaming optimizations."
-            echo ""
-            if gum confirm "Install Gaming Package Suite?" --default=true; then
-                export INSTALL_GAMING=true
-                display_success "Gaming packages will be installed"
-            else
-                export INSTALL_GAMING=false
-                display_info "Skipping gaming packages"
+                if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
+                    echo ""
+                    display_box "🎮 Would you like to install the Gaming Package Suite?" "This includes Steam, Wine, and gaming optimizations."
+                    echo ""
+                    if gum confirm "Install Gaming Package Suite?" --default=true; then
+                        export INSTALL_GAMING=true
+                        display_success "Gaming packages will be installed"
+                    else
+                        export INSTALL_GAMING=false
+                        display_info "Skipping gaming packages"
+                    fi
+                else
+                    export INSTALL_GAMING=false
+                fi
+                return
             fi
-        else
-            export INSTALL_GAMING=false
         fi
-        return
     fi
 
     # Fallback plain-text menu
@@ -1188,21 +1195,23 @@ fi
 # Phase 3: Installation Mode Selection
 # Determine installation mode based on user interaction or defaults
 clear
-if [ -t 0 ]; then
-    # Interactive terminal - show beautiful menu
-    if [ "$DRY_RUN" = false ]; then
-        show_menu
-    else
-        log_warn "Dry-Run Mode Active: No changes will be applied."
-        log_info "Showing menu for preview purposes only."
-        show_menu
-    fi
+if [ -t 0 ] && [ "$DRY_RUN" = false ]; then
+    # Interactive terminal - always show menu for user selection
+    show_menu
+elif [ -t 0 ] && [ "$DRY_RUN" = true ]; then
+    log_warn "Dry-Run Mode Active: No changes will be applied."
+    log_info "Showing menu for preview purposes only."
+    show_menu
 else
     # Non-interactive mode (CI, scripts, pipes)
     # Only set a default mode if none exists to avoid overriding explicit settings
     if [ -z "${INSTALL_MODE:-}" ]; then
         export INSTALL_MODE="${INSTALL_MODE:-standard}"
         log_info "Non-interactive: defaulting to install mode: $INSTALL_MODE"
+    fi
+    if [ -z "${INSTALL_GAMING:-}" ]; then
+        export INSTALL_GAMING=false
+        log_info "Non-interactive: gaming packages disabled by default"
     fi
 fi
 
