@@ -77,6 +77,7 @@ GUM_BORDER_FG=cyan   # Cyan borders
 GUM_SUCCESS_FG=48    # Bright green-cyan for success
 GUM_ERROR_FG=196     # Keep red for errors (accessibility)
 GUM_WARNING_FG=226   # Bright yellow for warnings
+GUM_INFO_FG=cyan     # Cyan for informational messages
 
 # Backwards compatibility: keep the legacy variable name pointing to the primary accent
 GUM_FG="$GUM_PRIMARY_FG"
@@ -84,17 +85,15 @@ GUM_FG="$GUM_PRIMARY_FG"
 # Cached path to an external gum binary (populated by supports_gum/find_gum_bin)
 GUM_BIN=""
 
-# Ensure we have fallback ANSI colors for systems without 'gum' (cyan theme)
-if ! supports_gum; then
-    RESET='\033[0m'
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    WHITE='\033[1;37m'     # bright white for body text
-    BLUE='\033[1;36m'      # bright cyan for headers/title (primary theme color)
-    CYAN='\033[0;36m'      # standard cyan for accents
-    LIGHT_CYAN='\033[1;36m' # light cyan for secondary text
-fi
+# Define ANSI color variables (always available for logging functions)
+RESET='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+WHITE='\033[1;37m'     # bright white for body text
+BLUE='\033[1;36m'      # bright cyan for headers/title (primary theme color)
+CYAN='\033[0;36m'      # standard cyan for accents
+LIGHT_CYAN='\033[1;36m' # light cyan for secondary text
 
 # Enhanced wrapper around gum binary for beautiful cyan-themed UI
 gum() {
