@@ -235,7 +235,8 @@ CONFIGS_DIR="$SCRIPT_DIR/configs"    # Distribution-specific configuration files
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"    # Modular script components
 
 # Detect if we're running as a one-liner (script content piped to bash)
-if [ ! -f "$SCRIPT_PATH" ] || [ ! -d "$SCRIPTS_DIR" ] || [ ! -d "$CONFIGS_DIR" ]; then
+# Skip detection if NO_ONELINER env var is set (for downloaded instances)
+if [ "${NO_ONELINER:-}" != "true" ] && ([ ! -f "$SCRIPT_PATH" ] || [ ! -d "$SCRIPTS_DIR" ] || [ ! -d "$CONFIGS_DIR" ]); then
     echo "🔄 Detected one-liner installation. Downloading full LinuxInstaller repository..."
 
     # Create temporary directory for download
@@ -246,7 +247,7 @@ if [ ! -f "$SCRIPT_PATH" ] || [ ! -d "$SCRIPTS_DIR" ] || [ ! -d "$CONFIGS_DIR" ]
     if command -v git >/dev/null 2>&1; then
         if git clone --depth 1 https://github.com/GAndromidas/linuxinstaller.git . >/dev/null 2>&1; then
             echo "✓ Repository downloaded successfully"
-            exec bash "$TEMP_DIR/install.sh" "$@"
+            NO_ONELINER=true exec bash "$TEMP_DIR/install.sh" "$@"
         fi
     fi
 
@@ -257,7 +258,7 @@ if [ ! -f "$SCRIPT_PATH" ] || [ ! -d "$SCRIPTS_DIR" ] || [ ! -d "$CONFIGS_DIR" ]
             if tar -xzf "$TEMP_DIR/repo.tar.gz" --strip-components=1 -C "$TEMP_DIR" 2>/dev/null; then
                 rm "$TEMP_DIR/repo.tar.gz"
                 echo "✓ Repository downloaded successfully"
-                exec bash "$TEMP_DIR/install.sh" "$@"
+                NO_ONELINER=true exec bash "$TEMP_DIR/install.sh" "$@"
             fi
         fi
     fi
