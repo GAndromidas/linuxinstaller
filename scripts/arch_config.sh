@@ -948,9 +948,15 @@ arch_configure_mirrors() {
         return 1
     fi
 
-    # Update mirrors using reflector
+    # Check internet connectivity
+    if ! ping -c 1 -W 5 archlinux.org >/dev/null 2>&1; then
+        log_warn "No internet connectivity, skipping mirror update"
+        return 0
+    fi
+
+    # Update mirrors using reflector (Arch Wiki approach)
     log_info "Finding fastest Arch Linux mirrors with reflector..."
-    if reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https; then
+    if reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https; then
         log_success "Mirror list updated with fastest mirrors"
         # Sync pacman DB
         if pacman -Syy; then
@@ -961,7 +967,7 @@ arch_configure_mirrors() {
         fi
     else
         log_warn "Failed to update mirror list with reflector"
-        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist --protocol https"
+        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https"
     fi
 }
 
