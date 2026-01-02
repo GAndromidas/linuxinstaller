@@ -179,7 +179,7 @@ fi
 # -----------------------------------------------------------------------------
 alias sync='sudo pacman -Syy'
 alias update='yay -Syyu && sudo flatpak update'
-alias mirror='country=$(curl -s --max-time 5 https://ipinfo.io/country 2>/dev/null | tr -d '"\n\r") && [ -n "$country" ] && [ "$country" != "null" ] && sudo reflector --latest 10 --sort rate --age 24 --country "$country" --save /etc/pacman.d/mirrorlist --protocol https,http || sudo reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https,http && sudo pacman -Syy'
+alias mirror='sudo reflector --latest 20 --protocol https,http --sort rate --save /etc/pacman.d/mirrorlist && sudo pacman -Syy'
 alias clean='sudo pacman -Sc --noconfirm && yay -Sc --noconfirm && sudo flatpak uninstall --unused && sudo pacman -Rns --noconfirm $(pacman -Qtdq) 2>/dev/null'
 alias cache='rm -rf ~/.cache/* && sudo paccache -r'
 alias microcode='grep . /sys/devices/system/cpu/vulnerabilities/*'
