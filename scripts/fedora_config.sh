@@ -35,7 +35,6 @@ FEDORA_ESSENTIALS=(
     git
     openssh-server
     rsync
-    wget
     zsh
     zsh-autosuggestions
     zsh-syntax-highlighting
