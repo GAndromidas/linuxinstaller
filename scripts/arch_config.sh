@@ -604,12 +604,13 @@ arch_install_kernel_headers() {
 arch_main_config() {
     log_info "Starting Arch Linux configuration..."
 
-    arch_system_preparation
+    # System preparation already done early, proceed with configuration
+    log_info "System preparation completed, proceeding with configuration..."
 
     # Install kernel headers for installed kernels
     arch_install_kernel_headers
 
-    # AUR helper and rate-mirrors-bin are already installed/configured in system preparation
+    # AUR helper and mirrors are already configured
     log_success "AUR helper (yay) and mirrors are ready"
 
     arch_configure_bootloader
@@ -630,21 +631,21 @@ arch_main_config() {
     if supports_gum; then
         echo ""
         gum style "Arch Linux Configuration Complete" \
-                 --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2"
+                  --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2"
         gum style "Your Arch Linux system has been optimized:" \
-                 --margin "0 2" --foreground "$GUM_BODY_FG"
+                  --margin "0 2" --foreground "$GUM_BODY_FG"
         gum style "✓ pacman: Optimized with parallel downloads and ILoveCandy" \
-                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         gum style "✓ cache: Cleaned old packages (keeping last 3 versions)" \
-                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         gum style "✓ mirrors: Optimized for faster downloads" \
-                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         gum style "✓ shell: ZSH configured with starship prompt" \
-                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         gum style "✓ locales: Greek (el_GR.UTF-8) and US English enabled" \
-                 --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
         gum style "• Log out and back in to apply shell changes" \
-                 --margin "0 2" --foreground "$GUM_BODY_FG"
+                  --margin "0 2" --foreground "$GUM_BODY_FG"
         echo ""
     fi
 
@@ -937,39 +938,7 @@ arch_configure_bootloader() {
 # AUR HELPER INSTALLATION AND MIRROR CONFIGURATION
 # =============================================================================
 
-# Configure Arch Linux package mirrors for optimal performance
-arch_configure_mirrors() {
-    step "Configuring Arch Linux Mirrors"
 
-    # Check if reflector is available
-    if ! command -v reflector >/dev/null 2>&1; then
-        log_error "reflector is not installed. This is required for Arch mirror configuration."
-        log_info "reflector should be in ARCH_ESSENTIALS - please check installation"
-        return 1
-    fi
-
-    # Check internet connectivity
-    if ! ping -c 1 -W 5 archlinux.org >/dev/null 2>&1; then
-        log_warn "No internet connectivity, skipping mirror update"
-        return 0
-    fi
-
-    # Update mirrors using reflector (Arch Wiki approach)
-    log_info "Finding fastest Arch Linux mirrors with reflector..."
-    if reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https; then
-        log_success "Mirror list updated with fastest mirrors"
-        # Sync pacman DB
-        if pacman -Syy; then
-            log_success "Package databases synchronized (pacman -Syy)"
-        else
-            log_warn "Failed to synchronize package databases"
-            return 0
-        fi
-    else
-        log_warn "Failed to update mirror list with reflector"
-        log_info "You can manually update mirrors later with: reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https"
-    fi
-}
 
 configure_grub_arch() {
     log_info "Configuring GRUB for Arch Linux..."
