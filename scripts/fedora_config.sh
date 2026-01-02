@@ -47,12 +47,11 @@ FEDORA_ESSENTIALS=(
 # Fedora-specific package lists (centralized in this module)
 # Mode-specific native packages
 FEDORA_NATIVE_STANDARD=(
-    adb
+    android-tools
     bat
     bleachbit
     btop
     cmatrix
-    fastboot
     filezilla
     hwinfo
     inxi
