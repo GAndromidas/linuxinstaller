@@ -510,10 +510,7 @@ debian_enable_system_services() {
     done
 
     # Configure firewall (UFW for Debian/Ubuntu)
-    if ! install_pkg ufw; then
-        log_warn "Failed to install UFW"
-        return
-    fi
+    install_packages_with_progress "ufw"
 
     # Configure UFW
     ufw default deny incoming >/dev/null 2>&1
@@ -529,10 +526,7 @@ debian_setup_flatpak() {
 
     if ! command -v flatpak >/dev/null; then
         log_info "Installing Flatpak..."
-        if ! install_pkg flatpak; then
-            log_warn "Failed to install Flatpak"
-            return
-        fi
+        install_packages_with_progress "flatpak"
     fi
 
     # Add Flathub
@@ -550,10 +544,7 @@ debian_setup_snap() {
 
     if ! command -v snap >/dev/null; then
         log_info "Installing Snap..."
-        if ! install_pkg snapd; then
-            log_warn "Failed to install Snap"
-            return
-        fi
+        install_packages_with_progress "snapd"
 
         # Enable snapd service
         systemctl enable --now snapd >/dev/null 2>&1
@@ -703,17 +694,13 @@ debian_setup_solaar() {
 
     if [ "$has_logitech" = true ]; then
         log_info "Installing solaar for Logitech hardware management..."
-        if install_pkg solaar; then
-            log_success "Solaar installed successfully"
+        install_packages_with_progress "solaar"
 
-            # Enable solaar service if present
-            if systemctl enable --now solaar.service >/dev/null 2>&1; then
-                log_success "Solaar service enabled and started"
-            else
-                log_warn "Failed to enable solaar service (may not exist on all systems)"
-            fi
+        # Enable solaar service if present
+        if systemctl enable --now solaar.service >/dev/null 2>&1; then
+            log_success "Solaar service enabled and started"
         else
-            log_warn "Failed to install solaar"
+            log_warn "Failed to enable solaar service (may not exist on all systems)"
         fi
     else
         log_info "No Logitech hardware detected, skipping solaar installation"

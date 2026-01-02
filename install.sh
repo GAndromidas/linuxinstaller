@@ -571,18 +571,11 @@ install_flatpak_packages() {
             continue
         fi
 
-        if supports_gum; then
-            if spin "Installing package"  $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
+        echo "• Installing $pkg"
+        if $install_cmd "$pkg" >/dev/null 2>&1; then
+            installed_ref+=("$pkg")
         else
-            if $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
+            failed_ref+=("$pkg")
         fi
     done
 }
@@ -800,13 +793,10 @@ enable_installed_services() {
     return 0
 }
 
-# Install native packages in batch for better dependency handling
+# Install native packages individually for clean output
 install_native_packages() {
     local install_cmd="$1"
     local -n packages_ref="$2" installed_ref="$3" skipped_ref="$4" failed_ref="$5"
-
-    # Collect all packages to install (batch installation)
-    local packages_to_install=()
 
     for pkg in "${packages_ref[@]}"; do
         pkg="$(echo "$pkg" | xargs)"
@@ -835,36 +825,16 @@ install_native_packages() {
             continue
         fi
 
-        # Add to batch installation list
-        packages_to_install+=("$resolved_pkg")
-    done
-
-    # Check if any packages need to be installed
-    if [ ${#packages_to_install[@]} -eq 0 ]; then
-        return
-    fi
-
-    # Install all packages in one batch (better for dependencies like adb/fastboot)
-    local install_status=0
-    local batch_title="Installing ${#packages_to_install[@]} package(s)"
-
-    if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
-        if ! spin "$batch_title" DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM ${packages_to_install[@]} >/dev/null 2>&1; then
-            install_status=1
-        fi
-    else
-        if ! spin "$batch_title" $install_cmd ${packages_to_install[@]} >/dev/null 2>&1; then
-            install_status=1
-        fi
-    fi
-
-    # Track which packages succeeded/failed
-    for pkg in "${packages_ref[@]}"; do
-        pkg="$(echo "$pkg" | xargs)"
-        local resolved_pkg
-        resolved_pkg="$(resolve_package_name "$pkg")"
-        if [ -n "$resolved_pkg" ]; then
-            if [ $install_status -eq 0 ]; then
+        # Show individual installation
+        echo "• Installing $pkg"
+        if [ "$DISTRO_ID" = "debian" ] || [ "$DISTRO_ID" = "ubuntu" ]; then
+            if DEBIAN_FRONTEND=noninteractive $PKG_INSTALL $PKG_NOCONFIRM "$resolved_pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        else
+            if $install_cmd "$resolved_pkg" >/dev/null 2>&1; then
                 installed_ref+=("$pkg")
             else
                 failed_ref+=("$pkg")
@@ -881,18 +851,11 @@ install_other_packages() {
     for pkg in "${packages_ref[@]}"; do
         pkg="$(echo "$pkg" | xargs)"
 
-        if supports_gum; then
-            if spin "Installing package"  $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
+        echo "• Installing $pkg"
+        if $install_cmd "$pkg" >/dev/null 2>&1; then
+            installed_ref+=("$pkg")
         else
-            if $install_cmd "$pkg" >/dev/null 2>&1; then
-                installed_ref+=("$pkg")
-            else
-                failed_ref+=("$pkg")
-            fi
+            failed_ref+=("$pkg")
         fi
     done
 }
@@ -902,27 +865,20 @@ show_package_summary() {
     local title="$1"
     local -n installed_ref="$2" failed_ref="$3"
 
-    if [ ${#installed_ref[@]} -gt 0 ] || [ ${#failed_ref[@]} -gt 0 ]; then
+    if [ ${#installed_ref[@]} -gt 0 ]; then
+        echo ""
         if supports_gum; then
-            gum style "$title" --margin "0 2" --foreground "$GUM_BODY_FG" --bold
+            gum style "  ✔ Successfully installed $title: ${installed_ref[*]}" --foreground "$GUM_SUCCESS_FG"
         else
-            echo -e "\n${WHITE}$title${RESET}"
+            echo "  ✔ Successfully installed $title: ${installed_ref[*]}"
         fi
-
-        if [ ${#installed_ref[@]} -gt 0 ]; then
-            if supports_gum; then
-                gum style "✓ ${installed_ref[*]}" --margin "0 4" --foreground "$GUM_SUCCESS_FG"
-            else
-                echo -e "${GREEN}✓ ${installed[*]}${RESET}"
-            fi
-
-            if [ ${#failed_ref[@]} -gt 0 ]; then
-                if supports_gum; then
-                    gum style "✗ Failed: ${failed_ref[*]}" --margin "0 4" --foreground "$GUM_ERROR_FG"
-                else
-                    echo -e "${RED}✗ Failed: ${failed_ref[*]}${RESET}"
-                fi
-            fi
+    fi
+    if [ ${#failed_ref[@]} -gt 0 ]; then
+        echo ""
+        if supports_gum; then
+            gum style "  ✗ Failed $title: ${failed_ref[*]}" --foreground "$GUM_ERROR_FG"
+        else
+            echo "  ✗ Failed $title: ${failed_ref[*]}"
         fi
     fi
 }

@@ -182,52 +182,39 @@ spin() {
     fi
 }
 
-# Install packages with cool progress indicators (like gaming packages)
+# Install packages with clean progress indicators
 # Usage: install_packages_with_progress package1 package2 ...
 install_packages_with_progress() {
     local packages=("$@")
     local installed_packages=()
     local failed_packages=()
 
-    if supports_gum; then
-        for package in "${packages[@]}"; do
-            if [ -n "$package" ]; then
-                echo "• Installing $package"
-                if install_pkg "$package" >/dev/null 2>&1; then
-                    installed_packages+=("$package")
-                else
-                    failed_packages+=("$package")
-                fi
+    for package in "${packages[@]}"; do
+        if [ -n "$package" ]; then
+            echo "• Installing $package"
+            if install_pkg "$package" >/dev/null 2>&1; then
+                installed_packages+=("$package")
+            else
+                failed_packages+=("$package")
             fi
-        done
+        fi
+    done
 
-        # Show summary
-        if [ ${#installed_packages[@]} -gt 0 ]; then
-            echo ""
-            gum style "✓ Packages installed: ${installed_packages[*]}" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+    # Show summary
+    if [ ${#installed_packages[@]} -gt 0 ]; then
+        echo ""
+        if supports_gum; then
+            gum style "  ✔ Successfully installed native packages: ${installed_packages[*]}" --foreground "$GUM_SUCCESS_FG"
+        else
+            echo "  ✔ Successfully installed native packages: ${installed_packages[*]}"
         fi
-        if [ ${#failed_packages[@]} -gt 0 ]; then
-            echo ""
-            gum style "✗ Failed packages: ${failed_packages[*]}" --margin "0 2" --foreground "$GUM_ERROR_FG"
-        fi
-    else
-        # Plain text mode - install quietly
-        for package in "${packages[@]}"; do
-            if [ -n "$package" ]; then
-                if install_pkg "$package" >/dev/null 2>&1; then
-                    installed_packages+=("$package")
-                else
-                    failed_packages+=("$package")
-                fi
-            fi
-        done
-
-        # Show summary
-        if [ ${#installed_packages[@]} -gt 0 ]; then
-            echo "✓ Packages installed: ${installed_packages[*]}"
-        fi
-        if [ ${#failed_packages[@]} -gt 0 ]; then
-            echo "✗ Failed packages: ${failed_packages[*]}"
+    fi
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+        echo ""
+        if supports_gum; then
+            gum style "  ✗ Failed packages: ${failed_packages[*]}" --foreground "$GUM_ERROR_FG"
+        else
+            echo "  ✗ Failed packages: ${failed_packages[*]}"
         fi
     fi
 }

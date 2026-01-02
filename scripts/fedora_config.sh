@@ -583,15 +583,11 @@ fedora_setup_solaar() {
 
     if [ "$has_logitech" = true ]; then
         log_info "Installing solaar for Logitech hardware management..."
-        if install_pkg solaar; then
-            log_success "Solaar installed successfully"
-            if systemctl enable --now solaar.service >/dev/null 2>&1; then
-                log_success "Solaar service enabled and started"
-            else
-                log_warn "Failed to enable solaar service"
-            fi
+        install_packages_with_progress "solaar"
+        if systemctl enable --now solaar.service >/dev/null 2>&1; then
+            log_success "Solaar service enabled and started"
         else
-            log_warn "Failed to install solaar"
+            log_warn "Failed to enable solaar service"
         fi
     else
         log_info "No Logitech hardware detected, skipping solaar installation"
