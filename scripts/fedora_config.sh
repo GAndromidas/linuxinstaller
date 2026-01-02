@@ -26,11 +26,10 @@ FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 # These packages are installed in ALL modes (standard, minimal, server)
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 FEDORA_ESSENTIALS=(
-    "@development-tools"
+    @development-tools
     bc
     cronie
     curl
-    eza
     fastfetch
     flatpak
     fzf
@@ -110,41 +109,6 @@ FEDORA_NATIVE_SERVER=(
     wakeonlan
 )
 
-# Desktop environment specific packages (native + flatpak)
-FEDORA_DE_GNOME_NATIVE=(
-    celluloid
-    dconf-editor
-    gnome-tweaks
-    seahorse
-    transmission-gtk
-)
-FEDORA_DE_GNOME_FLATPAK=(
-    com.mattjakeman.ExtensionManager
-)
-
-FEDORA_DE_KDE_NATIVE=(
-    kvantum
-    qbittorrent
-    smplayer
-)
-FEDORA_DE_KDE_FLATPAK=(
-    it.mijorus.gearlever
-)
-
-# Gaming packages
-FEDORA_GAMING_NATIVE=(
-    gamemode
-    mangohud
-    mesa-vulkan-drivers
-    steam
-    vulkan-loader
-    wine
-)
-FEDORA_GAMING_FLATPAK=(
-    com.heroicgameslauncher.hgl
-    com.vysp3r.ProtonPlus
-    io.github.Faugus.faugus-launcher
-)
 # COPR repositories
 FEDORA_COPR_REPOS=(
     alternateved/eza
@@ -186,27 +150,8 @@ distro_get_packages() {
                 *) return 0 ;;
             esac
             ;;
-        gnome)
-            case "$type" in
-                native)  printf "%s\n" "${FEDORA_DE_GNOME_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${FEDORA_DE_GNOME_FLATPAK[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
-        kde)
-            case "$type" in
-                native)  printf "%s\n" "${FEDORA_DE_KDE_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${FEDORA_DE_KDE_FLATPAK[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
-        gaming)
-            case "$type" in
-                native)  printf "%s\n" "${FEDORA_GAMING_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${FEDORA_GAMING_FLATPAK[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
+# DE-specific packages moved to DE config files
+# Gaming packages moved to gaming_config.sh
         *)
             # Unknown section; nothing to return
             return 0
@@ -441,10 +386,10 @@ fedora_enable_system_services() {
 
     # Essential services
     local services=(
-        "cronie"
-        "bluetooth"
-        "sshd"
-        "fstrim.timer"
+        bluetooth
+        cronie
+        fstrim.timer
+        sshd
     )
 
     for service in "${services[@]}"; do

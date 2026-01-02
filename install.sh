@@ -95,46 +95,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exec sudo "$0" "$@"
 fi
 
-# =============================================================================
-# LinuxInstaller v1.0 - Unified Post-Installation Script
-# =============================================================================
-#
-# DESCRIPTION:
-#   A comprehensive, cross-distribution Linux post-installation script that
-#   automates system configuration, package installation, and optimization.
-#
-# SUPPORTED DISTRIBUTIONS:
-#   • Arch Linux (with AUR support)
-#   • Fedora (with COPR support)
-#   • Debian & Ubuntu (with Snap support)
-#
-# INSTALLATION MODES:
-#   • Standard: Complete setup with all recommended packages
-#   • Minimal: Essential tools only for lightweight installations
-#   • Server: Headless server configuration
-#
-# FEATURES:
-#   • Distribution-specific optimizations
-#   • Desktop environment configuration (KDE, GNOME)
-#   • Security hardening (firewall, fail2ban)
-#   • Performance tuning (CPU governor, filesystem optimization)
-#   • Gaming suite (optional - Steam, Wine, GPU drivers)
-#   • Development tools and shell customization (zsh, starship)
-#
-# USAGE:
-#   ./install.sh [OPTIONS]
-#   ./install.sh --dry-run     # Preview changes without applying
-#   ./install.sh --verbose     # Show detailed output
-#   ./install.sh --help        # Show help information
-#
-# REQUIREMENTS:
-#   • Root privileges (sudo)
-#   • Active internet connection
-#   • Supported Linux distribution
-#
-# AUTHOR: George Andromidas
-# LICENSE: See LICENSE file
-# =============================================================================
+# LinuxInstaller v1.0 - Main installation script
 
 # Show LinuxInstaller ASCII art banner (beautiful cyan theme)
 show_linuxinstaller_ascii() {

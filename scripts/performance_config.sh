@@ -18,13 +18,13 @@ PERFORMANCE_ARCH=(
 )
 
 PERFORMANCE_FEDORA=(
-    "btrfs-progs"
-    "fstrim"
+    btrfs-progs
+    fstrim
 )
 
 PERFORMANCE_DEBIAN=(
-    "btrfs-tools"
-    "fstrim"
+    btrfs-tools
+    fstrim
 )
 
 # Performance configuration files

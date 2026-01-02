@@ -23,6 +23,7 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 
 - **Beautiful Terminal UI** with gum-powered menus and progress indicators
 - **4 Major Distributions** supported (Arch, Fedora, Debian, Ubuntu)
+- **Modular Architecture** with distribution-specific package management
 - **Security Hardened** with firewall, fail2ban, and performance optimizations
 - **Gaming Ready** with Steam, Wine, and GPU driver detection
 - **Developer Friendly** with modern shell, editors, and tools
@@ -104,10 +105,10 @@ Install Gaming Package Suite? (Y/n)
 ✓ Performance optimizations applied (CPU governor, ZRAM)
 ✓ Gaming suite installed (Steam, Wine, GPU drivers)
 ✓ Development environment configured (zsh, neovim, git)
-✓ Desktop environment customized (KDE Plasma 5.x/6.x with shortcuts)
+✓ Desktop environment customized (KDE/GNOME with shortcuts)
 
 Total installation time: 12m 34s
-🔄 System reboot recommended for all changes to take effect.
+System reboot recommended for all changes to take effect.
 ```
 
 ---
@@ -118,6 +119,7 @@ Total installation time: 12m 34s
 - **Arch Linux** - AUR integration, pacman optimization, Plymouth boot screen
 - **Fedora** - COPR repositories, DNF optimization, firewalld configuration
 - **Debian/Ubuntu** - Snap/Flatpak, APT optimization, UFW firewall
+- **Modular Package Management** - Distribution-specific packages organized by component
 - **Universal** - Consistent experience across all supported distributions
 
 ### 🔒 Security & Performance
@@ -138,7 +140,8 @@ Total installation time: 12m 34s
 ### 🤖 Smart Automation
 - **Hardware Detection**: GPU, bootloader, filesystem, Logitech devices
 - **Package Management**: Batch installations, dependency resolution, error recovery
-- **Configuration**: Distribution-specific optimizations and tweaks
+- **Modular Configuration**: Component-based setup (gaming, security, desktop environments)
+- **Distribution Intelligence**: Optimized package selection per distro
 - **Rollback Safety**: No destructive operations, clear error messages
 
 ---
@@ -189,8 +192,10 @@ linuxinstaller/
 │   ├── debian_config.sh       # Debian/Ubuntu setup
 │   ├── security_config.sh     # Security hardening module
 │   ├── performance_config.sh  # Performance optimization
+│   ├── maintenance_config.sh  # System maintenance & snapshots
 │   ├── gaming_config.sh       # Gaming environment setup
-│   └── kde_config.sh          # Desktop environment config
+│   ├── kde_config.sh          # KDE Plasma desktop config
+│   └── gnome_config.sh        # GNOME desktop environment config
 ├── configs/                   # Distribution-specific configs
 │   ├── arch/.zshrc           # Arch-specific shell config
 │   ├── fedora/starship.toml   # Fedora prompt configuration
@@ -198,8 +203,16 @@ linuxinstaller/
 └── README.md                 # This comprehensive guide
 ```
 
+### Package Management Organization
+- **Distribution-Specific**: Core packages in `*_config.sh` files
+- **Component-Based**: Gaming, security, performance in dedicated modules
+- **DE-Specific**: KDE/GNOME packages in respective `*_config.sh` files
+- **Alphabetized Arrays**: All package lists sorted alphabetically for maintenance
+
 ### Code Quality Improvements
 - **Refactored Functions**: Large functions broken into focused, testable units
+- **Modular Package Management**: Eliminated redundancy, organized by component
+- **Alphabetized Code**: All package arrays sorted for maintainability
 - **Enhanced Error Handling**: User-friendly error messages with actionable guidance
 - **Comprehensive Documentation**: Inline comments explaining complex logic
 - **Security Hardening**: Removed eval usage, added input validation
@@ -218,15 +231,19 @@ NVIDIA GPU (0x10de)  → Manual installation required (licensing)
 ```
 
 ### Desktop Environment Integration
-- **KDE Plasma**: Global shortcuts (Meta+Q close, Meta+Return terminal) - Plasma 5.x & 6.x compatible
-- **GNOME**: Extension installation and workspace configuration
+- **KDE Plasma**: Global shortcuts (Meta+Q close, Meta+Return Konsole) - Plasma 5.x & 6.x compatible
+- **GNOME**: Extension installation, workspace configuration, and package management
+- **Modular DE Setup**: Distribution-specific packages for optimal desktop experience
 - **Universal**: Zsh with starship prompt and fastfetch system info
 
 ### Package Management Intelligence
 - **Batch Installation**: Dependencies resolved efficiently
 - **Error Recovery**: Failed packages don't stop the entire installation
 - **Deduplication**: Prevents redundant package installations
+- **Component Organization**: Packages grouped by function (gaming, DE, security)
+- **Distribution-Specific**: Optimized package selection per distro
 - **Type Awareness**: Native, AUR, Flatpak, Snap package handling
+- **Alphabetized Lists**: All package arrays sorted for easy maintenance
 
 ---
 
@@ -241,9 +258,9 @@ NVIDIA GPU (0x10de)  → Manual installation required (licensing)
 
 ### Supported Versions
 - **Arch Linux**: Rolling release
-- **Fedora**: 38, 39, 40
-- **Debian**: 11 (Bullseye), 12 (Bookworm)
-- **Ubuntu**: 20.04 LTS, 22.04 LTS, 24.04 LTS
+- **Fedora**: 40, 41, 42, 43
+- **Debian**: 11 (Bullseye), 12 (Bookworm), 13 (Trixie)
+- **Ubuntu**: 20.04 LTS, 22.04 LTS, 24.04 LTS, 25.10
 
 ---
 
@@ -395,6 +412,8 @@ wget -qO- https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/inst
 ---
 
 **Built with ❤️ for the Linux community**
+
+*Featuring modular architecture, alphabetized code, and cross-distribution excellence*
 
 [⬆ Back to Top](#linuxinstaller) • [📖 Wiki](https://github.com/GAndromidas/linuxinstaller/wiki) • [🐛 Issues](https://github.com/GAndromidas/linuxinstaller/issues)
 

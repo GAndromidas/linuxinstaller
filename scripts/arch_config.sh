@@ -51,10 +51,10 @@ ARCH_ESSENTIALS=(
     starship
     ufw
     wget
+    zoxide
     zsh
     zsh-autosuggestions
     zsh-syntax-highlighting
-    zoxide
 )
 
 ARCH_OPTIMIZATION=(
@@ -106,10 +106,6 @@ ARCH_NATIVE_STANDARD_ESSENTIALS=(
     kdenlive
     zed
 )
-
-# =============================================================================
-# AUR PACKAGES FOR STANDARD MODE
-# =============================================================================
 
 # AUR packages for Standard
 ARCH_AUR_STANDARD=(
@@ -193,60 +189,6 @@ ARCH_NATIVE_SERVER=(
     wakeonlan
 )
 
-# Desktop environment specific packages
-ARCH_DE_KDE_NATIVE=(
-    gwenview
-    kdeconnect
-    kwalletmanager
-    kvantum
-    okular
-    python-pyqt5
-    python-pyqt6
-    qbittorrent
-    smplayer
-    spectacle
-)
-
-ARCH_DE_GNOME_NATIVE=(
-    adw-gtk-theme
-    celluloid
-    dconf-editor
-    gnome-tweaks
-    gufw
-    seahorse
-    transmission-gtk
-)
-
-ARCH_DE_KDE_FLATPAK=(
-    it.mijorus.gearlever
-)
-ARCH_DE_GNOME_FLATPAK=(
-    com.mattjakeman.ExtensionManager
-    it.mijorus.gearlever
-)
-
-# Gaming packages
-ARCH_GAMING_NATIVE=(
-    gamemode
-    goverlay
-    lib32-gamemode
-    lib32-glibc
-    lib32-mangohud
-    lib32-mesa
-    lib32-vulkan-icd-loader
-    mangohud
-    mesa
-    steam
-    vulkan-icd-loader
-    wine
-)
-
-ARCH_GAMING_FLATPAK=(
-    com.heroicgameslauncher.hgl
-    com.vysp3r.ProtonPlus
-    io.github.Faugus.faugus-launcher
-)
-
 # ---------------------------------------------------------------------------
 # Simple query API used by the main installer to fetch package lists.
 # The function prints one package per line (suitable for mapfile usage).
@@ -317,14 +259,7 @@ distro_get_packages() {
                 *) return 0 ;;
             esac
             ;;
-        gaming)
-            case "$type" in
-                native) printf "%s\n" "${ARCH_GAMING_NATIVE[@]}" ;;
-                aur)    printf "%s\n" "${ARCH_GAMING_AUR[@]}" ;;
-                flatpak) printf "%s\n" "${ARCH_GAMING_FLATPAK[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
+# Gaming packages moved to gaming_config.sh
         *)
             # Unknown section -> return nothing
             return 0
@@ -499,10 +434,10 @@ arch_enable_system_services() {
 
     # Essential services
     local services=(
-        "cronie"
-        "bluetooth"
-        "sshd"
-        "fstrim.timer"
+        bluetooth
+        cronie
+        fstrim.timer
+        sshd
     )
 
     for service in "${services[@]}"; do

@@ -14,32 +14,47 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" != *"GNOME"* ]]; then
     exit 1
 fi
 
-# GNOME-specific package lists
-GNOME_ESSENTIALS=(
-    "adw-gtk-theme"
-    "celluloid"
-    "dconf-editor"
-    "gnome-tweaks"
-    "gufw"
-    "seahorse"
-    "transmission-gtk"
+# GNOME-specific package lists by distribution
+ARCH_GNOME=(
+    adw-gtk-theme
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    gufw
+    seahorse
+    transmission-gtk
 )
 
-GNOME_OPTIONAL=(
-    "gnome-music"
-    "gnome-weather"
-    "gnome-clocks"
-    "gnome-photos"
-    "epiphany-browser"
+DEBIAN_GNOME=(
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    gufw
+    seahorse
+    transmission-gtk
+)
+
+FEDORA_GNOME=(
+    celluloid
+    dconf-editor
+    gnome-tweaks
+    gufw
+    seahorse
+    transmission-gtk
 )
 
 GNOME_REMOVALS=(
-    "htop"
-    "rhythmbox"
-    "totem"
-    "gnome-tour"
-    "epiphany"
-    "simple-scan"
+    epiphany
+    epiphany-browser
+    gnome-clocks
+    gnome-music
+    gnome-photos
+    gnome-tour
+    gnome-weather
+    htop
+    rhythmbox
+    simple-scan
+    totem
 )
 
 # GNOME-specific configuration files
@@ -53,9 +68,26 @@ GNOME_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 gnome_install_packages() {
     display_step "🖥️" "Installing GNOME Packages"
 
-    # Install GNOME essential packages
-    if [ ${#GNOME_ESSENTIALS[@]} -gt 0 ]; then
-        install_packages_with_progress "${GNOME_ESSENTIALS[@]}"
+    # Install GNOME packages based on distribution
+    local gnome_packages=()
+    case "$DISTRO_ID" in
+        arch)
+            gnome_packages=("${ARCH_GNOME[@]}")
+            ;;
+        debian|ubuntu)
+            gnome_packages=("${DEBIAN_GNOME[@]}")
+            ;;
+        fedora)
+            gnome_packages=("${FEDORA_GNOME[@]}")
+            ;;
+        *)
+            log_warn "Unsupported distribution for GNOME packages: $DISTRO_ID"
+            return 1
+            ;;
+    esac
+
+    if [ ${#gnome_packages[@]} -gt 0 ]; then
+        install_packages_with_progress "${gnome_packages[@]}"
     fi
 
     # Remove unnecessary GNOME packages

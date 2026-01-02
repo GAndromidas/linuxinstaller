@@ -10,24 +10,24 @@ source "$SCRIPT_DIR/distro_check.sh"
 
 # Security-specific package lists
 SECURITY_ESSENTIALS=(
-    "fail2ban"
-    "ufw"
+    fail2ban
+    ufw
 )
 
 SECURITY_ARCH=(
-    "ufw"
-    "apparmor"
+    apparmor
+    ufw
 )
 
 SECURITY_FEDORA=(
-    "firewalld"
-    "selinux-policy-targeted"
+    firewalld
+    selinux-policy-targeted
 )
 
 SECURITY_DEBIAN=(
-    "apparmor"
-    "apparmor-utils"
-    "apparmor-profiles"
+    apparmor
+    apparmor-profiles
+    apparmor-utils
 )
 
 # =============================================================================

@@ -10,20 +10,20 @@ source "$SCRIPT_DIR/distro_check.sh"
 
 # Maintenance-specific package lists
 MAINTENANCE_ARCH=(
-    "snap-pac"
-    "snapper"
-    "linux-lts"
-    "linux-lts-headers"
-    "btrfs-assistant"
-    "btrfsmaintenance"
+    btrfs-assistant
+    btrfsmaintenance
+    linux-lts
+    linux-lts-headers
+    snap-pac
+    snapper
 )
 
 MAINTENANCE_FEDORA=(
-    "timeshift"
+    timeshift
 )
 
 MAINTENANCE_DEBIAN=(
-    "timeshift"
+    timeshift
 )
 
 # Maintenance Configuration Functions

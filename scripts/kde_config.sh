@@ -14,56 +14,63 @@ if [ "${XDG_CURRENT_DESKTOP:-}" != "KDE" ]; then
     exit 1
 fi
 
-# KDE-specific package lists
-KDE_ESSENTIALS=(
-    "gwenview"
-    "kdeconnect"
-    "kdenlive"
-    "kwalletmanager"
-    "kvantum"
-    "okular"
-    "python-pyqt5"
-    "python-pyqt6"
-    "spectacle"
-    "smplayer"
+# KDE-specific package lists by distribution
+ARCH_KDE=(
+    gwenview
+    kdeconnect
+    kwalletmanager
+    kvantum
+    okular
+    python-pyqt5
+    python-pyqt6
+    qbittorrent
+    smplayer
+    spectacle
 )
 
-KDE_OPTIONAL=(
-    "kdenlive"
-    "kate"
-    "dolphin"
-    "konsole"
-    "ark"
-    "gwenview"
+DEBIAN_KDE=(
+    gwenview
+    kdeconnect
+    kdenlive
+    kwalletmanager
+    okular
+    qbittorrent
+    smplayer
+)
+
+FEDORA_KDE=(
+    kvantum
+    qbittorrent
+    smplayer
 )
 
 KDE_REMOVALS=(
-    "akregator"
-    "digikam"
-    "dragon"
-    "elisa-player"
-    "htop"
-    "k3b"
-    "kaddressbook"
-    "kamoso"
-    "kdebugsettings"
-    "kmahjongg"
-    "kmail"
-    "kmines"
-    "kmouth"
-    "kolourpaint"
-    "korganizer"
-    "kpat"
-    "krfb"
-    "krdc"
-    "krusader"
-    "ktorren"
-    "ktnef"
-    "neochat"
-    "pim-sieve-editor"
-    "qrca"
-    "showfoto"
-    "skanpage"
+    akregator
+    digikam
+    dragon
+    elisa-player
+    htop
+    k3b
+    kaddressbook
+    kamoso
+    kdebugsettings
+    kmahjongg
+    kmail
+    kmines
+    kmouth
+    kolourpaint
+    korganizer
+    kpat
+    krfb
+    krdc
+    krusader
+    ktorrent
+    ktnef
+    neochat
+    pim-sieve-editor
+    qrca
+    showfoto
+    skanpage
 )
 
 # KDE-specific configuration files
@@ -79,9 +86,26 @@ KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 kde_install_packages() {
     display_step "🖥️" "Installing KDE Packages"
 
-    # Install KDE essential packages
-    if [ ${#KDE_ESSENTIALS[@]} -gt 0 ]; then
-        install_packages_with_progress "${KDE_ESSENTIALS[@]}"
+    # Install KDE packages based on distribution
+    local kde_packages=()
+    case "$DISTRO_ID" in
+        arch)
+            kde_packages=("${ARCH_KDE[@]}")
+            ;;
+        debian|ubuntu)
+            kde_packages=("${DEBIAN_KDE[@]}")
+            ;;
+        fedora)
+            kde_packages=("${FEDORA_KDE[@]}")
+            ;;
+        *)
+            log_warn "Unsupported distribution for KDE packages: $DISTRO_ID"
+            return 1
+            ;;
+    esac
+
+    if [ ${#kde_packages[@]} -gt 0 ]; then
+        install_packages_with_progress "${kde_packages[@]}"
     fi
 
     # Remove unnecessary KDE packages

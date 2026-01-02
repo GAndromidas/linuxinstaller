@@ -13,6 +13,45 @@ GPU_AMD="0x1002"
 GPU_INTEL="0x8086"
 GPU_NVIDIA="0x10de"
 
+# Gaming packages by distribution
+ARCH_GAMING=(
+    gamemode
+    goverlay
+    lib32-gamemode
+    lib32-glibc
+    lib32-mangohud
+    lib32-mesa
+    lib32-vulkan-icd-loader
+    mangohud
+    mesa
+    steam
+    vulkan-icd-loader
+    wine
+)
+
+DEBIAN_GAMING=(
+    gamemode
+    mangohud
+    steam-installer
+    wine
+)
+
+FEDORA_GAMING=(
+    gamemode
+    mangohud
+    mesa-vulkan-drivers
+    steam
+    vulkan-loader
+    wine
+)
+
+# Gaming Flatpaks (common across distributions)
+GAMING_FLATPAKS=(
+    com.heroicgameslauncher.hgl
+    com.vysp3r.ProtonPlus
+    io.github.Faugus.faugus-launcher
+)
+
 # =============================================================================
 # GPU DETECTION FUNCTIONS
 # =============================================================================
@@ -164,15 +203,30 @@ install_gpu_drivers() {
 gaming_install_packages() {
     display_step "🎮" "Installing Gaming Packages"
 
-    if declare -f distro_get_packages >/dev/null 2>&1; then
-        mapfile -t gaming_packages < <(distro_get_packages "gaming" "native" 2>/dev/null || true)
+    # Select gaming packages based on distribution
+    local gaming_packages=()
+    case "$DISTRO_ID" in
+        arch)
+            gaming_packages=("${ARCH_GAMING[@]}")
+            ;;
+        debian|ubuntu)
+            gaming_packages=("${DEBIAN_GAMING[@]}")
+            ;;
+        fedora)
+            gaming_packages=("${FEDORA_GAMING[@]}")
+            ;;
+        *)
+            log_warn "Unsupported distribution for gaming packages: $DISTRO_ID"
+            return 1
+            ;;
+    esac
 
-        if [ ${#gaming_packages[@]} -eq 0 ]; then
-            log_warn "No gaming packages found for $DISTRO_ID"
-            return
-        fi
+    if [ ${#gaming_packages[@]} -eq 0 ]; then
+        log_warn "No gaming packages found for $DISTRO_ID"
+        return
+    fi
 
-        log_info "Installing gaming packages for $DISTRO_ID..."
+    log_info "Installing gaming packages for $DISTRO_ID..."
 
         # Install packages in batch like main installation
         local installed_packages=()
@@ -219,9 +273,6 @@ gaming_install_packages() {
                 echo "✗ Failed gaming packages: ${failed_packages[*]}"
             fi
         fi
-    else
-        log_warn "distro_get_packages function not available. Gaming packages cannot be installed."
-    fi
 }
 
 # Configure system settings for optimal gaming performance
@@ -319,13 +370,13 @@ gaming_install_flatpak_packages() {
 
     log_info "Installing gaming Flatpak applications for $DISTRO_ID..."
 
-    if declare -f distro_get_packages >/dev/null 2>&1; then
-        mapfile -t gaming_flatpak_packages < <(distro_get_packages "gaming" "flatpak" 2>/dev/null || true)
+    # Use common gaming Flatpak packages
+    local gaming_flatpak_packages=("${GAMING_FLATPAKS[@]}")
 
-        if [ ${#gaming_flatpak_packages[@]} -eq 0 ]; then
-            log_warn "No gaming Flatpak packages found for $DISTRO_ID"
-            return
-        fi
+    if [ ${#gaming_flatpak_packages[@]} -eq 0 ]; then
+        log_warn "No gaming Flatpak packages found"
+        return
+    fi
 
         local installed=()
         local skipped=()
@@ -344,9 +395,6 @@ gaming_install_flatpak_packages() {
         if [ ${#failed[@]} -gt 0 ]; then
             log_warn "Failed to install gaming Flatpak applications: ${failed[*]}"
         fi
-    else
-        log_warn "distro_get_packages function not available. Gaming Flatpak packages cannot be installed."
-    fi
 }
 
 # Install Faugus game launcher via Flatpak (robust implementation)

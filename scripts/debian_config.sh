@@ -175,38 +175,6 @@ DEBIAN_NATIVE_SERVER=(
     tmux
 )
 
-DEBIAN_DE_KDE_NATIVE=(
-    gwenview
-    kdeconnect
-    kdenlive
-    kwalletmanager
-    okular
-    qbittorrent
-    smplayer
-)
-
-DEBIAN_DE_GNOME_NATIVE=(
-    celluloid
-    dconf-editor
-    gnome-tweaks
-    gufw
-    seahorse
-    transmission-gtk
-)
-
-DEBIAN_GAMING_NATIVE=(
-    gamemode
-    mangohud
-    steam-installer
-    wine
-)
-
-DEBIAN_GAMING_FLATPAK=(
-    com.heroicgameslauncher.hgl
-    com.vysp3r.ProtonPlus
-    io.github.Faugus.faugus-launcher
-)
-
 # distro_get_packages function used by the main installer
 distro_get_packages() {
     local section="$1"
@@ -245,25 +213,8 @@ distro_get_packages() {
                 *) return 0 ;;
             esac
             ;;
-        kde)
-            case "$type" in
-                native) printf "%s\n" "${DEBIAN_DE_KDE_NATIVE[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
-        gnome)
-            case "$type" in
-                native) printf "%s\n" "${DEBIAN_DE_GNOME_NATIVE[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
-        gaming)
-            case "$type" in
-                native) printf "%s\n" "${DEBIAN_GAMING_NATIVE[@]}" ;;
-                flatpak) printf "%s\n" "${DEBIAN_GAMING_FLATPAK[@]}" ;;
-                *) return 0 ;;
-            esac
-            ;;
+# DE-specific packages moved to DE config files
+# Gaming packages moved to gaming_config.sh
         *)
             return 0
             ;;
@@ -493,10 +444,10 @@ debian_enable_system_services() {
 
     # Essential services
     local services=(
-        "cron"
-        "bluetooth"
-        "ssh"
-        "fstrim.timer"
+        bluetooth
+        cron
+        fstrim.timer
+        ssh
     )
 
     for service in "${services[@]}"; do
