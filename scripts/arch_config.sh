@@ -102,6 +102,7 @@ ARCH_NATIVE_STANDARD=(
 # Standard mode (native essentials / pacman packages)
 ARCH_NATIVE_STANDARD_ESSENTIALS=(
     filezilla
+    kdenlive
     zed
 )
 
@@ -195,7 +196,6 @@ ARCH_NATIVE_SERVER=(
 ARCH_DE_KDE_NATIVE=(
     gwenview
     kdeconnect
-    kdenlive
     kwalletmanager
     kvantum
     okular

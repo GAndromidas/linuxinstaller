@@ -48,6 +48,58 @@ DEBIAN_ESSENTIALS=(
     zoxide
 )
 
+# Enable non-free repositories for Debian/Ubuntu
+debian_enable_nonfree_repos() {
+    log_info "Enabling repositories for proprietary packages..."
+
+    local sources_file
+    if [ "$DISTRO_ID" = "ubuntu" ]; then
+        sources_file="$UBUNTU_SOURCES"
+    else
+        sources_file="$DEBIAN_SOURCES"
+    fi
+
+    # Check if repositories are already enabled
+    if [ "$DISTRO_ID" = "ubuntu" ]; then
+        if grep -q "universe" "$sources_file" && grep -q "multiverse" "$sources_file"; then
+            log_info "Universe and multiverse repositories already enabled"
+            return 0
+        fi
+    else
+        if grep -q "non-free" "$sources_file"; then
+            log_info "Non-free repositories already enabled"
+            return 0
+        fi
+    fi
+
+    # Backup original sources file
+    cp "$sources_file" "${sources_file}.backup"
+
+    # Enable repositories
+    if [ "$DISTRO_ID" = "ubuntu" ]; then
+        # For Ubuntu, ensure universe and multiverse are enabled
+        sed -i '/^deb / s/$/ universe multiverse/' "$sources_file"
+        log_success "Enabled universe and multiverse repositories for Ubuntu"
+    else
+        # For Debian, add non-free and non-free-firmware
+        sed -i '/^deb / s/$/ non-free non-free-firmware/' "$sources_file"
+        log_success "Enabled non-free and non-free-firmware repositories for Debian"
+    fi
+
+    # Update package lists with new repositories
+    log_info "Updating package lists with sudo apt update -y..."
+    if sudo apt update -y >/dev/null 2>&1; then
+        log_success "Package lists updated successfully"
+    else
+        log_error "Failed to update package lists after enabling repositories"
+        # Restore backup on failure
+        cp "${sources_file}.backup" "$sources_file"
+        return 1
+    fi
+
+    log_success "Repositories enabled and package lists synchronized"
+}
+
 # Debian/Ubuntu-specific package lists (centralized in this module)
 # Note: All packages verified for both Debian stable and Ubuntu LTS repositories
 # Packages are split from Arch's android-tools, cpupower, expac, and font packages
@@ -128,13 +180,9 @@ DEBIAN_DE_KDE_NATIVE=(
     kdeconnect
     kdenlive
     kwalletmanager
-    kvantum
     okular
-    python-pyqt5
-    python-pyqt6
     qbittorrent
     smplayer
-    spectacle
 )
 
 DEBIAN_DE_GNOME_NATIVE=(
@@ -149,7 +197,7 @@ DEBIAN_DE_GNOME_NATIVE=(
 DEBIAN_GAMING_NATIVE=(
     gamemode
     mangohud
-    steam
+    steam-installer
     wine
 )
 
@@ -224,6 +272,9 @@ export -f distro_get_packages
 # Prepare Debian/Ubuntu system for configuration
 debian_system_preparation() {
     step "Debian/Ubuntu System Preparation"
+
+    # Enable non-free repositories for Steam and proprietary packages
+    debian_enable_nonfree_repos
 
     # Update package lists
     apt-get update >/dev/null 2>&1 || return 1
@@ -764,6 +815,7 @@ debian_main_config() {
 # Export functions for use by main installer
 export -f debian_main_config
 export -f debian_system_preparation
+export -f debian_enable_nonfree_repos
 export -f debian_install_essentials
 export -f debian_configure_bootloader
 export -f debian_enable_system_services
