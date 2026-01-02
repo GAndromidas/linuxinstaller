@@ -82,18 +82,13 @@ show_system_info() {
     detect_system_info
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" --bold "Detected OS: $DETECTED_OS" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected DE: ${XDG_CURRENT_DESKTOP:-None}" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected CPU: ${DETECTED_CPU:-Unknown}" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected GPU: ${DETECTED_GPU:-Unknown}" 2>/dev/null || true
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Detected RAM: ${DETECTED_RAM:-Unknown}" 2>/dev/null || true
+        display_info "Detected OS: $DETECTED_OS"
+        display_info "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
+        display_info "Detected CPU: ${DETECTED_CPU:-Unknown}"
+        display_info "Detected GPU: ${DETECTED_GPU:-Unknown}"
+        display_info "Detected RAM: ${DETECTED_RAM:-Unknown}"
     else
-        echo ""
-        echo "Detected OS: ${DETECTED_OS:-Unknown}"
-        echo "Detected DE: ${XDG_CURRENT_DESKTOP:-None}"
-        echo "Detected CPU: ${DETECTED_CPU:-Unknown}"
-        echo "Detected GPU: ${DETECTED_GPU:-Unknown}"
-        echo "Detected RAM: ${DETECTED_RAM:-Unknown}"
+        display_info "System Detection Results:" "OS: ${DETECTED_OS:-Unknown}\nDE: ${XDG_CURRENT_DESKTOP:-None}\nCPU: ${DETECTED_CPU:-Unknown}\nGPU: ${DETECTED_GPU:-Unknown}\nRAM: ${DETECTED_RAM:-Unknown}"
     fi
 }
 
@@ -109,22 +104,22 @@ _try_install() {
             continue
         fi
         if command -v install_pkg >/dev/null 2>&1; then
-            if install_packages_with_progress "$pkg"; then
-                return 0
-            fi
+            install_packages_with_progress "$pkg" && return 0
         else
             # Fallback: try package manager generic installs (best-effort)
             if [ "${DRY_RUN:-false}" = "true" ]; then
-                log_info "[DRY-RUN] Would install $pkg"
+                display_info "[DRY-RUN] Would install $pkg"
                 return 0
             fi
+            display_progress "installing" "$pkg"
             if command -v apt-get >/dev/null 2>&1; then
-                apt-get install -y "$pkg" >/dev/null 2>&1 && return 0 || true
+                apt-get install -y "$pkg" >/dev/null 2>&1 && display_success "✓ $pkg installed" && return 0
             elif command -v dnf >/dev/null 2>&1; then
-                dnf install -y "$pkg" >/dev/null 2>&1 && return 0 || true
+                dnf install -y "$pkg" >/dev/null 2>&1 && display_success "✓ $pkg installed" && return 0
             elif command -v pacman >/dev/null 2>&1; then
-                pacman -S --noconfirm "$pkg" >/dev/null 2>&1 && return 0 || true
+                pacman -S --noconfirm "$pkg" >/dev/null 2>&1 && display_success "✓ $pkg installed" && return 0
             fi
+            display_error "✗ Failed to install $pkg"
         fi
     done
     return 1

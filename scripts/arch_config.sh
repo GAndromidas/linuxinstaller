@@ -338,7 +338,7 @@ export -f distro_get_packages
 
 # Prepare Arch Linux system for configuration
 arch_system_preparation() {
-    step "Arch Linux System Preparation"
+    display_step "🔧" "Arch Linux System Preparation"
 
     # Initialize keyring if needed
     if [ ! -d "$ARCH_KEYRING" ]; then
@@ -393,8 +393,11 @@ EOF
 
     # Update system
     if supports_gum; then
-        if spin "Updating system"  pacman -Syu --noconfirm >/dev/null 2>&1; then
-            gum style "✓ System updated" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+        display_step "🔄" "Updating system"
+        if pacman -Syu --noconfirm >/dev/null 2>&1; then
+            display_success "✓ System updated"
+        else
+            display_error "✗ System update failed"
         fi
     else
         pacman -Syu --noconfirm >/dev/null 2>&1 || true
@@ -442,7 +445,7 @@ configure_pacman_arch() {
 
         if supports_gum; then
             spin "Cleaning old package cache"  paccache -r -k 3 >/dev/null 2>&1
-            gum style "✓ Old packages cleaned (keeping last 3 versions)" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+            display_success "✓ Old packages cleaned (keeping last 3 versions)"
         else
             paccache -r -k 3 >/dev/null 2>&1
             log_success "Old packages cleaned (keeping last 3 versions)"
@@ -451,7 +454,7 @@ configure_pacman_arch() {
         # Clean uninstalled packages cache
         if supports_gum; then
             spin "Removing cache for uninstalled packages"  paccache -r -u -k 0 >/dev/null 2>&1
-            gum style "✓ Cache for uninstalled packages removed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+            display_success "✓ Cache for uninstalled packages removed"
         else
             paccache -r -u -k 0 >/dev/null 2>&1
             log_success "Cache for uninstalled packages removed"
@@ -465,7 +468,7 @@ configure_pacman_arch() {
         # Show cache size reduction
         if [ "$cache_before" != "$cache_after" ]; then
             if supports_gum; then
-                gum style "Cache size: $cache_before → $cache_after" --margin "0 2" --foreground "$GUM_BODY_FG"
+                display_info "Cache size: $cache_before → $cache_after"
             else
                 log_info "Cache size reduced from $cache_before to $cache_after"
             fi
@@ -491,7 +494,7 @@ check_and_enable_multilib() {
 
 # Enable and configure essential systemd services for Arch Linux
 arch_enable_system_services() {
-    step "Enabling Arch Linux System Services"
+    display_step "⚙️" "Enabling Arch Linux System Services"
 
     # Essential services
     local services=(
@@ -670,22 +673,13 @@ arch_main_config() {
     # Show final summary
     if supports_gum; then
         echo ""
-        gum style "Arch Linux Configuration Complete" \
-                  --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2"
-        gum style "Your Arch Linux system has been optimized:" \
-                  --margin "0 2" --foreground "$GUM_BODY_FG"
-        gum style "✓ pacman: Optimized with parallel downloads and ILoveCandy" \
-                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
-        gum style "✓ cache: Cleaned old packages (keeping last 3 versions)" \
-                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
-        gum style "✓ mirrors: Optimized for faster downloads" \
-                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
-        gum style "✓ shell: ZSH configured with starship prompt" \
-                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
-        gum style "✓ locales: Greek (el_GR.UTF-8) and US English enabled" \
-                  --margin "0 2" --foreground "$GUM_SUCCESS_FG"
-        gum style "• Log out and back in to apply shell changes" \
-                  --margin "0 2" --foreground "$GUM_BODY_FG"
+        display_box "Arch Linux Configuration Complete" "Your Arch Linux system has been optimized:"
+        display_success "✓ pacman: Optimized with parallel downloads and ILoveCandy"
+        display_success "✓ cache: Cleaned old packages (keeping last 3 versions)"
+        display_success "✓ mirrors: Optimized for faster downloads"
+        display_success "✓ shell: ZSH configured with starship prompt"
+        display_success "✓ locales: Greek (el_GR.UTF-8) and US English enabled"
+        display_info "• Log out and back in to apply shell changes"
         echo ""
     fi
 

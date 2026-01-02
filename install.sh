@@ -180,29 +180,24 @@ show_menu() {
             "Server - Headless server configuration")
                 export INSTALL_MODE="server" ;;
             "Exit")
-                gum style "Goodbye! 👋" --margin "0 2" --foreground "$GUM_BODY_FG"
+                display_info "Goodbye! 👋"
                 exit 0 ;;
         esac
 
         echo ""
-        gum style "✓ Selected: $choice" --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold
+        display_success "Selected: $choice"
         echo ""
 
         if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
             echo ""
-            gum style "🎮 Would you like to install the Gaming Package Suite?" \
-                     --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
-            gum style "This includes Steam, Wine, and gaming optimizations." \
-                     --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
+            display_box "🎮 Would you like to install the Gaming Package Suite?" "This includes Steam, Wine, and gaming optimizations."
             echo ""
             if gum confirm "Install Gaming Package Suite?" --default=true; then
                 export INSTALL_GAMING=true
-                gum style "✓ Gaming packages will be installed" \
-                         --margin "0 2" --foreground "$GUM_SUCCESS_FG" 2>/dev/null || true
+                display_success "Gaming packages will be installed"
             else
                 export INSTALL_GAMING=false
-                gum style "→ Skipping gaming packages" \
-                         --margin "0 2" --foreground "$GUM_BODY_FG" 2>/dev/null || true
+                display_info "Skipping gaming packages"
             fi
         else
             export INSTALL_GAMING=false
@@ -867,19 +862,11 @@ show_package_summary() {
 
     if [ ${#installed_ref[@]} -gt 0 ]; then
         echo ""
-        if supports_gum; then
-            gum style "  ✔ Successfully installed $title: ${installed_ref[*]}" --foreground "$GUM_SUCCESS_FG"
-        else
-            echo "  ✔ Successfully installed $title: ${installed_ref[*]}"
-        fi
+        display_success "Successfully installed $title: ${installed_ref[*]}"
     fi
     if [ ${#failed_ref[@]} -gt 0 ]; then
         echo ""
-        if supports_gum; then
-            gum style "  ✗ Failed $title: ${failed_ref[*]}" --foreground "$GUM_ERROR_FG"
-        else
-            echo "  ✗ Failed $title: ${failed_ref[*]}"
-        fi
+        display_error "Failed $title: ${failed_ref[*]}"
     fi
 }
 
@@ -1024,9 +1011,7 @@ final_cleanup() {
 
     # Prompt the user whether to remove them (interactive)
     if supports_gum; then
-        gum style "Temporary helper packages detected:" \
-                 --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold
-        gum style "${remove_list[*]}" --margin "0 4" --foreground "$GUM_BODY_FG"
+        display_info "Temporary helper packages detected: ${remove_list[*]}"
             if gum confirm --default=false "Remove these helper packages now?"; then
             for pkg in "${remove_list[@]}"; do
                 log_info "Removing $pkg..."
@@ -1182,8 +1167,7 @@ bootstrap_tools
 if [ "$DRY_RUN" = false ]; then
     if ! run_pre_install_checks; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "❌ Pre-installation checks failed"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Please resolve the issues above and try again"
+            display_error "Pre-installation checks failed" "Please resolve the issues above and try again"
         fi
         exit 1
     fi
@@ -1253,7 +1237,7 @@ fi
 progress_update "System preparation"
 
 # Step: Install Packages based on Mode
-step "Installing Packages ($INSTALL_MODE)"
+    display_step "📦" "Installing Packages ($INSTALL_MODE)"
 
 # Install Base packages (native only) - Standard/Minimal/Server
 install_package_group "$INSTALL_MODE" "Base System" "native"
@@ -1357,7 +1341,7 @@ fi
 # This replaces the numbered scripts with unified distribution-specific modules
 # Note: Distro configs were already sourced earlier for package lists
 if [ "$DRY_RUN" = false ]; then
-    step "Running Distribution-Specific Configuration"
+    display_step "🔧" "Running Distribution-Specific Configuration"
 
     case "$DISTRO_ID" in
         "arch")
@@ -1387,7 +1371,7 @@ if [ "$DRY_RUN" = false ]; then
     esac
 
     # Step: Configure user shell and config files (universal)
-    step "Configuring User Shell and Configuration Files"
+    display_step "🐚" "Configuring User Shell and Configuration Files"
     if [ "$DRY_RUN" = false ]; then
         configure_user_shell_and_configs
     fi
@@ -1395,7 +1379,7 @@ fi
 
 # Step: Run Desktop Environment Configuration
 if [ "$INSTALL_MODE" != "server" ]; then
-    step "Configuring Desktop Environment"
+    display_step "🖼️" "Configuring Desktop Environment"
 
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would configure desktop environment: ${XDG_CURRENT_DESKTOP:-None}"
@@ -1425,7 +1409,7 @@ if [ "$INSTALL_MODE" != "server" ]; then
 fi
 
 # Step: Run Security Configuration
-step "Configuring Security Features"
+    display_step "🔒" "Configuring Security Features"
 
 if [ "$DRY_RUN" = true ]; then
     log_info "[DRY-RUN] Would configure security features"
@@ -1439,7 +1423,7 @@ else
 fi
 
 # Step: Run Performance Optimization
-step "Applying Performance Optimizations"
+    display_step "⚡" "Applying Performance Optimizations"
 
 if [ "$DRY_RUN" = true ]; then
     log_info "[DRY-RUN] Would apply performance optimizations"
@@ -1454,7 +1438,7 @@ fi
 
 # Step: Run Gaming Configuration (if applicable)
 if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; then
-    step "Configuring Gaming Environment"
+    display_step "🎮" "Configuring Gaming Environment"
 
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY-RUN] Would configure gaming environment"
@@ -1469,7 +1453,7 @@ if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; t
 fi
 
 # Step: Run Maintenance Setup
-step "Setting up Maintenance Tools"
+    display_step "🛠️" "Setting up Maintenance Tools"
 
 if [ "$DRY_RUN" = true ]; then
     log_info "[DRY-RUN] Would set up maintenance tools"
@@ -1483,7 +1467,7 @@ else
 fi
 
 # Phase 5: Installation Finalization and Cleanup
-step "Finalizing Installation"
+    display_step "🎉" "Finalizing Installation"
 
 if [ "$DRY_RUN" = false ]; then
     # Enable services for installed packages

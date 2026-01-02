@@ -288,7 +288,7 @@ debian_system_preparation() {
     # Upgrade system
     if supports_gum; then
         if spin "Upgrading system"  apt-get upgrade -y >/dev/null 2>&1; then
-            gum style "✓ System upgraded" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+            display_success "✓ System upgraded"
         fi
     else
         apt-get upgrade -y >/dev/null 2>&1 || true
@@ -368,7 +368,7 @@ debian_install_essentials() {
     # Show summary
     if [ ${#installed[@]} -gt 0 ]; then
         if supports_gum; then
-            gum style "✓ ${installed[*]}" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+            display_success "✓ ${installed[*]}"
         else
             echo -e "${GREEN}✓ ${installed[*]}${RESET}"
         fi

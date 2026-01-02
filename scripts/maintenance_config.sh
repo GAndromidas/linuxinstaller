@@ -26,16 +26,14 @@ MAINTENANCE_DEBIAN=(
     "timeshift"
 )
 
-# =============================================================================
-# MAINTENANCE CONFIGURATION FUNCTIONS
-# =============================================================================
+# Maintenance Configuration Functions
 
 # Install only basic maintenance packages (non-Btrfs specific)
 maintenance_install_basic_packages() {
-    step "Installing Basic Maintenance Packages"
+    display_step "🛠️" "Installing Basic Maintenance Packages"
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Installing basic system maintenance tools"
+        display_info "Installing basic system maintenance tools"
     fi
 
     local packages=()
@@ -68,7 +66,7 @@ maintenance_install_basic_packages() {
         if is_package_installed "$pkg"; then
             skipped+=("$pkg")
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ $pkg (already installed)"
+                display_info "○ $pkg (already installed)"
             fi
             continue
         fi
@@ -77,21 +75,20 @@ maintenance_install_basic_packages() {
         if ! package_exists "$pkg"; then
             failed+=("$pkg")
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ $pkg (not found in repositories)"
+                display_error "✗ $pkg (not found in repositories)"
             fi
             continue
         fi
 
         # Install with gum spin and show description
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing $pkg"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  $desc"
+            display_progress "installing" "$pkg" "$desc"
             if spin "Installing package" install_pkg "$pkg" >/dev/null 2>&1; then
                 installed+=("$pkg")
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ $pkg installed"
+                display_success "✓ $pkg installed"
             else
                 failed+=("$pkg")
-                gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "  ✗ Failed to install $pkg"
+                display_error "✗ Failed to install $pkg"
             fi
         else
             log_info "Installing $pkg: $desc"
@@ -103,33 +100,18 @@ maintenance_install_basic_packages() {
                 log_error "✗ Failed to install $pkg"
             fi
         fi
-    done
+     done
 
-    # Show summary with gum styling
-    if supports_gum; then
-        echo ""
-        gum style --margin "0 2" --border rounded --border-foreground "$GUM_BORDER_FG" --padding "1 2" "Installation Summary"
-        if [ ${#installed[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Installed: ${#installed[@]} package(s)"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${installed[*]}"
-        fi
-        if [ ${#skipped[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipped (already installed): ${#skipped[@]} package(s)"
-        fi
-        if [ ${#failed[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Failed: ${#failed[@]} package(s)"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${failed[*]}"
-        fi
-    else
-        if [ ${#installed[@]} -gt 0 ]; then
-            log_success "✓ Installed: ${#installed[@]} package(s) - ${installed[*]}"
-        fi
-        if [ ${#skipped[@]} -gt 0 ]; then
-            log_info "○ Skipped: ${#skipped[@]} package(s) already installed"
-        fi
-        if [ ${#failed[@]} -gt 0 ]; then
-            log_error "✗ Failed: ${#failed[@]} package(s) - ${failed[*]}"
-        fi
+    # Show summary
+    display_box "Installation Summary"
+    if [ ${#installed[@]} -gt 0 ]; then
+        display_success "✓ Installed: ${#installed[@]} package(s)" "${installed[*]}"
+    fi
+    if [ ${#skipped[@]} -gt 0 ]; then
+        display_info "○ Skipped (already installed): ${#skipped[@]} package(s)"
+    fi
+    if [ ${#failed[@]} -gt 0 ]; then
+        display_error "✗ Failed: ${#failed[@]} package(s)" "${failed[*]}"
     fi
 }
 
@@ -138,7 +120,7 @@ maintenance_install_packages() {
     step "Installing Maintenance Packages"
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Maintenance packages help protect your system with snapshots and updates"
+        display_info "Maintenance packages help protect your system with snapshots and updates"
     fi
 
     local packages=()
@@ -220,31 +202,16 @@ maintenance_install_packages() {
         installed+=("${packages_to_install[@]}")
     fi
 
-    # Show summary with gum styling
-    if supports_gum; then
-        echo ""
-        gum style --margin "0 2" --border rounded --border-foreground "$GUM_BORDER_FG" --padding "1 2" "Installation Summary"
-        if [ ${#installed[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Installed: ${#installed[@]} package(s)"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${installed[*]}"
-        fi
-        if [ ${#skipped[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipped (already installed): ${#skipped[@]} package(s)"
-        fi
-        if [ ${#failed[@]} -gt 0 ]; then
-            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Failed: ${#failed[@]} package(s)"
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "${failed[*]}"
-        fi
-    else
-        if [ ${#installed[@]} -gt 0 ]; then
-            log_success "✓ Installed: ${#installed[@]} package(s) - ${installed[*]}"
-        fi
-        if [ ${#skipped[@]} -gt 0 ]; then
-            log_info "○ Skipped: ${#skipped[@]} package(s) already installed"
-        fi
-        if [ ${#failed[@]} -gt 0 ]; then
-            log_error "✗ Failed: ${#failed[@]} package(s) - ${failed[*]}"
-        fi
+    # Show summary
+    display_box "Installation Summary"
+    if [ ${#installed[@]} -gt 0 ]; then
+        display_success "✓ Installed: ${#installed[@]} package(s)" "${installed[*]}"
+    fi
+    if [ ${#skipped[@]} -gt 0 ]; then
+        display_info "○ Skipped (already installed): ${#skipped[@]} package(s)"
+    fi
+    if [ ${#failed[@]} -gt 0 ]; then
+        display_error "✗ Failed: ${#failed[@]} package(s)" "${failed[*]}"
     fi
 }
 
@@ -254,14 +221,13 @@ maintenance_configure_timeshift() {
 
     if ! command -v timeshift >/dev/null 2>&1; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ TimeShift not installed, skipping configuration"
+            display_info "○ TimeShift not installed, skipping configuration"
         fi
         return
     fi
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "TimeShift: Creating system backup configuration"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  This creates snapshots to protect your system from updates"
+        display_info "TimeShift: Creating system backup configuration" "This creates snapshots to protect your system from updates"
     fi
 
     mkdir -p /etc/timeshift
@@ -299,8 +265,7 @@ maintenance_configure_timeshift() {
 EOF
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ TimeShift configured for manual snapshots"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Excludes: cache, downloads, Steam, and temporary files"
+        display_success "✓ TimeShift configured for manual snapshots" "Excludes: cache, downloads, Steam, and temporary files"
     else
         log_success "✓ TimeShift configured for manual snapshots"
     fi
@@ -316,7 +281,7 @@ maintenance_configure_snapper_settings() {
 
     if ! command -v snapper >/dev/null 2>&1; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Snapper not installed, skipping configuration"
+            display_info "○ Snapper not installed, skipping configuration"
         else
             log_warn "Snapper not installed, skipping configuration"
         fi
@@ -324,8 +289,7 @@ maintenance_configure_snapper_settings() {
     fi
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Snapper: Configuring Btrfs snapshot management"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Automatic snapshots protect your system before/after updates"
+        display_info "Snapper: Configuring Btrfs snapshot management" "Automatic snapshots protect your system before/after updates"
     else
         log_info "Configuring Snapper for Btrfs snapshot management"
     fi
@@ -401,11 +365,9 @@ maintenance_configure_snapper_settings() {
 
     if supports_gum; then
         if [ "$services_enabled" = true ]; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper services enabled"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Automatic cleanup: Enabled (keeps 10 snapshots)"
+            display_success "✓ Snapper services enabled" "Timeline snapshots: Disabled\nAutomatic cleanup: Enabled (keeps 10 snapshots)"
         else
-            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Some Snapper services failed to enable"
+            display_error "✗ Some Snapper services failed to enable"
         fi
     else
         if [ "$services_enabled" = true ]; then
@@ -432,7 +394,7 @@ maintenance_setup_pre_update_snapshots() {
     # Only setup if user enabled Btrfs snapshots
     if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" != "true" ]; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs snapshots not enabled, skipping pre-update hooks"
+            display_info "○ Btrfs snapshots not enabled, skipping pre-update hooks"
         fi
         return
     fi
@@ -440,14 +402,13 @@ maintenance_setup_pre_update_snapshots() {
     step "Setting Up Pre-Update Snapshot Function"
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Creating automatic snapshots before system updates"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  This protects your system from broken updates"
+        display_info "Creating automatic snapshots before system updates" "This protects your system from broken updates"
     fi
 
     if [ "$DISTRO_ID" = "arch" ]; then
         if ! command -v snapper >/dev/null 2>&1; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Snapper not available, skipping pre-update snapshots"
+                display_info "○ Snapper not available, skipping pre-update snapshots"
             fi
             return
         fi
@@ -478,8 +439,7 @@ Exec = /usr/bin/sh -c 'snapper -c root create -d "Post-update: $(date +"%%Y-%%m-
 EOF
 
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Pacman hook installed for pre/post-update snapshots"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Snapshots will be created automatically before/after each package update"
+            display_success "✓ Pacman hook installed for pre/post-update snapshots" "Snapshots will be created automatically before/after each package update"
         else
             log_success "✓ Pacman hook installed for pre/post-update snapshots"
         fi
@@ -487,7 +447,7 @@ EOF
     else
         if ! command -v timeshift >/dev/null 2>&1; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ TimeShift not available, skipping pre-update snapshots"
+                display_info "○ TimeShift not available, skipping pre-update snapshots"
             fi
             return
         fi
@@ -505,8 +465,7 @@ EOF
         chmod +x /usr/local/bin/system-update-snapshot
 
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
-            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Run this before updates: system-update-snapshot"
+            display_success "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot" "Run this before updates: system-update-snapshot"
         else
             log_success "✓ Snapshot wrapper created: /usr/local/bin/system-update-snapshot"
         fi
@@ -520,14 +479,13 @@ maintenance_configure_grub_snapshots() {
     # Only configure if user enabled Btrfs snapshots
     if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" != "true" ]; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs snapshots not enabled, skipping GRUB configuration"
+            display_info "○ Btrfs snapshots not enabled, skipping GRUB configuration"
         fi
         return
     fi
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Adding snapshots to boot menu"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Allows booting from previous snapshots if updates fail"
+        display_info "Adding snapshots to boot menu" "Allows booting from previous snapshots if updates fail"
     fi
 
     local bootloader
@@ -537,7 +495,7 @@ maintenance_configure_grub_snapshots() {
 
     if [ "$bootloader" != "grub" ]; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Only GRUB bootloader is supported for snapshot menu"
+            display_info "○ Only GRUB bootloader is supported for snapshot menu"
         fi
         return
     fi
@@ -545,10 +503,8 @@ maintenance_configure_grub_snapshots() {
     if [ "$DISTRO_ID" = "arch" ]; then
         if ! pacman -Q grub-btrfs >/dev/null 2>&1; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
-                if spin "Installing grub-btrfs" pacman -S --noconfirm grub-btrfs >/dev/null 2>&1; then
-                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
-                fi
+                display_progress "installing" "grub-btrfs"
+                install_packages_with_progress "grub-btrfs"
             else
                 pacman -S --noconfirm grub-btrfs >/dev/null 2>&1 || true
             fi
@@ -575,10 +531,9 @@ maintenance_configure_grub_snapshots() {
 
     if [ -n "$grub_update_command" ]; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Updating GRUB configuration"
+            display_progress "installing" "GRUB configuration"
             if spin "Regenerating boot menu"  $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1; then
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ GRUB updated with snapshot boot menu"
-                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Reboot and hold 'Shift' to see snapshot boot entries"
+                display_success "✓ GRUB updated with snapshot boot menu" "Reboot and hold 'Shift' to see snapshot boot entries"
             fi
         else
             $grub_update_command -o /boot/grub/grub.cfg >/dev/null 2>&1 || true
@@ -593,14 +548,13 @@ maintenance_configure_btrfs_assistant() {
 
     if ! command -v btrfs-assistant >/dev/null 2>&1; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Btrfs Assistant not installed, skipping configuration"
+            display_info "○ Btrfs Assistant not installed, skipping configuration"
         fi
         return
     fi
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring Btrfs Assistant snapshot settings"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Disabling timeline snapshots, setting Number Save to 5"
+        display_info "Configuring Btrfs Assistant snapshot settings" "Disabling timeline snapshots, setting Number Save to 5"
     fi
 
     # Btrfs Assistant stores config in ~/.config/btrfs-assistant.conf
@@ -626,9 +580,7 @@ EOF
     chown "$USER:$USER" "$config_file" 2>/dev/null || true
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs Assistant configured"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Number Save: 5 snapshots"
+        display_success "✓ Btrfs Assistant configured" "Timeline snapshots: Disabled\nNumber Save: 5 snapshots"
     else
         log_success "Btrfs Assistant configured with timeline snapshots disabled and Number Save set to 5"
     fi
@@ -640,14 +592,13 @@ maintenance_configure_btrfs_snapshots() {
 
     if ! is_btrfs_system; then
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Not a Btrfs system, skipping snapshot configuration"
+            display_info "○ Not a Btrfs system, skipping snapshot configuration"
         fi
         return
     fi
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Btrfs filesystem detected: Configuring snapshot protection"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Snapshots allow you to restore your system if updates break it"
+        display_info "Btrfs filesystem detected: Configuring snapshot protection" "Snapshots allow you to restore your system if updates break it"
     fi
 
     # Configure Btrfs Assistant first (if available)
@@ -675,7 +626,7 @@ maintenance_configure_btrfs_snapshots() {
     if [ "$DISTRO_ID" = "arch" ]; then
         if snapper -c root create -d "Initial snapshot after setup" >/dev/null 2>&1; then
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
+                    display_success "✓ Initial snapshot created"
             else
                 log_success "Initial snapshot created"
             fi
@@ -684,7 +635,7 @@ maintenance_configure_btrfs_snapshots() {
         if command -v timeshift >/dev/null 2>&1; then
             if timeshift --create --description "Initial snapshot after setup" >/dev/null 2>&1; then
                 if supports_gum; then
-                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Initial snapshot created"
+                display_success "✓ Initial snapshot created"
                 else
                     log_success "Initial snapshot created"
                 fi
@@ -700,8 +651,7 @@ maintenance_configure_automatic_updates() {
     case "$DISTRO_ID" in
         "fedora")
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring dnf-automatic for security updates"
-                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Security updates will be installed automatically"
+                display_info "Configuring dnf-automatic for security updates" "Security updates will be installed automatically"
             fi
             # Configure dnf-automatic
             if [ -f /etc/dnf/automatic.conf ]; then
@@ -709,7 +659,7 @@ maintenance_configure_automatic_updates() {
                 sed -i 's/^upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf 2>/dev/null || true
                 if systemctl enable --now dnf-automatic-install.timer >/dev/null 2>&1; then
                     if supports_gum; then
-                        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ dnf-automatic configured and enabled"
+                        display_success "✓ dnf-automatic configured and enabled"
                     else
                         log_success "dnf-automatic configured and enabled"
                     fi
@@ -720,8 +670,7 @@ maintenance_configure_automatic_updates() {
             ;;
         "debian"|"ubuntu")
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Configuring unattended-upgrades for security updates"
-                gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Security updates will be installed automatically"
+                display_info "Configuring unattended-upgrades for security updates" "Security updates will be installed automatically"
             fi
             # Configure unattended-upgrades
             if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
@@ -738,7 +687,7 @@ maintenance_configure_automatic_updates() {
 
             if systemctl enable --now unattended-upgrades >/dev/null 2>&1; then
                 if supports_gum; then
-                    gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ unattended-upgrades configured and enabled"
+                    display_success "✓ unattended-upgrades configured and enabled"
                 else
                     log_success "unattended-upgrades configured and enabled"
                 fi
@@ -750,7 +699,7 @@ maintenance_configure_automatic_updates() {
             # For other distributions (including Arch) we intentionally do not
             # create distribution-specific auto-update scripts here.
             if supports_gum; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Automatic updates not configured for $DISTRO_ID"
+                display_info "○ Automatic updates not configured for $DISTRO_ID"
             else
                 log_info "Automatic updates not configured for $DISTRO_ID by this installer"
             fi
@@ -772,45 +721,29 @@ maintenance_prompt_btrfs_snapshots() {
 
     if supports_gum; then
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "🗂️  Btrfs Snapshot Tools"
+        display_step "🗂️" "Btrfs Snapshot Tools"
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system uses Btrfs filesystem, which supports advanced snapshot features."
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Snapshots can protect your system from updates that break things."
-        echo ""
-        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "⚠️  Note: Snapshots use disk space and add complexity"
+        display_info "Your system uses Btrfs filesystem, which supports advanced snapshot features."
+        display_info "Snapshots can protect your system from updates that break things."
+        display_warning "Note: Snapshots use disk space and add complexity"
         echo ""
 
         if gum confirm "Install and configure Btrfs snapshot tools (Btrfs Assistant/Snapper/TimeShift)?" --default=false; then
             export INSTALL_BTRFS_SNAPSHOTS=true
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs snapshot tools will be installed and configured"
-            echo ""
-            return 0
+            display_success "✓ Btrfs snapshot tools will be installed and configured"
         else
             export INSTALL_BTRFS_SNAPSHOTS=false
-            gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Skipping Btrfs snapshot tools"
+            display_info "○ Skipping Btrfs snapshot tools"
             echo ""
             return 1
         fi
     else
-        echo ""
-        echo "🗂️  Btrfs Snapshot Tools"
-        echo ""
-        echo "Your system uses Btrfs filesystem, which supports advanced snapshot features."
-        echo "Snapshots can protect your system from updates that break things."
-        echo ""
-        echo "⚠️  Note: Snapshots use disk space and add complexity"
-        echo ""
-        read -r -p "Install and configure Btrfs snapshot tools (Btrfs Assistant/Snapper/TimeShift)? [y/N]: " response
-        if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-            export INSTALL_BTRFS_SNAPSHOTS=true
-            echo "✓ Btrfs snapshot tools will be installed and configured"
-            echo ""
-            return 0
+        display_box "🗂️  Btrfs Snapshot Tools" "Your system uses Btrfs filesystem, which supports advanced snapshot features.\nSnapshots can protect your system from updates that break things."
+        display_warning "Note: Snapshots use disk space and add complexity"
+        if [ "$INSTALL_BTRFS_SNAPSHOTS" = true ]; then
+            display_success "✓ Btrfs snapshot tools will be installed and configured"
         else
-            export INSTALL_BTRFS_SNAPSHOTS=false
-            echo "○ Skipping Btrfs snapshot tools"
-            echo ""
-            return 1
+            display_info "○ Skipping Btrfs snapshot tools"
         fi
     fi
 }
@@ -834,21 +767,20 @@ maintenance_main_config() {
     # Show final summary
     if supports_gum; then
         echo ""
-        gum style --margin "1 2" --border double --border-foreground "$GUM_PRIMARY_FG" --padding "1 2" "Maintenance Configuration Complete"
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Your system is now configured for safety and maintenance:"
+        display_box "Maintenance Configuration Complete" "Your system is now configured for safety and maintenance:"
 
         if [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapshots: Protect against broken updates"
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Btrfs maintenance: Scheduled scrub and balance"
+            display_success "✓ Snapshots: Protect against broken updates"
+            display_success "✓ Btrfs maintenance: Scheduled scrub and balance"
             if [ "$DISTRO_ID" = "arch" ]; then
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: snapper list"
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: Select from boot menu"
+                display_info "• View snapshots: snapper list"
+                display_info "• Restore snapshot: Select from boot menu"
             else
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• View snapshots: timeshift --list"
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Restore snapshot: timeshift --restore"
+                display_info "• View snapshots: timeshift --list"
+                display_info "• Restore snapshot: timeshift --restore"
             fi
         else
-            gum style --margin "0 2" --foreground "$GUM_INFO_FG" "○ Btrfs snapshots: Not configured (user choice)"
+            display_info "○ Btrfs snapshots: Not configured (user choice)"
         fi
         echo ""
     fi
@@ -861,10 +793,7 @@ maintenance_configure_btrfs_maintenance() {
     step "Configuring Btrfs Maintenance Schedules"
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Setting up comprehensive Btrfs maintenance schedules"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Weekly balance: /, /home, /var/log"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Monthly scrub: /, /home, /var/log"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Weekly defrag: /, /home"
+        display_info "Setting up comprehensive Btrfs maintenance schedules" "Weekly balance: /, /home, /var/log\nMonthly scrub: /, /home, /var/log\nWeekly defrag: /, /home"
     fi
 
     # Weekly balance for /, /home, and /var/log (Sundays at 1:00 AM)
@@ -885,7 +814,7 @@ EOF
             fi
         done
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Weekly balance scheduled for /, /home, /var/log (Sundays 1:00 AM)"
+            display_success "✓ Weekly balance scheduled for /, /home, /var/log (Sundays 1:00 AM)"
         fi
     fi
 
@@ -907,7 +836,7 @@ EOF
             fi
         done
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Monthly scrub scheduled for /, /home, /var/log (1st of month 2:00 AM)"
+            display_success "✓ Monthly scrub scheduled for /, /home, /var/log (1st of month 2:00 AM)"
         fi
     fi
 
@@ -943,16 +872,13 @@ EOF
         systemctl enable --now btrfs-defrag.timer >/dev/null 2>&1
 
         if supports_gum; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Weekly defrag scheduled for /, /home (Saturdays 3:00 AM)"
+            display_success "✓ Weekly defrag scheduled for /, /home (Saturdays 3:00 AM)"
         fi
     fi
 
     if supports_gum; then
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_INFO_FG" "Btrfs maintenance schedules configured:"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Balance: Weekly (Sun 1:00) - / /home /var/log"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Scrub: Monthly (1st 2:00) - / /home /var/log"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Defrag: Weekly (Sat 3:00) - / /home"
+        display_info "Btrfs maintenance schedules configured:" "• Balance: Weekly (Sun 1:00) - / /home /var/log\n• Scrub: Monthly (1st 2:00) - / /home /var/log\n• Defrag: Weekly (Sat 3:00) - / /home"
         echo ""
     fi
 }

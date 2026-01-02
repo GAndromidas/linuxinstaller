@@ -18,7 +18,7 @@ GPU_NVIDIA="0x10de"
 # =============================================================================
 
 detect_gpu() {
-    step "Detecting GPU Hardware"
+    display_step "🔍" "Detecting GPU Hardware"
 
     local detected_gpus=()
     local gpu_info
@@ -176,9 +176,7 @@ install_gpu_drivers() {
         log_warn "NVIDIA proprietary drivers are NOT installed automatically by this script."
         log_warn ""
         log_warn "Please install NVIDIA drivers manually:"
-        log_warn "  Arch/Manjaro: sudo pacman -S nvidia nvidia-utils"
-        log_warn "  Fedora: sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda"
-        log_warn "  Debian/Ubuntu: sudo apt install nvidia-driver"
+        display_warning "NVIDIA Installation Instructions:" "  Arch/Manjaro: sudo pacman -S nvidia nvidia-utils\n  Fedora: sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda\n  Debian/Ubuntu: sudo apt install nvidia-driver"
         log_warn ""
         log_warn "After installing NVIDIA drivers, restart your system."
         log_warn "================================"
@@ -222,11 +220,11 @@ gaming_install_packages() {
             # Show summary
             if [ ${#installed_packages[@]} -gt 0 ]; then
                 echo ""
-                gum style "✓ Gaming packages installed: ${installed_packages[*]}" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                display_success "✓ Gaming packages installed: ${installed_packages[*]}"
             fi
             if [ ${#failed_packages[@]} -gt 0 ]; then
                 echo ""
-                gum style "✗ Failed gaming packages: ${failed_packages[*]}" --margin "0 2" --foreground "$GUM_ERROR_FG"
+                display_error "✗ Failed gaming packages: ${failed_packages[*]}"
             fi
         else
             # Plain text mode - install quietly

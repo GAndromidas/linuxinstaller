@@ -19,8 +19,14 @@
 
 # --- UI and Logging ---
 
+# Determine script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Default log file location (can be overridden by calling script)
 LOG_FILE="${LOG_FILE:-/var/log/linuxinstaller.log}"
+
+# Import display module for consistent UI
+source "$SCRIPT_DIR/display.sh"
 
 # Find gum binary in PATH and common locations, avoiding shell function false positives
 find_gum_bin() {
@@ -146,20 +152,7 @@ gum() {
     "$gum_bin" "${new_args[@]}"
 }
 
-# Print step header with consistent formatting (cyan theme)
-step() {
-    local message="$1"
-    if supports_gum; then
-        # Add a top margin so each step is separated visually
-        # Use cyan theme: cyan primary for the entire header
-        # Note: gum style expects text first, then flags
-        gum style "❯ $message" --margin "1 2" --foreground "$GUM_PRIMARY_FG" --bold
-    else
-        # Make's arrow/title cyan and actual message light cyan for readability
-        # Prepend a newline so steps are spaced out in non-gum terminals too
-        echo -e "\n${CYAN}❯ ${LIGHT_CYAN}$message${RESET}"
-    fi
-}
+# Step function moved to display.sh
 
 # Execute command with spinner for user feedback during long operations
 # Usage: spin "Description of operation" command args...
@@ -183,82 +176,9 @@ spin() {
 }
 
 # Install packages with clean progress indicators
-# Usage: install_packages_with_progress package1 package2 ...
-install_packages_with_progress() {
-    local packages=("$@")
-    local installed_packages=()
-    local failed_packages=()
+# install_packages_with_progress moved to display.sh
 
-    for package in "${packages[@]}"; do
-        if [ -n "$package" ]; then
-            echo "• Installing $package"
-            if install_pkg "$package" >/dev/null 2>&1; then
-                installed_packages+=("$package")
-            else
-                failed_packages+=("$package")
-            fi
-        fi
-    done
-
-    # Show summary
-    if [ ${#installed_packages[@]} -gt 0 ]; then
-        echo ""
-        if supports_gum; then
-            gum style "  ✔ Successfully installed native packages: ${installed_packages[*]}" --foreground "$GUM_SUCCESS_FG"
-        else
-            echo "  ✔ Successfully installed native packages: ${installed_packages[*]}"
-        fi
-    fi
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-        echo ""
-        if supports_gum; then
-            gum style "  ✗ Failed packages: ${failed_packages[*]}" --foreground "$GUM_ERROR_FG"
-        else
-            echo "  ✗ Failed packages: ${failed_packages[*]}"
-        fi
-    fi
-}
-
-# Log informational message (only shows in verbose mode)
-log_info() {
-    local message="$1"
-    # Quiet by default: only print info to console when verbose mode is enabled
-    if [ "${VERBOSE:-false}" = "true" ]; then
-        if supports_gum; then
-            # Use light cyan for info text in cyan theme
-            gum style "ℹ $message" --margin "0 2" --foreground "$GUM_BODY_FG"
-        else
-            echo -e "${LIGHT_CYAN}[INFO] $message${RESET}"
-        fi
-    fi
-}
-
-# Log success message
-log_success() {
-    local message="$1"
-    if supports_gum; then
-        # Use bright cyan-green for success in cyan theme
-        gum style "✔ $message" --margin "0 2" --foreground "$GUM_SUCCESS_FG" --bold
-        # Add a trailing blank line for readability between steps
-        echo ""
-    else
-        echo -e "${GREEN}✔ $message${RESET}"
-        echo ""
-    fi
-}
-
-# Log warning message
-log_warn() {
-    local message="$1"
-    if supports_gum; then
-        # Use bright yellow for warnings in cyan theme
-        gum style "⚠ $message" --margin "0 2" --foreground "$GUM_WARNING_FG" --bold
-        echo ""
-    else
-        echo -e "${YELLOW}⚠ $message${RESET}"
-        echo ""
-    fi
-}
+# All log functions moved to display.sh
 
 # =============================================================================
 # STATE MANAGEMENT SYSTEM
@@ -331,18 +251,7 @@ EOF
 # =============================================================================
 
 # Log error message
-log_error() {
-    echo -e "${RED}❌ $1${RESET}" >&2
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >> "$LOG_FILE"
-}
-
-# --- Compatibility Aliases ---
-# Backwards compatibility aliases for logging functions
-ui_info() { log_info "$@"; }
-ui_success() { log_success "$@"; }
-ui_warn() { log_warn "$@"; }
-ui_error() { log_error "$@"; }
-log_warning() { log_warn "$@"; }
+# Log functions moved to display.sh
 log_to_file() { :; }
 
 
@@ -837,7 +746,7 @@ progress_init() {
     PROGRESS_CURRENT=0
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_INFO_FG" "📊 Progress: 0/$PROGRESS_TOTAL steps completed"
+        display_info "📊 Progress: 0/$PROGRESS_TOTAL steps completed"
     else
         echo "Progress: 0/$PROGRESS_TOTAL steps completed"
     fi
@@ -849,7 +758,7 @@ progress_update() {
     ((PROGRESS_CURRENT++))
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✅ $step_name completed ($PROGRESS_CURRENT/$PROGRESS_TOTAL)"
+        display_success "✅ $step_name completed ($PROGRESS_CURRENT/$PROGRESS_TOTAL)"
     else
         echo "✅ $step_name completed ($PROGRESS_CURRENT/$PROGRESS_TOTAL)"
     fi
@@ -865,9 +774,7 @@ progress_summary() {
 
     if supports_gum; then
         echo ""
-        gum style --margin "1 2" --border double --border-foreground "$GUM_SUCCESS_FG" --padding "1 2" "🎉 Installation Complete!"
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✅ All $PROGRESS_CURRENT steps completed successfully"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "⏱️  Total time: ${duration} seconds"
+        display_box "🎉 Installation Complete!" "✅ All $PROGRESS_CURRENT steps completed successfully\n⏱️  Total time: ${duration} seconds"
         echo ""
     else
         echo ""
@@ -907,20 +814,15 @@ prompt_reboot() {
 
     if supports_gum; then
         echo ""
-        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "🔄 System Reboot Required"
-        echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "$message"
-        echo ""
-        gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "⚠️  Important: Save your work before rebooting"
+        display_warning "🔄 System Reboot Required" "$message\n⚠️  Important: Save your work before rebooting"
         echo ""
 
         if gum confirm --default=true "Reboot now?"; then
-            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Reboot confirmed. System will reboot in 5 seconds..."
-            gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Press Ctrl+C to cancel"
+            display_success "Reboot confirmed. System will reboot in 5 seconds..." "Press Ctrl+C to cancel"
             sleep 5
             systemctl reboot
         else
-            gum style --margin "0 2" --foreground "$GUM_INFO_FG" "○ Reboot cancelled. Remember to reboot later to apply changes"
+            display_info "○ Reboot cancelled. Remember to reboot later to apply changes"
         fi
     else
         echo ""
@@ -942,12 +844,4 @@ prompt_reboot() {
 }
 
 # Export functions that may be called from subshells
-export -f install_pkg
-export -f install_packages_with_progress
-export -f spin
-export -f supports_gum
-export -f package_exists
-export -f log_info
-export -f log_success
-export -f log_error
-export -f log_warn
+# Functions exported via display.sh

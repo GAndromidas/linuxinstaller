@@ -232,7 +232,7 @@ fedora_system_preparation() {
     # Update system
     if supports_gum; then
         if spin "Updating system"  dnf update -y >/dev/null 2>&1; then
-            gum style "✓ System updated" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+            display_success "✓ System updated"
         fi
     else
         dnf update -y >/dev/null 2>&1 || true
@@ -250,7 +250,7 @@ fedora_enable_rpmfusion() {
             if spin "Enabling RPM Fusion repositories"  dnf install -y \
                 https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$fedora_version.noarch.rpm \
                 https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$fedora_version.noarch.rpm >/dev/null 2>&1; then
-                gum style "✓ RPM Fusion enabled" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                display_success "✓ RPM Fusion enabled"
             fi
         else
             dnf install -y \
@@ -296,7 +296,7 @@ fedora_install_essentials() {
 
     log_info "Installing essential packages..."
     for package in "${FEDORA_ESSENTIALS[@]}"; do
-        if ! dnf install -y "$package" >/dev/null 2>&1; then
+        if ! install_pkg "$package" >/dev/null 2>&1; then
             log_warn "Failed to install essential package: $package"
         else
             log_success "Installed essential package: $package"
@@ -307,7 +307,7 @@ fedora_install_essentials() {
     if [ "$INSTALL_MODE" != "server" ]; then
         log_info "Installing desktop packages..."
         for package in "${FEDORA_DESKTOP[@]}"; do
-            if ! dnf install -y "$package" >/dev/null 2>&1; then
+        if ! install_pkg "$package" >/dev/null 2>&1; then
                 log_warn "Failed to install desktop package: $package"
             else
                 log_success "Installed desktop package: $package"
@@ -458,7 +458,7 @@ fedora_enable_system_services() {
     done
 
     # Configure firewall (firewalld for Fedora)
-    if ! dnf install -y firewalld >/dev/null 2>&1; then
+    if ! install_pkg firewalld >/dev/null 2>&1; then
         log_warn "Failed to install firewalld"
         return
     fi
@@ -480,7 +480,7 @@ fedora_setup_flatpak() {
 
     if ! command -v flatpak >/dev/null; then
         log_info "Installing Flatpak..."
-        if ! dnf install -y flatpak >/dev/null 2>&1; then
+        if ! install_pkg flatpak >/dev/null 2>&1; then
             log_warn "Failed to install Flatpak"
             return
         fi
@@ -497,7 +497,7 @@ fedora_setup_copr() {
     step "Setting up COPR repositories"
     if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
         # Ensure dnf-plugins-core is available (required for 'dnf copr')
-        if ! dnf install -y dnf-plugins-core >/dev/null 2>&1; then
+        if ! install_pkg dnf-plugins-core >/dev/null 2>&1; then
             log_warn "Failed to install dnf-plugins-core; COPR setup may fail"
         fi
 
@@ -600,7 +600,7 @@ fedora_configure_locale() {
 
     # Install language packs for Greek and US English
     log_info "Installing language packs..."
-    if ! dnf install -y glibc-langpack-el glibc-langpack-en >/dev/null 2>&1; then
+    install_packages_with_progress glibc-langpack-el glibc-langpack-en
         log_warn "Failed to install language packs"
     else
         log_success "Language packs installed"
@@ -637,12 +637,8 @@ fedora_configure_hostname() {
     current_hostname=$(hostname)
 
     if supports_gum; then
-        gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Current hostname: $current_hostname"
-        echo ""
-        gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Do you want to change the hostname?"
-        echo ""
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Hostname identifies your system on the network."
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "Choose wisely as it will be used by:"
+        display_step "🏠" "Current hostname: $current_hostname"
+        display_info "Do you want to change the hostname?" "Hostname identifies your system on the network.\nChoose wisely as it will be used by:"
 
         if gum confirm "Change hostname?" --default=false; then
             echo ""
@@ -650,13 +646,8 @@ fedora_configure_hostname() {
             new_hostname=$(gum input --placeholder "my-fedora" --prompt "Enter new hostname: " --width 40)
 
             if [ -n "$new_hostname" ] && [ "$new_hostname" != "$current_hostname" ]; then
-                gum style --margin "0 2" --foreground "$GUM_WARNING_FG" --bold "⚠ You are about to change hostname to: $new_hostname"
-                echo ""
-                gum style --margin "0 2" --foreground "$GUM_BODY_FG" "This will:"
-                gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Update /etc/hostname"
-                gum style --margin "0 4" --foreground "$GUM_BODY_FG" "• Require a reboot to take effect"
-                echo ""
-                gum style --margin "0 2" --foreground "$GUM_PRIMARY_FG" --bold "Are you sure you want to proceed?"
+                display_warning "You are about to change hostname to: $new_hostname" "This will:\n• Update /etc/hostname\n• Require a reboot to take effect"
+                display_step "❓" "Are you sure you want to proceed?"
                 echo ""
 
                 if gum confirm "Yes, change hostname to: $new_hostname"; then
@@ -677,25 +668,13 @@ fedora_configure_hostname() {
             log_info "Hostname change skipped by user"
         fi
     else
-        echo "Current hostname: $current_hostname"
-        echo ""
-        echo "Hostname identifies your system on the network."
-        echo "Choose wisely as it will be used by:"
-        echo "  • SSH connections"
-        echo "  • Network identification"
-        echo "  • System logs"
+        display_info "Current hostname: $current_hostname" "Hostname identifies your system on the network.\nChoose wisely as it will be used by:\n  • SSH connections\n  • Network identification\n  • System logs"
         echo ""
         read -r -p "Change hostname? [y/N]: " response
         if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
             read -r -p "Enter new hostname: " new_hostname
             if [ -n "$new_hostname" ] && [ "$new_hostname" != "$current_hostname" ]; then
-                echo ""
-                echo "⚠  You are about to change hostname to: $new_hostname"
-                echo ""
-                echo "This will:"
-                echo "  • Update /etc/hostname"
-                echo "  • Require a reboot to take effect"
-                echo ""
+                display_warning "You are about to change hostname to: $new_hostname" "This will:\n  • Update /etc/hostname\n  • Require a reboot to take effect"
                 read -r -p "Yes, change hostname to: $new_hostname? [y/N]: " confirm
                 if [[ "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
                     if echo "$new_hostname" | tee /etc/hostname >/dev/null; then

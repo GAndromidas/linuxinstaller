@@ -56,7 +56,7 @@ arch_install_aur_helper() {
     if sudo -u "$build_user" git clone https://aur.archlinux.org/yay.git . >/dev/null 2>&1; then
         if sudo -u "$build_user" makepkg -si --noconfirm --needed >/dev/null 2>&1; then
             if supports_gum; then
-                gum style "✓ yay installed" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
+                display_success "✓ yay installed"
             fi
 
             # Clean up /tmp directory that yay uses for building

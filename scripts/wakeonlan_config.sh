@@ -111,12 +111,12 @@ wakeonlan_install_ethtool() {
     else
         # Fallback: try common package managers
         if command_exists pacman; then
-            pacman -S --noconfirm --needed ethtool || true
+            install_pkg ethtool >/dev/null 2>&1 || true
         elif command_exists apt-get; then
-            apt-get update -y || true
-            apt-get install -y ethtool || true
+            apt-get update -y >/dev/null 2>&1 || true
+            install_pkg ethtool >/dev/null 2>&1 || true
         elif command_exists dnf; then
-            dnf install -y ethtool || true
+            install_pkg ethtool >/dev/null 2>&1 || true
         else
             log_warn "No known package manager wrapper available and 'install_pkg' not present. Please install 'ethtool' manually."
             return 1

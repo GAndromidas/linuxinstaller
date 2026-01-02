@@ -51,7 +51,7 @@ GNOME_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 # Install essential GNOME packages and remove unnecessary ones
 gnome_install_packages() {
-    step "Installing GNOME Packages"
+    display_step "🖥️" "Installing GNOME Packages"
 
     # Install GNOME essential packages
     if [ ${#GNOME_ESSENTIALS[@]} -gt 0 ]; then

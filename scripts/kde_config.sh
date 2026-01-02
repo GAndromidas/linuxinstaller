@@ -77,7 +77,7 @@ KDE_CONFIGS_DIR="$SCRIPT_DIR/../configs"
 
 # Install essential KDE packages and remove unnecessary ones
 kde_install_packages() {
-    step "Installing KDE Packages"
+    display_step "🖥️" "Installing KDE Packages"
 
     # Install KDE essential packages
     if [ ${#KDE_ESSENTIALS[@]} -gt 0 ]; then
