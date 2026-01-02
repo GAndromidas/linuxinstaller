@@ -16,14 +16,91 @@ THEME_WARNING="${THEME_WARNING:-yellow}"
 THEME_INFO="${THEME_INFO:-blue}"
 THEME_BODY="${THEME_BODY:-white}"
 
-# Distro-specific themes (set later when DISTRO_ID is available)
+# Distro-specific themes and colors (set later when DISTRO_ID is available)
 update_distro_theme() {
     if [ -n "${DISTRO_ID:-}" ]; then
         case "$DISTRO_ID" in
-            "arch") THEME_PRIMARY="blue" ;;
-            "fedora") THEME_PRIMARY="blue" ;;
-            "debian") THEME_PRIMARY="red" ;;
-            "ubuntu") THEME_PRIMARY="orange" ;;
+            "arch")
+                # Arch Linux: Blue theme
+                THEME_PRIMARY="blue"
+                GUM_PRIMARY_FG=39      # Blue
+                GUM_SUCCESS_FG=48      # Bright green-cyan
+                GUM_ERROR_FG=196       # Red
+                GUM_WARNING_FG=226     # Yellow
+                GUM_INFO_FG=39         # Blue
+                GUM_BODY_FG=87         # Light cyan
+                RED='\033[0;31m'
+                GREEN='\033[0;32m'
+                YELLOW='\033[0;33m'
+                BLUE='\033[0;34m'
+                CYAN='\033[0;36m'
+                LIGHT_CYAN='\033[1;36m'
+                ;;
+            "fedora")
+                # Fedora: Blue theme
+                THEME_PRIMARY="blue"
+                GUM_PRIMARY_FG=39      # Blue
+                GUM_SUCCESS_FG=48      # Bright green-cyan
+                GUM_ERROR_FG=196       # Red
+                GUM_WARNING_FG=226     # Yellow
+                GUM_INFO_FG=39         # Blue
+                GUM_BODY_FG=87         # Light cyan
+                RED='\033[0;31m'
+                GREEN='\033[0;32m'
+                YELLOW='\033[0;33m'
+                BLUE='\033[0;34m'
+                CYAN='\033[0;36m'
+                LIGHT_CYAN='\033[1;36m'
+                ;;
+            "debian")
+                # Debian: Red theme
+                THEME_PRIMARY="red"
+                GUM_PRIMARY_FG=196     # Red
+                GUM_SUCCESS_FG=48      # Bright green-cyan
+                GUM_ERROR_FG=196       # Red
+                GUM_WARNING_FG=226     # Yellow
+                GUM_INFO_FG=196        # Red
+                GUM_BODY_FG=87         # Light cyan
+                RED='\033[0;31m'
+                GREEN='\033[0;32m'
+                YELLOW='\033[0;33m'
+                BLUE='\033[0;34m'
+                CYAN='\033[0;31m'      # Red for accents
+                LIGHT_CYAN='\033[1;31m' # Light red
+                ;;
+            "ubuntu")
+                # Ubuntu: Orange theme
+                THEME_PRIMARY="yellow"  # Closest to orange
+                GUM_PRIMARY_FG=214     # Orange
+                GUM_SUCCESS_FG=48      # Bright green-cyan
+                GUM_ERROR_FG=196       # Red
+                GUM_WARNING_FG=226     # Yellow
+                GUM_INFO_FG=214        # Orange
+                GUM_BODY_FG=87         # Light cyan
+                RED='\033[0;31m'
+                GREEN='\033[0;32m'
+                YELLOW='\033[0;33m'
+                BLUE='\033[0;34m'
+                ORANGE='\033[0;33m'    # Yellow as orange
+                CYAN='\033[0;33m'      # Orange for accents
+                LIGHT_CYAN='\033[1;33m' # Light orange
+                ;;
+            *)
+                # Default: Cyan theme (original)
+                THEME_PRIMARY="cyan"
+                GUM_PRIMARY_FG="cyan"
+                GUM_SUCCESS_FG=48
+                GUM_ERROR_FG=196
+                GUM_WARNING_FG=226
+                GUM_INFO_FG="cyan"
+                GUM_BODY_FG=87
+                RED='\033[0;31m'
+                GREEN='\033[0;32m'
+                YELLOW='\033[0;33m'
+                BLUE='\033[0;34m'
+                CYAN='\033[0;36m'
+                LIGHT_CYAN='\033[1;36m'
+                ;;
         esac
     fi
 }
@@ -36,8 +113,8 @@ update_distro_theme() {
 display_step() {
     local icon="${1:-🚀}"
     local title="$2"
-    local subtitle="$3"
-    
+    local subtitle="${3:-}"
+
     if supports_gum; then
         gum style "$icon $title" --foreground "$THEME_PRIMARY" --bold --margin "1 0"
         [ -n "$subtitle" ] && gum style "$subtitle" --foreground "$THEME_BODY" --margin "0 2"
@@ -51,8 +128,8 @@ display_step() {
 display_progress() {
     local status="$1"  # installing|completed|failed|skipped
     local item="$2"
-    local details="$3"
-    
+    local details="${3:-}"
+
     case "$status" in
         "installing")
             echo "  • Installing $item"
@@ -73,8 +150,8 @@ display_progress() {
 # Display success message
 display_success() {
     local message="$1"
-    local details="$2"
-    
+    local details="${2:-}"
+
     if supports_gum; then
         gum style "$message" --foreground "$THEME_SUCCESS" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
@@ -87,8 +164,8 @@ display_success() {
 # Display error message
 display_error() {
     local message="$1"
-    local details="$2"
-    
+    local details="${2:-}"
+
     if supports_gum; then
         gum style "$message" --foreground "$THEME_ERROR" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
@@ -101,8 +178,8 @@ display_error() {
 # Display warning message
 display_warning() {
     local message="$1"
-    local details="$2"
-    
+    local details="${2:-}"
+
     if supports_gum; then
         gum style "$message" --foreground "$THEME_WARNING" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
@@ -115,8 +192,8 @@ display_warning() {
 # Display info message
 display_info() {
     local message="$1"
-    local details="$2"
-    
+    local details="${2:-}"
+
     if supports_gum; then
         gum style "$message" --foreground "$THEME_INFO" --margin "0 2"
         [ -n "$details" ] && gum style "$details" --foreground "$THEME_BODY" --margin "0 4"
@@ -129,9 +206,9 @@ display_info() {
 # Display a bordered information box
 display_box() {
     local title="$1"
-    local content="$2"
+    local content="${2:-}"
     local border_color="${3:-$THEME_INFO}"
-    
+
     if supports_gum; then
         gum style "$title" --bold --foreground "$border_color" --border rounded --border-foreground "$border_color" --padding "1 2" --margin "1 0"
         [ -n "$content" ] && echo "$content"
@@ -147,7 +224,7 @@ display_summary() {
     local title="$1"
     shift
     local items=("$@")
-    
+
     display_box "$title" "" "$THEME_SUCCESS"
     for item in "${items[@]}"; do
         echo "  $item"
@@ -159,7 +236,7 @@ display_summary() {
 display_spin() {
     local title="$1"
     shift
-    
+
     if supports_gum; then
         gum spin --spinner dot --title "$title" -- "$@"
     else
