@@ -356,6 +356,19 @@ arch_system_preparation() {
     # Enable multilib repository
     check_and_enable_multilib
 
+    # Install essential packages early
+    log_info "Installing essential Arch Linux packages..."
+    for pkg in "${ARCH_ESSENTIALS[@]}"; do
+        if ! pacman -Q "$pkg" >/dev/null 2>&1; then
+            log_info "Installing $pkg..."
+            if ! pacman -S --needed --noconfirm "$pkg" >/dev/null 2>&1; then
+                log_warn "Failed to install $pkg"
+            fi
+        else
+            log_info "$pkg already installed"
+        fi
+    done
+
     # Setup AUR helper and mirror optimization
     if ! "$SCRIPT_DIR/arch_aur_setup.sh"; then
         log_error "Failed to setup AUR and mirrors"
