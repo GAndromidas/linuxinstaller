@@ -940,12 +940,27 @@ configure_systemd_boot_arch() {
     done
 
     # Fix systemd-boot random seed permissions for security (ArchWiki)
-    if [ -f /boot/loader/random-seed ]; then
-        log_info "Securing systemd-boot random seed file permissions"
-        chmod 700 /boot/loader 2>/dev/null || true
-        chmod 600 /boot/loader/random-seed 2>/dev/null || true
-        log_success "systemd-boot random seed permissions secured"
-    fi
+    setup_boot_permissions_fix
+}
+
+# Setup systemd service to fix boot permissions on reboot
+setup_boot_permissions_fix() {
+    log_info "Setting up systemd service to secure boot loader permissions on reboot"
+    cat > /etc/systemd/system/fix-boot-permissions.service << 'EOF'
+[Unit]
+Description=Fix boot loader permissions for security
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'chmod 700 /boot/loader 2>/dev/null; chmod 600 /boot/loader/random-seed 2>/dev/null'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable fix-boot-permissions.service 2>/dev/null || true
+    log_success "Boot permissions fix service enabled - will run on next reboot"
 }
 
 # Configure bootloader (GRUB or systemd-boot) for Arch Linux
@@ -1020,12 +1035,7 @@ configure_grub_arch() {
     log_success "GRUB configured successfully"
 
     # Fix systemd-boot random seed permissions for security (ArchWiki)
-    if [ -f /boot/loader/random-seed ]; then
-        log_info "Securing systemd-boot random seed file permissions"
-        chmod 700 /boot/loader 2>/dev/null || true
-        chmod 600 /boot/loader/random-seed 2>/dev/null || true
-        log_success "systemd-boot random seed permissions secured"
-    fi
+    setup_boot_permissions_fix
 }
 
 export -f arch_system_preparation
