@@ -164,7 +164,7 @@ show_installation_summary() {
         gum style --margin "0 4" --foreground "$GUM_BODY_FG" "📋 Before system updates: Run 'system-update-snapshot'"
         gum style --margin "0 4" --foreground "$GUM_BODY_FG" "🔍 Check system health: 'systemctl status' commands"
         gum style --margin "0 4" --foreground "$GUM_BODY_FG" "📁 View snapshots: 'snapper list' (Btrfs systems)"
-        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "🎯 Gaming: Steam, Lutris, and Proton are ready"
+        gum style --margin "0 4" --foreground "$GUM_BODY_FG" "🎯 Gaming: Steam, Wine, and Proton are ready"
         echo ""
     else
         echo "🔧 Maintenance & Next Steps:"
@@ -172,7 +172,7 @@ show_installation_summary() {
         echo "📋 Before system updates: Run 'system-update-snapshot'"
         echo "🔍 Check system health: 'systemctl status' commands"
         echo "📁 View snapshots: 'snapper list' (Btrfs systems)"
-        echo "🎯 Gaming: Steam, Lutris, and Proton are ready"
+        echo "🎯 Gaming: Steam, Wine, and Proton are ready"
         echo ""
     fi
 
