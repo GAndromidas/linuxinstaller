@@ -56,10 +56,9 @@ ARCH_ESSENTIALS=(
 )
 
 ARCH_OPTIMIZATION=(
+    linux-lts
     btrfs-assistant
     btrfsmaintenance
-    linux-lts
-    linux-lts-headers
 )
 
 # ---------------------------------------------------------------------------
@@ -129,11 +128,32 @@ ARCH_FLATPAK_STANDARD=(
 # Minimal mode: lightweight desktop with essential tools only
 ARCH_NATIVE_MINIMAL=(
     bat
+    bleachbit
     btop
+    chromium
     cmatrix
+    cpupower
+    dosfstools
+    duf
+    firefox
+    fwupd
+    gnome-disk-utility
+    hwinfo
+    inxi
     mpv
     ncdu
+    net-tools
+    nmap
+    noto-fonts-extra
+    samba
     sl
+    speedtest-cli
+    sshfs
+    ttf-hack-nerd
+    ttf-liberation
+    unrar
+    wakeonlan
+    xdg-desktop-portal-gtk
 )
 
 ARCH_AUR_MINIMAL=(
@@ -155,10 +175,7 @@ ARCH_NATIVE_SERVER=(
     docker-compose
     dosfstools
     duf
-    expac
-    fail2ban
     fwupd
-    htop
     hwinfo
     inxi
     nano
@@ -169,7 +186,8 @@ ARCH_NATIVE_SERVER=(
     sl
     speedtest-cli
     sshfs
-    tmux
+    ttf-hack-nerd
+    ttf-liberation
     unrar
     wakeonlan
 )
@@ -238,12 +256,18 @@ distro_get_packages() {
     local type="$2"
 
     case "$section" in
-            essential)
-                case "$type" in
-                    native) printf "%s\n" "${ARCH_ESSENTIALS[@]}" ;;
-                    *) return 0 ;;
-                esac
-                ;;
+             essential)
+                 case "$type" in
+                     native) printf "%s\n" "${ARCH_ESSENTIALS[@]}" ;;
+                     *) return 0 ;;
+                 esac
+                 ;;
+             optimization)
+                 case "$type" in
+                     native) printf "%s\n" "${ARCH_OPTIMIZATION[@]}" ;;
+                     *) return 0 ;;
+                 esac
+                 ;;
             standard)
                 case "$type" in
                 native)
@@ -267,7 +291,7 @@ distro_get_packages() {
                  flatpak) printf "%s\n" "${ARCH_FLATPAK_MINIMAL[@]}" ;;
                  *) return 0 ;;
             esac
-            ;; 
+            ;;
         server)
             case "$type" in
                  native)
@@ -278,7 +302,7 @@ distro_get_packages() {
                  flatpak) printf "%s\n" "${ARCH_FLATPAK_SERVER[@]}" ;;
                  *) return 0 ;;
             esac
-            ;; 
+            ;;
         kde)
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_KDE_NATIVE[@]}" ;;
@@ -694,6 +718,45 @@ arch_configure_locale() {
     log_info "Available locales: el_GR.UTF-8 (Greek), en_US.UTF-8 (US English)"
 }
 
+# Install kernel headers for all installed kernels
+arch_install_kernel_headers() {
+    step "Installing kernel headers for installed kernels"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would detect installed kernels and install corresponding headers"
+        return 0
+    fi
+
+    # Get list of installed kernels (excluding headers, docs, firmware, etc.)
+    local installed_kernels
+    installed_kernels=$(pacman -Q | grep '^linux-' | grep -v 'headers' | grep -v 'docs' | grep -v 'firmware' | cut -d' ' -f1)
+
+    if [ -z "$installed_kernels" ]; then
+        log_warn "No linux kernels found installed"
+        return 1
+    fi
+
+    local headers_to_install=""
+    for kernel in $installed_kernels; do
+        local header_pkg="${kernel}-headers"
+        if ! pacman -Q "$header_pkg" >/dev/null 2>&1; then
+            headers_to_install="$headers_to_install $header_pkg"
+        fi
+    done
+
+    if [ -n "$headers_to_install" ]; then
+        log_info "Installing kernel headers: $headers_to_install"
+        if install_pkg $headers_to_install; then
+            log_success "Kernel headers installed successfully"
+        else
+            log_error "Failed to install kernel headers"
+            return 1
+        fi
+    else
+        log_info "All kernel headers are already installed"
+    fi
+}
+
 # =============================================================================
 # MAIN ARCH CONFIGURATION FUNCTION
 # =============================================================================
@@ -702,6 +765,9 @@ arch_main_config() {
     log_info "Starting Arch Linux configuration..."
 
     arch_system_preparation
+
+    # Install kernel headers for installed kernels
+    arch_install_kernel_headers
 
     # AUR helper and rate-mirrors-bin are already installed/configured in system preparation
     log_success "AUR helper (yay) and mirrors are ready"
@@ -1109,4 +1175,5 @@ export -f arch_setup_aur_helper
 export -f arch_configure_bootloader
 export -f arch_install_aur_helper
 export -f arch_configure_locale
+export -f arch_install_kernel_headers
 export -f arch_main_config
