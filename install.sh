@@ -781,6 +781,16 @@ enable_installed_services() {
         fi
     fi
 
+    # Docker service
+    if is_package_installed "docker" 2>/dev/null || is_package_installed "docker.io" 2>/dev/null; then
+        if systemctl enable --now docker >/dev/null 2>&1; then
+            log_success "Docker service enabled"
+            ((services_enabled++))
+        else
+            log_warn "Failed to enable Docker service"
+        fi
+    fi
+
     # Flatpak service (if available)
     if command -v flatpak >/dev/null 2>&1; then
         # Flatpak doesn't typically need systemd services, but check for any
