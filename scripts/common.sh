@@ -821,8 +821,7 @@ prompt_reboot() {
         echo ""
 
         if gum confirm --default=true "Reboot now?"; then
-            display_success "Reboot confirmed. System will reboot in 5 seconds..." "Press Ctrl+C to cancel"
-            sleep 5
+            display_success "Reboot confirmed. Rebooting now..."
             systemctl reboot
         else
             display_info "○ Reboot cancelled. Remember to reboot later to apply changes"
@@ -837,8 +836,7 @@ prompt_reboot() {
         echo ""
         read -r -p "Reboot now? [Y/n]: " response
         if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
-            echo "System will reboot in 5 seconds... (Ctrl+C to cancel)"
-            sleep 5
+            echo "Rebooting now..."
             systemctl reboot
         else
             echo "Reboot cancelled. Remember to reboot later to apply changes"
