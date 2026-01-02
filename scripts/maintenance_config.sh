@@ -9,27 +9,21 @@ source "$SCRIPT_DIR/common.sh"
 source "$SCRIPT_DIR/distro_check.sh"
 
 # Maintenance-specific package lists
-MAINTENANCE_ESSENTIALS=(
+MAINTENANCE_ARCH=(
+    "snap-pac"
+    "snapper"
+    "linux-lts"
+    "linux-lts-headers"
     "btrfs-assistant"
     "btrfsmaintenance"
 )
 
-MAINTENANCE_ARCH=(
-    "snap-pac"
-    "snapper"
-    "grub-btrfs"
-    "linux-lts"
-    "linux-lts-headers"
-)
-
 MAINTENANCE_FEDORA=(
     "timeshift"
-    "btrfs-progs"
 )
 
 MAINTENANCE_DEBIAN=(
     "timeshift"
-    "btrfs-progs"
 )
 
 # =============================================================================
@@ -185,8 +179,11 @@ maintenance_install_packages() {
                 packages=("${MAINTENANCE_FEDORA[@]}")
                 descriptions=(
                     "timeshift: System backup and restore tool"
-                    "btrfs-progs: Btrfs filesystem utilities (already installed)"
                 )
+                if [ "$(detect_bootloader)" = "grub" ]; then
+                    packages+=("grub-btrfs")
+                    descriptions+=("grub-btrfs: GRUB integration for booting from snapshots")
+                fi
             fi
             ;;
         "debian"|"ubuntu")
@@ -195,8 +192,11 @@ maintenance_install_packages() {
                 packages=("${MAINTENANCE_DEBIAN[@]}")
                 descriptions=(
                     "timeshift: System backup and restore tool"
-                    "btrfs-progs: Btrfs filesystem utilities (already installed)"
                 )
+                if [ "$(detect_bootloader)" = "grub" ]; then
+                    packages+=("grub-btrfs")
+                    descriptions+=("grub-btrfs: GRUB integration for booting from snapshots")
+                fi
             fi
             ;;
     esac
@@ -560,6 +560,19 @@ maintenance_configure_grub_snapshots() {
 
         grub_update_command="grub-mkconfig"
     else
+        if [ "$bootloader" = "grub" ]; then
+            if ! is_package_installed "grub-btrfs"; then
+                if supports_gum; then
+                    gum style --margin "0 2" --foreground "$GUM_BODY_FG" "• Installing grub-btrfs for snapshot boot menu"
+                    if spin "Installing grub-btrfs" install_pkg "grub-btrfs"; then
+                        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "  ✓ grub-btrfs installed"
+                    fi
+                else
+                    install_pkg "grub-btrfs" >/dev/null 2>&1 || true
+                fi
+            fi
+        fi
+
         if command -v grub-mkconfig >/dev/null 2>&1; then
             grub_update_command="grub-mkconfig"
         elif command -v update-grub >/dev/null 2>&1; then
