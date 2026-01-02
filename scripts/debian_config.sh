@@ -28,7 +28,6 @@ UBUNTU_CONFIGS_DIR="$SCRIPT_DIR/../configs/ubuntu"
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 DEBIAN_ESSENTIALS=(
     bc
-    bluez
     build-essential
     cron
     curl
@@ -163,16 +162,18 @@ DEBIAN_NATIVE_SERVER=(
     btop
     cmatrix
     docker.io
-    dosfstools
+    duf
     fail2ban
-    htop
-    nano
+    fwupd
+    hwinfo
+    inxi
     ncdu
     net-tools
     nethogs
     nmap
+    sl
     speedtest-cli
-    tmux
+    wakeonlan
 )
 
 # distro_get_packages function used by the main installer
