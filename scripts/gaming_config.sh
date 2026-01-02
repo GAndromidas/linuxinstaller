@@ -199,8 +199,6 @@ install_gpu_drivers() {
 gaming_install_packages() {
     step "Installing Gaming Packages"
 
-    log_info "Installing gaming packages for $DISTRO_ID..."
-
     if declare -f distro_get_packages >/dev/null 2>&1; then
         mapfile -t gaming_packages < <(distro_get_packages "gaming" "native" 2>/dev/null || true)
 
@@ -209,15 +207,53 @@ gaming_install_packages() {
             return
         fi
 
-        for package in "${gaming_packages[@]}"; do
-            if [ -n "$package" ]; then
-                if ! install_pkg "$package"; then
-                    log_warn "Failed to install gaming package: $package"
-                else
-                    log_success "Installed gaming package: $package"
+        log_info "Installing gaming packages for $DISTRO_ID..."
+
+        # Install packages in batch like main installation
+        local installed_packages=()
+        local failed_packages=()
+
+        if supports_gum; then
+            for package in "${gaming_packages[@]}"; do
+                if [ -n "$package" ]; then
+                    echo "• Installing $package"
+                    if install_pkg "$package" >/dev/null 2>&1; then
+                        installed_packages+=("$package")
+                    else
+                        failed_packages+=("$package")
+                    fi
                 fi
+            done
+
+            # Show summary
+            if [ ${#installed_packages[@]} -gt 0 ]; then
+                echo ""
+                gum style "✓ Gaming packages installed: ${installed_packages[*]}" --margin "0 2" --foreground "$GUM_SUCCESS_FG"
             fi
-        done
+            if [ ${#failed_packages[@]} -gt 0 ]; then
+                echo ""
+                gum style "✗ Failed gaming packages: ${failed_packages[*]}" --margin "0 2" --foreground "$GUM_ERROR_FG"
+            fi
+        else
+            # Plain text mode - install quietly
+            for package in "${gaming_packages[@]}"; do
+                if [ -n "$package" ]; then
+                    if install_pkg "$package" >/dev/null 2>&1; then
+                        installed_packages+=("$package")
+                    else
+                        failed_packages+=("$package")
+                    fi
+                fi
+            done
+
+            # Show summary
+            if [ ${#installed_packages[@]} -gt 0 ]; then
+                echo "✓ Gaming packages installed: ${installed_packages[*]}"
+            fi
+            if [ ${#failed_packages[@]} -gt 0 ]; then
+                echo "✗ Failed gaming packages: ${failed_packages[*]}"
+            fi
+        fi
     else
         log_warn "distro_get_packages function not available. Gaming packages cannot be installed."
     fi

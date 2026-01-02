@@ -164,6 +164,7 @@ maintenance_install_packages() {
 
             # Only add Btrfs/snapshot tools if on Btrfs filesystem and user agreed
             if is_btrfs_system && [ "${INSTALL_BTRFS_SNAPSHOTS:-false}" = "true" ]; then
+                # Install snapper first, then snap-pac (which depends on snapper)
                 packages+=("snapper" "snap-pac" "btrfs-assistant" "btrfsmaintenance")
                 descriptions+=(
                     "snapper: Btrfs snapshot management tool"
@@ -343,6 +344,8 @@ maintenance_configure_snapper_settings() {
     if ! command -v snapper >/dev/null 2>&1; then
         if supports_gum; then
             gum style --margin "0 2" --foreground "$GUM_WARNING_FG" "○ Snapper not installed, skipping configuration"
+        else
+            log_warn "Snapper not installed, skipping configuration"
         fi
         return
     fi
@@ -350,42 +353,104 @@ maintenance_configure_snapper_settings() {
     if supports_gum; then
         gum style --margin "0 2" --foreground "$GUM_BODY_FG" "Snapper: Configuring Btrfs snapshot management"
         gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Automatic snapshots protect your system before/after updates"
-    fi
-
-    # Create snapper config if it doesn't exist
-    if ! snapper -c root create-config / >/dev/null 2>&1; then
-        log_warn "Failed to create Snapper configuration"
-        return
-    fi
-
-    # Configure Snapper with user-requested settings
-    # Disable timeline snapshots (user preference)
-    sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="no"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="no"/' /etc/snapper/configs/root
-    sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' /etc/snapper/configs/root
-    sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' /etc/snapper/configs/root
-
-    # Disable all timeline snapshot limits (since timeline is disabled)
-    sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="0"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
-    sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
-
-    # Set number of snapshots to keep to 5 (user preference)
-    sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="5"/' /etc/snapper/configs/root
-    sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="5"/' /etc/snapper/configs/root
-
-    # Only enable cleanup and boot timers (no timeline timer since timeline is disabled)
-    if supports_gum; then
-        spin "Enabling snapshot timers"  systemctl enable --now snapper-cleanup.timer snapper-boot.timer >/dev/null 2>&1
-        gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper timers enabled (timeline disabled)"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
-        gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Number Save: 5 snapshots"
     else
-        systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1
-        systemctl enable --now snapper-boot.timer >/dev/null 2>&1
-        log_success "✓ Snapper timers enabled (timeline snapshots disabled, Number Save: 5)"
+        log_info "Configuring Snapper for Btrfs snapshot management"
+    fi
+
+    # Create snapper config for root filesystem if it doesn't exist
+    log_info "Checking Snapper configuration"
+    if ! snapper -c root list-configs >/dev/null 2>&1 | grep -q "^root"; then
+        log_info "Creating Snapper configuration for root filesystem"
+        # Ensure we're running as root for snapper config creation
+        if [ "$EUID" -ne 0 ]; then
+            log_error "Snapper configuration requires root privileges"
+            return 1
+        fi
+
+        # Create config with explicit error checking
+        if snapper -c root create-config / 2>&1; then
+            log_success "Snapper configuration created for root filesystem"
+        else
+            log_error "Failed to create Snapper configuration for root filesystem"
+            log_info "This may be due to filesystem type or permissions"
+            return 1
+        fi
+    else
+        log_info "Snapper configuration already exists for root filesystem"
+    fi
+
+    # Configure Snapper settings for automatic snapshots
+    local config_file="/etc/snapper/configs/root"
+    if [ -f "$config_file" ]; then
+        # Disable timeline snapshots (only manual snapshots)
+        sed -i 's/^TIMELINE_CREATE=.*/TIMELINE_CREATE="no"/' "$config_file"
+        sed -i 's/^TIMELINE_CLEANUP=.*/TIMELINE_CLEANUP="no"/' "$config_file"
+
+        # Enable cleanup by number and empty snapshots
+        sed -i 's/^NUMBER_CLEANUP=.*/NUMBER_CLEANUP="yes"/' "$config_file"
+        sed -i 's/^EMPTY_CLEANUP=.*/EMPTY_CLEANUP="yes"/' "$config_file"
+
+        # Set snapshot limits
+        sed -i 's/^NUMBER_LIMIT=.*/NUMBER_LIMIT="10"/' "$config_file"
+        sed -i 's/^NUMBER_LIMIT_IMPORTANT=.*/NUMBER_LIMIT_IMPORTANT="10"/' "$config_file"
+
+        # Disable timeline limits since timeline is disabled
+        sed -i 's/^TIMELINE_LIMIT_HOURLY=.*/TIMELINE_LIMIT_HOURLY="0"/' "$config_file"
+        sed -i 's/^TIMELINE_LIMIT_DAILY=.*/TIMELINE_LIMIT_DAILY="0"/' "$config_file"
+        sed -i 's/^TIMELINE_LIMIT_WEEKLY=.*/TIMELINE_LIMIT_WEEKLY="0"/' "$config_file"
+        sed -i 's/^TIMELINE_LIMIT_MONTHLY=.*/TIMELINE_LIMIT_MONTHLY="0"/' "$config_file"
+        sed -i 's/^TIMELINE_LIMIT_YEARLY=.*/TIMELINE_LIMIT_YEARLY="0"/' "$config_file"
+
+        log_success "Snapper configuration updated"
+    else
+        log_error "Snapper config file not found at $config_file"
+        return 1
+    fi
+
+    # Enable snapper services (only cleanup and boot timers)
+    log_info "Enabling Snapper services"
+    local services_enabled=true
+
+    # Enable and start the services
+    if ! systemctl enable snapper-cleanup.timer >/dev/null 2>&1; then
+        log_warn "Failed to enable snapper-cleanup.timer"
+        services_enabled=false
+    fi
+
+    if ! systemctl enable snapper-boot.timer >/dev/null 2>&1; then
+        log_warn "Failed to enable snapper-boot.timer"
+        services_enabled=false
+    fi
+
+    # Start the timers
+    systemctl start snapper-cleanup.timer >/dev/null 2>&1 || true
+    systemctl start snapper-boot.timer >/dev/null 2>&1 || true
+
+    if supports_gum; then
+        if [ "$services_enabled" = true ]; then
+            gum style --margin "0 2" --foreground "$GUM_SUCCESS_FG" "✓ Snapper services enabled"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Timeline snapshots: Disabled"
+            gum style --margin "0 4" --foreground "$GUM_BORDER_FG" "  Automatic cleanup: Enabled (keeps 10 snapshots)"
+        else
+            gum style --margin "0 2" --foreground "$GUM_ERROR_FG" "✗ Some Snapper services failed to enable"
+        fi
+    else
+        if [ "$services_enabled" = true ]; then
+            log_success "Snapper services enabled"
+            log_info "Timeline snapshots: Disabled"
+            log_info "Automatic cleanup: Enabled (keeps 10 snapshots)"
+        else
+            log_error "Some Snapper services failed to enable"
+        fi
+    fi
+
+    # Verify snap-pac hook is available if snap-pac is installed
+    if command -v snap-pac >/dev/null 2>&1; then
+        if [ -f "/usr/share/libalpm/hooks/50-snap-pac-pre.hook" ] && [ -f "/usr/share/libalpm/hooks/50-snap-pac-post.hook" ]; then
+            log_info "snap-pac hooks are properly installed"
+        else
+            log_warn "snap-pac hooks not found - automatic snapshots may not work"
+        fi
     fi
 }
 

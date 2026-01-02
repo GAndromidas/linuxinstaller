@@ -125,7 +125,22 @@ update_mirrors_with_reflector() {
     if ping -c 1 -W 5 archlinux.org >/dev/null 2>&1; then
         log_info "Internet available, attempting mirror optimization..."
         local reflector_output
-        if reflector_output=$(reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https 2>&1); then
+        # Detect country for better mirror selection
+        local country=""
+        if country=$(curl -s --max-time 5 https://ipinfo.io/country 2>/dev/null | tr -d '\n' | tr -d '\r'); then
+            if [ -n "$country" ] && [ "$country" != "null" ]; then
+                log_info "Detected country: $country"
+                reflector_output=$(reflector --latest 10 --sort rate --age 24 --country "$country" --save /etc/pacman.d/mirrorlist --protocol https,http 2>&1)
+            else
+                log_info "Could not detect country, using global mirror selection"
+                reflector_output=$(reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https,http 2>&1)
+            fi
+        else
+            log_info "Country detection failed, using global mirror selection"
+            reflector_output=$(reflector --latest 10 --sort rate --age 24 --save /etc/pacman.d/mirrorlist --protocol https,http 2>&1)
+        fi
+
+        if [ $? -eq 0 ]; then
             log_success "Mirrorlist updated with fastest mirrors"
         else
             log_warn "Reflector failed, using existing mirrorlist"
