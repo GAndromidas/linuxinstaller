@@ -1339,7 +1339,7 @@ progress_update "Finalization"
 # run it now (unless we're in DRY_RUN). In DRY_RUN show status instead.
 # This keeps the step idempotent and consistent with the installer flow.
 # ------------------------------------------------------------------
-if declare -f wakeonlan_main_config >/dev/null 2>&1; then
+if [ "$INSTALL_MODE" != "server" ] && declare -f wakeonlan_main_config >/dev/null 2>&1; then
     step "Configuring Wake-on-LAN (Ethernet)"
 
     if [ "${DRY_RUN:-false}" = "true" ]; then
@@ -1430,30 +1430,34 @@ if [ "$INSTALL_MODE" != "server" ]; then
 fi
 
 # Step: Run Security Configuration
+if [ "$INSTALL_MODE" != "server" ]; then
     display_step "🔒" "Configuring Security Features"
 
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would configure security features"
-else
-    if [ -f "$SCRIPTS_DIR/security_config.sh" ]; then
-        source "$SCRIPTS_DIR/security_config.sh"
-        security_main_config
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would configure security features"
     else
-        log_warn "Security configuration module not found"
+        if [ -f "$SCRIPTS_DIR/security_config.sh" ]; then
+            source "$SCRIPTS_DIR/security_config.sh"
+            security_main_config
+        else
+            log_warn "Security configuration module not found"
+        fi
     fi
 fi
 
 # Step: Run Performance Optimization
+if [ "$INSTALL_MODE" != "server" ]; then
     display_step "⚡" "Applying Performance Optimizations"
 
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would apply performance optimizations"
-else
-    if [ -f "$SCRIPTS_DIR/performance_config.sh" ]; then
-        source "$SCRIPTS_DIR/performance_config.sh"
-        performance_main_config
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would apply performance optimizations"
     else
-        log_warn "Performance configuration module not found"
+        if [ -f "$SCRIPTS_DIR/performance_config.sh" ]; then
+            source "$SCRIPTS_DIR/performance_config.sh"
+            performance_main_config
+        else
+            log_warn "Performance configuration module not found"
+        fi
     fi
 fi
 
@@ -1474,16 +1478,18 @@ if [ "$INSTALL_MODE" != "server" ] && [ "${INSTALL_GAMING:-false}" = "true" ]; t
 fi
 
 # Step: Run Maintenance Setup
+if [ "$INSTALL_MODE" != "server" ]; then
     display_step "🛠️" "Setting up Maintenance Tools"
 
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would set up maintenance tools"
-else
-    if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
-        source "$SCRIPTS_DIR/maintenance_config.sh"
-        maintenance_main_config
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[DRY-RUN] Would set up maintenance tools"
     else
-        log_warn "Maintenance configuration module not found"
+        if [ -f "$SCRIPTS_DIR/maintenance_config.sh" ]; then
+            source "$SCRIPTS_DIR/maintenance_config.sh"
+            maintenance_main_config
+        else
+            log_warn "Maintenance configuration module not found"
+        fi
     fi
 fi
 

@@ -676,19 +676,25 @@ fedora_main_config() {
 
     fedora_setup_copr
 
-    fedora_install_essentials
+    if [ "$INSTALL_MODE" != "server" ]; then
+        fedora_install_essentials
+    fi
 
     fedora_configure_bootloader
 
     fedora_enable_system_services
 
-    fedora_setup_flatpak
+    if [ "$INSTALL_MODE" != "server" ]; then
+        fedora_setup_flatpak
+    fi
 
     fedora_setup_shell
 
     fedora_setup_solaar
 
-    fedora_configure_locale
+    if [ "$INSTALL_MODE" != "server" ]; then
+        fedora_configure_locale
+    fi
 
     log_success "Fedora configuration completed"
 }

@@ -604,7 +604,9 @@ arch_main_config() {
 
     arch_enable_system_services
 
-    arch_configure_locale
+    if [ "$INSTALL_MODE" != "server" ]; then
+        arch_configure_locale
+    fi
 
     # Show final summary
     if supports_gum; then

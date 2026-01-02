@@ -41,10 +41,10 @@ DEBIAN_ESSENTIALS=(
     starship
     ufw
     wget
+    zoxide
     zsh
     zsh-autosuggestions
     zsh-syntax-highlighting
-    zoxide
 )
 
 # Enable non-free repositories for Debian/Ubuntu
@@ -179,12 +179,19 @@ DEBIAN_FLATPAK_MINIMAL=(
 DEBIAN_NATIVE_SERVER=(
     apt-transport-https
     bat
+    bc
+    build-essential
     btop
     ca-certificates
     cmatrix
+    cron
+    curl
     docker.io
     duf
+    eza
     fail2ban
+    fastfetch
+    fzf
     fwupd
     hwinfo
     inxi
@@ -192,9 +199,16 @@ DEBIAN_NATIVE_SERVER=(
     net-tools
     nethogs
     nmap
+    openssh-server
+    rsync
     sl
     speedtest-cli
+    starship
     wakeonlan
+    zoxide
+    zsh
+    zsh-autosuggestions
+    zsh-syntax-highlighting
 )
 
 # distro_get_packages function used by the main installer
@@ -759,21 +773,26 @@ debian_main_config() {
 
     debian_system_preparation
 
-    debian_install_essentials
+    if [ "$INSTALL_MODE" != "server" ]; then
+        debian_install_essentials
+    fi
 
     debian_configure_bootloader
 
     debian_enable_system_services
 
-    debian_setup_flatpak
-
-    debian_setup_snap
+    if [ "$INSTALL_MODE" != "server" ]; then
+        debian_setup_flatpak
+        debian_setup_snap
+    fi
 
     debian_setup_shell
 
     debian_setup_solaar
 
-    debian_configure_locale
+    if [ "$INSTALL_MODE" != "server" ]; then
+        debian_configure_locale
+    fi
 
     log_success "Debian/Ubuntu configuration completed"
 }
