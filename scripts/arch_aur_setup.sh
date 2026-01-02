@@ -84,18 +84,25 @@ arch_install_aur_helper() {
     rm -rf "$temp_dir"
 }
 
-# Uninstall yay and yay-debug after setup is complete
+# Clean up after yay setup (remove yay-debug and temp files, keep yay)
 uninstall_yay() {
-    log_info "Cleaning up: removing yay AUR helper..."
-    if pacman -Q yay >/dev/null 2>&1; then
-        if pacman -Rns --noconfirm yay yay-debug >/dev/null 2>&1; then
-            log_success "Successfully removed yay and yay-debug"
+    log_info "Cleaning up yay setup..."
+
+    # Remove yay-debug if installed
+    if pacman -Q yay-debug >/dev/null 2>&1; then
+        if pacman -Rns --noconfirm yay-debug >/dev/null 2>&1; then
+            log_success "Successfully removed yay-debug"
         else
-            log_warn "Failed to remove yay, it may still be needed for future AUR access"
+            log_warn "Failed to remove yay-debug"
         fi
     else
-        log_info "yay not installed, skipping cleanup"
+        log_info "yay-debug not installed"
     fi
+
+    # Clean up any remaining yay temp directories
+    log_info "Cleaning up yay temporary files..."
+    rm -rf /tmp/yay* /tmp/makepkg* 2>/dev/null || true
+    log_success "Temporary files cleaned up"
 }
 
 # Update mirrors using reflector
