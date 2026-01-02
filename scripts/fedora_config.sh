@@ -528,13 +528,17 @@ fedora_setup_solaar() {
     fi
 
     local has_logitech=false
-    if lsusb | grep -i logitech >/dev/null 2>&1; then
+
+    # Check for Logitech USB devices with timeout
+    if timeout 5 lsusb | grep -i logitech >/dev/null 2>&1; then
         has_logitech=true
         log_info "Logitech hardware detected via USB"
     fi
 
+    # Check for Logitech Bluetooth devices with timeout and better error handling
     if command -v bluetoothctl >/dev/null 2>&1; then
-        if bluetoothctl devices | grep -i logitech >/dev/null 2>&1; then
+        # Use timeout to prevent hanging on Bluetooth issues
+        if timeout 10 bash -c "bluetoothctl --timeout 5 devices 2>/dev/null | grep -i logitech >/dev/null 2>&1"; then
             has_logitech=true
             log_info "Logitech Bluetooth device detected"
         fi
