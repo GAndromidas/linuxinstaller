@@ -118,22 +118,27 @@ show_menu() {
         echo "Choose your preferred LinuxInstaller setup:"
         echo ""
 
-        # Simple text menu with select
-        select choice in "Standard - Complete setup" "Minimal - Essential tools" "Server - Headless config" "Exit"; do
+        while true; do
+            echo "1) Standard - Complete setup"
+            echo "2) Minimal - Essential tools"
+            echo "3) Server - Headless config"
+            echo "4) Exit"
+            read -r -p "#? " choice
+
             case "$choice" in
-                "Standard - Complete setup")
+                1)
                     export INSTALL_MODE="standard"
                     display_success "Standard mode selected"
                     break ;;
-                "Minimal - Essential tools")
+                2)
                     export INSTALL_MODE="minimal"
                     display_success "Minimal mode selected"
                     break ;;
-                "Server - Headless config")
+                3)
                     export INSTALL_MODE="server"
                     display_success "Server mode selected"
                     break ;;
-                "Exit")
+                4)
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
