@@ -322,15 +322,17 @@ fi
 
 # --- Configuration Validation ---
 # Validate configuration files now that helpers are sourced
-local config_valid=true
+config_valid=true
 for config_file in "$SCRIPTS_DIR"/*.sh; do
-    if ! validate_config "$config_file" "bash"; then
-        config_valid=false
-        break
+    if [ -f "$config_file" ]; then
+        if ! validate_config "$config_file" "bash"; then
+            config_valid=false
+            break
+        fi
     fi
 done
 
-if [ "$config_valid" = false ]; then
+if [ "${config_valid:-true}" = false ]; then
     log_error "✗ Configuration file validation failed"
     exit 1
 fi
