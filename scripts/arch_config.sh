@@ -618,6 +618,7 @@ arch_main_config() {
         # Install Watchtower for automatic container updates
         if command -v docker >/dev/null 2>&1; then
             log_info "Installing Watchtower container for automatic updates"
+            systemctl start docker >/dev/null 2>&1 || true
             docker run --detach \
                 --name watchtower \
                 --volume /var/run/docker.sock:/var/run/docker.sock \
