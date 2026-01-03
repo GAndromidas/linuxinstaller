@@ -33,7 +33,12 @@ fi
 # Helpers
 # ---------------------------
 
-# command_exists() function is available from common.sh
+# command_exists() function - fallback if common.sh not loaded
+if ! command -v command_exists >/dev/null 2>&1; then
+    command_exists() {
+        command -v "$1" >/dev/null 2>&1
+    }
+fi
 
 # Return newline-separated list of candidate wired interfaces
 # - Detect all ethernet adapters in any system (like reference wakeonlan.sh)
@@ -100,25 +105,25 @@ wakeonlan_install_ethtool() {
         return 0
     fi
 
-    # Use the install_pkg wrapper (defined in common.sh) to install in a distro-agnostic way
-    if command_exists install_pkg; then
-        install_packages_with_progress "ethtool" || {
-            log_warn "Failed to install 'ethtool'. WoL actions may fail."
-            return 1
-        }
-    else
-        # Fallback: try common package managers
-        if command_exists pacman; then
-            install_pkg ethtool >/dev/null 2>&1 || true
-        elif command_exists apt-get; then
-            apt-get update -y >/dev/null 2>&1 || true
-            install_pkg ethtool >/dev/null 2>&1 || true
-        elif command_exists dnf; then
-            install_pkg ethtool >/dev/null 2>&1 || true
-        else
-            log_warn "No known package manager wrapper available and 'install_pkg' not present. Please install 'ethtool' manually."
-            return 1
+    # Try to install ethtool using available package managers
+    local installed=false
+    if command_exists pacman; then
+        if pacman -S --noconfirm --needed ethtool >/dev/null 2>&1; then
+            installed=true
         fi
+    elif command_exists apt-get; then
+        if apt-get update -qq >/dev/null 2>&1 && apt-get install -y ethtool >/dev/null 2>&1; then
+            installed=true
+        fi
+    elif command_exists dnf; then
+        if dnf install -y ethtool >/dev/null 2>&1; then
+            installed=true
+        fi
+    fi
+
+    if [ "$installed" = false ]; then
+        log_warn "Failed to install 'ethtool'. WoL actions may fail."
+        return 1
     fi
 
     if ! command_exists ethtool; then

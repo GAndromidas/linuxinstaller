@@ -26,36 +26,40 @@ FEDORA_CONFIGS_DIR="$SCRIPT_DIR/../configs/fedora"
 # These packages are installed in ALL modes (standard, minimal, server)
 # Equivalent to Arch's ARCH_ESSENTIALS - core tools for all setups
 FEDORA_ESSENTIALS=(
+    bat
     bc
+    btop
     cronie
     curl
+    ethtool
     fastfetch
     flatpak
     fzf
     git
+    hwinfo
+    inxi
+    mpv
+    ncdu
     openssh-server
+    python3-speedtest-cli
     rsync
+    sl
+    unrar
+    unzip
+    wakeonlan
+    zoxide
     zsh
     zsh-autosuggestions
     zsh-syntax-highlighting
-    zoxide
 )
 
 # Fedora-specific package lists (centralized in this module)
 # Mode-specific native packages
 FEDORA_NATIVE_STANDARD=(
     android-tools
-    bat
     bleachbit
-    btop
-    cmatrix
+    chromium
     filezilla
-    hwinfo
-    inxi
-    python3-speedtest-cli
-    sl
-    unrar
-    unzip
 )
 
 # Flatpak entries (Flathub IDs)
@@ -66,12 +70,8 @@ FEDORA_FLATPAK_STANDARD=(
 
 # Minimal mode: lightweight desktop with essential tools only
 FEDORA_NATIVE_MINIMAL=(
-    bat
-    btop
-    cmatrix
-    mpv
-    ncdu
-    sl
+    bleachbit
+    firefox
 )
 
 FEDORA_FLATPAK_MINIMAL=(

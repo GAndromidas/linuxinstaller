@@ -88,6 +88,7 @@ ARCH_NATIVE_STANDARD=(
     ncdu
     net-tools
     nmap
+    noto-fonts
     noto-fonts-extra
     samba
     sl
