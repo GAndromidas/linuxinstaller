@@ -14,8 +14,6 @@ if [ "$DISTRO_ID" != "debian" ] && [ "$DISTRO_ID" != "ubuntu" ]; then
     exit 1
 fi
 
-
-
 # Debian/Ubuntu-specific variables
 DEBIAN_SOURCES="/etc/apt/sources.list"
 UBUNTU_SOURCES="/etc/apt/sources.list"
@@ -35,7 +33,6 @@ DEBIAN_ESSENTIALS=(
     curl
     eza
     fastfetch
-    fonts-fira-code
     fonts-hack-ttf
     fonts-jetbrains-mono
     fzf
