@@ -97,10 +97,21 @@ fi
 
 # LinuxInstaller v1.0 - Main installation script
 
-# Show LinuxInstaller ASCII art banner (beautiful cyan theme)
+# Show LinuxInstaller ASCII art banner (distribution-specific colors)
 show_linuxinstaller_ascii() {
     clear
-    echo -e "${CYAN}"
+
+    # Set color based on detected distribution
+    local ascii_color="${CYAN}"  # Default cyan
+    if [ "${DISTRO_ID:-}" = "fedora" ] || [ "${DISTRO_ID:-}" = "arch" ]; then
+        ascii_color="${BLUE}"  # Blue for Fedora and Arch
+    elif [ "${DISTRO_ID:-}" = "debian" ]; then
+        ascii_color="${RED}"   # Red for Debian
+    elif [ "${DISTRO_ID:-}" = "ubuntu" ]; then
+        ascii_color="\033[38;5;208m"  # Orange for Ubuntu (ANSI 208)
+    fi
+
+    echo -e "${ascii_color}"
     cat << "EOF"
       _     _                  ___           _        _ _
      | |   (_)_ __  _   ___  _|_ _|_ __  ___| |_ __ _| | | ___ _ __
