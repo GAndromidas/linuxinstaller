@@ -35,6 +35,7 @@ DEBIAN_ESSENTIALS=(
     curl
     eza
     fastfetch
+    fonts-fira-code
     fonts-hack-ttf
     fonts-jetbrains-mono
     fzf
@@ -569,14 +570,6 @@ debian_setup_snap() {
         log_success "Snap configured"
     else
         log_info "Snap already installed"
-    fi
-
-    # Refresh all installed snaps to latest versions
-    log_info "Refreshing Snap packages to latest versions..."
-    if snap refresh >/dev/null 2>&1; then
-        log_success "Snap packages refreshed successfully"
-    else
-        log_warn "Failed to refresh some Snap packages"
     fi
 }
 
