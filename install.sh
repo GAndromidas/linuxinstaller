@@ -120,15 +120,15 @@ show_menu() {
 
     # Always show menu when interactive, preferring gum if available
     if [ -t 1 ]; then
-        if supports_gum; then
+        if supports_gum && timeout 5 bash -c 'echo "test" | gum choose >/dev/null 2>&1'; then
             local choice
             choice=$(gum choose \
+                --cursor.foreground "$GUM_PRIMARY_FG" \
+                --selected.foreground "$GUM_PRIMARY_FG" \
                 "Standard - Complete setup with all recommended packages" \
                 "Minimal - Essential tools only for lightweight installations" \
                 "Server - Headless server configuration" \
-                "Exit" \
-                --cursor.foreground "$GUM_PRIMARY_FG" --cursor "→" \
-                --selected.foreground "$GUM_PRIMARY_FG")
+                "Exit")
 
             case "$choice" in
                 "Standard - Complete setup with all recommended packages")
