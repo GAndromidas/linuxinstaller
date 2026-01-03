@@ -117,7 +117,7 @@ show_menu() {
         # Update theme for current distro
         update_distro_theme
 
-        display_box "LinuxInstaller Setup" "Choose your preferred installation mode:"
+        echo "Choose your preferred installation mode:"
         echo ""
 
         if supports_gum; then
