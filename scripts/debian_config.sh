@@ -188,7 +188,11 @@ DEBIAN_NATIVE_SERVER=(
     cmatrix
     cron
     curl
-    docker.io
+    docker-ce
+    docker-ce-cli
+    containerd.io
+    docker-buildx-plugin
+    docker-compose-plugin
     duf
     eza
     fail2ban
@@ -545,6 +549,37 @@ debian_setup_snap() {
     fi
 }
 
+# Setup Docker official repository for Debian/Ubuntu
+debian_setup_docker_repo() {
+    display_step "🐳" "Setting up Docker official repository"
+
+    # Determine the correct repo URL based on distro
+    local repo_url="https://download.docker.com/linux/debian"
+    if [ "$DISTRO_ID" = "ubuntu" ]; then
+        repo_url="https://download.docker.com/linux/ubuntu"
+    fi
+
+    # Add Docker's official GPG key
+    apt-get update -qq >/dev/null 2>&1
+    apt-get install -y ca-certificates curl >/dev/null 2>&1
+    install -m 0755 -d /etc/apt/keyrings >/dev/null 2>&1
+    curl -fsSL "$repo_url/gpg" -o /etc/apt/keyrings/docker.asc >/dev/null 2>&1
+    chmod a+r /etc/apt/keyrings/docker.asc >/dev/null 2>&1
+
+    # Add the repository to Apt sources
+    tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: $repo_url
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+    apt-get update -qq >/dev/null 2>&1
+
+    log_success "Docker repository added"
+}
+
 # Setup ZSH shell environment and configuration files for Debian/Ubuntu
 debian_setup_shell() {
     display_step "🐚" "Setting up ZSH shell environment"
@@ -820,3 +855,4 @@ export -f debian_setup_snap
 export -f debian_setup_shell
 export -f debian_setup_solaar
 export -f debian_configure_locale
+export -f debian_setup_docker_repo

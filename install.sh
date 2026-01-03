@@ -1270,6 +1270,11 @@ progress_update "System preparation"
 # Step: Install Packages based on Mode
     display_step "📦" "Installing Packages ($INSTALL_MODE)"
 
+# Setup Docker repo for server mode on Debian/Ubuntu
+if [ "$INSTALL_MODE" = "server" ] && [[ "$DISTRO_ID" = "debian" || "$DISTRO_ID" = "ubuntu" ]]; then
+    debian_setup_docker_repo
+fi
+
 # Install Base packages (native only) - Standard/Minimal/Server
 install_package_group "$INSTALL_MODE" "Base System" "native"
 
