@@ -832,11 +832,20 @@ debian_main_config() {
         debian_configure_locale
     fi
 
-    # Add user to docker group if docker is installed
-    if is_package_installed "docker.io"; then
+    # Add user to docker group and install Watchtower if docker is installed
+    if is_package_installed "docker-ce"; then
         local target_user="${SUDO_USER:-$USER}"
         if [ "$target_user" != "root" ]; then
             usermod -aG docker "$target_user" 2>/dev/null && log_info "Added $target_user to docker group"
+        fi
+
+        # Install Watchtower for automatic container updates
+        if command -v docker >/dev/null 2>&1; then
+            log_info "Installing Watchtower container for automatic updates"
+            docker run --detach \
+                --name watchtower \
+                --volume /var/run/docker.sock:/var/run/docker.sock \
+                containrrr/watchtower >/dev/null 2>&1 && log_success "Watchtower installed" || log_warn "Failed to install Watchtower"
         fi
     fi
 
