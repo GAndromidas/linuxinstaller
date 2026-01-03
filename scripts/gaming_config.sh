@@ -38,6 +38,7 @@ DEBIAN_GAMING=(
 
 FEDORA_GAMING=(
     gamemode
+    goverlay
     mangohud
     mesa-vulkan-drivers
     steam
@@ -67,7 +68,7 @@ detect_gpu() {
         if [ -n "$line" ]; then
             local vendor_id=$(echo "$line" | grep -oP '\[\K[0-9a-fA-F]{4}(?=:)' | head -1)
             local device_name=$(echo "$line" | grep -oP '(?<=\]: ).*(?= \[\d{4}:)' | sed 's/^ *//')
-            
+
             case "$vendor_id" in
                 1002)
                     detected_gpus+=("AMD: $device_name")
