@@ -114,53 +114,103 @@ show_menu() {
 
     # Interactive menu for selection
     if [ -t 1 ]; then
-        echo ""
-        echo "Choose your preferred LinuxInstaller setup:"
+        # Update theme for current distro
+        update_distro_theme
+
+        display_box "LinuxInstaller Setup" "Choose your preferred installation mode:"
         echo ""
 
-        while true; do
-            echo "1) Standard - Complete setup"
-            echo "2) Minimal - Essential tools"
-            echo "3) Server - Headless config"
-            echo "4) Exit"
-            read -r -p "#? " choice
+        if supports_gum; then
+            # Beautiful gum-based menu
+            choice=$(gum choose \
+                --cursor.foreground "$GUM_PRIMARY_FG" \
+                --selected.foreground "$GUM_SUCCESS_FG" \
+                "🚀 Standard - Complete setup with all recommended packages" \
+                "⚡ Minimal - Essential tools only for lightweight installations" \
+                "🖥️  Server - Headless server configuration" \
+                "👋 Exit")
 
             case "$choice" in
-                1)
+                "🚀 Standard - Complete setup with all recommended packages")
                     export INSTALL_MODE="standard"
-                    display_success "Standard mode selected"
-                    break ;;
-                2)
+                    display_success "Standard mode selected - Full featured setup" ;;
+                "⚡ Minimal - Essential tools only for lightweight installations")
                     export INSTALL_MODE="minimal"
-                    display_success "Minimal mode selected"
-                    break ;;
-                3)
+                    display_success "Minimal mode selected - Lightweight setup" ;;
+                "🖥️  Server - Headless server configuration")
                     export INSTALL_MODE="server"
-                    display_success "Server mode selected"
-                    break ;;
-                4)
+                    display_success "Server mode selected - Headless configuration" ;;
+                "👋 Exit")
                     display_info "Goodbye! 👋"
                     exit 0 ;;
-                *)
-                    echo "Invalid choice, please select 1-4" ;;
             esac
-        done
-        export INSTALL_GAMING=false
+
+            # Gaming option for desktop modes
+            if [ "$INSTALL_MODE" = "standard" ] || [ "$INSTALL_MODE" = "minimal" ]; then
+                echo ""
+                if gum confirm "🎮 Include Gaming Package Suite? (Steam, Wine, optimizations)" --default=yes; then
+                    export INSTALL_GAMING=true
+                    display_success "Gaming packages will be installed"
+                else
+                    export INSTALL_GAMING=false
+                    display_info "Skipping gaming packages"
+                fi
+            else
+                export INSTALL_GAMING=false
+            fi
+        else
+            # Fallback text menu
+            while true; do
+                echo "Available options:"
+                echo "1) 🚀 Standard - Complete setup"
+                echo "2) ⚡ Minimal - Essential tools only"
+                echo "3) 🖥️  Server - Headless configuration"
+                echo "4) 👋 Exit"
+                echo -n "Select option [1-4]: "
+                read -r choice
+
+                choice=$(echo "$choice" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+                case "$choice" in
+                    1|"1")
+                        export INSTALL_MODE="standard"
+                        display_success "Standard mode selected"
+                        break ;;
+                    2|"2")
+                        export INSTALL_MODE="minimal"
+                        display_success "Minimal mode selected"
+                        break ;;
+                    3|"3")
+                        export INSTALL_MODE="server"
+                        display_success "Server mode selected"
+                        break ;;
+                    4|"4")
+                        display_info "Goodbye! 👋"
+                        exit 0 ;;
+                    *)
+                        display_warning "Please select a valid option (1-4)" ;;
+                esac
+            done
+            export INSTALL_GAMING=false
+        fi
     else
-        # Non-interactive defaults
-        export INSTALL_MODE="${INSTALL_MODE:-standard}"
-        export INSTALL_GAMING=false
+        display_error "Non-interactive terminal detected. Please run in an interactive shell."
+        exit 1
     fi
 
+    echo ""
     friendly=""
     case "$INSTALL_MODE" in
-        standard) friendly="Standard - Complete setup" ;;
-        minimal)  friendly="Minimal - Essential tools" ;;
-        server)   friendly="Server - Headless config" ;;
+        standard) friendly="🚀 Standard - Complete setup" ;;
+        minimal)  friendly="⚡ Minimal - Essential tools" ;;
+        server)   friendly="🖥️  Server - Headless configuration" ;;
         *)        friendly="$INSTALL_MODE" ;;
     esac
 
-    display_success "Selected: $friendly"
+    display_success "Installation mode: $friendly"
+    if [ "$INSTALL_GAMING" = "true" ]; then
+        display_info "🎮 Gaming packages: Enabled"
+    fi
 }
 
 # Color variables (cyan theme)
