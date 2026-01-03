@@ -194,12 +194,11 @@ show_menu() {
             export INSTALL_GAMING=false
         fi
     else
-        display_warning "Non-interactive environment detected."
-        display_info "For one-liner installation, using Standard mode with gaming packages."
-        display_info "Run './install.sh' interactively for full menu with arrow key navigation."
+        display_error "Interactive terminal required for installation mode selection."
+        display_info "Please run './install.sh' in an interactive shell to choose your installation mode."
+        display_info "One-liner installations are not supported - user choice is required."
         echo ""
-        export INSTALL_MODE="standard"
-        export INSTALL_GAMING=true
+        exit 1
     fi
 
     echo ""
@@ -1264,7 +1263,12 @@ if [ "$DRY_RUN" = false ]; then
     source "$SCRIPTS_DIR/distro_check.sh"
     if declare -f "$DSTR_PREP_FUNC" >/dev/null 2>&1; then
         time_start "distro_prep"
-        source "$SCRIPTS_DIR/${DISTRO_ID}_config.sh"
+        # Map ubuntu to debian config
+        config_file="${DISTRO_ID}_config.sh"
+        if [ "$DISTRO_ID" = "ubuntu" ]; then
+            config_file="debian_config.sh"
+        fi
+        source "$SCRIPTS_DIR/$config_file"
         "$DSTR_PREP_FUNC"
         time_end "distro_prep"
     else
