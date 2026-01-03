@@ -112,37 +112,31 @@ EOF
 show_menu() {
     show_linuxinstaller_ascii
 
-    if ! supports_gum; then
-        echo -e "${LIGHT_CYAN}Note: gum not detected, using text menu${RESET}"
-    fi
-
-    echo ""
-
     # Interactive menu for selection
     if [ -t 1 ]; then
-        # Simple text menu
-        while true; do
-            echo "Select installation mode:"
-            echo "1) Standard - Complete setup"
-            echo "2) Minimal - Essential tools"
-            echo "3) Server - Headless config"
-            echo "4) Exit"
-            read -r -p "#? " choice
+        display_box "Installation Mode Selection" "Choose your preferred LinuxInstaller setup:"
+        echo ""
+
+        # Simple text menu with select
+        select choice in "Standard - Complete setup" "Minimal - Essential tools" "Server - Headless config" "Exit"; do
             case "$choice" in
-                1)
+                "Standard - Complete setup")
                     export INSTALL_MODE="standard"
+                    display_success "Standard mode selected"
                     break ;;
-                2)
+                "Minimal - Essential tools")
                     export INSTALL_MODE="minimal"
+                    display_success "Minimal mode selected"
                     break ;;
-                3)
+                "Server - Headless config")
                     export INSTALL_MODE="server"
+                    display_success "Server mode selected"
                     break ;;
-                4)
+                "Exit")
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
-                    echo "Invalid choice, please select 1-4" ;;
+                    display_warning "Invalid choice, please select 1-4" ;;
             esac
         done
         export INSTALL_GAMING=false
@@ -160,8 +154,7 @@ show_menu() {
         *)        friendly="$INSTALL_MODE" ;;
     esac
 
-    echo -e "${CYAN}✓ Selected: ${LIGHT_CYAN}$friendly${RESET}"
-    echo ""
+    display_success "Selected: $friendly"
 }
 
 # Color variables (cyan theme)
