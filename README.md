@@ -31,7 +31,6 @@ LinuxInstaller is a comprehensive, cross-distribution post-installation script t
 
 ### 🚀 Get Started Now
 ```bash
-# One-liner installation (downloads full repository automatically)
 curl -fsSL https://raw.githubusercontent.com/GAndromidas/linuxinstaller/main/install.sh | bash
 ```
 
