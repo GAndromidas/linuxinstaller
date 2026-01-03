@@ -14,10 +14,7 @@ if [ "$DISTRO_ID" != "debian" ] && [ "$DISTRO_ID" != "ubuntu" ]; then
     exit 1
 fi
 
-# Ubuntu-specific color scheme (Orange instead of Yellow for warnings)
-if [ "$DISTRO_ID" = "ubuntu" ]; then
-    GUM_WARNING_FG=208  # Orange color for Ubuntu warnings
-fi
+
 
 # Debian/Ubuntu-specific variables
 DEBIAN_SOURCES="/etc/apt/sources.list"
