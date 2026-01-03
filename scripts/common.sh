@@ -553,12 +553,29 @@ detect_bootloader() {
         else
             echo "unknown"
         fi
-    else
-        if [ -d /boot/grub ]; then
-            echo "grub"
+    elif [ -t 0 ]; then
+        echo "🔄 System Reboot Required"
+        echo ""
+        echo "$message"
+        echo ""
+        echo "⚠️  Important: Save your work before rebooting"
+        echo ""
+        read -r -p "Reboot now? [Y/n]: " response
+        if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
+            echo "Rebooting now..."
+            systemctl reboot
         else
-            echo "unknown"
+            echo "Reboot cancelled. Remember to reboot later to apply changes"
         fi
+    else
+        # Non-interactive environment - just show the message
+        echo "🔄 System Reboot Required"
+        echo ""
+        echo "$message"
+        echo ""
+        echo "⚠️  Important: Save your work before rebooting"
+        echo "Please reboot manually to apply all changes"
+    fi
     fi
 }
 
@@ -813,7 +830,7 @@ performance_report() {
 prompt_reboot() {
     local message="${1:-Reboot your system to apply all changes}"
 
-    if supports_gum; then
+    if supports_gum && [ -t 0 ]; then
         echo ""
         local full_message="$message
 ⚠️  Important: Save your work before rebooting"
