@@ -120,7 +120,7 @@ show_menu() {
 
     # Always show menu when interactive, preferring gum if available
     if [ -t 1 ]; then
-        if supports_gum && timeout 5 bash -c 'echo "test" | gum choose >/dev/null 2>&1'; then
+        if supports_gum; then
             local choice
             choice=$(gum choose \
                 --cursor.foreground "$GUM_PRIMARY_FG" \
@@ -167,11 +167,10 @@ show_menu() {
                 return
             fi
         fi
-    fi
 
-    # Fallback plain-text menu
-    local text_choice
-    while true; do
+        # Fallback plain-text menu
+        local text_choice
+        while true; do
         echo "Please select an installation mode:"
         echo "  1) Standard - Complete setup with all recommended packages"
         echo "  2) Minimal - Essential tools only for lightweight installations"
