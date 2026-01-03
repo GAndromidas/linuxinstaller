@@ -437,6 +437,10 @@ fedora_setup_flatpak() {
 # Setup COPR repositories for Fedora
 fedora_setup_copr() {
     display_step "📦" "Setting up COPR repositories"
+
+    # Ensure RPM Fusion is enabled before setting up COPR
+    fedora_enable_rpmfusion
+
     if [ "${#FEDORA_COPR_REPOS[@]}" -gt 0 ]; then
         # Ensure dnf-plugins-core is available (required for 'dnf copr')
         if ! install_pkg dnf-plugins-core >/dev/null 2>&1; then
@@ -446,7 +450,7 @@ fedora_setup_copr() {
         for repo in "${FEDORA_COPR_REPOS[@]}"; do
             if [ -n "$repo" ]; then
                 log_info "Enabling COPR repository: $repo"
-                if ! dnf copr enable -y "$repo" >/dev/null 2>&1; then
+                if ! dnf copr enable -y "$repo" >/dev/null; then
                     log_warn "Failed to enable COPR repo: $repo"
                 else
                     log_success "Enabled COPR repo: $repo"
