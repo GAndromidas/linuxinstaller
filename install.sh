@@ -120,20 +120,19 @@ show_menu() {
 
     # Interactive menu for selection
     if [ -t 1 ]; then
-        if supports_gum; then
+        if supports_gum && echo "test" | gum choose >/dev/null 2>&1; then
             choice=$(gum choose \
-                --cursor.foreground "$GUM_PRIMARY_FG" \
-                "Standard - Complete setup with all recommended packages" \
-                "Minimal - Essential tools only for lightweight installations" \
-                "Server - Headless server configuration" \
+                "Standard - Complete setup" \
+                "Minimal - Essential tools" \
+                "Server - Headless config" \
                 "Exit")
 
             case "$choice" in
-                "Standard - Complete setup with all recommended packages")
+                "Standard - Complete setup")
                     export INSTALL_MODE="standard" ;;
-                "Minimal - Essential tools only for lightweight installations")
+                "Minimal - Essential tools")
                     export INSTALL_MODE="minimal" ;;
-                "Server - Headless server configuration")
+                "Server - Headless config")
                     export INSTALL_MODE="server" ;;
                 "Exit")
                     display_info "Goodbye! 👋"
@@ -150,18 +149,26 @@ show_menu() {
                 export INSTALL_GAMING=false
             fi
         else
-            # Simple text menu
+            # Simple text menu with select
             echo "Select installation mode:"
-            echo "1) Standard"
-            echo "2) Minimal"
-            echo "3) Server"
-            read -r -p "Choice [1-3]: " choice
-            case "$choice" in
-                1) export INSTALL_MODE="standard" ;;
-                2) export INSTALL_MODE="minimal" ;;
-                3) export INSTALL_MODE="server" ;;
-                *) export INSTALL_MODE="standard" ;;
-            esac
+            select choice in "Standard - Complete setup" "Minimal - Essential tools" "Server - Headless config" "Exit"; do
+                case "$choice" in
+                    "Standard - Complete setup")
+                        export INSTALL_MODE="standard"
+                        break ;;
+                    "Minimal - Essential tools")
+                        export INSTALL_MODE="minimal"
+                        break ;;
+                    "Server - Headless config")
+                        export INSTALL_MODE="server"
+                        break ;;
+                    "Exit")
+                        display_info "Goodbye! 👋"
+                        exit 0 ;;
+                    *)
+                        echo "Invalid choice, please select 1-4" ;;
+                esac
+            done
             export INSTALL_GAMING=false
         fi
     else
