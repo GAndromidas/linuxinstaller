@@ -628,7 +628,7 @@ get_install_command() {
             ;;
         aur)
             if command -v yay >/dev/null 2>&1; then
-                install_cmd="yay -S --noconfirm --removemake"
+                install_cmd="yay -S --noconfirm"
             else
                 log_error "yay not found. Please install yay first."
                 return 1
@@ -891,16 +891,48 @@ install_other_packages() {
     local install_cmd="$1"
     local -n packages_ref="$2" installed_ref="$3" failed_ref="$4"
 
-    for pkg in "${packages_ref[@]}"; do
-        pkg="$(echo "$pkg" | xargs)"
-
-        echo "• Installing $pkg"
-        if $install_cmd "$pkg" >/dev/null 2>&1; then
-            installed_ref+=("$pkg")
+    # Handle AUR packages with proper user context
+    if [[ "$install_cmd" == yay* ]]; then
+        # Determine which user to run yay as (never as root)
+        local yay_user=""
+        if [ "$EUID" -eq 0 ]; then
+            if [ -n "${SUDO_USER:-}" ]; then
+                yay_user="$SUDO_USER"
+            else
+                # Fallback to first real user if SUDO_USER not set
+                yay_user=$(getent passwd 1000 | cut -d: -f1)
+            fi
+            if [ -z "${yay_user:-}" ]; then
+                log_error "Cannot determine user for AUR package installation"
+                return 1
+            fi
         else
-            failed_ref+=("$pkg")
+            yay_user="$USER"
         fi
-    done
+
+        for pkg in "${packages_ref[@]}"; do
+            pkg="$(echo "$pkg" | xargs)"
+
+            echo "• Installing $pkg"
+            if sudo -u "$yay_user" $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        done
+    else
+        # Handle other package types (Snap, etc.)
+        for pkg in "${packages_ref[@]}"; do
+            pkg="$(echo "$pkg" | xargs)"
+
+            echo "• Installing $pkg"
+            if $install_cmd "$pkg" >/dev/null 2>&1; then
+                installed_ref+=("$pkg")
+            else
+                failed_ref+=("$pkg")
+            fi
+        done
+    fi
 }
 
 # Show package installation summary

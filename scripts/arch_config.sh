@@ -572,12 +572,30 @@ arch_main_config() {
 
     # Ensure AUR packages are installed
     log_info "Ensuring AUR packages are installed..."
+
+    # Determine which user to run yay as (never as root)
+    local yay_user=""
+    if [ "$EUID" -eq 0 ]; then
+        if [ -n "${SUDO_USER:-}" ]; then
+            yay_user="$SUDO_USER"
+        else
+            # Fallback to first real user if SUDO_USER not set
+            yay_user=$(getent passwd 1000 | cut -d: -f1)
+        fi
+        if [ -z "${yay_user:-}" ]; then
+            log_error "Cannot determine user for AUR package installation"
+            return 1
+        fi
+    else
+        yay_user="$USER"
+    fi
+
     case "$INSTALL_MODE" in
         standard)
             for pkg in "${ARCH_AUR_STANDARD[@]}"; do
                 if ! is_package_installed "$pkg"; then
                     log_info "Installing missing AUR package: $pkg"
-                    if yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
+                    if sudo -u "$yay_user" yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
                         log_success "Installed $pkg"
                     else
                         log_error "Failed to install $pkg"
@@ -589,7 +607,7 @@ arch_main_config() {
             for pkg in "${ARCH_AUR_MINIMAL[@]}"; do
                 if ! is_package_installed "$pkg"; then
                     log_info "Installing missing AUR package: $pkg"
-                    if yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
+                    if sudo -u "$yay_user" yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
                         log_success "Installed $pkg"
                     else
                         log_error "Failed to install $pkg"
