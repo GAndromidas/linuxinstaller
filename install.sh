@@ -61,22 +61,7 @@ run_pre_install_checks() {
         log_error "✗ Insufficient disk space (need at least 1GB free)"
     fi
 
-    # Test 6: Configuration file validation
-    ((total_checks++))
-    local config_valid=true
-    for config_file in "$SCRIPTS_DIR"/*.sh; do
-        if ! validate_config "$config_file" "bash"; then
-            config_valid=false
-            break
-        fi
-    done
 
-    if [ "$config_valid" = true ]; then
-        log_success "✓ All configuration files validated"
-        ((checks_passed++))
-    else
-        log_error "✗ Configuration file validation failed"
-    fi
 
     # Summary
     log_info "Pre-installation checks: $checks_passed/$total_checks passed"
@@ -333,6 +318,21 @@ fi
 # power-profiles-daemon / cpupower / tuned as appropriate.
 if [ -f "$SCRIPTS_DIR/power_config.sh" ]; then
   source "$SCRIPTS_DIR/power_config.sh"
+fi
+
+# --- Configuration Validation ---
+# Validate configuration files now that helpers are sourced
+local config_valid=true
+for config_file in "$SCRIPTS_DIR"/*.sh; do
+    if ! validate_config "$config_file" "bash"; then
+        config_valid=false
+        break
+    fi
+done
+
+if [ "$config_valid" = false ]; then
+    log_error "✗ Configuration file validation failed"
+    exit 1
 fi
 
 # --- Global Variables ---

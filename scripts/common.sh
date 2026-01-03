@@ -576,7 +576,6 @@ detect_bootloader() {
         echo "⚠️  Important: Save your work before rebooting"
         echo "Please reboot manually to apply all changes"
     fi
-    fi
 }
 
 # Check if system uses btrfs filesystem
