@@ -277,6 +277,32 @@ gnome_configure_network() {
     log_success "GNOME network settings configured"
 }
 
+# Install GNOME-specific Flatpak applications
+gnome_install_flatpak_packages() {
+    display_step "📦" "Installing GNOME Flatpak Applications"
+
+    # Ensure Flatpak is available
+    if ! command -v flatpak >/dev/null 2>&1; then
+        log_warn "Flatpak not available, skipping GNOME Flatpak installations"
+        return
+    fi
+
+    # GNOME-specific Flatpak packages
+    local gnome_flatpak_packages=(
+        com.mattjakeman.ExtensionManager
+    )
+
+    # Install GNOME Flatpak packages
+    for package in "${gnome_flatpak_packages[@]}"; do
+        log_info "Installing GNOME Flatpak: $package"
+        if flatpak install -y flathub "$package" >/dev/null 2>&1; then
+            log_success "Installed GNOME Flatpak: $package"
+        else
+            log_warn "Failed to install GNOME Flatpak: $package"
+        fi
+    done
+}
+
 # Install and configure GNOME Software application
 gnome_install_gnome_software() {
     display_step "📦" "Installing and Configuring GNOME Software"
@@ -305,6 +331,8 @@ gnome_main_config() {
 
     gnome_install_packages
 
+    gnome_install_flatpak_packages
+
     gnome_configure_extensions
 
     gnome_configure_theme
@@ -323,6 +351,7 @@ gnome_main_config() {
 # Export functions for use by main installer
 export -f gnome_main_config
 export -f gnome_install_packages
+export -f gnome_install_flatpak_packages
 export -f gnome_configure_extensions
 export -f gnome_configure_theme
 export -f gnome_configure_shortcuts
