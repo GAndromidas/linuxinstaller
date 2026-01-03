@@ -113,7 +113,7 @@ show_menu() {
     show_linuxinstaller_ascii
 
     # Interactive menu for selection
-    if [ -t 1 ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
         # Update theme for current distro
         update_distro_theme
 
@@ -194,8 +194,12 @@ show_menu() {
             export INSTALL_GAMING=false
         fi
     else
-        display_error "Non-interactive terminal detected. Please run in an interactive shell."
-        exit 1
+        display_warning "Non-interactive environment detected."
+        display_info "For one-liner installation, using Standard mode with gaming packages."
+        display_info "Run './install.sh' interactively for full menu with arrow key navigation."
+        echo ""
+        export INSTALL_MODE="standard"
+        export INSTALL_GAMING=true
     fi
 
     echo ""
