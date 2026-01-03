@@ -706,12 +706,16 @@ fedora_main_config() {
 
         # Install Watchtower for automatic container updates
         if command -v docker >/dev/null 2>&1; then
-            log_info "Installing Watchtower container for automatic updates"
-            systemctl start docker >/dev/null 2>&1 || true
-            docker run --detach \
-                --name watchtower \
-                --volume /var/run/docker.sock:/var/run/docker.sock \
-                containrrr/watchtower >/dev/null 2>&1 && log_success "Watchtower installed" || log_warn "Failed to install Watchtower"
+            log_info "Starting Docker service and installing Watchtower"
+            systemctl enable --now docker >/dev/null 2>&1 || true
+            if docker ps >/dev/null 2>&1; then
+                docker run --detach \
+                    --name watchtower \
+                    --volume /var/run/docker.sock:/var/run/docker.sock \
+                    containrrr/watchtower >/dev/null 2>&1 && log_success "Watchtower installed" || log_warn "Failed to install Watchtower"
+            else
+                log_warn "Docker service not running, skipping Watchtower installation"
+            fi
         fi
     fi
 
