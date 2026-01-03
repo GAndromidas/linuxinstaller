@@ -697,10 +697,6 @@ fedora_main_config() {
 
     fedora_setup_solaar
 
-    if [ "$INSTALL_MODE" != "server" ]; then
-        fedora_configure_locale
-    fi
-
     # Add user to docker group if docker is installed
     if is_package_installed "docker"; then
         local target_user="${SUDO_USER:-$USER}"

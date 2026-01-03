@@ -33,6 +33,9 @@ DEBIAN_ESSENTIALS=(
     curl
     eza
     fastfetch
+    fonts-fira-code
+    fonts-hack-ttf
+    fonts-jetbrains-mono
     fzf
     git
     openssh-server
@@ -66,36 +69,22 @@ debian_enable_nonfree_repos() {
         if grep -q "non-free" "$sources_file"; then
             log_info "Non-free repositories already enabled"
             return 0
-        fi
-    fi
+         fi
+     fi
 
-    # Backup original sources file
-    cp "$sources_file" "${sources_file}.backup"
-
-    # Enable repositories
-    if [ "$DISTRO_ID" = "ubuntu" ]; then
-        # For Ubuntu, ensure universe and multiverse are enabled
-        sed -i '/^deb / s/$/ universe multiverse/' "$sources_file"
-        log_success "Enabled universe and multiverse repositories for Ubuntu"
-    else
-        # For Debian, add non-free and non-free-firmware
-        sed -i '/^deb / s/$/ non-free non-free-firmware/' "$sources_file"
-        log_success "Enabled non-free and non-free-firmware repositories for Debian"
-    fi
-
-    # Update package lists with new repositories
-    log_info "Updating package lists with sudo apt update -y..."
-    if sudo apt update -y >/dev/null 2>&1; then
-        log_success "Package lists updated successfully"
-    else
-        log_error "Failed to update package lists after enabling repositories"
-        # Restore backup on failure
-        cp "${sources_file}.backup" "$sources_file"
-        return 1
-    fi
-
-    log_success "Repositories enabled and package lists synchronized"
-}
+     # Configure terminal font to use Hack Nerd Font
+     if command -v gsettings >/dev/null 2>&1; then
+         log_info "Configuring GNOME Terminal to use Hack Nerd Font..."
+         # Get the default profile UUID
+         local default_profile
+         default_profile=$(gsettings get org.gnome.Terminal.ProfilesList default 2>/dev/null | sed "s/'//g")
+         if [ -n "$default_profile" ]; then
+             # Set font to Hack Nerd Font 11
+             gsettings set "org.gnome.Terminal.Legacy.Profile:/org/gnome/terminal/legacy/profiles:/:$default_profile/" font "Hack Nerd Font 11" 2>/dev/null || true
+             log_success "Set GNOME Terminal font to Hack Nerd Font"
+         fi
+     fi
+ }
 
 # Debian/Ubuntu-specific package lists (centralized in this module)
 # Note: All packages verified for both Debian stable and Ubuntu LTS repositories
@@ -364,6 +353,39 @@ debian_install_essentials() {
             display_success "✓ ${installed[*]}"
         else
             echo -e "${GREEN}✓ ${installed[*]}${RESET}"
+        fi
+    fi
+
+    # Install Ubuntu-specific packages
+    if [ "$DISTRO_ID" = "ubuntu" ]; then
+        log_info "Installing Ubuntu-specific packages..."
+        local ubuntu_packages=("ubuntu-restricted-extras")
+        for pkg in "${ubuntu_packages[@]}"; do
+            if ! is_package_installed "$pkg"; then
+                if supports_gum; then
+                    if spin "Installing Ubuntu package" apt-get install -y "$pkg" >/dev/null 2>&1; then
+                        log_success "Installed Ubuntu package: $pkg"
+                    else
+                        log_warn "Failed to install Ubuntu package: $pkg"
+                    fi
+                else
+                    if apt-get install -y "$pkg" >/dev/null 2>&1; then
+                        log_success "Installed Ubuntu package: $pkg"
+                    else
+                        log_warn "Failed to install Ubuntu package: $pkg"
+                    fi
+                fi
+            fi
+        done
+    fi
+
+    # Cache fonts if any were installed
+    if printf '%s\n' "${installed[@]}" | grep -q "^fonts-"; then
+        log_info "Caching installed fonts..."
+        if fc-cache -fv >/dev/null 2>&1; then
+            log_success "Fonts cached successfully"
+        else
+            log_warn "Failed to cache fonts"
         fi
     fi
 }
@@ -828,9 +850,10 @@ debian_main_config() {
 
     debian_setup_solaar
 
-    if [ "$INSTALL_MODE" != "server" ]; then
-        debian_configure_locale
-    fi
+    # Skip locale configuration for Debian/Ubuntu (only keep for Arch)
+    # if [ "$INSTALL_MODE" != "server" ]; then
+    #     debian_configure_locale
+    # fi
 
     # Add user to docker group if docker is installed
     if is_package_installed "docker-ce"; then
