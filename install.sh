@@ -120,20 +120,25 @@ show_menu() {
 
     # Interactive menu for selection
     if [ -t 1 ]; then
-        # Simple text menu with select
-        echo "Select installation mode:"
-        select choice in "Standard - Complete setup" "Minimal - Essential tools" "Server - Headless config" "Exit"; do
+        # Simple text menu
+        while true; do
+            echo "Select installation mode:"
+            echo "1) Standard - Complete setup"
+            echo "2) Minimal - Essential tools"
+            echo "3) Server - Headless config"
+            echo "4) Exit"
+            read -r -p "#? " choice
             case "$choice" in
-                "Standard - Complete setup")
+                1)
                     export INSTALL_MODE="standard"
                     break ;;
-                "Minimal - Essential tools")
+                2)
                     export INSTALL_MODE="minimal"
                     break ;;
-                "Server - Headless config")
+                3)
                     export INSTALL_MODE="server"
                     break ;;
-                "Exit")
+                4)
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
