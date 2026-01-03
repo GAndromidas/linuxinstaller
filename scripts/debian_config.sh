@@ -866,6 +866,11 @@ debian_main_config() {
     log_success "Debian/Ubuntu configuration completed"
 }
 
+# Ubuntu-specific wrapper functions (Ubuntu uses Debian functions)
+ubuntu_system_preparation() {
+    debian_system_preparation
+}
+
 # Export functions for use by main installer
 export -f debian_main_config
 export -f debian_system_preparation
@@ -879,3 +884,4 @@ export -f debian_setup_shell
 export -f debian_setup_solaar
 export -f debian_configure_locale
 export -f debian_setup_docker_repo
+export -f ubuntu_system_preparation
