@@ -108,107 +108,55 @@ EOF
     echo ""
 }
 
-# Menu selection logic (always shown)
-show_menu_selection() {
-    # Update theme for current distro
-    update_distro_theme
+# Enhanced Menu Function
+show_menu() {
+    show_linuxinstaller_ascii
 
-    display_info "Choose your preferred installation mode:"
+    if ! supports_gum; then
+        echo -e "${LIGHT_CYAN}Note: gum not detected, using text menu${RESET}"
+    fi
+
     echo ""
 
-    if supports_gum; then
-        # Beautiful gum-based menu for fully interactive environments
-        choice=$(gum choose \
-            --cursor.foreground "$GUM_PRIMARY_FG" \
-            --selected.foreground "$GUM_SUCCESS_FG" \
-            "🚀 Standard - Complete setup with all recommended packages" \
-            "⚡ Minimal - Essential tools only for lightweight installations" \
-            "🖥️  Server - Headless server configuration" \
-            "👋 Exit")
-
-        case "$choice" in
-            "🚀 Standard - Complete setup with all recommended packages")
-                export INSTALL_MODE="standard"
-                display_success "Standard mode selected - Full featured setup" ;;
-            "⚡ Minimal - Essential tools only for lightweight installations")
-                export INSTALL_MODE="minimal"
-                display_success "Minimal mode selected - Lightweight setup" ;;
-            "🖥️  Server - Headless server configuration")
-                export INSTALL_MODE="server"
-                display_success "Server mode selected - Headless configuration" ;;
-            "👋 Exit")
-                display_info "Goodbye! 👋"
-                exit 0 ;;
-        esac
-
-        # Gaming option for desktop modes
-        if [ "$INSTALL_MODE" = "standard" ] || [ "$INSTALL_MODE" = "minimal" ]; then
-            echo ""
-            if gum confirm "🎮 Include Gaming Package Suite? (Steam, Wine, optimizations)" --default=yes; then
-                export INSTALL_GAMING=true
-                display_success "Gaming packages will be installed"
-            else
-                export INSTALL_GAMING=false
-                display_info "Skipping gaming packages"
-            fi
-        else
-            export INSTALL_GAMING=false
-        fi
-    else
-        # Fallback text menu for limited environments
-        display_warning "Limited terminal capabilities detected. Using text-based menu."
-        echo ""
-
-        local attempts=0
-        while [ $attempts -lt 3 ]; do
-            attempts=$((attempts + 1))
-            echo "Available options:"
-            echo "1) 🚀 Standard - Complete setup"
-            echo "2) ⚡ Minimal - Essential tools only"
-            echo "3) 🖥️  Server - Headless configuration"
-            echo "4) 👋 Exit"
-            read -r -p "Select option [1-4]: " choice 2>/dev/null || {
-                display_error "Input not available in this environment."
-                display_info "Please run in an interactive terminal or use git clone for full menu."
-                display_info "Defaulting to Standard mode for now."
-                export INSTALL_MODE="standard"
-                export INSTALL_GAMING=true
-                return
-            }
-
-            choice=$(echo "$choice" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
+    # Interactive menu for selection
+    if [ -t 1 ]; then
+        # Simple text menu with select
+        echo "Select installation mode:"
+        select choice in "Standard - Complete setup" "Minimal - Essential tools" "Server - Headless config" "Exit"; do
             case "$choice" in
-                1|"1"|"")
+                "Standard - Complete setup")
                     export INSTALL_MODE="standard"
-                    display_success "Standard mode selected"
-                    export INSTALL_GAMING=false
-                    return ;;
-                2|"2")
+                    break ;;
+                "Minimal - Essential tools")
                     export INSTALL_MODE="minimal"
-                    display_success "Minimal mode selected"
-                    export INSTALL_GAMING=false
-                    return ;;
-                3|"3")
+                    break ;;
+                "Server - Headless config")
                     export INSTALL_MODE="server"
-                    display_success "Server mode selected"
-                    export INSTALL_GAMING=false
-                    return ;;
-                4|"4")
+                    break ;;
+                "Exit")
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
-                    if [ $attempts -eq 3 ]; then
-                        display_warning "Too many invalid attempts. Defaulting to Standard mode."
-                        export INSTALL_MODE="standard"
-                        export INSTALL_GAMING=false
-                        return
-                    else
-                        display_warning "Please select a valid option (1-4)"
-                    fi ;;
+                    echo "Invalid choice, please select 1-4" ;;
             esac
         done
+        export INSTALL_GAMING=false
+    else
+        # Non-interactive defaults
+        export INSTALL_MODE="${INSTALL_MODE:-standard}"
+        export INSTALL_GAMING=false
     fi
+
+    friendly=""
+    case "$INSTALL_MODE" in
+        standard) friendly="Standard - Complete setup with all recommended packages" ;;
+        minimal)  friendly="Minimal - Essential tools only for lightweight installations" ;;
+        server)   friendly="Server - Headless server configuration" ;;
+        *)        friendly="$INSTALL_MODE" ;;
+    esac
+
+    echo -e "${CYAN}✓ Selected mode: ${LIGHT_CYAN}$friendly${RESET}"
+    echo ""
 }
 
 # Enhanced Menu Function
