@@ -116,7 +116,7 @@ show_menu_selection() {
     display_info "Choose your preferred installation mode:"
     echo ""
 
-    if [ -t 0 ] && [ -t 1 ] && supports_gum; then
+    if supports_gum; then
         # Beautiful gum-based menu for fully interactive environments
         choice=$(gum choose \
             --cursor.foreground "$GUM_PRIMARY_FG" \
@@ -159,7 +159,9 @@ show_menu_selection() {
         display_warning "Limited terminal capabilities detected. Using text-based menu."
         echo ""
 
-        while true; do
+        local attempts=0
+        while [ $attempts -lt 3 ]; do
+            attempts=$((attempts + 1))
             echo "Available options:"
             echo "1) 🚀 Standard - Complete setup"
             echo "2) ⚡ Minimal - Essential tools only"
@@ -177,26 +179,35 @@ show_menu_selection() {
             choice=$(echo "$choice" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
             case "$choice" in
-                1|"1")
+                1|"1"|"")
                     export INSTALL_MODE="standard"
                     display_success "Standard mode selected"
-                    break ;;
+                    export INSTALL_GAMING=false
+                    return ;;
                 2|"2")
                     export INSTALL_MODE="minimal"
                     display_success "Minimal mode selected"
-                    break ;;
+                    export INSTALL_GAMING=false
+                    return ;;
                 3|"3")
                     export INSTALL_MODE="server"
                     display_success "Server mode selected"
-                    break ;;
+                    export INSTALL_GAMING=false
+                    return ;;
                 4|"4")
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
-                    display_warning "Please select a valid option (1-4)" ;;
+                    if [ $attempts -eq 3 ]; then
+                        display_warning "Too many invalid attempts. Defaulting to Standard mode."
+                        export INSTALL_MODE="standard"
+                        export INSTALL_GAMING=false
+                        return
+                    else
+                        display_warning "Please select a valid option (1-4)"
+                    fi ;;
             esac
         done
-        export INSTALL_GAMING=false
     fi
 }
 
