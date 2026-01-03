@@ -113,18 +113,16 @@ show_menu() {
     show_linuxinstaller_ascii
 
     if ! supports_gum; then
-        echo -e "${LIGHT_CYAN}Note: gum not detected, using enhanced text menu${RESET}"
+        echo -e "${LIGHT_CYAN}Note: gum not detected, using text menu${RESET}"
     fi
 
     echo ""
 
-    # Always show menu when interactive, preferring gum if available
+    # Interactive menu for selection
     if [ -t 1 ]; then
         if supports_gum; then
-            local choice
             choice=$(gum choose \
                 --cursor.foreground "$GUM_PRIMARY_FG" \
-                --selected.foreground "$GUM_PRIMARY_FG" \
                 "Standard - Complete setup with all recommended packages" \
                 "Minimal - Essential tools only for lightweight installations" \
                 "Server - Headless server configuration" \
@@ -140,86 +138,50 @@ show_menu() {
                 "Exit")
                     display_info "Goodbye! 👋"
                     exit 0 ;;
-                *)
-                    # If gum fails or returns empty, fall back to text menu
-                    ;;
             esac
 
-            if [ -n "$choice" ]; then
-                echo ""
-                display_success "Selected: $choice"
-                echo ""
-
-                if [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; then
-                    echo ""
-                    display_box "🎮 Would you like to install the Gaming Package Suite?" "This includes Steam, Wine, and gaming optimizations."
-                    echo ""
-                    if gum confirm "Install Gaming Package Suite?" --default=true; then
-                        export INSTALL_GAMING=true
-                        display_success "Gaming packages will be installed"
-                    else
-                        export INSTALL_GAMING=false
-                        display_info "Skipping gaming packages"
-                    fi
+            if [ -n "$choice" ] && { [ "$INSTALL_MODE" = "standard" ] || [ "$INSTALL_MODE" = "minimal" ]; }; then
+                if gum confirm "Install Gaming Package Suite?" --default=true; then
+                    export INSTALL_GAMING=true
                 else
                     export INSTALL_GAMING=false
                 fi
-                return
-            fi
-        fi
-
-        # Fallback plain-text menu
-        local text_choice
-        while true; do
-        echo "Please select an installation mode:"
-        echo "  1) Standard - Complete setup with all recommended packages"
-        echo "  2) Minimal - Essential tools only for lightweight installations"
-        echo "  3) Server - Headless server configuration"
-        echo "  4) Exit"
-        read -r -t 300 -p "Enter choice [1-4]: " text_choice 2>/dev/null || {
-            echo "No input received. Using default: Standard"
-            text_choice="1"
-            break
-        }
-
-         case "$text_choice" in
-             1) export INSTALL_MODE="standard" ; break ;;
-             2) export INSTALL_MODE="minimal" ; break ;;
-             3) export INSTALL_MODE="server" ; break ;;
-             4) echo -e "${LIGHT_CYAN}Goodbye! 👋${RESET}"; exit 0 ;;
-             *) echo -e "${YELLOW}Invalid choice, please try again.${RESET}" ;;
-         esac
-    done
-
-    echo ""
-
-    local friendly
-    case "$INSTALL_MODE" in
-        standard) friendly="Standard - Complete setup with all recommended packages" ;;
-        minimal)  friendly="Minimal - Essential tools only for lightweight installations" ;;
-        server)   friendly="Server - Headless server configuration" ;;
-        *)        friendly="$INSTALL_MODE" ;;
-    esac
-
-    echo -e "${CYAN}✓ You selected: ${LIGHT_CYAN}$friendly${RESET}"
-
-    if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
-        if [ -t 1 ]; then
-            read -r -p "Install Gaming Package Suite? [Y/n]: " response
-            if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ || -z "$response" ]]; then
-                export INSTALL_GAMING=true
             else
                 export INSTALL_GAMING=false
             fi
         else
+            # Simple text menu
+            echo "Select installation mode:"
+            echo "1) Standard"
+            echo "2) Minimal"
+            echo "3) Server"
+            read -r -p "Choice [1-3]: " choice
+            case "$choice" in
+                1) export INSTALL_MODE="standard" ;;
+                2) export INSTALL_MODE="minimal" ;;
+                3) export INSTALL_MODE="server" ;;
+                *) export INSTALL_MODE="standard" ;;
+            esac
             export INSTALL_GAMING=false
         fi
     else
-        if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
-            export INSTALL_GAMING=true
-        fi
+        # Non-interactive defaults
+        export INSTALL_MODE="${INSTALL_MODE:-standard}"
+        export INSTALL_GAMING=false
     fi
 
+    friendly=""
+    case "$INSTALL_MODE" in
+        standard) friendly="Standard - Complete setup" ;;
+        minimal)  friendly="Minimal - Essential tools only" ;;
+        server)   friendly="Server - Headless configuration" ;;
+        *)        friendly="$INSTALL_MODE" ;;
+    esac
+
+    echo -e "${CYAN}✓ Selected: ${LIGHT_CYAN}$friendly${RESET}"
+    if [ "$INSTALL_GAMING" = "true" ]; then
+        echo -e "${CYAN}✓ Gaming packages: ${LIGHT_CYAN}Enabled${RESET}"
+    fi
     echo ""
 }
 
@@ -438,7 +400,7 @@ bootstrap_tools() {
         log_info "Installing gum UI helper for enhanced terminal interface..."
 
         # Try package manager first (different for Arch vs others)
-        if [ "$DISTRO_ID" == "arch" ]; then
+        if [ "$DISTRO_ID" = "arch" ]; then
             if pacman -S --noconfirm gum >/dev/null 2>&1; then
                 GUM_INSTALLED_BY_SCRIPT=true
                 supports_gum >/dev/null 2>&1 || true
@@ -1304,12 +1266,12 @@ if [[ -n "${XDG_CURRENT_DESKTOP:-}" && "$INSTALL_MODE" != "server" ]]; then
 fi
 
 # Install AUR packages for Arch Linux
-if [ "$DISTRO_ID" == "arch" ]; then
+ if [ "$DISTRO_ID" = "arch" ]; then
     install_package_group "$INSTALL_MODE" "AUR Packages" "aur"
 fi
 
 # Install COPR/eza package for Fedora
-if [ "$DISTRO_ID" == "fedora" ]; then
+ if [ "$DISTRO_ID" = "fedora" ]; then
     step "Installing COPR/eza Package"
     if [ "$DRY_RUN" = false ]; then
         if command -v dnf >/dev/null; then
@@ -1340,7 +1302,7 @@ if [[ "${CUSTOM_GROUPS:-}" == *"Gaming"* ]]; then
 fi
 
 # Use to gaming decision made at menu time (if applicable)
-if { [ "$INSTALL_MODE" == "standard" ] || [ "$INSTALL_MODE" == "minimal" ]; } && [ -z "${CUSTOM_GROUPS:-}" ]; then
+if [ "$INSTALL_MODE" = "standard" ] || [ "$INSTALL_MODE" = "minimal" ] && [ -z "${CUSTOM_GROUPS:-}" ]; then
     if [ "${INSTALL_GAMING:-false}" = "true" ]; then
         # Gaming packages already installed above (native and flatpak)
         log_info "Gaming packages already installed in previous steps"
