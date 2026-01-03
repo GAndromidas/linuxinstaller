@@ -114,7 +114,8 @@ show_menu() {
 
     # Interactive menu for selection
     if [ -t 1 ]; then
-        display_box "Installation Mode Selection" "Choose your preferred LinuxInstaller setup:"
+        echo ""
+        echo "Choose your preferred LinuxInstaller setup:"
         echo ""
 
         # Simple text menu with select
@@ -136,7 +137,7 @@ show_menu() {
                     display_info "Goodbye! 👋"
                     exit 0 ;;
                 *)
-                    display_warning "Invalid choice, please select 1-4" ;;
+                    echo "Invalid choice, please select 1-4" ;;
             esac
         done
         export INSTALL_GAMING=false
