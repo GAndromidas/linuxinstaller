@@ -914,7 +914,7 @@ install_other_packages() {
             pkg="$(echo "$pkg" | xargs)"
 
             echo "• Installing $pkg"
-            if sudo -u "$yay_user" $install_cmd "$pkg" >/dev/null 2>&1; then
+            if sudo -u "$yay_user" bash -c "$install_cmd $pkg" >/dev/null 2>&1; then
                 installed_ref+=("$pkg")
             else
                 failed_ref+=("$pkg")

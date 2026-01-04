@@ -163,6 +163,50 @@ ARCH_FLATPAK_MINIMAL=(
     it.mijorus.gearlever
 )
 
+# KDE Desktop Environment packages for Arch Linux
+ARCH_DE_KDE_NATIVE=(
+    gwenview
+    kdeconnect
+    kwalletmanager
+    kvantum
+    okular
+    python-pyqt5
+    python-pyqt6
+    qbittorrent
+    smplayer
+    spectacle
+)
+
+ARCH_DE_KDE_FLATPAK=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+)
+
+ARCH_DE_KDE_AUR=(
+    # Add KDE-specific AUR packages if needed in the future
+    # Currently no KDE-specific AUR packages are defined
+)
+
+# GNOME Desktop Environment packages for Arch Linux
+ARCH_DE_GNOME_NATIVE=(
+    gedit
+    gnome-tweaks
+    dconf-editor
+    eog
+    evince
+    file-roller
+    gnome-connections
+    gnome-logs
+    nautilus
+    sushi
+    totem
+)
+
+ARCH_DE_GNOME_FLATPAK=(
+    io.github.shiftey.Desktop
+    it.mijorus.gearlever
+)
+
 # Server mode: headless server with monitoring and security tools
 ARCH_NATIVE_SERVER=(
     bat
@@ -188,6 +232,16 @@ ARCH_NATIVE_SERVER=(
     ttf-liberation
     unrar
     wakeonlan
+)
+
+ARCH_AUR_SERVER=(
+    # Add server-specific AUR packages if needed
+    # Currently no server-specific AUR packages are defined
+)
+
+ARCH_FLATPAK_SERVER=(
+    # Add server-specific Flatpak packages if needed
+    # Currently no server-specific Flatpak packages are defined
 )
 
 # ---------------------------------------------------------------------------
@@ -249,6 +303,7 @@ distro_get_packages() {
         kde)
             case "$type" in
                 native) printf "%s\n" "${ARCH_DE_KDE_NATIVE[@]}" ;;
+                aur) printf "%s\n" "${ARCH_DE_KDE_AUR[@]}" ;;
                 flatpak) printf "%s\n" "${ARCH_DE_KDE_FLATPAK[@]}" ;;
                 *) return 0 ;;
             esac
@@ -570,52 +625,9 @@ arch_main_config() {
 
     arch_setup_shell
 
-    # Ensure AUR packages are installed
-    log_info "Ensuring AUR packages are installed..."
-
-    # Determine which user to run yay as (never as root)
-    local yay_user=""
-    if [ "$EUID" -eq 0 ]; then
-        if [ -n "${SUDO_USER:-}" ]; then
-            yay_user="$SUDO_USER"
-        else
-            # Fallback to first real user if SUDO_USER not set
-            yay_user=$(getent passwd 1000 | cut -d: -f1)
-        fi
-        if [ -z "${yay_user:-}" ]; then
-            log_error "Cannot determine user for AUR package installation"
-            return 1
-        fi
-    else
-        yay_user="$USER"
-    fi
-
-    case "$INSTALL_MODE" in
-        standard)
-            for pkg in "${ARCH_AUR_STANDARD[@]}"; do
-                if ! is_package_installed "$pkg"; then
-                    log_info "Installing missing AUR package: $pkg"
-                    if sudo -u "$yay_user" yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
-                        log_success "Installed $pkg"
-                    else
-                        log_error "Failed to install $pkg"
-                    fi
-                fi
-            done
-            ;;
-        minimal)
-            for pkg in "${ARCH_AUR_MINIMAL[@]}"; do
-                if ! is_package_installed "$pkg"; then
-                    log_info "Installing missing AUR package: $pkg"
-                    if sudo -u "$yay_user" yay -S --noconfirm "$pkg" >/dev/null 2>&1; then
-                        log_success "Installed $pkg"
-                    else
-                        log_error "Failed to install $pkg"
-                    fi
-                fi
-            done
-            ;;
-    esac
+    # AUR packages are now handled by the main installation process
+    # No need to install them again here
+    log_info "AUR packages are handled by main installation process"
 
     arch_setup_kde_shortcuts
 

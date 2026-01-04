@@ -40,56 +40,147 @@ if ! command -v command_exists >/dev/null 2>&1; then
     }
 fi
 
-# Return newline-separated list of candidate wired interfaces
-# - Detect all ethernet adapters in any system (like reference wakeonlan.sh)
-detect_wired_interfaces() {
-    local eth_interfaces=()
-
-    # Method 1: Check for common specific interfaces first (like reference script)
-    local common_interfaces=("enp3s0" "enp5s0" "enp1s0" "enp2s0" "enp4s0" "enp6s0" "enp7s0" "enp8s0" "enp9s0" "eth0" "eth1" "eth2")
-    for iface in "${common_interfaces[@]}"; do
-        if ip link show "$iface" &>/dev/null; then
-            # Verify it's not wireless and has a physical device
-            if [ -d "/sys/class/net/$iface/device" ] && [ ! -d "/sys/class/net/$iface/wireless" ]; then
-                eth_interfaces+=("$iface")
+# Check if interface is definitely a wireless/WiFi interface
+is_wifi_interface() {
+    local iface="$1"
+    
+    # Method 1: Check for wireless directory (most reliable)
+    if [ -d "/sys/class/net/$iface/wireless" ]; then
+        return 0
+    fi
+    
+    # Method 2: Check interface name patterns for WiFi
+    if [[ "$iface" =~ ^(wl|wlan|wifi|wlp) ]]; then
+        return 0
+    fi
+    
+    # Method 3: Check if it's a wireless device via uevent
+    if [ -f "/sys/class/net/$iface/device/uevent" ]; then
+        if grep -qi "wifi\|wlan\|wireless" "/sys/class/net/$iface/device/uevent" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    # Method 4: Check driver type
+    if [ -d "/sys/class/net/$iface/device/driver" ]; then
+        local driver_path="/sys/class/net/$iface/device/driver"
+        local driver_name=$(basename "$(readlink "$driver_path" 2>/dev/null)" 2>/dev/null || echo "")
+        case "$driver_name" in
+            *wifi*|*wlan*|*ath*|*rtw*|*brcm*|*iwl*|*rtlwifi*) return 0 ;;
+        esac
+    fi
+    
+    # Method 5: Use iwconfig if available (legacy but reliable)
+    if command -v iwconfig >/dev/null 2>&1; then
+        if iwconfig "$iface" 2>/dev/null | grep -q "no wireless extensions\|IEEE 802.11"; then
+            # If it has wireless extensions or mentions 802.11, it's wireless
+            if ! iwconfig "$iface" 2>/dev/null | grep -q "no wireless extensions"; then
+                return 0
             fi
         fi
-    done
+    fi
+    
+    return 1
+}
 
-    # Method 2: Scan for any interface starting with 'enp' or 'eth' (comprehensive scan)
+# Check if interface is virtual (should be excluded)
+is_virtual_interface() {
+    local iface="$1"
+    
+    # Check if it has no physical device
+    if [ ! -d "/sys/class/net/$iface/device" ]; then
+        return 0
+    fi
+    
+    # Check virtual interface patterns
+    case "$iface" in
+        lo|docker*|veth*|br-*|virbr*|tun*|tap*|wg*|vnet*|bond*|team*|dummy*) return 0 ;;
+    esac
+    
+    # Check if it's a bridge or tunnel
+    if [ -f "/sys/class/net/$iface/bridge" ] || [ -f "/sys/class/net/$iface/tun_flags" ]; then
+        return 0
+    fi
+    
+    # Check if device is virtual via uevent
+    if [ -f "/sys/class/net/$iface/device/uevent" ]; then
+        if grep -qi "virtual\|bridge\|tunnel" "/sys/class/net/$iface/device/uevent" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# Check if interface is definitely a wired LAN interface
+is_lan_interface() {
+    local iface="$1"
+    
+    # Must exist
+    if [ ! -d "/sys/class/net/$iface" ]; then
+        return 1
+    fi
+    
+    # Must not be WiFi
+    if is_wifi_interface "$iface"; then
+        return 1
+    fi
+    
+    # Must not be virtual
+    if is_virtual_interface "$iface"; then
+        return 1
+    fi
+    
+    # Must have typical wired interface naming or characteristics
+    # Ethernet interfaces typically follow these patterns:
+    if [[ "$iface" =~ ^(en|eth|lan) ]]; then
+        return 0
+    fi
+    
+    # Additional check: if it's a physical device and not WiFi, assume it's wired
+    if [ -d "/sys/class/net/$iface/device" ] && [ ! -d "/sys/class/net/$iface/wireless" ]; then
+        # Check if it's a PCI or USB device (typical for wired NICs)
+        if [ -d "/sys/class/net/$iface/device/subsystem" ]; then
+            local subsystem=$(basename "$(readlink "/sys/class/net/$iface/device/subsystem" 2>/dev/null)" 2>/dev/null || echo "")
+            case "$subsystem" in
+                pci|usb|platform) return 0 ;;
+            esac
+        fi
+    fi
+    
+    return 1
+}
+
+# Return newline-separated list of wired LAN interfaces only
+# - Smart detection that excludes WiFi, virtual, and wireless interfaces
+detect_wired_interfaces() {
+    local lan_interfaces=()
+    
+    # Get all network interfaces
+    local all_interfaces=()
     while IFS= read -r iface; do
-        # Skip if already found in common interfaces
-        if [[ " ${eth_interfaces[*]} " =~ " $iface " ]]; then
+        # Skip empty lines
+        [ -n "$iface" ] && all_interfaces+=("$iface")
+    done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || true)
+    
+    # Also check /sys/class/net for completeness
+    while IFS= read -r iface; do
+        # Skip if already in list
+        if [[ " ${all_interfaces[*]} " =~ " $iface " ]]; then
             continue
         fi
-
-        # Check if it's an ethernet interface (enp* or eth*)
-        if [[ "$iface" =~ ^(enp|eth) ]]; then
-            # Verify it's not wireless and has a physical device
-            if [ -d "/sys/class/net/$iface/device" ] && [ ! -d "/sys/class/net/$iface/wireless" ]; then
-                # Additional check: make sure it's not a virtual interface
-                case "$iface" in
-                    lo|docker*|veth*|br-*|virbr*|tun*|tap*|wg*|wl*|wlan*) continue ;;
-                esac
-                eth_interfaces+=("$iface")
-            fi
+        [ -n "$iface" ] && all_interfaces+=("$iface")
+    done < <(ls /sys/class/net/ 2>/dev/null || true)
+    
+    # Filter for LAN interfaces only
+    for iface in "${all_interfaces[@]}"; do
+        if is_lan_interface "$iface"; then
+            lan_interfaces+=("$iface")
         fi
-    done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' || true)
-
-    # Method 3: Fallback to NetworkManager device list if available and we found nothing
-    if [ ${#eth_interfaces[@]} -eq 0 ] && command_exists nmcli; then
-        while IFS=: read -r dev type; do
-            if [ "$type" = "ethernet" ]; then
-                # Verify it's not wireless
-                if [ ! -d "/sys/class/net/$dev/wireless" ]; then
-                    eth_interfaces+=("$dev")
-                fi
-            fi
-        done < <(nmcli -t -f DEVICE,TYPE device status 2>/dev/null || true)
-    fi
-
-    # Remove duplicates and print
-    printf "%s\n" "${eth_interfaces[@]}" | awk '!x[$0]++' | sed '/^$/d'
+    done
+    
+    # Remove duplicates and sort
+    printf "%s\n" "${lan_interfaces[@]}" | awk '!x[$0]++' | sort
 }
 
 # Ensure ethtool is installed; respects DRY_RUN
@@ -430,11 +521,109 @@ wakeonlan_show_info() {
     log_info "Use 'wol <mac>' from another machine to wake this system"
 }
 
+# Interactive prompt for Wake-on-LAN configuration
+wakeonlan_prompt_configuration() {
+    # Only prompt if we have wired interfaces that support WoL
+    local devs=()
+    mapfile -t devs < <(detect_wired_interfaces)
+    
+    if [ ${#devs[@]} -eq 0 ]; then
+        log_info "No wired Ethernet interfaces detected; skipping Wake-on-LAN configuration"
+        export INSTALL_WAKEONLAN=false
+        return 1
+    fi
+    
+    # Check if any interfaces support WoL
+    local supported_devs=()
+    for iface in "${devs[@]}"; do
+        if wakeonlan_supports_wol "$iface"; then
+            supported_devs+=("$iface")
+        fi
+    done
+    
+    if [ ${#supported_devs[@]} -eq 0 ]; then
+        log_info "No wired interfaces support Wake-on-LAN; skipping configuration"
+        export INSTALL_WAKEONLAN=false
+        return 1
+    fi
+    
+    # Interactive prompt using gum if available
+    if supports_gum; then
+        echo ""
+        display_box "🌐 Wake-on-LAN Configuration" "Wake-on-LAN allows you to power on your computer remotely over the network.\n\nThis is useful for:\n• Remote access to desktop computers\n• Server management\n• Home automation integration\n\nDetected compatible interfaces: ${supported_devs[*]}"
+        display_warning "Note: Wake-on-LAN requires wired Ethernet and BIOS/UEFI support"
+        
+        if gum confirm "Enable Wake-on-LAN for detected interfaces?" --default=false; then
+            export INSTALL_WAKEONLAN=true
+            display_success "✓ Wake-on-LAN will be configured for: ${supported_devs[*]}"
+        else
+            export INSTALL_WAKEONLAN=false
+            display_info "○ Skipping Wake-on-LAN configuration"
+            echo ""
+            return 1
+        fi
+    else
+        # Fallback text-based prompt
+        echo ""
+        echo "Wake-on-LAN Configuration"
+        echo "========================"
+        echo "Wake-on-LAN allows you to power on your computer remotely over the network."
+        echo ""
+        echo "Compatible interfaces detected: ${supported_devs[*]}"
+        echo ""
+        local attempts=0
+        while [ $attempts -lt 3 ]; do
+            attempts=$((attempts + 1))
+            read -r -p "Enable Wake-on-LAN? (y/N): " choice 2>/dev/null || {
+                echo "Input not available, skipping Wake-on-LAN configuration"
+                export INSTALL_WAKEONLAN=false
+                return 1
+            }
+            
+            case "$(echo "$choice" | tr '[:upper:]' '[:lower:]')" in
+                y|yes)
+                    export INSTALL_WAKEONLAN=true
+                    echo "✓ Wake-on-LAN will be configured for: ${supported_devs[*]}"
+                    break ;;
+                n|no|"")
+                    export INSTALL_WAKEONLAN=false
+                    echo "○ Skipping Wake-on-LAN configuration"
+                    echo ""
+                    return 1 ;;
+                *)
+                    if [ $attempts -eq 3 ]; then
+                        echo "Too many invalid attempts. Skipping Wake-on-LAN configuration."
+                        export INSTALL_WAKEONLAN=false
+                        return 1
+                    else
+                        echo "Please enter 'y' for yes or 'n' for no."
+                    fi ;;
+            esac
+        done
+    fi
+    
+    return 0
+}
+
 # Public entrypoint for linuxinstaller
 # Call this function (e.g. from install flow) to enable WoL automatically
 wakeonlan_main_config() {
-    wakeonlan_enable_all
-    wakeonlan_show_info
+    log_info "Starting Wake-on-LAN configuration..."
+    
+    # Interactive prompt for Wake-on-LAN configuration
+    if wakeonlan_prompt_configuration; then
+        wakeonlan_enable_all
+        wakeonlan_show_info
+    else
+        # User declined or no compatible interfaces
+        if [ "${INSTALL_WAKEONLAN:-false}" = "false" ]; then
+            if supports_gum; then
+                display_info "○ Wake-on-LAN not enabled"
+            else
+                log_info "Wake-on-LAN configuration skipped"
+            fi
+        fi
+    fi
 }
 
 # Optional: helper to expose a single command interface when the module is executed directly
@@ -450,6 +639,11 @@ fi
 
 # Export public functions
 export -f wakeonlan_main_config
+export -f wakeonlan_prompt_configuration
+export -f is_wifi_interface
+export -f is_virtual_interface
+export -f is_lan_interface
+export -f detect_wired_interfaces
 export -f wakeonlan_enable_all
 export -f wakeonlan_disable_all
 export -f wakeonlan_show_status
